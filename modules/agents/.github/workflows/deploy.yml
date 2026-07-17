@@ -565,6 +565,14 @@ jobs:
             echo "No infra/ changes between $BASE and $HEAD."
           fi
 
+      - name: Bootstrap Foundry parent account
+        if: |
+          (github.event_name == 'workflow_dispatch' && inputs.provision == true) ||
+          ((github.event_name == 'push' || github.event_name == 'pull_request') &&
+            steps.infra_changes.outputs.changed == 'true')
+        run: bash scripts/bootstrap_foundry_account.sh
+        timeout-minutes: 10
+
       - name: Provision Azure resources
         # Run once, before per-agent deploys, to avoid parallel infra races.
         # Only fires when explicitly requested (dispatch with provision=true)

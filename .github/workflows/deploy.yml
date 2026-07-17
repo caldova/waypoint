@@ -630,6 +630,11 @@ jobs:
           if [ -n "$wp_base" ]; then azd env set WAYPOINT_API_BASE_URL "$wp_base"; fi
           if [ -n "$wp_scope" ]; then azd env set WAYPOINT_API_SCOPE "$wp_scope"; fi
 
+      - name: Bootstrap Foundry parent account
+        if: ${{ inputs.provision_agents }}
+        run: bash scripts/bootstrap_foundry_account.sh
+        timeout-minutes: 10
+
       - name: Run azd provision
         if: ${{ inputs.provision_agents }}
         run: azd provision --no-prompt
