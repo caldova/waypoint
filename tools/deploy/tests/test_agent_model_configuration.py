@@ -26,6 +26,21 @@ class AgentModelConfigurationTests(unittest.TestCase):
             bicep,
         )
 
+    def test_project_creation_is_owned_by_bootstrap_boundary(self) -> None:
+        project_bicep = (
+            ROOT / "modules/agents/infra/core/ai/ai-project.bicep"
+        ).read_text()
+        bootstrap = (
+            ROOT / "modules/agents/scripts/bootstrap_foundry_account.sh"
+        ).read_text()
+
+        self.assertIn(
+            "resource project 'projects@2026-03-01' existing",
+            project_bicep,
+        )
+        self.assertIn("--method put", bootstrap)
+        self.assertIn("/projects/${project_name}", bootstrap)
+
 
 if __name__ == "__main__":
     unittest.main()

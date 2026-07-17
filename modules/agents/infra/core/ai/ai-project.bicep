@@ -155,22 +155,12 @@ resource aiAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
     }
   ]
 
-  resource project 'projects@2026-03-01' = {
+  // Project creation is bootstrapped before this template because the provider's
+  // ARM validation endpoint rejects application-owned project PUTs even though
+  // the same direct resource PUT succeeds. The full template still reconciles
+  // every project child resource and role against this existing project.
+  resource project 'projects@2026-03-01' existing = {
     name: aiFoundryProjectName
-    location: location
-    kind: 'AIServices'
-    sku: {
-      name: 'S0'
-    }
-    identity: {
-      type: 'SystemAssigned'
-    }
-    properties: {
-      displayName: aiFoundryProjectName
-    }
-    dependsOn: [
-      seqDeployments
-    ]
   }
 
   resource aiFoundryAccountCapabilityHost 'capabilityHosts@2025-10-01-preview' = if (enableHostedAgents && enableCapabilityHost) {
