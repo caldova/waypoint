@@ -126,10 +126,22 @@ reconciles the full template. The Bicep reconciler declares both bootstrapped
 parents as `existing`. The bootstrap also reconciles model deployments through
 direct Cognitive Services resource operations; Bicep continues to manage roles,
 connections, storage, search, registry, and monitoring resources. This avoids
-the provider's `715-123420` validation path for account, project, and model PUTs
-inside a complete ARM template while retaining fresh, workflow-owned resources.
-Do not silently reuse an existing Foundry account/project; that breaks parallel
-environment isolation and makes the deployment evidence misleading.
+the provider's full-template validation path while retaining fresh,
+workflow-owned resources.
+
+Azure can separately apply anti-abuse code `715-123420` to the first model
+deployment on a new AI Services account. For the parity account, account and
+project creation succeeded through the GitHub OIDC application, but `gpt-5.5`
+deployment was rejected identically for the parity OIDC application, the
+established Forge OIDC application, and a tenant user at capacities 200, 50, 10,
+and 1. This is an account/subscription service gate, not an OIDC login failure,
+model-template warning, or capacity error. Provide the failed run's tracking id
+and the AI Services account resource id to Microsoft support. After the account
+is cleared, rerun the workflow; bootstrap and reconciliation are idempotent.
+
+Do not silently reuse an existing Foundry account/project to bypass this gate;
+that breaks parallel-environment isolation and makes the deployment evidence
+misleading.
 
 ## Deployment manifest and acceptance probes
 

@@ -162,16 +162,25 @@ fi
 while IFS= read -r deployment; do
   deployment_name="$(jq -r '.name' <<<"$deployment")"
   echo "Reconciling model deployment directly: ${account_name}/${deployment_name}"
-  az cognitiveservices account deployment create \
-    --resource-group "$resource_group" \
-    --name "$account_name" \
-    --deployment-name "$deployment_name" \
-    --model-name "$(jq -r '.model.name' <<<"$deployment")" \
-    --model-version "$(jq -r '.model.version' <<<"$deployment")" \
-    --model-format "$(jq -r '.model.format' <<<"$deployment")" \
-    --sku-name "$(jq -r '.sku.name' <<<"$deployment")" \
-    --sku-capacity "$(jq -r '.sku.capacity' <<<"$deployment")" \
-    --output none
+  if ! deployment_result="$(
+    az cognitiveservices account deployment create \
+      --resource-group "$resource_group" \
+      --name "$account_name" \
+      --deployment-name "$deployment_name" \
+      --model-name "$(jq -r '.model.name' <<<"$deployment")" \
+      --model-version "$(jq -r '.model.version' <<<"$deployment")" \
+      --model-format "$(jq -r '.model.format' <<<"$deployment")" \
+      --sku-name "$(jq -r '.sku.name' <<<"$deployment")" \
+      --sku-capacity "$(jq -r '.sku.capacity' <<<"$deployment")" \
+      --output none 2>&1
+  )"; then
+    printf '%s\n' "$deployment_result" >&2
+    if grep -q "715-123420" <<<"$deployment_result"; then
+      echo "Azure blocked model deployment on the new AI Services account ${account_name}." >&2
+      echo "Account and project bootstrap succeeded; request service clearance for first model deployment, then rerun this idempotent workflow." >&2
+    fi
+    exit 1
+  fi
 done < <(jq -c '.[]' <<<"$deployments_json")
 
 echo "Foundry account, project, model deployments, and deployment-principal roles are ready for azd reconciliation."
