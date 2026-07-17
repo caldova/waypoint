@@ -7,6 +7,66 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class AgentModelConfigurationTests(unittest.TestCase):
+    def test_root_deployment_defaults_to_foundryiq_only(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        manifest = json.loads(
+            (ROOT / "tools/deploy/deployment.manifest.json").read_text()
+        )
+        matrix = workflow.split("strategy:", 1)[1].split("defaults:", 1)[0]
+
+        self.assertEqual(
+            manifest["deployment"]["feature_lanes"],
+            {
+                "workiq": False,
+                "webiq": False,
+                "foundryiq": True,
+                "fabriciq": False,
+            },
+        )
+        self.assertEqual(
+            manifest["expected_components"]["agents"],
+            [
+                "invoice-analyst",
+                "assurance-orchestrator",
+                "contract-policy-expert",
+                "waypoint-recorder",
+            ],
+        )
+        self.assertIn(
+            "agent: ${{ fromJSON(needs.validate.outputs.agent_matrix) }}",
+            matrix,
+        )
+        self.assertEqual(
+            manifest["expected_components"]["optional_agents"],
+            [
+                "collaboration-evidence-expert",
+                "market-evidence-expert",
+                "operations-data-expert",
+            ],
+        )
+        self.assertIn("inputs.workiq_enabled", workflow)
+        self.assertIn("inputs.webiq_enabled", workflow)
+        self.assertIn("inputs.fabriciq_enabled", workflow)
+        self.assertIn(
+            'azd env set ENABLE_WORKIQ_CONNECTIONS "${{ inputs.workiq_enabled }}"',
+            workflow,
+        )
+        self.assertIn(
+            'SELECTED_AGENTS: ${{ needs.validate.outputs.agent_matrix }}',
+            workflow,
+        )
+
+    def test_orchestrator_defaults_match_foundryiq_only_fleet(self) -> None:
+        expert_clients = (
+            ROOT
+            / "modules/agents/agents/assurance-orchestrator/expert_clients.py"
+        ).read_text()
+
+        self.assertIn('"workiq": False', expert_clients)
+        self.assertIn('"webiq": False', expert_clients)
+        self.assertIn('"foundryiq": True', expert_clients)
+        self.assertIn('"fabriciq": False', expert_clients)
+
     def test_content_understanding_reuses_primary_completion_model(self) -> None:
         bicep = (ROOT / "modules/agents/infra/main.bicep").read_text()
         parameters = json.loads(

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "canonical_sources": {
     "application": "apps/waypoint",
     "corpus": "modules/corpus",
@@ -22,7 +22,7 @@
     },
     "feature_lanes": {
       "workiq": false,
-      "webiq": true,
+      "webiq": false,
       "foundryiq": true,
       "fabriciq": false
     },
@@ -43,8 +43,8 @@
       "notes": [
         "Key Vault is always created in state_resource_group, never the app_resource_group.",
         "KV name includes azd_env_name in its hash so parallel environments in one subscription never share a vault.",
-        "FabricIQ is kept disabled (Waypoint__Fabric__IqEnabled=false) unless fabriciq_enabled=true is explicitly set.",
-        "WorkIQ evidence is user-scoped; headless acceptance runs do not require WorkIQ to pass."
+        "The default simplified hosted-agent deployment includes only FoundryIQ.",
+        "WorkIQ, WebIQ, and FabricIQ remain opt-in workflow lanes while their product and deployment gaps are addressed."
       ]
     }
   },
@@ -60,11 +60,13 @@
     "agents": [
       "invoice-analyst",
       "assurance-orchestrator",
-      "collaboration-evidence-expert",
       "contract-policy-expert",
-      "market-evidence-expert",
-      "operations-data-expert",
       "waypoint-recorder"
+    ],
+    "optional_agents": [
+      "collaboration-evidence-expert",
+      "market-evidence-expert",
+      "operations-data-expert"
     ],
     "optional": [
       "fabric-capacity",

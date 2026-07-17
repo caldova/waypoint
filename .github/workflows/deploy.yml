@@ -27,25 +27,25 @@ on:
         default: true
       fabric_provision_enabled:
         description: >-
-          Provision Fabric/OneLake capacity, workspace, and lakehouse. Leave off unless the
-          FabricIQ data path is being exercised; FabricIQ fan-out remains disabled even when
-          this is true unless fabriciq_enabled is also set.
+          Provision Fabric/OneLake capacity, workspace, and lakehouse for the Waypoint data path.
+          This is independent of the hosted-agent fleet.
         required: false
         type: boolean
         default: true
       workiq_enabled:
         description: >-
-          Enable the WorkIQ fan-out lane in Assurance Orchestrator. WorkIQ evidence runs as the
-          invoking signed-in user (UserEntraToken); headless/CI runs legitimately see no M365
-          evidence. Keep off until live Microsoft 365 access is configured.
+          Opt in to the WorkIQ expert. Disabled by default while its tenant-specific
+          Microsoft 365 deployment path is completed.
         required: false
         type: boolean
         default: false
       webiq_enabled:
-        description: Enable the WebIQ fan-out lane in Assurance Orchestrator.
+        description: >-
+          Opt in to the WebIQ expert. Disabled by default while its connection and
+          deployment path is completed.
         required: false
         type: boolean
-        default: true
+        default: false
       foundryiq_enabled:
         description: >-
           Enable the FoundryIQ fan-out lane in Assurance Orchestrator. Requires the
@@ -55,9 +55,8 @@ on:
         default: true
       fabriciq_enabled:
         description: >-
-          Enable the FabricIQ fan-out lane in Assurance Orchestrator. Keep off until
-          Fabric/OneLake resources and semantic data are ready. Independent of
-          fabric_provision_enabled.
+          Opt in to the FabricIQ expert. Disabled by default while its Fabric Data
+          Agent connection and deployment path is completed.
         required: false
         type: boolean
         default: false
@@ -164,6 +163,7 @@ jobs:
       azure_client_id: ${{ steps.required.outputs.azure_client_id }}
       azure_tenant_id: ${{ steps.required.outputs.azure_tenant_id }}
       azure_subscription_id: ${{ steps.required.outputs.azure_subscription_id }}
+      agent_matrix: ${{ steps.required.outputs.agent_matrix }}
     steps:
       - name: Check required repository variables
         id: required
@@ -183,6 +183,9 @@ jobs:
           INPUT_FABRIC_CAPACITY_NAME: ${{ inputs.fabric_capacity_name }}
           INPUT_FABRIC_WORKSPACE_NAME: ${{ inputs.fabric_workspace_name }}
           INPUT_FABRIC_LAKEHOUSE_NAME: ${{ inputs.fabric_lakehouse_name }}
+          WORKIQ_ENABLED: ${{ inputs.workiq_enabled }}
+          WEBIQ_ENABLED: ${{ inputs.webiq_enabled }}
+          FABRICIQ_ENABLED: ${{ inputs.fabriciq_enabled }}
         run: |
           set -euo pipefail
           missing=()
@@ -219,6 +222,17 @@ jobs:
             echo "azure_client_id=$AZURE_CLIENT_ID"
             echo "azure_tenant_id=$AZURE_TENANT_ID"
             echo "azure_subscription_id=$AZURE_SUBSCRIPTION_ID"
+            agents='["invoice-analyst","assurance-orchestrator","contract-policy-expert","waypoint-recorder"]'
+            if [ "$WORKIQ_ENABLED" = "true" ]; then
+              agents="$(jq -c '. + ["collaboration-evidence-expert"]' <<<"$agents")"
+            fi
+            if [ "$WEBIQ_ENABLED" = "true" ]; then
+              agents="$(jq -c '. + ["market-evidence-expert"]' <<<"$agents")"
+            fi
+            if [ "$FABRICIQ_ENABLED" = "true" ]; then
+              agents="$(jq -c '. + ["operations-data-expert"]' <<<"$agents")"
+            fi
+            echo "agent_matrix=$agents"
           } >> "$GITHUB_OUTPUT"
 
   keyvault:
@@ -402,8 +416,8 @@ jobs:
           Waypoint__Fabric__CapacityName: ${{ inputs.fabric_capacity_name || vars.WAYPOINT_FABRIC_CAPACITY_NAME }}
           Waypoint__Fabric__WorkspaceName: ${{ inputs.fabric_workspace_name || vars.WAYPOINT_FABRIC_WORKSPACE_NAME || 'waypoint-corpus' }}
           Waypoint__Fabric__LakehouseName: ${{ inputs.fabric_lakehouse_name || vars.WAYPOINT_FABRIC_LAKEHOUSE_NAME || 'corpus' }}
-          # FabricIQ (semantic model + Data Agent layer) is kept disabled unless explicitly
-          # requested via fabriciq_enabled. Fabric provisioning alone does not imply IQ.
+          # Fabric storage remains independently deployable. The FabricIQ semantic
+          # layer is enabled only when its expert is explicitly selected.
           Waypoint__Fabric__IqEnabled: ${{ inputs.fabriciq_enabled }}
         run: |
           set -euo pipefail
@@ -607,6 +621,7 @@ jobs:
           azd env set EMBEDDING_MODEL_VERSION "${{ vars.EMBEDDING_MODEL_VERSION || '1' }}"
           azd env set EMBEDDING_MODEL_SKU_NAME "${{ vars.EMBEDDING_MODEL_SKU_NAME || 'Standard' }}"
           azd env set EMBEDDING_MODEL_CAPACITY "${{ vars.EMBEDDING_MODEL_CAPACITY || '50' }}"
+          azd env set ENABLE_WORKIQ_CONNECTIONS "${{ inputs.workiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_WORKIQ_ENABLED "${{ inputs.workiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_WEBIQ_ENABLED "${{ inputs.webiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_FOUNDRYIQ_ENABLED "${{ inputs.foundryiq_enabled }}"
@@ -747,14 +762,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        agent:
-          - invoice-analyst
-          - assurance-orchestrator
-          - collaboration-evidence-expert
-          - contract-policy-expert
-          - market-evidence-expert
-          - operations-data-expert
-          - waypoint-recorder
+        agent: ${{ fromJSON(needs.validate.outputs.agent_matrix) }}
     defaults:
       run:
         working-directory: modules/agents
@@ -884,24 +892,25 @@ jobs:
           WP_SCOPE="${WAYPOINT_API_SCOPE_FROM_APP:-}"
           if [ -z "$WP_SCOPE" ]; then WP_SCOPE="${{ vars.WAYPOINT_API_SCOPE }}"; fi
           if [ -n "$WP_SCOPE" ]; then azd env set WAYPOINT_API_SCOPE "$WP_SCOPE"; fi
-          # lane flags
           azd env set ASSURANCE_ORCHESTRATOR_WORKIQ_ENABLED    "${{ inputs.workiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_WEBIQ_ENABLED     "${{ inputs.webiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_FOUNDRYIQ_ENABLED "${{ inputs.foundryiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_FABRICIQ_ENABLED  "${{ inputs.fabriciq_enabled }}"
-          # WorkIQ: user-scoped M365 MCP servers (no key — AgenticIdentity)
-          azd env set WORKIQ_EMAIL_MCP_SERVER_URL "${{ vars.WORKIQ_EMAIL_MCP_SERVER_URL }}"
-          azd env set WORKIQ_TEAMS_MCP_SERVER_URL "${{ vars.WORKIQ_TEAMS_MCP_SERVER_URL }}"
-          azd env set WORKIQ_SHAREPOINT_MCP_SERVER_URL "${{ vars.WORKIQ_SHAREPOINT_MCP_SERVER_URL || vars.WORKIQ_MCP_SERVER_URL }}"
-          azd env set WORKIQ_MCP_SERVER_URL "${{ vars.WORKIQ_MCP_SERVER_URL }}"
-          if [ -n "${{ vars.WORKIQ_MCP_SCOPE }}" ]; then
-            azd env set WORKIQ_MCP_SCOPE "${{ vars.WORKIQ_MCP_SCOPE }}"
+          if [ "${{ inputs.workiq_enabled }}" = "true" ]; then
+            azd env set WORKIQ_EMAIL_MCP_SERVER_URL "${{ vars.WORKIQ_EMAIL_MCP_SERVER_URL }}"
+            azd env set WORKIQ_TEAMS_MCP_SERVER_URL "${{ vars.WORKIQ_TEAMS_MCP_SERVER_URL }}"
+            azd env set WORKIQ_SHAREPOINT_MCP_SERVER_URL "${{ vars.WORKIQ_SHAREPOINT_MCP_SERVER_URL || vars.WORKIQ_MCP_SERVER_URL }}"
+            azd env set WORKIQ_MCP_SERVER_URL "${{ vars.WORKIQ_MCP_SERVER_URL }}"
+            if [ -n "${{ vars.WORKIQ_MCP_SCOPE }}" ]; then
+              azd env set WORKIQ_MCP_SCOPE "${{ vars.WORKIQ_MCP_SCOPE }}"
+            fi
           fi
-          # FabricIQ: operational data connection (plain repo vars — must be re-seeded per leg)
-          azd env set FABRIC_DATA_AGENT_CONNECTION_NAME "${{ vars.FABRIC_DATA_AGENT_CONNECTION_NAME || 'waypoint-data-agent-connection' }}"
-          azd env set FABRIC_MIRRORED_SQL_ENDPOINT "${{ vars.FABRIC_MIRRORED_SQL_ENDPOINT }}"
-          azd env set FABRIC_MIRRORED_DATABASE "${{ vars.FABRIC_MIRRORED_DATABASE }}"
-          azd env set FABRIC_MIRRORED_SCHEMA "${{ vars.FABRIC_MIRRORED_SCHEMA || '_public' }}"
+          if [ "${{ inputs.fabriciq_enabled }}" = "true" ]; then
+            azd env set FABRIC_DATA_AGENT_CONNECTION_NAME "${{ vars.FABRIC_DATA_AGENT_CONNECTION_NAME || 'waypoint-data-agent-connection' }}"
+            azd env set FABRIC_MIRRORED_SQL_ENDPOINT "${{ vars.FABRIC_MIRRORED_SQL_ENDPOINT }}"
+            azd env set FABRIC_MIRRORED_DATABASE "${{ vars.FABRIC_MIRRORED_DATABASE }}"
+            azd env set FABRIC_MIRRORED_SCHEMA "${{ vars.FABRIC_MIRRORED_SCHEMA || '_public' }}"
+          fi
           # Content understanding
           azd env set CONTENT_UNDERSTANDING_API_VERSION "2025-11-01"
           azd env set CONTENT_UNDERSTANDING_ANALYZER_ID "prebuilt-invoice"
@@ -930,10 +939,22 @@ jobs:
           fi
           set_ep() { local url="${base}/agents/${2}"; azd env set "$1" "$url"; echo "  $1=$url"; }
           echo "Wiring assurance-orchestrator fan-out endpoints from ${base}:"
-          set_ep WORKIQ_EXPERT_ENDPOINT         collaboration-evidence-expert
-          set_ep WEBIQ_EXPERT_ENDPOINT          market-evidence-expert
+          if [ "${{ inputs.workiq_enabled }}" = "true" ]; then
+            set_ep WORKIQ_EXPERT_ENDPOINT collaboration-evidence-expert
+          else
+            azd env set WORKIQ_EXPERT_ENDPOINT ""
+          fi
+          if [ "${{ inputs.webiq_enabled }}" = "true" ]; then
+            set_ep WEBIQ_EXPERT_ENDPOINT market-evidence-expert
+          else
+            azd env set WEBIQ_EXPERT_ENDPOINT ""
+          fi
+          if [ "${{ inputs.fabriciq_enabled }}" = "true" ]; then
+            set_ep FABRICIQ_EXPERT_ENDPOINT operations-data-expert
+          else
+            azd env set FABRICIQ_EXPERT_ENDPOINT ""
+          fi
           set_ep FOUNDRYIQ_EXPERT_ENDPOINT      contract-policy-expert
-          set_ep FABRICIQ_EXPERT_ENDPOINT       operations-data-expert
           set_ep WAYPOINT_RECORDER_ENDPOINT     waypoint-recorder
           azd env set ASSURANCE_ORCHESTRATOR_EXPERT_INVOCATION_MODE responses
           azd env set ASSURANCE_ORCHESTRATOR_EXPERT_PROJECT_ENDPOINT ""
@@ -942,10 +963,7 @@ jobs:
 
       - name: Create / update Foundry toolbox for ${{ matrix.agent }}
         id: toolbox
-        # market-evidence-expert uses Foundry-native web search — no toolbox.
-        # operations-data-expert binds the Fabric data agent in main.py, not via toolbox.
-        # collaboration-evidence-expert uses the STABLE name 'collaboration-evidence-tools'
-        # (server_label must be stable — renaming = drop + add → hard deploy failure).
+        # WebIQ uses Foundry-native web search; FabricIQ binds its data agent in code.
         if: ${{ matrix.agent != 'market-evidence-expert' && matrix.agent != 'operations-data-expert' }}
         continue-on-error: ${{ matrix.agent != 'collaboration-evidence-expert' && matrix.agent != 'contract-policy-expert' && matrix.agent != 'invoice-analyst' }}
         env:
@@ -1196,6 +1214,7 @@ jobs:
           API_BASE_URL: ${{ needs['deploy-app'].outputs.api_base_url }}
           WEB_BASE_URL: ${{ needs['deploy-app'].outputs.web_base_url }}
           PROJECT_ENDPOINT: ${{ needs['provision-agents'].outputs.project_endpoint }}
+          SELECTED_AGENTS: ${{ needs.validate.outputs.agent_matrix }}
           FABRIC_PROVISION_RESULT: ${{ needs['fabric-provision'].result }}
           AGENT_DEPLOY_RESULT: ${{ needs['deploy-agents'].result }}
           ONELAKE_UPLOAD_RESULT: ${{ needs['onelake-upload'].result }}
@@ -1375,7 +1394,6 @@ jobs:
             fi
           fi
 
-          # Lane status: WorkIQ is user-scoped (not a headless health-check requirement).
           lane_json='{"workiq":${{ inputs.workiq_enabled }},"webiq":${{ inputs.webiq_enabled }},"foundryiq":${{ inputs.foundryiq_enabled }},"fabriciq":${{ inputs.fabriciq_enabled }}}'
 
           # Write evidence builder inline (no /tmp — workspace root is fine).
@@ -1392,7 +1410,7 @@ jobs:
           ]
           lane_status = json.loads(os.environ["LANE_JSON"])
           manifest = json.load(open("tools/deploy/deployment.manifest.json"))
-          declared_agents = manifest.get("expected_components", {}).get("agents", [])
+          declared_agents = json.loads(os.environ["SELECTED_AGENTS"])
           disabled_lanes = [k for k, v in lane_status.items() if not v]
           evidence = {
               "schema_version": probes.get("schema_version", "1.0"),

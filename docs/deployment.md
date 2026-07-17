@@ -7,20 +7,19 @@ Waypoint now has a root GitHub Actions entry point for repeatable Azure deployme
 ```
 
 The current default path deploys the Waypoint app, Fabric/OneLake corpus storage,
-and the full hosted agent suite. Assurance Orchestrator still starts with only
-the WebIQ and FoundryIQ internal fan-out lanes enabled; WorkIQ and FabricIQ are
-deployed but disabled in the orchestrator until their tenant-specific
-Microsoft 365 and Fabric connections are ready.
+and a deliberately small FoundryIQ-only hosted agent fleet by default. WorkIQ,
+WebIQ, and FabricIQ remain available as opt-in lanes while their product and
+deployment gaps are addressed.
 
 | Component | Deploys by default | Active in Assurance Orchestrator fan-out by default | Notes |
 | --- | --- | --- | --- |
 | Waypoint app/API | Yes | N/A | Aspire deploy provisions the app runtime, PostgreSQL, auth settings, and optional Fabric hooks. |
 | `invoice-analyst` | Yes | N/A | Hosted analyst surface. |
 | `assurance-orchestrator` | Yes | N/A | Coordinates invoice assurance and applies the fan-out lane flags below. |
-| WorkIQ / `collaboration-evidence-expert` | Yes | No | Kept off until live Microsoft 365 access is configured. WorkIQ evidence is user-scoped; headless runs legitimately see no M365 data. |
-| WebIQ / `market-evidence-expert` | Yes | Yes | External/web evidence lane. |
+| WorkIQ / `collaboration-evidence-expert` | Opt-in | Opt-in | Disabled by default until live Microsoft 365 access is configured. |
+| WebIQ / `market-evidence-expert` | Opt-in | Opt-in | Disabled by default until its connection and deployment path is completed. |
 | FoundryIQ / `contract-policy-expert` | Yes | Yes | Contract/policy knowledge lane; requires the Search knowledge-base MCP connection. |
-| FabricIQ / `operations-data-expert` | Yes | No | Kept off until Fabric/OneLake resources and semantic data are ready. |
+| FabricIQ / `operations-data-expert` | Opt-in | Opt-in | Disabled by default until its Fabric Data Agent path is completed; Fabric/OneLake storage remains independently deployable. |
 | `waypoint-recorder` | Yes | N/A | Write-boundary agent endpoint is prewired for the orchestrator. |
 
 ## Required GitHub variables
@@ -51,14 +50,14 @@ The workflow creates or reuses a deployment Key Vault in the **state resource gr
 | `AZURE_AI_ACCOUNT_NAME` / `AZURE_AI_PROJECT_NAME` | Reuse an existing Foundry account/project by name. |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME`, `MODEL_NAME`, `MODEL_VERSION`, `MODEL_SKU_NAME`, `MODEL_CAPACITY` | Override the chat model deployment used by hosted agents. |
 | `AZURE_AI_EMBEDDING_DEPLOYMENT_NAME`, `EMBEDDING_MODEL_NAME`, `EMBEDDING_MODEL_VERSION`, `EMBEDDING_MODEL_SKU_NAME`, `EMBEDDING_MODEL_CAPACITY` | Override the embedding deployment used by FoundryIQ knowledge retrieval. |
-| Workflow inputs `workiq_enabled`, `webiq_enabled`, `foundryiq_enabled`, `fabriciq_enabled` | Control Assurance Orchestrator fan-out lanes. Defaults are WorkIQ off, WebIQ on, FoundryIQ on, FabricIQ off. |
+| Workflow inputs `workiq_enabled`, `webiq_enabled`, `foundryiq_enabled`, `fabriciq_enabled` | Select both the deployed expert matrix and orchestrator fan-out. Defaults to FoundryIQ only. |
 
 ## Running the deployment
 
 1. In GitHub, open **Actions -> Deploy Azure -> Run workflow**.
 2. Leave `deploy_app`, `deploy_agents`, `provision_agents`, and `seed_data` enabled for a first run.
-3. Leave `fabric_provision_enabled` enabled for a full deployment. Keep
-   `fabriciq_enabled` disabled until the Fabric Data Agent path is ready.
+3. Leave `fabric_provision_enabled` enabled to exercise Fabric/OneLake storage.
+   FabricIQ is not part of the simplified hosted-agent fleet.
 4. Re-run safely as needed. The workflow reuses Key Vault secrets, app registrations, Azure resources, and Foundry project infrastructure where possible.
 
 ## Parallel / non-destructive environments
@@ -107,7 +106,7 @@ The workflow runs these stages in order:
    completion model and `text-embedding-3-large`, configures Content
    Understanding to reuse those deployments, and exposes the project endpoint
    and contracts-KB storage/search coordinates as job outputs.
-8. **deploy-agents** — matrix job (one leg per hosted agent). Each leg re-selects the azd environment, hydrates all Foundry outputs from the exact `^<env>-[0-9]+$` ARM deployment, seeds Waypoint writer/reader keys from Key Vault, wires API base URL/scope, lane flags, and orchestrator expert endpoints, then deploys the agent.
+8. **deploy-agents** — deploys `invoice-analyst`, `assurance-orchestrator`, `contract-policy-expert`, and `waypoint-recorder` by default. Enabling another IQ lane adds its expert to the matrix. Each leg re-selects the azd environment, hydrates all Foundry outputs from the exact `^<env>-[0-9]+$` ARM deployment, seeds Waypoint writer/reader keys from Key Vault, and wires only the selected expert endpoints.
 9. **onelake-upload** — *(gated on Fabric enabled + successful workspace provisioning)* idempotent upload of the ledgerfield corpus to OneLake using `ledgerfield upload-onelake`.
 10. **contracts-kb-upload** — *(gated on FoundryIQ enabled + resolved storage coordinates)* idempotent blob sync and reindex using `ledgerfield upload-contracts-kb`.
 11. **seed-import** — imports `waypoint-seed.json` into the deployed Waypoint API. Waits for OneLake upload when Fabric is enabled.

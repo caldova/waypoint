@@ -169,6 +169,9 @@ param workiqMcpServerUrl string = ''
 @description('Microsoft 365 Agents (agent365) token audience for the WorkIQ UserEntraToken connections.')
 param workiqAgent365Audience string = 'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1'
 
+@description('Provision the three WorkIQ project connections. Standalone deployments retain the full-fleet default; the simplified root deployment disables them.')
+param enableWorkiqConnections bool = true
+
 var aiProjectDeploymentsOverride = json(aiProjectDeploymentsJson)
 var defaultDeployments = [
   {
@@ -355,7 +358,10 @@ var expertMcpConnections = [
     }
   }
 ]
-var allAiProjectConnections = concat(aiProjectConnections, expertMcpConnections)
+var allAiProjectConnections = concat(
+  aiProjectConnections,
+  enableWorkiqConnections ? expertMcpConnections : []
+)
 var allAiProjectConnectionCreds = aiProjectConnectionCreds
 
 // AI Project module — only when creating new resources

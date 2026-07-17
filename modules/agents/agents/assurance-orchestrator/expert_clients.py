@@ -87,7 +87,7 @@ EXPERT_ENABLED_ENV = {
 }
 EXPERT_ENABLED_DEFAULTS = {
     "workiq": False,
-    "webiq": True,
+    "webiq": False,
     "foundryiq": True,
     "fabriciq": False,
 }

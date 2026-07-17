@@ -86,6 +86,9 @@
       "workiqMcpServerUrl": {
         "value": "${WORKIQ_MCP_SERVER_URL=}"
       },
+      "enableWorkiqConnections": {
+        "value": "${ENABLE_WORKIQ_CONNECTIONS=true}"
+      },
       "enableMonitoring": {
         "value": "${ENABLE_MONITORING=true}"
       },
