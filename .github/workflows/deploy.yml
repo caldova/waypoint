@@ -377,6 +377,10 @@ jobs:
         env:
           KEY_VAULT_NAME: ${{ needs.keyvault.outputs.key_vault_name }}
           BUILD_VERSION: ${{ github.run_number }}.${{ github.run_attempt }}
+          AZURE_CLIENT_ID: ${{ needs.validate.outputs.azure_client_id }}
+          AZURE_TENANT_ID: ${{ needs.validate.outputs.azure_tenant_id }}
+          AZURE_SUBSCRIPTION_ID: ${{ needs.validate.outputs.azure_subscription_id }}
+          Azure__ClientId: ${{ needs.validate.outputs.azure_client_id }}
           Azure__TenantId: ${{ needs.validate.outputs.azure_tenant_id }}
           Azure__SubscriptionId: ${{ needs.validate.outputs.azure_subscription_id }}
           Azure__Location: ${{ env.AZURE_LOCATION }}
