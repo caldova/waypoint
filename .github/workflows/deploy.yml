@@ -1139,7 +1139,7 @@ jobs:
 
       - name: Import seed
         env:
-          SEED_FILE: seed/modules/corpus/data/waypoint/waypoint-seed.json
+          SEED_FILE: seed/data/waypoint/waypoint-seed.json
           API_FQDN: ${{ needs['deploy-app'].outputs.api_fqdn }}
           KV_NAME: ${{ needs.keyvault.outputs.key_vault_name }}
         run: bash tools/deploy/scripts/seed_import.sh
