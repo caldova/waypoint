@@ -92,7 +92,11 @@ The workflow runs these stages in order:
 
 1. **validate** — checks required repo variables.
 2. **keyvault** — creates/reuses the Key Vault in the state RG; generates-once all API keys and PostgreSQL passwords.
-3. **msal** — creates/reuses the Waypoint MSAL app registration.
+3. **msal** — creates/reuses the single-tenant Waypoint MSAL app registration,
+   exposes the v2 `user_impersonation` delegated scope, and reconciles the
+   application roles. The deployed tenant is the explicit `AZURE_TENANT_ID`;
+   it is not inferred from the signing-in user. The post-deploy app stage unions
+   the generated web callback and login URIs into the SPA redirects.
 4. **corpus-seed** — generates `waypoint-seed.json` from the ledgerfield corpus.
 5. **deploy-app** — deploys Waypoint (Aspire) to Azure Container Apps with PostgreSQL and MSAL wired.
 6. **fabric-provision** — *(gated on `fabric_provision_enabled`)* explicitly runs `apps/waypoint/infra/scripts/provision-fabric.sh` to create the Fabric workspace and lakehouse, grants the app MI and deploy SP workspace Member roles, and updates the API container app with `APP_ONELAKE_*` values.

@@ -92,7 +92,7 @@ param aiProjectDeploymentsJson string = '[]'
 // ignored entirely.
 // ---------------------------------------------------------------------------
 @description('Name of the default chat model deployment exposed to agents as AZURE_AI_MODEL_DEPLOYMENT_NAME. Conventionally equal to modelName.')
-param modelDeploymentName string = 'gpt-5-mini'
+param modelDeploymentName string = 'gpt-5.5'
 
 @description('Catalog name of the default chat model (e.g. gpt-5-mini).')
 param modelName string = 'gpt-5.5'

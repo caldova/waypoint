@@ -597,8 +597,8 @@ jobs:
           azd env set AZURE_CLIENT_ID "$AZURE_CLIENT_ID"
           azd env set AZURE_LOCATION "$AZURE_LOCATION"
           azd env set ENABLE_HOSTED_AGENTS true
-          azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "${{ vars.AZURE_AI_MODEL_DEPLOYMENT_NAME || 'gpt-5-mini' }}"
-          azd env set MODEL_NAME "${{ vars.MODEL_NAME || vars.AZURE_AI_MODEL_DEPLOYMENT_NAME || 'gpt-5-mini' }}"
+          azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "${{ vars.AZURE_AI_MODEL_DEPLOYMENT_NAME || 'gpt-5.5' }}"
+          azd env set MODEL_NAME "${{ vars.MODEL_NAME || vars.AZURE_AI_MODEL_DEPLOYMENT_NAME || 'gpt-5.5' }}"
           azd env set MODEL_VERSION "${{ vars.MODEL_VERSION || '2026-04-24' }}"
           azd env set MODEL_SKU_NAME "${{ vars.MODEL_SKU_NAME || 'GlobalStandard' }}"
           azd env set MODEL_CAPACITY "${{ vars.MODEL_CAPACITY || '200' }}"
@@ -1056,6 +1056,7 @@ jobs:
         run: |
           set -euo pipefail
           uv sync
+          uv run playwright install --with-deps chromium
           uv run ledgerfield upload-onelake \
             --workspace "$ONELAKE_WORKSPACE" \
             --lakehouse "$ONELAKE_LAKEHOUSE" \

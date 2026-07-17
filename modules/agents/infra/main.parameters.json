@@ -33,10 +33,10 @@
         "value": "${AI_PROJECT_DEPLOYMENTS=[]}"
       },
       "modelDeploymentName": {
-        "value": "${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-5-mini}"
+        "value": "${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-5.5}"
       },
       "modelName": {
-        "value": "${MODEL_NAME=gpt-5-mini}"
+        "value": "${MODEL_NAME=gpt-5.5}"
       },
       "modelVersion": {
         "value": "${MODEL_VERSION=2026-04-24}"

@@ -57,6 +57,50 @@ if [[ "$mode" == "ensure" ]]; then
     az ad app update --id "$APP_ID" --identifier-uris "$id_uri" -o none
   fi
 
+  # Ensure delegated API scopes before app roles. A newly created app has no
+  # oauth2PermissionScopes, so the SPA cannot request its access token until
+  # these are explicitly exposed.
+  existing_app="$(az rest --method GET --uri "${graph}/applications/${OBJ_ID}" --query '{appRoles:appRoles, scopes:api.oauth2PermissionScopes}' -o json 2>/dev/null || echo '{}')"
+  merged_scopes="$(python3 - "$existing_app" <<'PY'
+import json, sys, uuid
+
+app = json.loads(sys.argv[1] or "{}")
+existing = app.get("scopes") or []
+have = {scope.get("value") for scope in existing}
+role_values = {role.get("value") for role in (app.get("appRoles") or [])}
+want = [
+    (
+        "user_impersonation",
+        "Access Waypoint as the signed-in user",
+        "Allow the application to access Waypoint on your behalf.",
+    ),
+]
+for value, display_name, description in want:
+    if value in have or value in role_values:
+        continue
+    existing.append({
+        "adminConsentDescription": description,
+        "adminConsentDisplayName": display_name,
+        "id": str(uuid.uuid4()),
+        "isEnabled": True,
+        "type": "User",
+        "userConsentDescription": description,
+        "userConsentDisplayName": display_name,
+        "value": value,
+    })
+    have.add(value)
+print(json.dumps({
+    "api": {
+        "oauth2PermissionScopes": existing,
+        "requestedAccessTokenVersion": 2,
+    }
+}))
+PY
+)"
+  log "ensuring delegated scope (user_impersonation)"
+  az rest --method PATCH --uri "${graph}/applications/${OBJ_ID}" \
+    --headers "Content-Type=application/json" --body "$merged_scopes" -o none
+
   # Ensure the three app roles (merge: keep existing by value, append any missing).
   writer_role="${MSAL_WRITER_APP_ROLE:-Waypoint.Write}"
   reader_role="${MSAL_READER_APP_ROLE:-Waypoint.Read}"
