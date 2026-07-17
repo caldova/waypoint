@@ -110,6 +110,16 @@ az account set --subscription "$SUBSCRIPTION_ID"
 
 TENANT_ID="$(az account show --query tenantId -o tsv)"
 SCOPE="/subscriptions/${SUBSCRIPTION_ID}"
+SUBJECT_PREFIX="repo:${OWNER}/${REPO}"
+if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  IMMUTABLE_PREFIX="$(
+    gh api "repos/${OWNER}/${REPO}/actions/oidc/customization/sub" \
+      --jq '.sub_claim_prefix // empty' 2>/dev/null || true
+  )"
+  if [[ -n "$IMMUTABLE_PREFIX" ]]; then
+    SUBJECT_PREFIX="$IMMUTABLE_PREFIX"
+  fi
+fi
 
 echo "Looking up app registration: ${APP_NAME}"
 APP_JSON="$(az ad app list --filter "displayName eq '${APP_NAME}'" --query '[0]' -o json)"
@@ -148,9 +158,12 @@ echo "Service principal object id: ${SP_OBJECT_ID}"
 ensure_fed_cred_subject() {
   local name="$1" subject="$2" desc="$3"
   echo "Ensuring federated credential: ${name}  (subject: ${subject})"
-  local count
-  count="$(az ad app federated-credential list --id "$APP_OBJECT_ID" --query "[?name=='${name}'] | length(@)" -o tsv)"
-  if [[ "$count" != "0" ]]; then
+  local current_subject
+  current_subject="$(
+    az ad app federated-credential list --id "$APP_OBJECT_ID" \
+      --query "[?name=='${name}'] | [0].subject" -o tsv
+  )"
+  if [[ "$current_subject" == "$subject" ]]; then
     echo "  already exists"
     return 0
   fi
@@ -164,9 +177,17 @@ ensure_fed_cred_subject() {
   "description": "${desc}"
 }
 EOF
-  az ad app federated-credential create --id "$APP_OBJECT_ID" --parameters "$tmp" >/dev/null
+  if [[ -n "$current_subject" ]]; then
+    az ad app federated-credential update \
+      --id "$APP_OBJECT_ID" \
+      --federated-credential-id "$name" \
+      --parameters "$tmp" >/dev/null
+    echo "  updated"
+  else
+    az ad app federated-credential create --id "$APP_OBJECT_ID" --parameters "$tmp" >/dev/null
+    echo "  created"
+  fi
   rm -f "$tmp"
-  echo "  created"
 }
 # -----------------------------------------------------------------------------
 
@@ -174,12 +195,12 @@ EOF
 if [[ -n "$ENVIRONMENT" ]]; then
   ensure_fed_cred_subject \
     "github-${OWNER}-${REPO}-env-${ENVIRONMENT}" \
-    "repo:${OWNER}/${REPO}:environment:${ENVIRONMENT}" \
+    "${SUBJECT_PREFIX}:environment:${ENVIRONMENT}" \
     "GitHub Actions OIDC for ${OWNER}/${REPO} (env ${ENVIRONMENT})"
 else
   ensure_fed_cred_subject \
     "github-${OWNER}-${REPO}-branch-${BRANCH}" \
-    "repo:${OWNER}/${REPO}:ref:refs/heads/${BRANCH}" \
+    "${SUBJECT_PREFIX}:ref:refs/heads/${BRANCH}" \
     "GitHub Actions OIDC for ${OWNER}/${REPO} (branch ${BRANCH})"
 fi
 
@@ -187,7 +208,7 @@ fi
 if [[ "$ADD_PULL_REQUEST" == "true" ]]; then
   ensure_fed_cred_subject \
     "github-${OWNER}-${REPO}-pull-request" \
-    "repo:${OWNER}/${REPO}:pull_request" \
+    "${SUBJECT_PREFIX}:pull_request" \
     "GitHub Actions OIDC for ${OWNER}/${REPO} (pull_request)"
 fi
 
