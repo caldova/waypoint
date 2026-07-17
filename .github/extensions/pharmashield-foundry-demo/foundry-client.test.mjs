@@ -37,7 +37,7 @@ test("explicit endpoint avoids an ARM project lookup", async () => {
     assert.deepEqual(result.projects, []);
 });
 
-test("hosted result is grounded only by a real knowledge base tool call", () => {
+test("hosted result is grounded only by a successful knowledge base tool call", () => {
     const result = extractHostedResult({
         id: "resp-1",
         status: "completed",
@@ -138,4 +138,74 @@ test("tool output text cannot satisfy the grounding gate", () => {
     });
 
     assert.equal(result.grounded, false);
+});
+
+test("a failed knowledge base call does not pass the grounding gate", () => {
+    const result = extractHostedResult({
+        status: "completed",
+        output: [
+            {
+                type: "function_call",
+                name: "knowledge_base___knowledge_base_retrieve",
+                call_id: "call-4",
+                arguments: '{"query":"Aster Ridge"}',
+            },
+            {
+                type: "function_call_output",
+                call_id: "call-4",
+                output: "Error: Function failed.",
+            },
+        ],
+    });
+
+    assert.equal(result.retrievalAttempted, true);
+    assert.equal(result.retrievalSucceeded, false);
+    assert.equal(result.grounded, false);
+});
+
+test("structured retrieval errors and empty evidence do not pass the grounding gate", () => {
+    for (const output of [
+        '{"error":"Function failed"}',
+        "[]",
+        '{"evidence":[],"summary":"No grounded evidence found."}',
+    ]) {
+        const result = extractHostedResult({
+            status: "completed",
+            output: [
+                {
+                    type: "function_call",
+                    name: "knowledge_base___knowledge_base_retrieve",
+                    call_id: "call-5",
+                },
+                {
+                    type: "function_call_output",
+                    call_id: "call-5",
+                    output,
+                },
+            ],
+        });
+
+        assert.equal(result.grounded, false, output);
+    }
+});
+
+test("large empty evidence output is validated before display truncation", () => {
+    const result = extractHostedResult({
+        status: "completed",
+        output: [
+            {
+                type: "function_call",
+                name: "knowledge_base___knowledge_base_retrieve",
+                call_id: "call-6",
+            },
+            {
+                type: "function_call_output",
+                call_id: "call-6",
+                output: JSON.stringify({ evidence: [], summary: "x".repeat(5000) }),
+            },
+        ],
+    });
+
+    assert.equal(result.grounded, false);
+    assert.match(result.toolCalls[1].output, /…$/);
 });

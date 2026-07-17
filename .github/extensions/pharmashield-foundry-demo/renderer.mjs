@@ -1,24 +1,66 @@
-import { DEMO_BEATS, HERO_INVOICE } from "./demo-data.mjs";
+import {
+    AGENT_ANATOMY,
+    CANONICAL_AUDIT_PROMPT,
+    DEMO_BEATS,
+    HERO_INVOICE,
+    INVOICE_ONLY_PROOF,
+    JOURNEY_STAGES,
+} from "./demo-data.mjs";
+
+const ICONS = {
+    model: icon('<path d="M8 3h8v3h3v12h-3v3H8v-3H5V6h3V3Z"/><path d="M9 9h6v6H9z"/>'),
+    instructions: icon('<path d="M7 3h10v18H7z"/><path d="M10 8h4M10 12h4M10 16h3"/>'),
+    context: icon('<path d="M8 3h8l3 3v15H8z"/><path d="M16 3v4h4M11 11h5M11 15h5"/>'),
+    memory: icon('<path d="M7 7a5 5 0 0 1 10 0v2a4 4 0 0 1 0 8h-1"/><path d="M8 17a4 4 0 0 1 0-8V7M8 13h8"/>'),
+    tools: icon('<path d="m14 6 4-3 3 3-3 4"/><path d="m15 9-9 9-3 3M6 14l4 4"/>'),
+    chat: icon('<path d="M4 5h16v11H9l-5 4z"/>'),
+    trace: icon('<circle cx="11" cy="11" r="7"/><path d="m16 16 5 5M8 11h6M11 8v6"/>'),
+    connection: icon('<path d="M8 8V4M16 8V4M6 8h12v4a6 6 0 0 1-12 0zM12 18v3"/>'),
+    shield: icon('<path d="M12 3 5 6v5c0 4.6 2.8 8.3 7 10 4.2-1.7 7-5.4 7-10V6z"/><path d="m9 12 2 2 4-4"/>'),
+    arrow: icon('<path d="M5 12h14M14 7l5 5-5 5"/>'),
+};
 
 const invoiceRows = HERO_INVOICE.lines
     .map(
         (line) => `
-            <tr>
-              <td><code>${line.id}</code></td>
-              <td>${line.description}</td>
-              <td class="num">${line.quantity.toLocaleString("en-US")}</td>
-              <td class="num">${money(line.unitPrice)}</td>
-              <td class="num">${money(line.amount)}</td>
-            </tr>`,
+          <tr>
+            <td><code>${line.id}</code></td>
+            <td>${line.description}</td>
+            <td class="num">${line.quantity.toLocaleString("en-US")}</td>
+            <td class="num">${money(line.unitPrice)}</td>
+            <td class="num">${money(line.amount)}</td>
+          </tr>`,
     )
     .join("");
 
+const anatomyRows = AGENT_ANATOMY.map(
+    (part) => `
+      <details class="anatomy-part part-${part.id}" data-part="${part.id}" open>
+        <summary>
+          <span class="part-icon" aria-hidden="true">${ICONS[part.id]}</span>
+          <span class="part-title"><strong>${part.label}</strong><small>${part.value}</small></span>
+          <span class="part-state" aria-hidden="true"></span>
+          <span class="chevron" aria-hidden="true">›</span>
+        </summary>
+        <p>${part.detail}</p>
+      </details>`,
+).join("");
+
 const beatRows = DEMO_BEATS.map(
     (beat, index) => `
-        <li data-beat="${beat.id}">
-          <span class="step-index">${index + 1}</span>
-          <div><strong>${beat.label}</strong><p>${beat.talkTrack}</p></div>
-        </li>`,
+      <li>
+        <span class="beat-number">${index + 1}</span>
+        <div><strong>${beat.label}</strong><p>${beat.talkTrack}</p></div>
+      </li>`,
+).join("");
+
+const journeyRows = JOURNEY_STAGES.map(
+    (stage, index) => `
+      <li class="${stage.state}" data-stage="${stage.id}">
+        <div class="stage-top"><span>${stage.label}</span>${index < JOURNEY_STAGES.length - 1 ? ICONS.arrow : ""}</div>
+        <strong>${stage.title}</strong>
+        <small>${stage.detail}</small>
+      </li>`,
 ).join("");
 
 export function renderHtml() {
@@ -27,189 +69,385 @@ export function renderHtml() {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pharmashield · Foundry live demo</title>
+  <meta name="color-scheme" content="light dark" />
+  <title>Pharmashield · Foundry Agent</title>
   <style>
     :root {
-      --accent: var(--true-color-blue, #0969da);
-      --accent-soft: var(--true-color-blue-muted, #ddf4ff);
-      --success: #1a7f37;
-      --warning: #9a6700;
-      --danger: #cf222e;
-      --surface: var(--background-color-default, #f6f8fa);
-      --panel: var(--background-color-default, #ffffff);
-      --panel-subtle: color-mix(in srgb, var(--text-color-default, #1f2328) 4%, var(--panel));
+      color-scheme: light dark;
+      --bg: var(--background-color-default, #f6f8fa);
+      --surface: var(--overlay-background, #ffffff);
+      --surface-subtle: var(--background-color-muted, #f0f3f6);
+      --surface-raised: #ffffff;
       --border: var(--border-color-default, #d0d7de);
+      --border-strong: #afb8c1;
       --text: var(--text-color-default, #1f2328);
       --muted: var(--text-color-muted, #59636e);
+      --faint: #6e7781;
+      --accent: var(--true-color-blue, #0969da);
+      --accent-hover: #075bbf;
+      --accent-soft: #ddf4ff;
+      --iq: #bf3989;
+      --iq-soft: #ffeff7;
+      --success: #1a7f37;
+      --success-soft: #dafbe1;
+      --warning: #9a6700;
+      --warning-soft: #fff8c5;
+      --danger: #cf222e;
+      --danger-soft: #ffebe9;
       --focus: var(--color-focus-outline, #0969da);
+      --shadow: 0 1px 2px rgba(31, 35, 40, .06);
+      --font: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+      --mono: var(--font-mono, "SFMono-Regular", Consolas, monospace);
       --radius-sm: 6px;
       --radius-md: 8px;
       --radius-lg: 12px;
-      --shadow: 0 1px 2px rgba(31, 35, 40, .05);
-      --font: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-      --mono: var(--font-mono, "SFMono-Regular", Consolas, monospace);
       --ease: cubic-bezier(.16, 1, .3, 1);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: var(--background-color-default, #0d1117);
+        --surface: var(--overlay-background, #161b22);
+        --surface-subtle: var(--background-color-muted, #21262d);
+        --surface-raised: #1c2128;
+        --border: var(--border-color-default, #30363d);
+        --border-strong: #484f58;
+        --text: var(--text-color-default, #e6edf3);
+        --muted: var(--text-color-muted, #9da7b3);
+        --faint: #8b949e;
+        --accent: var(--true-color-blue, #58a6ff);
+        --accent-hover: #79c0ff;
+        --accent-soft: #102f4c;
+        --iq: #f778ba;
+        --iq-soft: #421c33;
+        --success: #56d364;
+        --success-soft: #173b22;
+        --warning: #e3b341;
+        --warning-soft: #3d2f05;
+        --danger: #ff7b72;
+        --danger-soft: #4c1f24;
+        --shadow: 0 1px 2px rgba(0, 0, 0, .45);
+      }
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; }
     body {
       min-height: 100vh;
-      background: var(--surface);
+      background: var(--bg);
       color: var(--text);
       font: 14px/1.5 var(--font);
+      -webkit-font-smoothing: antialiased;
     }
     button, select { font: inherit; }
-    button:focus-visible, select:focus-visible, [role="tab"]:focus-visible {
+    button:focus-visible, select:focus-visible, summary:focus-visible, [role="tab"]:focus-visible {
       outline: 2px solid var(--focus);
       outline-offset: 2px;
     }
-    .shell { min-height: 100vh; display: grid; grid-template-columns: 280px minmax(0, 1fr); }
-    aside {
-      padding: 24px 20px;
-      background: var(--panel);
+    svg { display: block; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    code, pre { font-family: var(--mono); }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 280px minmax(0, 1fr); }
+    .anatomy {
+      min-width: 0;
+      padding: 20px 16px;
+      background: var(--surface-subtle);
       border-right: 1px solid var(--border);
       position: sticky;
       top: 0;
       height: 100vh;
       overflow: auto;
     }
-    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+    .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; }
     .brand-mark {
-      width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center;
-      color: white; background: var(--accent);
+      width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px;
+      color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
     }
-    .brand-mark svg { width: 20px; height: 20px; }
-    .brand strong { display: block; font-size: 14px; }
-    .brand span { color: var(--muted); font-size: 12px; }
-    .eyebrow {
-      color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .08em;
-      text-transform: uppercase; margin: 0 0 12px;
+    .brand strong, .brand small { display: block; }
+    .brand strong { font-size: 14px; }
+    .brand small { color: var(--muted); font-size: 11px; }
+    .section-label {
+      margin: 0 0 8px; color: var(--faint); font-size: 11px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase;
     }
-    .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
-    .steps li { display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start; }
-    .step-index {
-      width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
-      background: var(--panel-subtle); border: 1px solid var(--border); color: var(--muted);
-      font: 600 12px/1 var(--font);
+    .anatomy-intro { color: var(--muted); font-size: 12px; margin: 0 0 16px; }
+    .anatomy-part {
+      --part: var(--faint);
+      margin: 0 0 8px; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface); opacity: .62; transition: opacity 180ms, border-color 180ms, box-shadow 180ms;
     }
-    .steps strong { font-size: 13px; }
-    .steps p { color: var(--muted); font-size: 12px; line-height: 1.45; margin: 4px 0 0; }
-    .aside-note {
-      margin-top: 32px; padding: 12px; border-radius: var(--radius-md);
-      background: var(--panel-subtle); color: var(--muted); font-size: 12px;
+    .part-model { --part: #7c8cff; }
+    .part-instructions { --part: #a371f7; }
+    .part-context { --part: var(--success); }
+    .part-memory { --part: var(--warning); }
+    .part-tools { --part: var(--iq); }
+    .anatomy-part.on { opacity: 1; border-color: color-mix(in srgb, var(--part) 55%, var(--border)); box-shadow: inset 3px 0 0 var(--part); }
+    .anatomy-part summary {
+      min-height: 48px; padding: 8px 10px; display: grid; grid-template-columns: 28px 1fr 8px 12px;
+      gap: 8px; align-items: center; list-style: none; cursor: pointer;
     }
-    main { min-width: 0; padding: 32px; }
-    .content { max-width: 1120px; margin: 0 auto; }
-    header { display: flex; gap: 24px; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
-    h1 { font-size: clamp(24px, 3vw, 36px); line-height: 1.15; letter-spacing: -.025em; margin: 0 0 8px; }
-    .lede { color: var(--muted); font-size: 15px; max-width: 720px; margin: 0; }
+    .anatomy-part summary::-webkit-details-marker { display: none; }
+    .part-icon {
+      width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px;
+      color: var(--part); background: color-mix(in srgb, var(--part) 13%, transparent);
+    }
+    .part-title { min-width: 0; }
+    .part-title strong, .part-title small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .part-title strong { font-size: 12px; }
+    .part-title small { color: var(--muted); font-size: 10px; margin-top: 1px; }
+    .part-state { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+    .anatomy-part.on .part-state { background: var(--part); box-shadow: 0 0 7px color-mix(in srgb, var(--part) 72%, transparent); }
+    .chevron { color: var(--faint); font-size: 15px; transition: transform 150ms; }
+    .anatomy-part[open] .chevron { transform: rotate(90deg); }
+    .anatomy-part > p { margin: 0; padding: 0 12px 12px 46px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .equation {
+      margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);
+      color: var(--muted); font-size: 11px;
+    }
+    .equation strong { color: var(--text); }
+    .workspace { min-width: 0; }
+    .topbar {
+      min-height: 56px; padding: 8px 20px; display: flex; align-items: center; gap: 16px;
+      position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--surface) 94%, transparent);
+      border-bottom: 1px solid var(--border); backdrop-filter: blur(12px);
+    }
+    .agent-title { min-width: 170px; }
+    .agent-title strong, .agent-title small { display: block; }
+    .agent-title strong { font-size: 13px; }
+    .agent-title small { color: var(--muted); font-size: 10px; }
+    .tabs { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-subtle); }
+    .tab {
+      min-height: 36px; padding: 0 12px; display: inline-flex; align-items: center; gap: 7px;
+      border: 0; border-radius: 7px; color: var(--muted); background: transparent; cursor: pointer;
+    }
+    .tab:hover { color: var(--text); }
+    .tab[aria-selected="true"] { color: var(--text); background: var(--surface); box-shadow: var(--shadow); font-weight: 600; }
+    .tab .count { min-width: 18px; padding: 0 5px; border-radius: 999px; color: var(--iq); background: var(--iq-soft); font-size: 10px; text-align: center; }
     .status-pill {
-      display: inline-flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 10px;
-      border: 1px solid var(--border); border-radius: 999px; background: var(--panel);
-      color: var(--muted); font-size: 12px; white-space: nowrap;
+      margin-left: auto; min-height: 32px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 7px;
+      border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: var(--surface); font-size: 11px; white-space: nowrap;
     }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warning); }
     .status-pill.ready .status-dot { background: var(--success); }
     .status-pill.error .status-dot { background: var(--danger); }
-    .grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(280px, .85fr); gap: 24px; }
-    .card {
-      background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-lg);
-      padding: 24px; box-shadow: var(--shadow);
+    .journey {
+      margin: 0; padding: 14px 20px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+      list-style: none; border-bottom: 1px solid var(--border); background: var(--surface);
     }
-    .card + .card { margin-top: 24px; }
-    .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
-    .card h2 { font-size: 16px; margin: 0 0 4px; }
-    .card-head p, .card > p { color: var(--muted); margin: 0; }
-    .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-    .meta div { padding: 12px; background: var(--panel-subtle); border-radius: var(--radius-md); }
-    .meta span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 3px; }
-    .meta strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th { text-align: left; color: var(--muted); font-size: 11px; font-weight: 600; padding: 8px; border-bottom: 1px solid var(--border); }
-    td { padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
-    tr:last-child td { border-bottom: 0; }
-    .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-    code, pre { font-family: var(--mono); }
-    .run-panel { display: grid; gap: 16px; }
-    .btn {
-      border: 1px solid transparent; min-height: 44px; padding: 0 16px; border-radius: var(--radius-md);
-      cursor: pointer; font-weight: 600; transition: background 150ms, transform 100ms var(--ease), opacity 150ms;
+    .journey li { min-width: 0; padding: 0 14px; border-left: 1px solid var(--border); }
+    .journey li:first-child { padding-left: 0; border-left: 0; }
+    .journey li:last-child { padding-right: 0; }
+    .stage-top { display: flex; align-items: center; justify-content: space-between; color: var(--faint); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .stage-top svg { width: 14px; height: 14px; }
+    .journey strong, .journey small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .journey strong { margin-top: 3px; font-size: 11px; }
+    .journey small { color: var(--muted); font-size: 10px; margin-top: 1px; }
+    .journey .active .stage-top, .journey .active strong { color: var(--accent); }
+    .pane { display: none; }
+    .pane.active { display: block; }
+    .pane-wrap { max-width: 1240px; margin: 0 auto; padding: 24px; }
+    .chat-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+    .panel, .card {
+      border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow);
     }
-    .btn:active { transform: translateY(1px); }
-    .btn-primary { color: white; background: var(--accent); width: 100%; }
-    .btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, black); }
-    .btn-secondary { color: var(--text); background: var(--panel); border-color: var(--border); }
-    .btn-secondary:hover { background: var(--panel-subtle); }
-    .btn:disabled { cursor: not-allowed; opacity: .5; transform: none; }
-    .field { display: grid; gap: 6px; }
-    .field label { font-size: 12px; font-weight: 600; }
+    .conversation { overflow: hidden; }
+    .conversation-head {
+      padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .conversation-head h1 { margin: 0 0 2px; font-size: 16px; }
+    .conversation-head p { margin: 0; color: var(--muted); font-size: 12px; }
+    .context-chip {
+      min-height: 32px; padding: 4px 9px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px;
+      color: var(--success); background: var(--success-soft); font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .messages { min-height: 560px; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: var(--bg); }
+    .bridge-card {
+      padding: 14px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center;
+      border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+    }
+    .bridge-card strong, .bridge-card small { display: block; }
+    .bridge-card strong { font-size: 12px; }
+    .bridge-card small { color: var(--muted); font-size: 10px; margin-top: 2px; }
+    .bridge-arrow { color: var(--accent); }
+    .message-row { max-width: 88%; display: flex; gap: 10px; }
+    .message-row.user { margin-left: auto; flex-direction: row-reverse; }
+    .avatar {
+      width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px;
+      color: var(--accent); background: var(--accent-soft);
+    }
+    .avatar svg { width: 16px; height: 16px; }
+    .message-row.user .avatar { color: #ffffff; background: var(--accent); }
+    .bubble { padding: 11px 13px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
+    .message-row.user .bubble { color: #ffffff; border-color: var(--accent); background: var(--accent); }
+    .bubble p { margin: 0; }
+    .bubble p + p { margin-top: 8px; }
+    .bubble .meta-line { color: var(--muted); font-size: 11px; margin-top: 8px; }
+    .message-row.user .meta-line { color: rgba(255, 255, 255, .78); }
+    .local-proof {
+      margin-top: 10px; padding: 10px; border-radius: 8px; color: var(--warning); background: var(--warning-soft); font-size: 11px;
+    }
+    .user-audit { display: none; }
+    .user-audit.show { display: flex; }
+    .retrieving {
+      display: none; align-self: flex-start; align-items: center; gap: 8px; min-height: 32px; padding: 5px 11px;
+      border: 1px solid color-mix(in srgb, var(--iq) 40%, var(--border)); border-radius: 999px;
+      color: var(--iq); background: var(--iq-soft); font-size: 11px;
+    }
+    .retrieving.show { display: inline-flex; }
+    .retrieving-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--iq); animation: pulse 1s ease-in-out infinite; }
+    .result-message { display: none; }
+    .result-message.show { display: flex; }
+    .result-message .bubble { width: 100%; }
+    .result-summary { margin: 0 0 12px; color: var(--text); font-weight: 600; }
+    .evidence-list { display: grid; gap: 8px; }
+    .evidence {
+      padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle);
+    }
+    .evidence-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    .evidence strong { font-size: 11px; }
+    .evidence p { margin: 5px 0 0; color: var(--muted); font-size: 10px; }
+    .evidence .source { color: var(--iq); font-family: var(--mono); overflow-wrap: anywhere; }
+    .support {
+      flex: none; padding: 1px 6px; border-radius: 999px; color: var(--muted); background: var(--surface); font-size: 9px; font-weight: 700; text-transform: uppercase;
+    }
+    .support.recover { color: var(--danger); background: var(--danger-soft); }
+    .support.escalate, .support.review { color: var(--warning); background: var(--warning-soft); }
+    .proof-banner {
+      margin-top: 12px; padding: 10px; display: flex; align-items: center; gap: 8px;
+      border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border)); border-radius: 8px;
+      color: var(--success); background: var(--success-soft); font-size: 11px; font-weight: 600;
+    }
+    .side-stack { display: grid; gap: 16px; }
+    .card { padding: 16px; }
+    .card h2 { margin: 0 0 3px; font-size: 14px; }
+    .card > p, .card-head p { margin: 0; color: var(--muted); font-size: 11px; }
+    .card-head { margin-bottom: 14px; }
+    .checks { display: grid; gap: 9px; margin-top: 14px; }
+    .check { display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: start; }
+    .check-icon {
+      width: 18px; height: 18px; display: grid; place-items: center; border: 1px solid var(--border);
+      border-radius: 50%; color: var(--muted); background: var(--surface-subtle); font-size: 10px;
+    }
+    .check.ok .check-icon { color: #ffffff; border-color: var(--success); background: var(--success); }
+    .check.fail .check-icon { color: #ffffff; border-color: var(--danger); background: var(--danger); }
+    .check strong, .check span { display: block; }
+    .check strong { font-size: 11px; }
+    .check span { margin-top: 1px; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
+    .field { display: grid; gap: 5px; margin-top: 14px; }
+    .field label { font-size: 11px; font-weight: 600; }
     select {
-      width: 100%; min-height: 40px; padding: 0 10px; color: var(--text); background: var(--panel);
+      width: 100%; min-height: 40px; padding: 0 10px; color: var(--text); background: var(--surface);
       border: 1px solid var(--border); border-radius: var(--radius-md);
     }
-    .checks { display: grid; gap: 10px; }
-    .check { display: grid; grid-template-columns: 18px 1fr; gap: 10px; align-items: start; }
-    .check-icon {
-      width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
-      background: var(--panel-subtle); border: 1px solid var(--border); color: var(--muted);
-      font-size: 11px; margin-top: 1px;
+    .buttons { display: grid; gap: 8px; margin-top: 12px; }
+    .btn {
+      min-height: 44px; padding: 0 14px; border: 1px solid transparent; border-radius: var(--radius-md);
+      cursor: pointer; font-weight: 600; transition: background 150ms, border-color 150ms, transform 80ms var(--ease);
     }
-    .check.ok .check-icon { color: white; background: var(--success); border-color: var(--success); }
-    .check.fail .check-icon { color: white; background: var(--danger); border-color: var(--danger); }
-    .check strong { display: block; font-size: 12px; }
-    .check span { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; overflow-wrap: anywhere; }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn-primary { color: #ffffff; background: var(--accent); }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-secondary { color: var(--text); border-color: var(--border); background: var(--surface); }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface-subtle); }
     .progress {
-      height: 4px; overflow: hidden; border-radius: 999px; background: var(--panel-subtle);
+      height: 4px; margin-top: 12px; overflow: hidden; border-radius: 999px; background: var(--surface-subtle);
     }
-    .progress span {
-      display: block; width: 0; height: 100%; background: var(--accent);
-      transition: width 300ms var(--ease);
-    }
-    .progress.running span { width: 72%; animation: breathe 1.6s ease-in-out infinite alternate; }
+    .progress span { display: block; width: 0; height: 100%; background: var(--accent); transition: width 250ms var(--ease); }
+    .progress.running span { width: 72%; animation: progress-breathe 1.6s ease-in-out infinite alternate; }
     .progress.complete span { width: 100%; background: var(--success); }
     .progress.error span { width: 100%; background: var(--danger); }
-    @keyframes breathe { from { opacity: .55; transform: translateX(-8%); } to { opacity: 1; transform: translateX(18%); } }
-    .message {
-      padding: 12px; border-radius: var(--radius-md); background: var(--panel-subtle);
-      color: var(--muted); font-size: 12px; min-height: 44px;
+    .run-message {
+      min-height: 42px; margin-top: 10px; padding: 9px; border-radius: 8px;
+      color: var(--muted); background: var(--surface-subtle); font-size: 10px; overflow-wrap: anywhere;
     }
-    .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
-    .tab {
-      min-height: 44px; padding: 0 12px; border: 0; border-bottom: 2px solid transparent;
-      background: transparent; color: var(--muted); cursor: pointer;
+    .presenter details { margin-top: 10px; }
+    .presenter summary { min-height: 36px; display: flex; align-items: center; color: var(--accent); cursor: pointer; font-size: 11px; font-weight: 600; }
+    .beats { margin: 4px 0 0; padding: 0; display: grid; gap: 12px; list-style: none; }
+    .beats li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; }
+    .beat-number {
+      width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%;
+      color: var(--muted); background: var(--surface-subtle); font-size: 9px; font-weight: 700;
     }
-    .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
-    .pane[hidden] { display: none; }
-    .evidence-list, .trace-list { display: grid; gap: 12px; }
-    .evidence, .trace-item {
-      padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
-      background: var(--panel);
+    .beats strong { display: block; font-size: 10px; }
+    .beats p { margin: 2px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
+    .trace-layout, .connection-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr); gap: 20px; }
+    .pane-title { margin-bottom: 16px; }
+    .pane-title h1 { margin: 0 0 4px; font-size: 20px; }
+    .pane-title p { margin: 0; max-width: 760px; color: var(--muted); }
+    .empty-state { padding: 48px 24px; color: var(--muted); text-align: center; }
+    .empty-state .empty-icon {
+      width: 44px; height: 44px; margin: 0 auto 12px; display: grid; place-items: center;
+      border-radius: 12px; color: var(--iq); background: var(--iq-soft);
     }
-    .evidence strong, .trace-item strong { display: block; margin-bottom: 4px; }
-    .evidence p, .trace-item p { color: var(--muted); margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-    .source { margin-top: 8px; color: var(--accent); font: 11px/1.45 var(--mono); }
-    .empty { padding: 32px 16px; text-align: center; color: var(--muted); }
-    .error-box { color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--panel)); border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border)); }
-    .live-proof {
-      display: none; margin-bottom: 16px; padding: 12px; border-radius: var(--radius-md);
-      border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border));
-      background: color-mix(in srgb, var(--success) 8%, var(--panel)); color: var(--success); font-weight: 600;
+    .empty-state h2 { margin: 0 0 5px; color: var(--text); font-size: 14px; }
+    .empty-state p { margin: 0 auto; max-width: 520px; font-size: 11px; }
+    .trace-list { display: grid; gap: 12px; padding: 16px; }
+    .trace-item { overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .trace-head {
+      padding: 10px 12px; display: flex; align-items: center; gap: 8px;
+      border-bottom: 1px solid var(--border); background: var(--surface-subtle); font-size: 11px; font-weight: 600;
     }
-    .live-proof.show { display: block; }
-    pre.raw {
-      white-space: pre-wrap; overflow-wrap: anywhere; padding: 14px; margin: 0;
-      background: var(--panel-subtle); border-radius: var(--radius-md); color: var(--muted); font-size: 11px;
+    .trace-head svg { color: var(--iq); }
+    .trace-body { padding: 12px; }
+    .trace-block + .trace-block { margin-top: 12px; }
+    .trace-label { margin: 0 0 4px; color: var(--faint); font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .trace-value {
+      margin: 0; max-height: 260px; overflow: auto; color: var(--muted);
+      font: 10px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere;
     }
-    @media (max-width: 900px) {
-      .shell { grid-template-columns: 1fr; }
-      aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
-      .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      main { padding: 24px 16px; }
-      .grid { grid-template-columns: 1fr; }
+    .source-list { margin: 0; padding: 0; display: grid; gap: 8px; list-style: none; }
+    .source-list li { padding: 9px; border-radius: 8px; color: var(--iq); background: var(--iq-soft); font: 10px/1.45 var(--mono); overflow-wrap: anywhere; }
+    .connection-steps { display: grid; gap: 12px; }
+    .connection-step { padding: 16px; display: grid; grid-template-columns: 32px 1fr; gap: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .connection-step > span {
+      width: 32px; height: 32px; display: grid; place-items: center; border-radius: 9px;
+      color: var(--accent); background: var(--accent-soft); font-weight: 700;
     }
-    @media (max-width: 600px) {
-      header { display: grid; }
-      .steps, .meta { grid-template-columns: 1fr; }
+    .connection-step strong { display: block; font-size: 12px; }
+    .connection-step p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .code-card { margin-top: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+    .code-head { padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--surface-subtle); font-size: 10px; font-weight: 600; }
+    .code-card pre { margin: 0; padding: 14px; overflow: auto; color: var(--text); font-size: 10px; line-height: 1.65; }
+    .environment { padding: 16px; }
+    .environment dl { margin: 14px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 10px; }
+    .environment dt { color: var(--faint); }
+    .environment dd { margin: 0; color: var(--text); font-family: var(--mono); overflow-wrap: anywhere; }
+    .boundary {
+      margin-top: 16px; padding: 12px; border-left: 3px solid var(--iq); border-radius: 0 8px 8px 0;
+      color: var(--muted); background: var(--iq-soft); font-size: 10px;
+    }
+    @keyframes pulse { 50% { opacity: .3; } }
+    @keyframes progress-breathe { from { opacity: .55; transform: translateX(-8%); } to { opacity: 1; transform: translateX(18%); } }
+    @media (max-width: 1080px) {
+      .app { grid-template-columns: 240px minmax(0, 1fr); }
+      .chat-grid, .trace-layout, .connection-layout { grid-template-columns: 1fr; }
+      .side-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .presenter { grid-column: 1 / -1; }
+    }
+    @media (max-width: 820px) {
+      .app { grid-template-columns: 1fr; }
+      .anatomy { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+      .anatomy-intro, .equation, .anatomy-part > p { display: none; }
+      .anatomy-parts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+      .anatomy-part { margin: 0; }
+      .anatomy-part summary { grid-template-columns: 28px 1fr 8px; padding: 6px; }
+      .anatomy-part .chevron { display: none; }
+      .journey { grid-template-columns: 1fr; gap: 8px; }
+      .journey li { padding: 8px 0; border-left: 0; border-top: 1px solid var(--border); }
+      .journey li:first-child { border-top: 0; }
+      .stage-top svg { display: none; }
+    }
+    @media (max-width: 640px) {
+      .topbar { align-items: flex-start; flex-wrap: wrap; }
+      .tabs { order: 3; width: 100%; }
+      .tab { flex: 1; justify-content: center; }
+      .status-pill { margin-left: auto; }
+      .pane-wrap { padding: 16px; }
+      .side-stack { grid-template-columns: 1fr; }
+      .anatomy-parts { grid-template-columns: 1fr; }
+      .bridge-card { grid-template-columns: 1fr; }
+      .bridge-arrow { transform: rotate(90deg); }
+      .messages { padding: 14px; }
+      .message-row { max-width: 100%; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
@@ -217,80 +455,163 @@ export function renderHtml() {
   </style>
 </head>
 <body>
-  <div class="shell">
-    <aside>
+  <div class="app">
+    <aside class="anatomy" aria-label="Anatomy of the Foundry agent">
       <div class="brand">
-        <span class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
-        </span>
-        <div><strong>Pharmashield</strong><span>Foundry-only runbook</span></div>
+        <span class="brand-mark" aria-hidden="true">${ICONS.shield}</span>
+        <div><strong>Pharmashield</strong><small>Part 2 · Promote to Foundry</small></div>
       </div>
-      <p class="eyebrow">Presenter beats</p>
-      <ol class="steps">${beatRows}</ol>
-      <div class="aside-note">
-        No Ollama, local model, or Waypoint web UI. This surface calls the hosted Foundry agent directly with your Azure identity.
+      <p class="section-label">Anatomy of an agent</p>
+      <p class="anatomy-intro">The same invoice-checking job from the local proof of concept, with one production addition: Tools.</p>
+      <div class="anatomy-parts">${anatomyRows}</div>
+      <div class="equation">
+        <strong>Model + Instructions + Context + Memory + Tools</strong><br />
+        = a grounded agent. The Trace proves the fifth part ran.
       </div>
     </aside>
-    <main>
-      <div class="content">
-        <header>
-          <div>
-            <p class="eyebrow">Live invoice assurance</p>
-            <h1>From invoice to defensible evidence</h1>
-            <p class="lede">The original Pharmashield Aster Ridge story, simplified to one production path: a hosted agent grounded on real contracts through Foundry IQ.</p>
-          </div>
-          <span class="status-pill" id="overall-status"><span class="status-dot"></span><span>Checking readiness</span></span>
-        </header>
-        <div class="grid">
-          <div>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div class="agent-title"><strong>contract-policy-expert</strong><small>Microsoft Foundry · read-only evidence expert</small></div>
+        <div class="tabs" role="tablist" aria-label="Foundry Agent views">
+          <button class="tab" role="tab" aria-selected="true" aria-controls="pane-chat" id="tab-chat" data-pane="chat">${ICONS.chat}<span>Chat</span></button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="pane-trace" id="tab-trace" data-pane="trace">${ICONS.trace}<span>Trace</span><span class="count" id="trace-count" hidden>0</span></button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="pane-connection" id="tab-connection" data-pane="connection">${ICONS.connection}<span>Connection</span></button>
+        </div>
+        <span class="status-pill" id="overall-status"><span class="status-dot"></span><span>Checking Azure</span></span>
+      </header>
+
+      <ol class="journey" aria-label="Chapter 2 Build, Deliver, Optimize journey">${journeyRows}</ol>
+
+      <section class="pane active" id="pane-chat" role="tabpanel" aria-labelledby="tab-chat">
+        <div class="pane-wrap chat-grid">
+          <section class="panel conversation" aria-label="Live Foundry audit conversation">
+            <div class="conversation-head">
+              <div><h1>Same invoice. New enterprise context.</h1><p>The Aster Ridge artifact carries forward; Foundry IQ supplies what the invoice cannot.</p></div>
+              <span class="context-chip">${ICONS.context}<span>${HERO_INVOICE.id}</span></span>
+            </div>
+            <div class="messages" aria-live="polite">
+              <div class="bridge-card">
+                <div><strong>Part 1 · Local proof</strong><small>Invoice math, isolated workflow, explicit limits</small></div>
+                <span class="bridge-arrow" aria-hidden="true">${ICONS.arrow}</span>
+                <div><strong>Part 2 · Foundry</strong><small>Hosted runtime, approved knowledge, auditable retrieval</small></div>
+              </div>
+              <div class="message-row">
+                <span class="avatar" aria-hidden="true">${ICONS.shield}</span>
+                <div class="bubble">
+                  <p><strong>The same Aster Ridge invoice is already attached.</strong> It contains four lines and a printed total of ${money(HERO_INVOICE.total)}.</p>
+                  <div class="local-proof">
+                    <strong>Invoice-only proof carried forward:</strong> ${INVOICE_ONLY_PROOF.arithmetic}, not ${money(INVOICE_ONLY_PROOF.billedAmount)}. The ${money(INVOICE_ONLY_PROOF.overstatement)} line overstatement is visible without a contract; rate and packaging questions still need enterprise evidence.
+                  </div>
+                  <p class="meta-line">Context · ${HERO_INVOICE.supplier} · ${HERO_INVOICE.purchaseOrder}</p>
+                </div>
+              </div>
+              <div class="message-row user user-audit" id="user-audit">
+                <span class="avatar" aria-hidden="true">${ICONS.chat}</span>
+                <div class="bubble"><p>${CANONICAL_AUDIT_PROMPT}</p><p class="meta-line">Same question as Part 1</p></div>
+              </div>
+              <div class="retrieving" id="retrieving"><span class="retrieving-dot"></span><span>Consulting Foundry IQ through knowledge_base_retrieve…</span></div>
+              <div class="message-row result-message" id="result-message">
+                <span class="avatar" aria-hidden="true">${ICONS.shield}</span>
+                <div class="bubble" id="result-bubble"></div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="side-stack" aria-label="Presenter controls">
             <section class="card">
-              <div class="card-head">
-                <div><h2>Hero invoice</h2><p>The same four-line Aster Ridge invoice used by the canonical Pharmashield Foundry story.</p></div>
-                <strong class="num">${money(HERO_INVOICE.total)}</strong>
-              </div>
-              <div class="meta">
-                <div><span>Supplier</span><strong>${HERO_INVOICE.supplier}</strong></div>
-                <div><span>Invoice</span><strong>${HERO_INVOICE.id}</strong></div>
-                <div><span>Purchase order</span><strong>${HERO_INVOICE.purchaseOrder}</strong></div>
-              </div>
-              <div style="overflow-x:auto">
-                <table>
-                  <thead><tr><th>Line</th><th>Description</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>
-                  <tbody>${invoiceRows}</tbody>
-                </table>
-              </div>
-            </section>
-            <section class="card">
-              <div class="tabs" role="tablist" aria-label="Demo output">
-                <button class="tab" role="tab" aria-selected="true" data-pane="evidence">Grounded evidence</button>
-                <button class="tab" role="tab" aria-selected="false" data-pane="trace">Live trace</button>
-                <button class="tab" role="tab" aria-selected="false" data-pane="raw">Raw response</button>
-              </div>
-              <div class="live-proof" id="live-proof">Live grounding confirmed: the hosted response contains a real knowledge_base_retrieve tool call.</div>
-              <div class="pane" id="pane-evidence"><div class="empty">Run the live audit to populate grounded contract evidence.</div></div>
-              <div class="pane" id="pane-trace" hidden><div class="empty">The trace remains empty until Foundry invokes its knowledge-base tool.</div></div>
-              <div class="pane" id="pane-raw" hidden><pre class="raw">No hosted response yet.</pre></div>
-            </section>
-          </div>
-          <div>
-            <section class="card run-panel">
-              <div><h2>Live readiness</h2><p>Uses your current <code>az login</code>; no secrets are stored in the repo or browser.</p></div>
+              <div class="card-head"><h2>Live readiness</h2><p>Uses the current <code>az login</code>. Tokens remain in process memory and are never sent to the browser.</p></div>
               <div class="checks" id="checks"></div>
               <div class="field">
                 <label for="project">Foundry project</label>
                 <select id="project" disabled><option>Discovering projects…</option></select>
               </div>
-              <button class="btn btn-secondary" id="refresh" type="button">Refresh readiness</button>
+              <div class="buttons"><button class="btn btn-secondary" id="refresh" type="button">Refresh readiness</button></div>
             </section>
-            <section class="card run-panel">
-              <div><h2>Run the story</h2><p>The button sends the invoice to <code>contract-policy-expert</code> in background mode and polls until it reaches a terminal state.</p></div>
-              <button class="btn btn-primary" id="start" type="button" disabled>Start live Foundry audit</button>
-              <div class="progress" id="progress"><span></span></div>
-              <div class="message" id="run-message">Waiting for readiness checks.</div>
+            <section class="card">
+              <div class="card-head"><h2>Run the story</h2><p>Asks the canonical Part 2 question and waits for the real hosted response.</p></div>
+              <button class="btn btn-primary" id="start" type="button" disabled>Run grounded audit</button>
+              <div class="progress" id="progress" role="progressbar" aria-label="Hosted audit progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+              <div class="run-message" id="run-message" aria-live="polite">Waiting for readiness checks.</div>
             </section>
+            <section class="card presenter">
+              <div class="card-head"><h2>Presenter beats</h2><p>The canonical Part 2 arc, with the next chapters kept in view.</p></div>
+              <details>
+                <summary>Open talk track</summary>
+                <ol class="beats">${beatRows}</ol>
+              </details>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section class="pane" id="pane-trace" role="tabpanel" aria-labelledby="tab-trace" hidden>
+        <div class="pane-wrap">
+          <div class="pane-title"><h1>Retrieval trace</h1><p>The hero of Part 2: the actual query sent to Foundry IQ, the contract text returned, and the source references used by the hosted expert.</p></div>
+          <div class="trace-layout">
+            <section class="panel" id="trace-content">
+              <div class="empty-state">
+                <span class="empty-icon" aria-hidden="true">${ICONS.trace}</span>
+                <h2>Run the grounded audit first</h2>
+                <p>Trace remains empty until the hosted response contains a real <code>knowledge_base_retrieve</code> function call. A failed call is shown but does not pass the proof gate.</p>
+              </div>
+            </section>
+            <aside class="card">
+              <h2>Why this matters</h2>
+              <p>The invoice can prove arithmetic. It cannot prove negotiated rates or written authorization. Trace separates retrieved enterprise knowledge from model memory.</p>
+              <div class="boundary"><strong>Fail-closed:</strong> citations or confident prose do not count as grounded unless the hosted protocol returns a successful retrieval result.</div>
+              <ul class="source-list" id="source-list" style="margin-top:14px"><li>No live sources yet.</li></ul>
+            </aside>
           </div>
         </div>
-      </div>
+      </section>
+
+      <section class="pane" id="pane-connection" role="tabpanel" aria-labelledby="tab-connection" hidden>
+        <div class="pane-wrap">
+          <div class="pane-title"><h1>From proof of concept to production</h1><p>The canvas keeps the canonical three-move explanation while reflecting the consolidated platform's actual read-only expert boundary.</p></div>
+          <div class="connection-layout">
+            <section>
+              <div class="connection-steps">
+                <article class="connection-step"><span>1</span><div><strong>Use the hosted model</strong><p>Move the same invoice-checking job from a laptop runtime into a governed Microsoft Foundry project.</p></div></article>
+                <article class="connection-step"><span>2</span><div><strong>Connect approved knowledge</strong><p>Add <code>contracts-kb</code> through Foundry IQ so contract claims come from retrieved enterprise sources.</p></div></article>
+                <article class="connection-step"><span>3</span><div><strong>Assemble the evidence expert</strong><p>Keep the instructions and invoice context; add <code>knowledge_base_retrieve</code>. The expert returns evidence, not payment decisions.</p></div></article>
+              </div>
+              <div class="code-card">
+                <div class="code-head">Architecture sketch · same job + one new tool</div>
+                <pre><code>foundry_model = hosted_agent(
+    project=selected_project,
+    name="contract-policy-expert",
+)
+
+contract_knowledge = foundry_iq(
+    knowledge_base="contracts-kb",
+    tool="knowledge_base_retrieve",
+)
+
+contract_policy_expert = evidence_expert(
+    model=foundry_model,
+    instructions=invoice_evidence_contract,
+    context=aster_ridge_invoice,
+    tools=[contract_knowledge],
+)</code></pre>
+              </div>
+            </section>
+            <aside class="panel environment">
+              <h2>Live environment</h2>
+              <p>Resolved from Azure at runtime, not hardcoded into the repository.</p>
+              <dl>
+                <dt>Project</dt><dd id="env-project">Resolving…</dd>
+                <dt>Resource group</dt><dd id="env-rg">Resolving…</dd>
+                <dt>Agent</dt><dd>contract-policy-expert</dd>
+                <dt>Knowledge</dt><dd>Foundry IQ · contracts-kb</dd>
+                <dt>Protocol</dt><dd>Hosted Responses · background</dd>
+                <dt>Grounding gate</dt><dd>successful knowledge_base_retrieve required</dd>
+              </dl>
+              <div class="boundary"><strong>Waypoint handoff:</strong> the expert is intentionally read-only. The orchestrator combines evidence, and the recorder is the only agent allowed to write the governed run.</div>
+            </aside>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
   <script>
@@ -317,57 +638,169 @@ export function renderHtml() {
     function render(data) {
       const ready = data.preflight?.status === 'ready';
       const failed = data.preflight?.status === 'error';
+      const running = data.job?.status === 'running' || data.job?.status === 'starting';
+      const started = running || Boolean(data.result) || Boolean(data.job?.startedAt);
+
       const status = $('overall-status');
       status.className = 'status-pill ' + (ready ? 'ready' : failed ? 'error' : '');
-      status.querySelector('span:last-child').textContent = ready ? 'Ready for Foundry' : failed ? 'Setup required' : 'Checking readiness';
+      status.querySelector('span:last-child').textContent = ready ? 'Foundry ready' : failed ? 'Setup required' : 'Checking Azure';
+
+      setPart('model', ready);
+      setPart('instructions', true);
+      setPart('context', true);
+      setPart('memory', started);
+      setPart('tools', ready);
 
       $('checks').innerHTML = (data.preflight?.checks || []).map((check) =>
         '<div class="check ' + (check.ok ? 'ok' : check.ok === false ? 'fail' : '') + '">' +
           '<span class="check-icon">' + (check.ok ? '✓' : check.ok === false ? '×' : '·') + '</span>' +
           '<div><strong>' + esc(check.label) + '</strong><span>' + esc(check.detail) + '</span></div>' +
         '</div>'
-      ).join('') || '<div class="check"><span class="check-icon">·</span><div><strong>Starting</strong><span>Resolving Azure and Foundry configuration.</span></div></div>';
+      ).join('') || '<div class="check"><span class="check-icon">·</span><div><strong>Starting</strong><span>Resolving Azure identity and the hosted agent.</span></div></div>';
 
       const select = $('project');
       const projects = data.preflight?.projects || [];
-      const selectedId = data.preflight?.project?.id || '';
-      select.innerHTML = projects.map((project) =>
-        '<option value="' + esc(project.id) + '"' + (project.id === selectedId ? ' selected' : '') + '>' +
-          esc(project.projectName + ' · ' + project.resourceGroup + ' · ' + project.location) +
-        '</option>'
-      ).join('') || '<option value="">No visible Foundry projects</option>';
-      select.disabled = projects.length < 2 || data.job?.status === 'running';
+      const project = data.preflight?.project;
+      const selectedId = project?.id || '';
+      const endpointProject = project?.endpoint?.split('/').filter(Boolean).at(-1);
+      const projectName =
+        project?.projectName ||
+        (project?.displayName && project.displayName !== 'Configured project' ? project.displayName : endpointProject) ||
+        'Configured project';
+      const resourceGroup =
+        project?.resourceGroup ||
+        project?.id?.match(/\\/resourceGroups\\/([^/]+)/i)?.[1] ||
+        'Not discovered';
+      const visibleProjects = projects.filter((project) => project.score > 0 || project.id === selectedId);
+      if (visibleProjects.length) {
+        select.innerHTML = visibleProjects.map((project) =>
+          '<option value="' + esc(project.id) + '"' + (project.id === selectedId ? ' selected' : '') + '>' +
+            esc(project.projectName + ' · ' + project.resourceGroup) +
+          '</option>'
+        ).join('');
+      } else if (data.preflight?.project) {
+        select.innerHTML = '<option value="">' + esc(projectName) + '</option>';
+      } else {
+        select.innerHTML = '<option value="">No ready Waypoint or Forge project</option>';
+      }
+      select.disabled = visibleProjects.length < 2 || running;
 
-      const running = data.job?.status === 'running' || data.job?.status === 'starting';
+      $('env-project').textContent = project ? projectName : 'Not ready';
+      $('env-rg').textContent = resourceGroup;
       $('start').disabled = !ready || running;
+      $('start').textContent = running ? 'Running against Foundry IQ…' : data.job?.status === 'completed' ? 'Run grounded audit again' : 'Run grounded audit';
       $('refresh').disabled = running;
-      $('run-message').textContent = data.job?.message || (ready ? 'Ready. Keep this panel visible and click once when you reach the live beat.' : data.preflight?.message || 'Waiting for readiness checks.');
+      $('run-message').textContent = data.job?.message || (ready ? 'Ready. The presenter controls when the live question is sent.' : data.preflight?.message || 'Waiting for readiness checks.');
+      $('user-audit').classList.toggle('show', started);
+      $('retrieving').classList.toggle('show', running);
+
       const progress = $('progress');
       progress.className = 'progress ' + (running ? 'running' : data.job?.status === 'completed' ? 'complete' : data.job?.status === 'error' ? 'error' : '');
+      const progressValue = running ? 72 : data.job?.status === 'completed' ? 100 : data.job?.status === 'error' ? 100 : 0;
+      progress.setAttribute('aria-valuenow', String(progressValue));
+      progress.setAttribute('aria-valuetext', running ? 'Hosted audit in progress' : data.job?.status === 'completed' ? 'Hosted audit completed' : data.job?.status === 'error' ? 'Hosted audit failed' : 'Not started');
 
-      if (data.result) renderResult(data.result);
+      if (data.result) {
+        renderResult(data.result);
+      } else {
+        clearResult();
+      }
+    }
+
+    function setPart(name, on) {
+      document.querySelector('[data-part="' + name + '"]')?.classList.toggle('on', Boolean(on));
+    }
+
+    function clearResult() {
+      $('result-message').classList.remove('show');
+      $('result-bubble').innerHTML = '';
+      $('trace-count').hidden = true;
+      $('trace-count').textContent = '0';
+      $('trace-content').innerHTML = '<div class="empty-state"><span class="empty-icon">${ICONS.trace}</span><h2>No live trace yet</h2><p>Run the hosted audit to inspect the real knowledge-base request and response.</p></div>';
+      $('source-list').innerHTML = '<li>No live sources yet.</li>';
     }
 
     function renderResult(result) {
-      $('live-proof').classList.toggle('show', Boolean(result.grounded));
-      const evidence = result.parsedEvidence?.evidence;
-      $('pane-evidence').innerHTML = Array.isArray(evidence) && evidence.length
-        ? '<div class="evidence-list">' + evidence.map((item) =>
-            '<article class="evidence"><strong>' + esc(item.claim || 'Grounded claim') + '</strong>' +
-            '<p>Supports: ' + esc(item.supports || 'unknown') + ' · Confidence: ' + esc(item.confidence ?? '—') + '</p>' +
-            '<div class="source">' + esc(item.source_ref || 'No source_ref returned') + '</div></article>'
-          ).join('') + '</div>'
-        : '<div class="message ' + (result.grounded ? '' : 'error-box') + '">' +
-            esc(result.grounded ? (result.outputText || 'Foundry returned no structured evidence array.') : 'The hosted response did not prove a knowledge_base_retrieve call. Do not present this as grounded.') +
-          '</div>';
-      $('pane-trace').innerHTML = result.toolCalls?.length
-        ? '<div class="trace-list">' + result.toolCalls.map((call) =>
-            '<article class="trace-item"><strong>' + esc(call.name || call.type || 'Tool call') + '</strong>' +
-            '<p>' + esc(call.arguments || call.output || call.error || 'No trace payload returned.') + '</p></article>'
-          ).join('') + '</div>'
-        : '<div class="empty">No MCP or tool-call items were present in the hosted response.</div>';
-      $('pane-raw').innerHTML = '<pre class="raw">' + esc(result.outputText || JSON.stringify(result, null, 2)) + '</pre>';
+      const evidence = Array.isArray(result.parsedEvidence?.evidence) ? result.parsedEvidence.evidence : [];
+      const grounded = Boolean(result.grounded);
+      const summary = result.parsedEvidence?.summary || result.outputText || 'Foundry returned no summary.';
+      $('result-message').classList.add('show');
+      $('result-bubble').innerHTML =
+        '<p class="result-summary">' + esc(summary) + '</p>' +
+        (evidence.length
+          ? '<div class="evidence-list">' + evidence.map((item) =>
+              '<article class="evidence"><div class="evidence-head"><strong>' + esc(item.claim || 'Grounded claim') + '</strong>' +
+              '<span class="support ' + esc(item.supports || '') + '">' + esc(item.supports || 'evidence') + '</span></div>' +
+              '<p>Confidence ' + esc(item.confidence ?? '—') + '</p>' +
+              '<p class="source">' + esc(item.source_ref || 'No source_ref returned') + '</p></article>'
+            ).join('') + '</div>'
+          : '<p>No structured evidence array was returned.</p>') +
+        (grounded
+          ? '<button class="proof-banner" type="button" data-open-trace="true">${ICONS.trace}<span>Grounding verified · Open the live retrieval trace</span></button>'
+          : '<div class="proof-banner" style="color:var(--danger);background:var(--danger-soft);border-color:var(--danger)">' +
+              (result.retrievalAttempted
+                ? 'Retrieval failed or returned no usable evidence. Do not present this response as contract-grounded.'
+                : 'Grounding not proven. No knowledge-base retrieval was returned.') +
+            '</div>');
+
+      document.querySelector('[data-open-trace]')?.addEventListener('click', () => activateTab('trace'));
+      renderTrace(result, evidence);
     }
+
+    function renderTrace(result, evidence) {
+      const calls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
+      const grouped = new Map();
+      for (const call of calls) {
+        const key = call.callId || call.name || String(grouped.size);
+        const current = grouped.get(key) || { callId: key, name: '', arguments: '', output: '', error: '' };
+        if (call.name) current.name = call.name;
+        if (call.arguments) current.arguments = call.arguments;
+        if (call.output) current.output = call.output;
+        if (call.error) current.error = call.error;
+        grouped.set(key, current);
+      }
+      const retrievals = [...grouped.values()].filter((call) => call.name.toLowerCase().includes('knowledge_base_retrieve'));
+      $('trace-count').hidden = retrievals.length === 0;
+      $('trace-count').textContent = String(retrievals.length);
+      $('trace-content').innerHTML = retrievals.length
+        ? '<div class="trace-list">' + retrievals.map((call, index) =>
+            '<article class="trace-item"><div class="trace-head">${ICONS.trace}<span>knowledge_base_retrieve · call ' + (index + 1) + '</span></div>' +
+              '<div class="trace-body">' +
+                '<div class="trace-block"><p class="trace-label">Query</p><pre class="trace-value">' + esc(call.arguments || 'No query payload returned.') + '</pre></div>' +
+                '<div class="trace-block"><p class="trace-label">' + (result.grounded ? 'Retrieved contract text' : 'Retrieval result') + '</p><pre class="trace-value">' + esc(call.output || call.error || 'No retrieval payload returned.') + '</pre></div>' +
+              '</div></article>'
+          ).join('') + '</div>'
+        : '<div class="empty-state"><span class="empty-icon">${ICONS.trace}</span><h2>No verified retrieval call</h2><p>The response completed without a recognized knowledge_base_retrieve invocation.</p></div>';
+      const sources = [...new Set(evidence.map((item) => item.source_ref).filter(Boolean))];
+      $('source-list').innerHTML = sources.length
+        ? sources.map((source) => '<li>' + esc(source) + '</li>').join('')
+        : '<li>No live sources returned.</li>';
+    }
+
+    function activateTab(name) {
+      document.querySelectorAll('[role="tab"]').forEach((tab) => {
+        const active = tab.dataset.pane === name;
+        tab.setAttribute('aria-selected', String(active));
+        tab.tabIndex = active ? 0 : -1;
+      });
+      document.querySelectorAll('[role="tabpanel"]').forEach((pane) => {
+        const active = pane.id === 'pane-' + name;
+        pane.classList.toggle('active', active);
+        pane.hidden = !active;
+      });
+    }
+
+    document.querySelectorAll('[role="tab"]').forEach((tab) => {
+      tab.addEventListener('click', () => activateTab(tab.dataset.pane));
+      tab.addEventListener('keydown', (event) => {
+        if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+        const tabs = [...document.querySelectorAll('[role="tab"]')];
+        const direction = event.key === 'ArrowRight' ? 1 : -1;
+        const next = tabs[(tabs.indexOf(tab) + direction + tabs.length) % tabs.length];
+        activateTab(next.dataset.pane);
+        next.focus();
+      });
+    });
 
     $('start').addEventListener('click', async () => {
       $('start').disabled = true;
@@ -380,19 +813,22 @@ export function renderHtml() {
       await refresh();
     });
     $('project').addEventListener('change', async (event) => {
+      if (!event.target.value) return;
       try { await request('/api/project', {method:'POST', body:JSON.stringify({resourceId:event.target.value})}); } catch (error) { $('run-message').textContent = error.message; }
       await refresh();
     });
-    document.querySelectorAll('.tab').forEach((tab) => tab.addEventListener('click', () => {
-      document.querySelectorAll('.tab').forEach((item) => item.setAttribute('aria-selected', String(item === tab)));
-      document.querySelectorAll('.pane').forEach((pane) => { pane.hidden = pane.id !== 'pane-' + tab.dataset.pane; });
-    }));
+
+    activateTab('chat');
     const events = new EventSource('/events');
     events.onmessage = () => refresh();
     refresh();
   </script>
 </body>
 </html>`;
+}
+
+function icon(paths) {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths}</svg>`;
 }
 
 function money(value) {

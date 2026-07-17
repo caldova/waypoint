@@ -12,7 +12,7 @@ Open this repository in GitHub Copilot and say:
 
 The repo skill opens the **Pharmashield · Foundry live demo** canvas. The canvas
 uses the current `az login`, discovers the deployed Foundry project, and presents
-one primary action: **Start live Foundry audit**.
+one primary action: **Run grounded audit**.
 
 No package installation or local service startup is required.
 
@@ -28,14 +28,33 @@ its readiness panel stays blocked and identifies the missing boundary.
 
 ## Live-fidelity contract
 
+The surface follows the canonical Pharmashield Part 2 story:
+
+- the same Aster Ridge invoice carries forward from the local proof of concept;
+- the Anatomy panel restores Model + Instructions + Context + Memory and adds the
+  fifth production block, Tools;
+- Chat asks the same audit question, Trace proves live retrieval, and Connection
+  explains the three moves from proof of concept to production; and
+- the journey rail hands the story into Waypoint delivery, evaluation,
+  optimization, and workforce governance.
+
 The canvas calls the hosted agent directly through the Foundry Responses
 endpoint in background mode. It displays the result as grounded only when the
-response contains a real `knowledge_base_retrieve` MCP call. It never substitutes
-a canned answer or fabricated retrieval trace.
+response contains a real `knowledge_base_retrieve` MCP call with a successful,
+non-empty tool result. A failed invocation is displayed as ungrounded. The
+canvas never substitutes a canned answer or fabricated retrieval trace.
 
 The included Aster Ridge invoice is a demo fixture retained from the canonical
 Pharmashield story. Contract conclusions still come exclusively from the live
 FoundryIQ knowledge base.
+
+The hosted `contract-policy-expert` remains a read-only evidence expert. If the
+retrieved sources do not prove a purchase-order authorization, the canvas keeps
+that question unresolved instead of reproducing the scripted demo's conclusion.
+
+The canvas follows the operating system appearance automatically and includes
+complete light and dark palettes. It intentionally does not add a separate theme
+setting.
 
 ## Committed assets
 

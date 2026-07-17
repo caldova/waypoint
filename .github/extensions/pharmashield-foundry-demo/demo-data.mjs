@@ -37,41 +37,130 @@ export const HERO_INVOICE = {
     ],
 };
 
+export const CANONICAL_AUDIT_PROMPT =
+    "Audit this invoice against our contracts. Flag every discrepancy with the source.";
+
+export const INVOICE_ONLY_PROOF = {
+    lineId: "L002",
+    billedAmount: 664720,
+    recomputedAmount: 658000,
+    overstatement: 6720,
+    arithmetic: "1,400,000 × $0.47 = $658,000",
+};
+
+export const AGENT_ANATOMY = [
+    {
+        id: "model",
+        label: "Model",
+        value: "Hosted production model",
+        detail: "The same invoice-checking job, now running as a governed Microsoft Foundry service.",
+    },
+    {
+        id: "instructions",
+        label: "Instructions",
+        value: "Contract Policy Expert",
+        detail: "The read-only evidence contract keeps the expert focused on grounded contract facts.",
+    },
+    {
+        id: "context",
+        label: "Context",
+        value: HERO_INVOICE.id,
+        detail: "The same Aster Ridge invoice carries forward from the local proof of concept.",
+    },
+    {
+        id: "memory",
+        label: "Memory",
+        value: "Conversation thread",
+        detail: "Lights when the live audit starts and preserves the hosted response context.",
+    },
+    {
+        id: "tools",
+        label: "Tools",
+        value: "Foundry IQ · contracts-kb",
+        detail: "The fifth part: live knowledge_base_retrieve access to approved contract knowledge.",
+    },
+];
+
 export const DEMO_BEATS = [
     {
-        id: "frame",
-        label: "Frame the story",
+        id: "promote",
+        label: "Make the turn",
         talkTrack:
-            "We are starting where the local prototype was trying to get: a governed agent in Microsoft Foundry, grounded on approved contract knowledge.",
+            "We proved the workflow locally. This is the same job, the same instructions, and the same Aster Ridge invoice—promoted into Microsoft Foundry.",
     },
     {
-        id: "inspect",
-        label: "Inspect the agent",
+        id: "anatomy",
+        label: "Show the fifth part",
         talkTrack:
-            "The job is unchanged: check a supplier invoice. The production model and instructions are hosted, and Foundry IQ adds the missing contract context.",
+            "Model, Instructions, Context, and Memory are still here. Foundry adds Tools: approved contract knowledge through Foundry IQ.",
     },
     {
-        id: "run",
-        label: "Run it live",
+        id: "connect",
+        label: "Open Connection",
         talkTrack:
-            "One click sends the Aster Ridge invoice facts to the hosted Contract Policy Expert. The canvas never substitutes a canned answer.",
+            "There are three moves: use the hosted model, connect contract knowledge, and assemble the read-only Contract Policy Expert.",
     },
     {
-        id: "prove",
-        label: "Prove grounding",
+        id: "audit",
+        label: "Ask the same question",
         talkTrack:
-            "The trace is the proof: the real knowledge_base_retrieve call, its query, returned contract evidence, and source references.",
+            "Run the live audit. The local proof could verify the line math; Foundry retrieves the terms the invoice alone cannot know.",
     },
     {
-        id: "land",
-        label: "Land the value",
+        id: "trace",
+        label: "Prove it in Trace",
         talkTrack:
-            "The invoice-only math can identify its own inconsistency. Foundry resolves what requires the contract: the rate terms and packaging authorization.",
+            "Show the actual knowledge_base_retrieve query, returned clause text, and source references. This is grounding, not model memory.",
+    },
+    {
+        id: "handoff",
+        label: "Hand off the chapter",
+        talkTrack:
+            "The expert returns evidence, not a payment decision. Waypoint governs the workflow; delivery, evaluation, optimization, and fleet governance come next.",
+    },
+];
+
+export const JOURNEY_STAGES = [
+    {
+        id: "build",
+        label: "Build",
+        title: "Ground the expert",
+        detail: "Foundry hosted agent + Foundry IQ",
+        state: "active",
+    },
+    {
+        id: "deliver",
+        label: "Deliver",
+        title: "Put evidence into workflow",
+        detail: "Waypoint record + optional Teams reach",
+        state: "next",
+    },
+    {
+        id: "evaluate",
+        label: "Evaluate",
+        title: "Measure behavior",
+        detail: "Golden cases, graders, and calibration",
+        state: "next",
+    },
+    {
+        id: "optimize",
+        label: "Optimize",
+        title: "Improve cost and quality",
+        detail: "Telemetry, prompt tuning, and RFT",
+        state: "next",
+    },
+    {
+        id: "govern",
+        label: "Govern",
+        title: "Operate the workforce",
+        detail: "Identity, lifecycle, security, and oversight",
+        state: "next",
     },
 ];
 
 export function buildDemoPrompt(invoiceText) {
     return [
+        CANONICAL_AUDIT_PROMPT,
         "Retrieve grounded contract and policy evidence for the supplier invoice below.",
         "You must use the knowledge_base_retrieve MCP tool before answering.",
         "Focus on the contracted ALLER-20 unit-production rate, any volume discount,",

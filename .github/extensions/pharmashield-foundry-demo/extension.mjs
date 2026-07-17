@@ -141,7 +141,7 @@ async function performPreflight(entry) {
         entry.state.preflight.checks.push({
             label: "Foundry IQ proof",
             ok: null,
-            detail: "The demo is considered grounded only when the response trace contains knowledge_base_retrieve.",
+            detail: "The demo is grounded only when knowledge_base_retrieve returns evidence successfully.",
         });
         entry.state.preflight.status = "ready";
         entry.state.preflight.message = "Ready for the live Foundry beat.";
@@ -177,6 +177,12 @@ async function probeAgent(entry, project, token, errors) {
 
 async function selectProject(entry, resourceId) {
     if (!resourceId) throw new CanvasError("invalid_input", "resourceId is required");
+    if (["starting", "running"].includes(entry.state.job.status)) {
+        throw new CanvasError(
+            "run_in_progress",
+            "Wait for the current hosted audit to finish before changing projects.",
+        );
+    }
     const project = await resolveProjectEndpoint(resourceId);
     const agentReady = await hasHostedAgent({
         projectEndpoint: project.endpoint,
@@ -205,6 +211,9 @@ async function selectProject(entry, resourceId) {
               }
             : check,
     );
+    entry.state.result = null;
+    entry.state.job = { status: "idle", message: "Ready. Click once when you reach the live beat." };
+    resetGroundingProof(entry, "Run the audit to verify Foundry IQ retrieval in this project.");
     emit(entry);
     return publicState(entry);
 }
@@ -218,6 +227,7 @@ async function startDemo(entry) {
     }
     entry.abortController = new AbortController();
     entry.state.result = null;
+    resetGroundingProof(entry, "Waiting for the live hosted response.");
     entry.state.job = {
         status: "starting",
         message: `Loading ${HERO_INVOICE.source} and starting ${entry.config.agentName}.`,
@@ -256,8 +266,10 @@ async function executeDemo(entry) {
             ...entry.state.job,
             status: result.grounded ? "completed" : "error",
             message: result.grounded
-                ? "Live audit completed with a verified knowledge_base_retrieve trace."
-                : "The hosted response completed, but no knowledge_base_retrieve trace was present. Do not present it as grounded.",
+                ? "Live audit completed with a verified knowledge_base_retrieve result."
+                : result.retrievalAttempted
+                  ? "The knowledge-base retrieval failed or returned no evidence. Do not present this run as grounded."
+                  : "The hosted response completed without knowledge_base_retrieve. Do not present this run as grounded.",
             completedAt: new Date().toISOString(),
         };
         entry.state.preflight.checks = entry.state.preflight.checks.map((check) =>
@@ -267,11 +279,14 @@ async function executeDemo(entry) {
                       ok: result.grounded,
                       detail: result.grounded
                           ? "Verified in the live hosted response."
-                          : "No knowledge_base_retrieve tool call was returned.",
+                          : result.retrievalAttempted
+                            ? "Retrieval was attempted but did not return usable evidence."
+                            : "No knowledge_base_retrieve tool call was returned.",
                   }
                 : check,
         );
     } catch (error) {
+        resetGroundingProof(entry, "The hosted audit failed before grounding could be verified.", false);
         entry.state.job = {
             ...entry.state.job,
             status: "error",
@@ -280,6 +295,12 @@ async function executeDemo(entry) {
         };
     }
     emit(entry, "complete");
+}
+
+function resetGroundingProof(entry, detail, ok = null) {
+    entry.state.preflight.checks = entry.state.preflight.checks.map((check) =>
+        check.label === "Foundry IQ proof" ? { ...check, ok, detail } : check,
+    );
 }
 
 async function startServer(entry) {

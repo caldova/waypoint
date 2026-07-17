@@ -271,6 +271,7 @@ export async function driveHostedAgent({
 export function extractHostedResult(body) {
     const textChunks = [];
     const toolCalls = [];
+    const rawToolPayloads = new Map();
     const citations = [];
     walk(body, (value) => {
         if (!value || typeof value !== "object" || Array.isArray(value)) return;
@@ -290,10 +291,17 @@ export function extractHostedResult(body) {
         ) {
             const name = String(value.name || value.tool_name || value.server_label || "");
             if (name || value.arguments || value.output || value.call_id) {
+                const callId = String(value.call_id || "");
+                if (callId && (value.output !== undefined || value.error !== undefined)) {
+                    rawToolPayloads.set(callId, {
+                        output: serialize(value.output),
+                        error: serialize(value.error),
+                    });
+                }
                 toolCalls.push({
                     type,
                     name,
-                    callId: String(value.call_id || ""),
+                    callId,
                     arguments: compact(value.arguments),
                     output: compact(value.output),
                     error: compact(value.error),
@@ -312,9 +320,22 @@ export function extractHostedResult(body) {
         textChunks.unshift(body.output_text);
     }
     const outputText = [...new Set(textChunks.map((text) => text.trim()).filter(Boolean))].join("\n");
-    const grounded = toolCalls.some((call) =>
+    const retrievalCalls = toolCalls.filter((call) =>
         call.name.toLowerCase().includes("knowledge_base_retrieve"),
     );
+    const retrievalAttempted = retrievalCalls.length > 0;
+    const retrievalSucceeded = retrievalCalls.some((call) => {
+        const outputCall = toolCalls.find(
+            (candidate) =>
+                candidate.type === "function_call_output" &&
+                candidate.callId &&
+                candidate.callId === call.callId,
+        );
+        const rawPayload = rawToolPayloads.get(call.callId);
+        const output = rawPayload?.output || call.output || outputCall?.output || "";
+        const error = rawPayload?.error || call.error || outputCall?.error || "";
+        return hasUsableRetrievalOutput(output, error);
+    });
     return {
         status: String(body?.status || "unknown"),
         responseId: body?.id || body?.response_id || null,
@@ -322,8 +343,30 @@ export function extractHostedResult(body) {
         parsedEvidence: parseEvidence(outputText),
         toolCalls,
         citations,
-        grounded,
+        retrievalAttempted,
+        retrievalSucceeded,
+        grounded: retrievalSucceeded,
     };
+}
+
+function hasUsableRetrievalOutput(output, error) {
+    const text = String(output || "").trim();
+    if (!text || String(error || "").trim() || /^(?:error|failed)\b/i.test(text)) return false;
+
+    try {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) return parsed.length > 0;
+        if (!parsed || typeof parsed !== "object") return Boolean(parsed);
+        if (parsed.error || parsed.status === "failed") return false;
+        for (const key of ["evidence", "results", "data", "value"]) {
+            if (Array.isArray(parsed[key])) return parsed[key].length > 0;
+        }
+        return Object.keys(parsed).length > 0;
+    } catch {
+        return !/^no (?:matching |relevant |grounded )?(?:results?|evidence|records?|documents?)\b/i.test(
+            text,
+        );
+    }
 }
 
 function parseEvidence(text) {
@@ -348,9 +391,13 @@ function parseEvidence(text) {
 }
 
 function compact(value) {
-    if (value === undefined || value === null) return "";
-    const text = typeof value === "string" ? value : JSON.stringify(value);
+    const text = serialize(value);
     return text.length > 4000 ? `${text.slice(0, 4000)}…` : text;
+}
+
+function serialize(value) {
+    if (value === undefined || value === null) return "";
+    return typeof value === "string" ? value : JSON.stringify(value);
 }
 
 function walk(value, visit, seen = new Set()) {

@@ -16,9 +16,8 @@ Open the committed presenter canvas immediately:
 - `input`: `{}`
 
 The canvas performs its own preflight. Do not run Ollama, install npm/Python
-packages, start Aspire, or open the Waypoint web app. After opening, report the
-readiness state in one sentence and stop. The presenter starts the live agent
-from the canvas with **Start live Foundry audit**.
+packages, start Aspire, or open the Waypoint web app. After opening, report the readiness state in one sentence and stop. The presenter
+starts the live agent from the canvas with **Run grounded audit**.
 
 If the canvas is not registered, call `extensions_reload`, confirm
 `project:pharmashield-foundry-demo` is ready, and open it again.
@@ -37,17 +36,23 @@ If the canvas is not registered, call `extensions_reload`, confirm
 
 ## Presenter talk track
 
-1. **Frame:** "We are skipping the fragile laptop setup and starting at the
-   production destination: Microsoft Foundry."
-2. **Inspect:** "The job is still invoice assurance. The production model and
-   instructions are hosted; Foundry IQ adds our approved contract knowledge."
-3. **Run:** Click **Start live Foundry audit**. "This is the real hosted Contract
-   Policy Expert, using my tenant identity—not a local simulation."
-4. **Prove:** Open **Live trace** after completion. "The tool call, query, returned
-   clause text, and source references are the proof that this is grounded."
-5. **Land:** "The invoice can expose its own line-math inconsistency. Foundry
-   resolves what requires enterprise context: contracted rates and packaging
-   authorization."
+1. **Promote:** "We proved the workflow locally. This is the same job, the same
+   instructions, and the same Aster Ridge invoice—promoted into Foundry."
+2. **Anatomy:** Point to Model + Instructions + Context + Memory, then Tools.
+   "Foundry adds the fifth part: approved contract knowledge through Foundry IQ."
+3. **Connect:** Open **Connection**. "Three moves: use the hosted model, connect
+   contract knowledge, and assemble the read-only evidence expert."
+4. **Run:** Return to **Chat** and click **Run grounded audit**. "This asks the same
+   question as Part 1, now with access to what we actually signed."
+5. **Prove:** Open **Trace** after completion. "The real tool call, query, returned
+   clause text, and source references prove this is retrieval, not model memory."
+6. **Hand off:** Point to the journey rail. "Waypoint governs the workflow; then
+   delivery, evaluation, optimization, and workforce governance compound the
+   value."
+
+Do not claim that packaging is unauthorized unless the live retrieved evidence
+proves it. The deployed expert is evidence-only; unresolved authorization is the
+handoff to the governed Waypoint workflow, not a demo failure.
 
 ## Readiness contract
 
