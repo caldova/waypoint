@@ -124,8 +124,16 @@ api_keys="aggregator:${writer_key}:writer;concierge:${reader_key}:reader;seed:${
 
 # Store the composed string in KV too, so the waypoint reusable deploy can read it directly
 # (GitHub Actions refuses to pass masked secret values through job outputs, so the value
-# cannot be handed across jobs — the Key Vault is the system of record). Idempotent set.
-az keyvault secret set --vault-name "$kv" --name waypoint-api-keys --value "$api_keys" -o none 2>/dev/null || true
+# cannot be handed across jobs — the Key Vault is the system of record).
+current_api_keys="$(secret_get waypoint-api-keys)"
+if [[ "$current_api_keys" == "$api_keys" ]]; then
+  log "secret waypoint-api-keys already current (reused)"
+elif az keyvault secret set --vault-name "$kv" --name waypoint-api-keys --value "$api_keys" -o none 2>/dev/null; then
+  log "reconciled secret waypoint-api-keys"
+else
+  echo "::error::could not reconcile KV secret waypoint-api-keys" >&2
+  exit 1
+fi
 
 log "vault $kv ready ($vault_uri) — writer=$(mask "$writer_key") reader=$(mask "$reader_key") admin=$(mask "$admin_key") pg=$(mask "$pg_password") pg-admin=$(mask "$pg_admin_password")"
 
