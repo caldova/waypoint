@@ -45,6 +45,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
         )
         self.assertIn("--method put", bootstrap)
         self.assertIn("/projects/${project_name}", bootstrap)
+        self.assertIn("az cognitiveservices account deployment create", bootstrap)
 
 
 if __name__ == "__main__":

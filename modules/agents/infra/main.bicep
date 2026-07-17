@@ -370,7 +370,6 @@ module aiProject 'core/ai/ai-project.bicep' = if (!useExistingAiProject) {
     principalType: principalType
     additionalAdmins: additionalAdmins
     existingAiAccountName: aiFoundryResourceName
-    deployments: aiProjectDeployments
     connections: allAiProjectConnections
     connectionCredentials: allAiProjectConnectionCreds
     additionalDependentResources: dependentResourcesWithBing

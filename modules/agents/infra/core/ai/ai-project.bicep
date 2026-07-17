@@ -11,8 +11,6 @@ var resourceToken = uniqueString(subscription().id, resourceGroup().id, location
 @description('Name of the project')
 param aiFoundryProjectName string
 
-param deployments deploymentsType
-
 @description('Id of the user or app to assign application roles')
 param principalId string
 
@@ -125,17 +123,6 @@ module applicationInsights '../monitor/applicationinsights.bicep' = if (shouldCr
 // This module owns all managed child resources and role reconciliation.
 resource aiAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' existing = {
   name: !empty(existingAiAccountName) ? existingAiAccountName : 'ai-account-${resourceToken}'
-
-  @batchSize(1)
-  resource seqDeployments 'deployments' = [
-    for dep in (deployments ?? []): {
-      name: dep.name
-      properties: {
-        model: dep.model
-      }
-      sku: dep.sku
-    }
-  ]
 
   resource project 'projects@2026-03-01' existing = {
     name: aiFoundryProjectName
@@ -455,32 +442,6 @@ output dependentResources object = {
     connectionName: hasStorageConnection ? storage!.outputs.storageConnectionName : ''
   }
 }
-
-type deploymentsType = {
-  @description('Specify the name of cognitive service account deployment.')
-  name: string
-
-  @description('Required. Properties of Cognitive Services account deployment model.')
-  model: {
-    @description('Required. The name of Cognitive Services account deployment model.')
-    name: string
-
-    @description('Required. The format of Cognitive Services account deployment model.')
-    format: string
-
-    @description('Required. The version of Cognitive Services account deployment model.')
-    version: string
-  }
-
-  @description('The resource model definition representing SKU.')
-  sku: {
-    @description('Required. The name of the resource model definition representing SKU.')
-    name: string
-
-    @description('The capacity of the resource model definition representing SKU.')
-    capacity: int
-  }
-}[]?
 
 type dependentResourcesType = {
   @description('The type of dependent resource to create')

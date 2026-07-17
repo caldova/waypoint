@@ -101,11 +101,12 @@ if ! az rest --method get --url "$project_url" --output none 2>/dev/null; then
     --output none
 fi
 
+project_ready=false
 for _ in {1..30}; do
   project_state="$(az rest --method get --url "$project_url" --query properties.provisioningState -o tsv 2>/dev/null || true)"
   if [[ "$project_state" == "Succeeded" ]]; then
-    echo "Foundry account, project, and deployment-principal roles are ready for azd reconciliation."
-    exit 0
+    project_ready=true
+    break
   fi
   if [[ "$project_state" == "Failed" ]]; then
     echo "Foundry project bootstrap entered a failed provisioning state." >&2
@@ -114,5 +115,63 @@ for _ in {1..30}; do
   sleep 10
 done
 
-echo "Timed out waiting for Foundry project bootstrap to complete." >&2
-exit 1
+if [[ "$project_ready" != "true" ]]; then
+  echo "Timed out waiting for Foundry project bootstrap to complete." >&2
+  exit 1
+fi
+
+deployments_json="$(azd_value AI_PROJECT_DEPLOYMENTS || true)"
+if [[ -z "$deployments_json" || "$deployments_json" == "[]" ]]; then
+  completion_deployment="$(azd_value AZURE_AI_MODEL_DEPLOYMENT_NAME || printf 'gpt-5.5')"
+  completion_model="$(azd_value MODEL_NAME || printf 'gpt-5.5')"
+  completion_version="$(azd_value MODEL_VERSION || printf '2026-04-24')"
+  completion_sku="$(azd_value MODEL_SKU_NAME || printf 'GlobalStandard')"
+  completion_capacity="$(azd_value MODEL_CAPACITY || printf '200')"
+  embedding_deployment="$(azd_value AZURE_AI_EMBEDDING_DEPLOYMENT_NAME || printf 'text-embedding-3-large')"
+  embedding_model="$(azd_value EMBEDDING_MODEL_NAME || printf 'text-embedding-3-large')"
+  embedding_version="$(azd_value EMBEDDING_MODEL_VERSION || printf '1')"
+  embedding_sku="$(azd_value EMBEDDING_MODEL_SKU_NAME || printf 'Standard')"
+  embedding_capacity="$(azd_value EMBEDDING_MODEL_CAPACITY || printf '50')"
+  deployments_json="$(
+    jq -n \
+      --arg completion_deployment "$completion_deployment" \
+      --arg completion_model "$completion_model" \
+      --arg completion_version "$completion_version" \
+      --arg completion_sku "$completion_sku" \
+      --argjson completion_capacity "$completion_capacity" \
+      --arg embedding_deployment "$embedding_deployment" \
+      --arg embedding_model "$embedding_model" \
+      --arg embedding_version "$embedding_version" \
+      --arg embedding_sku "$embedding_sku" \
+      --argjson embedding_capacity "$embedding_capacity" \
+      '[
+        {
+          name: $completion_deployment,
+          model: {name: $completion_model, format: "OpenAI", version: $completion_version},
+          sku: {name: $completion_sku, capacity: $completion_capacity}
+        },
+        {
+          name: $embedding_deployment,
+          model: {name: $embedding_model, format: "OpenAI", version: $embedding_version},
+          sku: {name: $embedding_sku, capacity: $embedding_capacity}
+        }
+      ]'
+  )"
+fi
+
+while IFS= read -r deployment; do
+  deployment_name="$(jq -r '.name' <<<"$deployment")"
+  echo "Reconciling model deployment directly: ${account_name}/${deployment_name}"
+  az cognitiveservices account deployment create \
+    --resource-group "$resource_group" \
+    --name "$account_name" \
+    --deployment-name "$deployment_name" \
+    --model-name "$(jq -r '.model.name' <<<"$deployment")" \
+    --model-version "$(jq -r '.model.version' <<<"$deployment")" \
+    --model-format "$(jq -r '.model.format' <<<"$deployment")" \
+    --sku-name "$(jq -r '.sku.name' <<<"$deployment")" \
+    --sku-capacity "$(jq -r '.sku.capacity' <<<"$deployment")" \
+    --output none
+done < <(jq -c '.[]' <<<"$deployments_json")
+
+echo "Foundry account, project, model deployments, and deployment-principal roles are ready for azd reconciliation."

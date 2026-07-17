@@ -123,12 +123,13 @@ second completion model. Account creation and the OIDC principal's account-level
 Foundry role assignments complete in a separate deployment. The workflow then
 creates the child project with an idempotent resource PUT before `azd`
 reconciles the full template. The Bicep reconciler declares both bootstrapped
-parents as `existing` while continuing to manage their models, roles,
+parents as `existing`. The bootstrap also reconciles model deployments through
+direct Cognitive Services resource operations; Bicep continues to manage roles,
 connections, storage, search, registry, and monitoring resources. This avoids
-the provider's `715-123420` validation rejection for account/project PUTs inside
-a complete ARM template while retaining fresh, workflow-owned resources. Do not
-silently reuse an existing Foundry account/project; that breaks
-parallel-environment isolation and makes the deployment evidence misleading.
+the provider's `715-123420` validation path for account, project, and model PUTs
+inside a complete ARM template while retaining fresh, workflow-owned resources.
+Do not silently reuse an existing Foundry account/project; that breaks parallel
+environment isolation and makes the deployment evidence misleading.
 
 ## Deployment manifest and acceptance probes
 
