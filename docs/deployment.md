@@ -122,13 +122,13 @@ Understanding reuses the shared completion deployment rather than adding a
 second completion model. Account creation and the OIDC principal's account-level
 Foundry role assignments complete in a separate deployment. The workflow then
 creates the child project with an idempotent resource PUT before `azd`
-reconciles the full template. The Bicep reconciler declares that bootstrapped
-project as `existing` while continuing to manage its models, roles, connections,
-storage, search, registry, and monitoring resources. This avoids the provider's
-`715-123420` validation rejection for a project PUT inside a complete ARM
-template while retaining a fresh, workflow-owned project. Do not silently reuse
-an existing Foundry account/project; that breaks parallel-environment isolation
-and makes the deployment evidence misleading.
+reconciles the full template. The Bicep reconciler declares both bootstrapped
+parents as `existing` while continuing to manage their models, roles,
+connections, storage, search, registry, and monitoring resources. This avoids
+the provider's `715-123420` validation rejection for account/project PUTs inside
+a complete ARM template while retaining fresh, workflow-owned resources. Do not
+silently reuse an existing Foundry account/project; that breaks
+parallel-environment isolation and makes the deployment evidence misleading.
 
 ## Deployment manifest and acceptance probes
 

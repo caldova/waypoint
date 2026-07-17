@@ -119,30 +119,12 @@ module applicationInsights '../monitor/applicationinsights.bicep' = if (shouldCr
   }
 }
 
-// Always create a new AI Account for now (simplified approach)
-// TODO: Add support for existing accounts in a future version
-resource aiAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
+// Account and project creation are bootstrapped before this template because
+// the provider rejects their PUTs during full-template ARM validation even
+// though the same direct resource PUTs succeed for the deployment principal.
+// This module owns all managed child resources and role reconciliation.
+resource aiAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' existing = {
   name: !empty(existingAiAccountName) ? existingAiAccountName : 'ai-account-${resourceToken}'
-  location: location
-  tags: tags
-  sku: {
-    name: 'S0'
-  }
-  kind: 'AIServices'
-  identity: {
-    type: 'SystemAssigned'
-  }
-  properties: {
-    allowProjectManagement: true
-    customSubDomainName: !empty(existingAiAccountName) ? existingAiAccountName : 'ai-account-${resourceToken}'
-    networkAcls: {
-      defaultAction: 'Allow'
-      virtualNetworkRules: []
-      ipRules: []
-    }
-    publicNetworkAccess: 'Enabled'
-    disableLocalAuth: true
-  }
 
   @batchSize(1)
   resource seqDeployments 'deployments' = [
@@ -155,10 +137,6 @@ resource aiAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
     }
   ]
 
-  // Project creation is bootstrapped before this template because the provider's
-  // ARM validation endpoint rejects application-owned project PUTs even though
-  // the same direct resource PUT succeeds. The full template still reconciles
-  // every project child resource and role against this existing project.
   resource project 'projects@2026-03-01' existing = {
     name: aiFoundryProjectName
   }

@@ -38,6 +38,11 @@ class AgentModelConfigurationTests(unittest.TestCase):
             "resource project 'projects@2026-03-01' existing",
             project_bicep,
         )
+        self.assertIn(
+            "resource aiAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' "
+            "existing",
+            project_bicep,
+        )
         self.assertIn("--method put", bootstrap)
         self.assertIn("/projects/${project_name}", bootstrap)
 
