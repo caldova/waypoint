@@ -30,8 +30,8 @@ build/
 *.key
 
 # Generated migration/runtime artifacts
-runs/
-outputs/
+/runs/
+/outputs/
 .rft_job.json
 *.trace.json
 *.output-items.jsonl

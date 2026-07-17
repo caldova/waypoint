@@ -1,8 +1,9 @@
 """Waypoint persistence implementations."""
 
+import asyncio
 from datetime import UTC, date, datetime
 from decimal import Decimal
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import uuid4
 
 from psycopg.rows import dict_row
@@ -329,7 +330,13 @@ class WaypointRepository(Protocol):
 
     async def create_agent_run(self, run: AgentRun) -> None: ...
 
+    async def create_or_reuse_agent_run(
+        self, run: AgentRun, active_statuses: tuple[str, ...]
+    ) -> tuple[AgentRun, bool]: ...
+
     async def update_agent_run(self, run: AgentRun) -> None: ...
+
+    async def compare_and_swap_agent_run(self, run: AgentRun, expected: AgentRun) -> bool: ...
 
     async def reap_agent_run(
         self, run: AgentRun, cutoff: datetime, reapable_statuses: tuple[str, ...]
@@ -379,6 +386,7 @@ class InMemoryWaypointRepository:
         self.authorized_intents: dict[str, AuthorizedIntent] = {}
         self.decision_audit_events: dict[str, DecisionAuditEvent] = {}
         self.agent_runs: dict[str, AgentRun] = {}
+        self._agent_run_create_lock = asyncio.Lock()
 
     async def initialize(self, load_default_seed: bool = True) -> None:
         if load_default_seed and not self.suppliers and not self.invoices:
@@ -609,8 +617,29 @@ class InMemoryWaypointRepository:
     async def create_agent_run(self, run: AgentRun) -> None:
         self.agent_runs[run.id] = run
 
+    async def create_or_reuse_agent_run(
+        self, run: AgentRun, active_statuses: tuple[str, ...]
+    ) -> tuple[AgentRun, bool]:
+        async with self._agent_run_create_lock:
+            if run.idempotency_key:
+                existing = await self.get_agent_run_by_idempotency_key(run.idempotency_key)
+                if existing is not None:
+                    return existing, False
+            active = await self.get_active_run_by_name(run.name, active_statuses)
+            if active is not None:
+                return active, False
+            self.agent_runs[run.id] = run
+            return run, True
+
     async def update_agent_run(self, run: AgentRun) -> None:
         self.agent_runs[run.id] = run
+
+    async def compare_and_swap_agent_run(self, run: AgentRun, expected: AgentRun) -> bool:
+        current = self.agent_runs.get(run.id)
+        if current is None or current.updated_at != expected.updated_at:
+            return False
+        self.agent_runs[run.id] = run
+        return True
 
     async def reap_agent_run(
         self, run: AgentRun, cutoff: datetime, reapable_statuses: tuple[str, ...]
@@ -1165,8 +1194,71 @@ class PostgresWaypointRepository:
     async def create_agent_run(self, run: AgentRun) -> None:
         await self._upsert_payload("agent_runs", run.id, run.model_dump(mode="json"))
 
+    async def create_or_reuse_agent_run(
+        self, run: AgentRun, active_statuses: tuple[str, ...]
+    ) -> tuple[AgentRun, bool]:
+        lock_keys = [f"run-name:{run.name}"]
+        if run.idempotency_key:
+            lock_keys.append(f"run-idempotency:{run.idempotency_key}")
+        async with self._pool.connection() as connection, connection.transaction():
+            for lock_key in sorted(lock_keys):
+                await connection.execute(
+                    "select pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                    (lock_key,),
+                )
+            if run.idempotency_key:
+                cursor = await connection.execute(
+                    """
+                    select payload from agent_runs
+                    where payload->>'idempotency_key' = %s
+                    order by updated_at desc limit 1
+                    """,
+                    (run.idempotency_key,),
+                )
+                row = await cursor.fetchone()
+                if row is not None:
+                    payload = cast(dict[str, Any], row)["payload"]
+                    return AgentRun(**payload), False
+            cursor = await connection.execute(
+                """
+                select payload from agent_runs
+                where payload->>'name' = %s and status = any(%s)
+                order by updated_at desc limit 1
+                """,
+                (run.name, list(active_statuses)),
+            )
+            row = await cursor.fetchone()
+            if row is not None:
+                payload = cast(dict[str, Any], row)["payload"]
+                return AgentRun(**payload), False
+            await connection.execute(
+                """
+                insert into agent_runs (id, payload, updated_at)
+                values (%s, %s, now())
+                """,
+                (run.id, Jsonb(run.model_dump(mode="json"))),
+            )
+            return run, True
+
     async def update_agent_run(self, run: AgentRun) -> None:
         await self._upsert_payload("agent_runs", run.id, run.model_dump(mode="json"))
+
+    async def compare_and_swap_agent_run(self, run: AgentRun, expected: AgentRun) -> bool:
+        expected_updated_at = expected.model_dump(mode="json")["updated_at"]
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                """
+                update agent_runs
+                set payload = %s, updated_at = now()
+                where id = %s and updated_at_payload = %s
+                """,
+                (
+                    Jsonb(run.model_dump(mode="json")),
+                    run.id,
+                    expected_updated_at,
+                ),
+            )
+        return cursor.rowcount > 0
 
     async def reap_agent_run(
         self, run: AgentRun, cutoff: datetime, reapable_statuses: tuple[str, ...]

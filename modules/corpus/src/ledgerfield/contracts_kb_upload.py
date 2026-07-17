@@ -195,7 +195,7 @@ def _run_indexer(search_endpoint: str, indexer: str, api_version: str) -> dict[s
     request = urllib.request.Request(  # noqa: S310 - trusted Azure Search URL
         url,
         method="POST",
-        headers={"Authorization": f"******", "Content-Length": "0"},
+        headers={"Authorization": f"Bearer {token}", "Content-Length": "0"},
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310

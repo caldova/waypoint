@@ -1,0 +1,108 @@
+{
+  "schema_version": "1.0",
+  "canonical_sources": {
+    "application": "apps/waypoint",
+    "corpus": "modules/corpus",
+    "agents": "modules/agents",
+    "evaluations": "modules/evals",
+    "optimization": "modules/optimization",
+    "workflow": ".github/workflows/deploy.yml"
+  },
+  "deployment": {
+    "defaults": {
+      "location": "swedencentral",
+      "app_resource_group": "rg-waypoint",
+      "state_resource_group": "rg-waypoint-state",
+      "key_vault_name": "derived as kv-waypoint-<env+sub-hash>",
+      "azd_environment": "waypoint-agents",
+      "msal_display_name": "waypoint",
+      "fabric_workspace_name": "waypoint-corpus",
+      "fabric_lakehouse_name": "corpus",
+      "fabric_capacity_name": "waypointcorpus"
+    },
+    "feature_lanes": {
+      "workiq": false,
+      "webiq": true,
+      "foundryiq": true,
+      "fabriciq": false
+    },
+    "workflow_inputs": {
+      "description": "All inputs are workflow_dispatch overrides. Omit any to use the repo-var or built-in default. Supply all parallel-env overrides together for a fully independent non-destructive parallel environment.",
+      "parallel_env_overrides": [
+        "azure_location",
+        "app_resource_group",
+        "state_resource_group",
+        "key_vault_name",
+        "msal_display_name",
+        "postgres_server_name",
+        "fabric_capacity_name",
+        "fabric_workspace_name",
+        "fabric_lakehouse_name",
+        "azd_env_name"
+      ],
+      "notes": [
+        "Key Vault is always created in state_resource_group, never the app_resource_group.",
+        "KV name includes azd_env_name in its hash so parallel environments in one subscription never share a vault.",
+        "FabricIQ is kept disabled (Waypoint__Fabric__IqEnabled=false) unless fabriciq_enabled=true is explicitly set.",
+        "WorkIQ evidence is user-scoped; headless acceptance runs do not require WorkIQ to pass."
+      ]
+    }
+  },
+  "expected_components": {
+    "container_apps": [
+      "api",
+      "web"
+    ],
+    "data": [
+      "postgres",
+      "waypoint-seed"
+    ],
+    "agents": [
+      "invoice-analyst",
+      "assurance-orchestrator",
+      "collaboration-evidence-expert",
+      "contract-policy-expert",
+      "market-evidence-expert",
+      "operations-data-expert",
+      "waypoint-recorder"
+    ],
+    "optional": [
+      "fabric-capacity",
+      "onelake-workspace",
+      "onelake-lakehouse"
+    ]
+  },
+  "probes": [
+    {
+      "name": "api-health",
+      "base": "api",
+      "path": "/health",
+      "expected_status": 200,
+      "expected_body": "Healthy",
+      "auth": "none"
+    },
+    {
+      "name": "web-root",
+      "base": "web",
+      "path": "/",
+      "expected_status": 200,
+      "auth": "none"
+    },
+    {
+      "name": "suppliers",
+      "base": "api",
+      "path": "/api/suppliers",
+      "expected_status": 200,
+      "expected_json_type": "array",
+      "auth": "api_key"
+    },
+    {
+      "name": "runs",
+      "base": "api",
+      "path": "/api/runs",
+      "expected_status": 200,
+      "expected_json_type": "array",
+      "auth": "api_key"
+    }
+  ]
+}

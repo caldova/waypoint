@@ -28,6 +28,8 @@ environment_variables:
     value: ${WAYPOINT_API_BASE_URL}
   - name: WAYPOINT_API_SCOPE
     value: ${WAYPOINT_API_SCOPE}
+  - name: WAYPOINT_API_KEY
+    value: ${WAYPOINT_WRITER_API_KEY}
   - name: APP_INSIGHTS_OPERATION_ID
     value: ${APP_INSIGHTS_OPERATION_ID}
   # ---------------------------------------------------------------------

@@ -1,20 +1,21 @@
-name: Consolidated CI (disabled)
+name: Consolidated CI
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
-jobs:
-  disabled:
-    name: Disabled for public preview
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "CI is temporarily disabled while the public preview validation path is hardened."
+permissions:
+  contents: read
 
-  # The validation jobs below are kept as the intended CI shape, but disabled for
-  # the early public preview so repository publication is not blocked by setup drift.
+concurrency:
+  group: consolidated-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
   waypoint-api:
     name: Waypoint API
-    if: ${{ false }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -32,7 +33,6 @@ jobs:
 
   waypoint-web:
     name: Waypoint web
-    if: ${{ false }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -50,7 +50,6 @@ jobs:
 
   corpus:
     name: Corpus seed
-    if: ${{ false }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -64,11 +63,11 @@ jobs:
       - run: uv sync
       - run: uv run python -m compileall -q src
       - run: uv run ledgerfield generate-waypoint-seed
-      - run: python -m json.tool data/waypoint/waypoint-seed.json > /dev/null
+      - run: uv run python -m json.tool data/waypoint/waypoint-seed.json > /dev/null
+      - run: git diff --exit-code -- data/waypoint/waypoint-seed.json
 
   agents-static:
     name: Agent static contracts
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -80,7 +79,6 @@ jobs:
 
   evals:
     name: Evaluation tooling
-    if: ${{ false }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -97,8 +95,13 @@ jobs:
 
   deploy-tooling:
     name: Deploy tooling
-    if: ${{ false }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - run: bash -n tools/deploy/scripts/*.sh
+      - run: python -m compileall -q tools/deploy/scripts
+      - run: python -m json.tool tools/deploy/deployment.manifest.json > /dev/null
+      - run: python -m unittest discover -s tools/deploy/tests -v

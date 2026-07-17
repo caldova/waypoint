@@ -23,7 +23,7 @@ from app.modules.cases.schemas import AssuranceCaseCreate
 from app.modules.cases.service import CasesService
 from app.modules.records.schemas import FindingValidationCreate
 from app.modules.records.service import WaypointService
-from app.modules.runs.schemas import AgentRunCreate
+from app.modules.runs.schemas import AgentRunCreate, AgentRunUpdate
 from app.modules.runs.service import RunsService
 
 if sys.platform == "win32":
@@ -1283,6 +1283,24 @@ async def test_agent_run_open_is_deduped_by_invoice_name(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_concurrent_agent_run_opens_reuse_one_active_anchor():
+    repository = repository_module.InMemoryWaypointRepository()
+    service = RunsService(repository)
+    create = AgentRunCreate(
+        name="assurance:INV-CONCURRENT",
+        status="running",
+        idempotency_key="open-inv-concurrent",
+    )
+
+    runs = await asyncio.gather(
+        *(service.create_agent_run(create, actor="agent") for _ in range(20))
+    )
+
+    assert len({run.id for run in runs}) == 1
+    assert len(await repository.list_agent_runs()) == 1
+
+
+@pytest.mark.asyncio
 async def test_agent_run_open_after_terminal_creates_new_run(client: AsyncClient):
     """A finalized (non-active) run does not get reused; a new open creates a fresh anchor."""
     override_settings(Settings(local_auth_enabled=True, default_seed_enabled=True))
@@ -1359,6 +1377,86 @@ async def test_agent_run_reuse_backfills_operation_id(client: AsyncClient):
     )
     assert second.json()["id"] == first_id
     assert second.json()["app_insights_operation_id"] == "op-enriched"
+
+
+@pytest.mark.asyncio
+async def test_agent_run_backfill_does_not_overwrite_concurrent_finalize():
+    """A terminal finalize racing W3 backfill wins while the correlation id is still enriched."""
+
+    class _FinalizeDuringBackfillRepo(repository_module.InMemoryWaypointRepository):
+        def __init__(self) -> None:
+            super().__init__()
+            self._finalized = False
+
+        async def compare_and_swap_agent_run(self, run, expected):
+            if not self._finalized:
+                self._finalized = True
+                current = self.agent_runs[run.id]
+                self.agent_runs[run.id] = current.model_copy(
+                    update={"status": "completed", "updated_at": datetime.now(UTC)}
+                )
+            return await super().compare_and_swap_agent_run(run, expected)
+
+    repository = _FinalizeDuringBackfillRepo()
+    await repository.initialize(load_default_seed=False)
+    service = RunsService(repository)
+    first = await service.create_agent_run(
+        AgentRunCreate(name="assurance:INV-BACKFILL-RACE"),
+        actor="backfill-test@example.com",
+    )
+
+    reused = await service.create_agent_run(
+        AgentRunCreate(
+            name=first.name,
+            app_insights_operation_id="op-concurrent-finalize",
+        ),
+        actor="backfill-test@example.com",
+    )
+
+    assert reused.status == "completed"
+    assert reused.app_insights_operation_id == "op-concurrent-finalize"
+    stored = await repository.get_agent_run(first.id)
+    assert stored is not None
+    assert stored.status == "completed"
+    assert stored.app_insights_operation_id == "op-concurrent-finalize"
+
+
+@pytest.mark.asyncio
+async def test_agent_run_finalize_preserves_concurrent_backfill():
+    """A terminal finalize retries against and preserves W3 enrichment."""
+
+    class _BackfillDuringFinalizeRepo(repository_module.InMemoryWaypointRepository):
+        def __init__(self) -> None:
+            super().__init__()
+            self._enriched = False
+
+        async def compare_and_swap_agent_run(self, run, expected):
+            if not self._enriched:
+                self._enriched = True
+                current = self.agent_runs[run.id]
+                self.agent_runs[run.id] = current.model_copy(
+                    update={
+                        "app_insights_operation_id": "op-raced-backfill",
+                        "updated_at": datetime.now(UTC),
+                    }
+                )
+            return await super().compare_and_swap_agent_run(run, expected)
+
+    repository = _BackfillDuringFinalizeRepo()
+    await repository.initialize(load_default_seed=False)
+    service = RunsService(repository)
+    opened = await service.create_agent_run(
+        AgentRunCreate(name="assurance:INV-FINALIZE-RACE"),
+        actor="finalize-test@example.com",
+    )
+
+    finalized = await service.update_agent_run(
+        opened.id, AgentRunUpdate(status="completed")
+    )
+
+    assert finalized is not None
+    assert finalized.status == "completed"
+    assert finalized.app_insights_operation_id == "op-raced-backfill"
 
 
 def test_run_reaper_ttl_defaults_above_orchestrator_bound():

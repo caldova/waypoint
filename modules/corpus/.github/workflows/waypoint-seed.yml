@@ -10,7 +10,7 @@ on:
     tags: ["v*"]
     paths:
       - "data/waypoint/invoice-decisions.json"
-      - "data/suppliers/cmo_suppliers.json"
+      - "data/suppliers/suppliers.json"
       - "data/contracts/**"
       - "data/policies/**"
       - "data/scenarios/**"
@@ -20,7 +20,7 @@ on:
   pull_request:
     paths:
       - "data/waypoint/invoice-decisions.json"
-      - "data/suppliers/cmo_suppliers.json"
+      - "data/suppliers/suppliers.json"
       - "data/contracts/**"
       - "data/policies/**"
       - "data/scenarios/**"
@@ -30,11 +30,14 @@ on:
   workflow_dispatch:
   workflow_call:
     inputs:
-      source_ref:
-        description: Git ref of THIS (ledgerfield) repo to check out. The keystone umbrella passes its ledgerfield_ref; defaults to the triggering ref for standalone runs.
-        required: false
+      source_repository:
+        description: Repository containing the corpus source. Required for cross-repository callers.
+        required: true
         type: string
-        default: ""
+      source_ref:
+        description: Git ref of the corpus repository to check out. Required for cross-repository callers.
+        required: true
+        type: string
     secrets:
       REPO_TOKEN:
         description: Token with contents:read on this repo so a cross-repo caller (keystone umbrella) can check out ledgerfield's own source. Falls back to GITHUB_TOKEN for standalone runs.
@@ -56,7 +59,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: caldova/waypoint
+          repository: ${{ inputs.source_repository || github.repository }}
           ref: ${{ inputs.source_ref || github.ref }}
           token: ${{ secrets.REPO_TOKEN || github.token }}
 

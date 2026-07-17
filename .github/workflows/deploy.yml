@@ -14,7 +14,9 @@ on:
         type: boolean
         default: true
       provision_agents:
-        description: Run azd provision for the Foundry agent project before deploying agents.
+        description: >-
+          Run azd provision for the Foundry agent project before deploying agents. Required for
+          first runs and infra changes; safe to set false when only agent code changed.
         required: false
         type: boolean
         default: true
@@ -24,12 +26,18 @@ on:
         type: boolean
         default: true
       fabric_provision_enabled:
-        description: Provision Fabric/OneLake resources. Leave off unless FabricIQ is being exercised.
+        description: >-
+          Provision Fabric/OneLake capacity, workspace, and lakehouse. Leave off unless the
+          FabricIQ data path is being exercised; FabricIQ fan-out remains disabled even when
+          this is true unless fabriciq_enabled is also set.
         required: false
         type: boolean
-        default: false
+        default: true
       workiq_enabled:
-        description: Enable the WorkIQ fan-out lane in Assurance Orchestrator.
+        description: >-
+          Enable the WorkIQ fan-out lane in Assurance Orchestrator. WorkIQ evidence runs as the
+          invoking signed-in user (UserEntraToken); headless/CI runs legitimately see no M365
+          evidence. Keep off until live Microsoft 365 access is configured.
         required: false
         type: boolean
         default: false
@@ -39,33 +47,114 @@ on:
         type: boolean
         default: true
       foundryiq_enabled:
-        description: Enable the FoundryIQ fan-out lane in Assurance Orchestrator.
+        description: >-
+          Enable the FoundryIQ fan-out lane in Assurance Orchestrator. Requires the
+          contracts-kb knowledge-base MCP connection to be present in the Foundry project.
         required: false
         type: boolean
         default: true
       fabriciq_enabled:
-        description: Enable the FabricIQ fan-out lane in Assurance Orchestrator.
+        description: >-
+          Enable the FabricIQ fan-out lane in Assurance Orchestrator. Keep off until
+          Fabric/OneLake resources and semantic data are ready. Independent of
+          fabric_provision_enabled.
         required: false
         type: boolean
         default: false
       azd_env_name:
-        description: azd environment name for the Foundry agents.
+        description: >-
+          azd environment name for the Foundry agents. Also scopes the Key Vault name so
+          parallel environments in the same subscription never share a vault.
         required: false
         type: string
         default: waypoint-agents
+      # ── Parallel-environment overrides ────────────────────────────────────────────────
+      # Supply any of these to run a fully independent, non-destructive parallel environment.
+      # Omit all of them for the default standalone deployment (backwards compatible).
+      azure_location:
+        description: >-
+          Azure region override. Falls back to the AZURE_LOCATION repo var or swedencentral.
+        required: false
+        type: string
+        default: ''
+      app_resource_group:
+        description: >-
+          App resource group for the Waypoint/Aspire deployment. Falls back to the
+          AZURE_RESOURCE_GROUP repo var or rg-waypoint. The app RG is passed to Aspire;
+          the Key Vault is always created in the state RG.
+        required: false
+        type: string
+        default: ''
+      state_resource_group:
+        description: >-
+          Separate state resource group for the deployment Key Vault. Must differ from the
+          app RG. Falls back to AZURE_STATE_RESOURCE_GROUP repo var or rg-waypoint-state.
+        required: false
+        type: string
+        default: ''
+      key_vault_name:
+        description: >-
+          Override the deployment Key Vault name. When empty, derived as
+          kv-waypoint-<env+sub-hash> so parallel environments in one subscription never
+          collide on the same vault.
+        required: false
+        type: string
+        default: ''
+      msal_display_name:
+        description: >-
+          Waypoint MSAL app registration display name. Falls back to the
+          WAYPOINT_MSAL_DISPLAY_NAME repo var or 'waypoint'. Supply a unique name for
+          parallel environments that need independent MSAL registrations.
+        required: false
+        type: string
+        default: ''
+      postgres_server_name:
+        description: >-
+          PostgreSQL Flexible Server name override. Falls back to the
+          WAYPOINT_POSTGRES_SERVER_NAME repo var or a subscription-hash derived name.
+          Supply a unique name for parallel environments to avoid reusing an existing server.
+        required: false
+        type: string
+        default: ''
+      fabric_capacity_name:
+        description: >-
+          Fabric capacity name override. Falls back to WAYPOINT_FABRIC_CAPACITY_NAME repo
+          var or the Aspire default 'waypointcorpus'. Supply a unique name for parallel
+          Fabric environments.
+        required: false
+        type: string
+        default: ''
+      fabric_workspace_name:
+        description: >-
+          Fabric workspace name override. Falls back to WAYPOINT_FABRIC_WORKSPACE_NAME
+          repo var or 'waypoint-corpus'.
+        required: false
+        type: string
+        default: ''
+      fabric_lakehouse_name:
+        description: >-
+          Fabric lakehouse name override. Falls back to WAYPOINT_FABRIC_LAKEHOUSE_NAME
+          repo var or 'corpus'.
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
   id-token: write
 
+# Each azd env name gets its own concurrency slot so parallel environments can run
+# simultaneously without cancelling each other.
 concurrency:
-  group: deploy-azure
+  group: deploy-azure-${{ inputs.azd_env_name || vars.AZD_ENV_NAME || 'waypoint-agents' }}
   cancel-in-progress: false
 
 env:
-  AZURE_LOCATION: ${{ vars.AZURE_LOCATION || 'swedencentral' }}
-  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'rg-waypoint' }}
-  AZD_ENV_NAME: ${{ inputs.azd_env_name }}
+  AZURE_LOCATION: ${{ inputs.azure_location || vars.AZURE_LOCATION || 'swedencentral' }}
+  AZURE_RESOURCE_GROUP: ${{ inputs.app_resource_group || vars.AZURE_RESOURCE_GROUP || 'rg-waypoint' }}
+  # Key Vault lives in a dedicated state RG, never the app RG.
+  STATE_RESOURCE_GROUP: ${{ inputs.state_resource_group || vars.AZURE_STATE_RESOURCE_GROUP || 'rg-waypoint-state' }}
+  AZD_ENV_NAME: ${{ inputs.azd_env_name || vars.AZD_ENV_NAME || 'waypoint-agents' }}
 
 jobs:
   validate:
@@ -82,6 +171,18 @@ jobs:
           AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
           AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          MSAL_DISPLAY_NAME: ${{ inputs.msal_display_name || vars.WAYPOINT_MSAL_DISPLAY_NAME || 'waypoint' }}
+          POSTGRES_SERVER_NAME: ${{ inputs.postgres_server_name || vars.WAYPOINT_POSTGRES_SERVER_NAME }}
+          FABRIC_CAPACITY_NAME: ${{ inputs.fabric_capacity_name || vars.WAYPOINT_FABRIC_CAPACITY_NAME || 'waypointcorpus' }}
+          FABRIC_WORKSPACE_NAME: ${{ inputs.fabric_workspace_name || vars.WAYPOINT_FABRIC_WORKSPACE_NAME || 'waypoint-corpus' }}
+          FABRIC_LAKEHOUSE_NAME: ${{ inputs.fabric_lakehouse_name || vars.WAYPOINT_FABRIC_LAKEHOUSE_NAME || 'corpus' }}
+          INPUT_APP_RESOURCE_GROUP: ${{ inputs.app_resource_group }}
+          INPUT_STATE_RESOURCE_GROUP: ${{ inputs.state_resource_group }}
+          INPUT_MSAL_DISPLAY_NAME: ${{ inputs.msal_display_name }}
+          INPUT_POSTGRES_SERVER_NAME: ${{ inputs.postgres_server_name }}
+          INPUT_FABRIC_CAPACITY_NAME: ${{ inputs.fabric_capacity_name }}
+          INPUT_FABRIC_WORKSPACE_NAME: ${{ inputs.fabric_workspace_name }}
+          INPUT_FABRIC_LAKEHOUSE_NAME: ${{ inputs.fabric_lakehouse_name }}
         run: |
           set -euo pipefail
           missing=()
@@ -93,6 +194,26 @@ jobs:
           if [ "${#missing[@]}" -gt 0 ]; then
             echo "::error::Missing required repository variables: ${missing[*]}"
             exit 1
+          fi
+          if [ "$AZURE_RESOURCE_GROUP" = "$STATE_RESOURCE_GROUP" ]; then
+            echo "::error::The app and deployment-state resource groups must differ."
+            exit 1
+          fi
+          if [ "$AZD_ENV_NAME" != "waypoint-agents" ]; then
+            missing_overrides=()
+            [ -z "$INPUT_APP_RESOURCE_GROUP" ] && missing_overrides+=("app_resource_group")
+            [ -z "$INPUT_STATE_RESOURCE_GROUP" ] && missing_overrides+=("state_resource_group")
+            [ -z "$INPUT_MSAL_DISPLAY_NAME" ] && missing_overrides+=("msal_display_name")
+            [ -z "$INPUT_POSTGRES_SERVER_NAME" ] && missing_overrides+=("postgres_server_name")
+            if [ "${{ inputs.fabric_provision_enabled }}" = "true" ]; then
+              [ -z "$INPUT_FABRIC_CAPACITY_NAME" ] && missing_overrides+=("fabric_capacity_name")
+              [ -z "$INPUT_FABRIC_WORKSPACE_NAME" ] && missing_overrides+=("fabric_workspace_name")
+              [ -z "$INPUT_FABRIC_LAKEHOUSE_NAME" ] && missing_overrides+=("fabric_lakehouse_name")
+            fi
+            if [ "${#missing_overrides[@]}" -gt 0 ]; then
+              echo "::error::Custom azd environments require explicit isolated inputs for: ${missing_overrides[*]}"
+              exit 1
+            fi
           fi
           {
             echo "azure_client_id=$AZURE_CLIENT_ID"
@@ -116,26 +237,32 @@ jobs:
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
           subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
 
-      - name: Ensure resource group
-        run: az group create --name "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
+      - name: Ensure state resource group
+        # Key Vault is created in the dedicated state RG, never the app RG.
+        run: az group create --name "$STATE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
 
       - name: Generate-once deployment secrets
         id: kv
         env:
           AZURE_CLIENT_ID: ${{ needs.validate.outputs.azure_client_id }}
           AZURE_SUBSCRIPTION_ID: ${{ needs.validate.outputs.azure_subscription_id }}
+          INPUT_KEY_VAULT_NAME: ${{ inputs.key_vault_name }}
           DEPLOY_KEY_VAULT_NAME: ${{ vars.DEPLOY_KEY_VAULT_NAME }}
         run: |
           set -euo pipefail
-          if [ -n "${DEPLOY_KEY_VAULT_NAME:-}" ]; then
+          if [ -n "${INPUT_KEY_VAULT_NAME:-}" ]; then
+            kv_name="$INPUT_KEY_VAULT_NAME"
+          elif [ -n "${DEPLOY_KEY_VAULT_NAME:-}" ]; then
             kv_name="$DEPLOY_KEY_VAULT_NAME"
           else
-            kv_hash="$(printf '%s' "$AZURE_SUBSCRIPTION_ID" | sha256sum | cut -c1-6)"
-            kv_name="kv-waypoint-${kv_hash}"
+            # Include AZD_ENV_NAME in the hash so parallel environments in the same
+            # subscription never collide on the same Key Vault.
+            env_sub_hash="$(printf '%s%s' "$AZD_ENV_NAME" "$AZURE_SUBSCRIPTION_ID" | sha256sum | cut -c1-6)"
+            kv_name="kv-waypoint-${env_sub_hash}"
           fi
           sp_object_id="$(az ad sp show --id "$AZURE_CLIENT_ID" --query id -o tsv 2>/dev/null || true)"
           KV_NAME="$kv_name" \
-            STATE_RG="$AZURE_RESOURCE_GROUP" \
+            STATE_RG="$STATE_RESOURCE_GROUP" \
             AZURE_LOCATION="$AZURE_LOCATION" \
             SP_OBJECT_ID="$sp_object_id" \
             bash tools/deploy/scripts/keyvault.sh
@@ -169,9 +296,15 @@ jobs:
         env:
           AZURE_TENANT_ID: ${{ needs.validate.outputs.azure_tenant_id }}
           MSAL_CLIENT_ID: ${{ vars.WAYPOINT_MSAL_CLIENT_ID }}
-          MSAL_DISPLAY_NAME: ${{ vars.WAYPOINT_MSAL_DISPLAY_NAME || 'waypoint' }}
+          INPUT_MSAL_DISPLAY_NAME: ${{ inputs.msal_display_name }}
+          MSAL_DISPLAY_NAME: ${{ inputs.msal_display_name || vars.WAYPOINT_MSAL_DISPLAY_NAME || 'waypoint' }}
           MSAL_ALLOWED_APP_IDS: ${{ vars.WAYPOINT_MSAL_ALLOWED_APP_IDS }}
-        run: bash tools/deploy/scripts/msal.sh ensure
+        run: |
+          set -euo pipefail
+          if [ -n "$INPUT_MSAL_DISPLAY_NAME" ]; then
+            export MSAL_CLIENT_ID=""
+          fi
+          bash tools/deploy/scripts/msal.sh ensure
 
   corpus-seed:
     name: Generate Waypoint seed
@@ -257,13 +390,26 @@ jobs:
           Waypoint__Msal__AdminAppRole: ${{ needs.msal.outputs.msal_admin_app_role }}
           Waypoint__Msal__AllowedAppIds: ${{ needs.msal.outputs.msal_allowed_app_ids }}
           Waypoint__Postgres__ProvisionEnabled: true
-          Waypoint__Postgres__ServerName: ${{ vars.WAYPOINT_POSTGRES_SERVER_NAME }}
+          Waypoint__Postgres__ServerName: ${{ inputs.postgres_server_name || vars.WAYPOINT_POSTGRES_SERVER_NAME }}
           Waypoint__Postgres__FirewallRulesJson: ${{ vars.WAYPOINT_POSTGRES_FIREWALL_RULES_JSON || '[{"name":"AllowAllAzureServicesAndResourcesWithinAzureIps","startIpAddress":"0.0.0.0","endIpAddress":"0.0.0.0"}]' }}
           Waypoint__Fabric__ProvisionEnabled: ${{ inputs.fabric_provision_enabled }}
           Waypoint__Fabric__SkuName: ${{ vars.WAYPOINT_FABRIC_SKU_NAME || 'F2' }}
           Waypoint__Fabric__AdministratorMembersJson: ${{ vars.WAYPOINT_FABRIC_ADMIN_MEMBERS_JSON || '[]' }}
+          Waypoint__Fabric__CapacityName: ${{ inputs.fabric_capacity_name || vars.WAYPOINT_FABRIC_CAPACITY_NAME }}
+          Waypoint__Fabric__WorkspaceName: ${{ inputs.fabric_workspace_name || vars.WAYPOINT_FABRIC_WORKSPACE_NAME || 'waypoint-corpus' }}
+          Waypoint__Fabric__LakehouseName: ${{ inputs.fabric_lakehouse_name || vars.WAYPOINT_FABRIC_LAKEHOUSE_NAME || 'corpus' }}
+          # FabricIQ (semantic model + Data Agent layer) is kept disabled unless explicitly
+          # requested via fabriciq_enabled. Fabric provisioning alone does not imply IQ.
+          Waypoint__Fabric__IqEnabled: ${{ inputs.fabriciq_enabled }}
         run: |
           set -euo pipefail
+          if [ "${{ inputs.fabric_provision_enabled }}" = "true" ] \
+            && [ "$Waypoint__Fabric__AdministratorMembersJson" = "[]" ]; then
+            deploy_sp_object_id="$(az ad sp show \
+              --id "${{ needs.validate.outputs.azure_client_id }}" \
+              --query id -o tsv)"
+            export Waypoint__Fabric__AdministratorMembersJson="[\"${deploy_sp_object_id}\"]"
+          fi
           pg_app="$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name postgres-app-password --query value -o tsv)"
           pg_admin="$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name postgres-admin-password --query value -o tsv)"
           api_keys="$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name waypoint-api-keys --query value -o tsv)"
@@ -311,11 +457,18 @@ jobs:
             echo "- Web: https://$web_fqdn"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  seed-import:
-    name: Import Waypoint seed
+  # ── fabric-provision ─────────────────────────────────────────────────────────
+  # Explicitly provision the Fabric workspace and lakehouse AFTER Aspire deploy.
+  # Do NOT assume `aspire deploy` runs azd hooks — it does not in CI.
+  fabric-provision:
+    name: Provision Fabric workspace and lakehouse
     runs-on: ubuntu-latest
-    if: ${{ inputs.seed_data && inputs.deploy_app }}
-    needs: [validate, keyvault, corpus-seed, deploy-app]
+    if: ${{ inputs.fabric_provision_enabled && inputs.deploy_app }}
+    needs: [validate, keyvault, deploy-app]
+    outputs:
+      onelake_workspace: ${{ steps.fabric.outputs.onelake_workspace }}
+      onelake_lakehouse: ${{ steps.fabric.outputs.onelake_lakehouse }}
+      onelake_corpus_prefix: ${{ steps.fabric.outputs.onelake_corpus_prefix }}
     steps:
       - uses: actions/checkout@v4
 
@@ -326,21 +479,57 @@ jobs:
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
           subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
 
-      - name: Download seed artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: waypoint-seed
-          path: seed
-
-      - name: Import seed
+      - name: Provision Fabric workspace and lakehouse
+        id: fabric
         env:
-          SEED_FILE: seed/modules/corpus/data/waypoint/waypoint-seed.json
-          API_FQDN: ${{ needs['deploy-app'].outputs.api_fqdn }}
-          KV_NAME: ${{ needs.keyvault.outputs.key_vault_name }}
-        run: bash tools/deploy/scripts/seed_import.sh
+          WAYPOINT_FABRIC_PROVISION_ENABLED: 'true'
+          AZURE_SUBSCRIPTION_ID: ${{ needs.validate.outputs.azure_subscription_id }}
+          WAYPOINT_FABRIC_WORKSPACE_NAME: ${{ inputs.fabric_workspace_name || vars.WAYPOINT_FABRIC_WORKSPACE_NAME || 'waypoint-corpus' }}
+          WAYPOINT_FABRIC_LAKEHOUSE_NAME: ${{ inputs.fabric_lakehouse_name || vars.WAYPOINT_FABRIC_LAKEHOUSE_NAME || 'corpus' }}
+        run: |
+          set -euo pipefail
+          # Resolve capacity name and derive the ARM resource ID expected by provision-fabric.sh.
+          cap_name="${{ inputs.fabric_capacity_name || vars.WAYPOINT_FABRIC_CAPACITY_NAME }}"
+          if [ -z "$cap_name" ]; then
+            # Match the Aspire apphost default. Parallel deployments must provide
+            # an explicit capacity name so both stages remain isolated.
+            cap_name="waypointcorpus"
+          fi
+          export WAYPOINT_FABRIC_CAPACITY_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.Fabric/capacities/${cap_name}"
+          # Grant the app managed identity (runtime OneLake reads) a workspace Member role.
+          app_mi="$(az containerapp show --name api --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query identity.principalId -o tsv 2>/dev/null || true)"
+          export WAYPOINT_FABRIC_MI_PRINCIPAL_ID="${app_mi:-}"
+          # Grant the deploy SP (corpus uploads) a workspace Member role.
+          deploy_sp="$(az ad sp show --id "${{ needs.validate.outputs.azure_client_id }}" \
+            --query id -o tsv 2>/dev/null || true)"
+          export WAYPOINT_FABRIC_DEPLOY_PRINCIPAL_ID="${deploy_sp:-}"
+          bash apps/waypoint/infra/scripts/provision-fabric.sh
 
-  deploy-agents:
-    name: Deploy ${{ matrix.agent }}
+      - name: Update API container app with OneLake coordinates
+        env:
+          ONELAKE_WORKSPACE: ${{ steps.fabric.outputs.onelake_workspace }}
+          ONELAKE_LAKEHOUSE: ${{ steps.fabric.outputs.onelake_lakehouse }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ONELAKE_WORKSPACE:-}" ]; then
+            echo "::warning::Fabric workspace id is empty; skipping APP_ONELAKE_* update."
+            exit 0
+          fi
+          az containerapp update \
+            --name api \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --set-env-vars \
+              "APP_ONELAKE_WORKSPACE=${ONELAKE_WORKSPACE}" \
+              "APP_ONELAKE_LAKEHOUSE=${ONELAKE_LAKEHOUSE}" \
+            --output none
+          echo "Updated api with APP_ONELAKE_WORKSPACE=${ONELAKE_WORKSPACE} APP_ONELAKE_LAKEHOUSE=${ONELAKE_LAKEHOUSE}"
+
+  # ── provision-agents ─────────────────────────────────────────────────────────
+  # Run azd provision ONCE. Deploy-agent matrix jobs hydrate all outputs from
+  # the exact ^<AZD_ENV_NAME>-[0-9]+$ successful subscription deployment.
+  provision-agents:
+    name: Provision Foundry infrastructure
     runs-on: ubuntu-latest
     if: |
       always() &&
@@ -349,17 +538,12 @@ jobs:
       needs.keyvault.result == 'success' &&
       (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped')
     needs: [validate, keyvault, deploy-app]
-    strategy:
-      fail-fast: false
-      matrix:
-        agent:
-          - invoice-analyst
-          - assurance-orchestrator
-          - collaboration-evidence-expert
-          - contract-policy-expert
-          - market-evidence-expert
-          - operations-data-expert
-          - waypoint-recorder
+    outputs:
+      project_endpoint: ${{ steps.endpoint.outputs.endpoint }}
+      contracts_kb_storage_account: ${{ steps.coords.outputs.storage_account }}
+      contracts_kb_container: ${{ steps.coords.outputs.container }}
+      contracts_kb_search_endpoint: ${{ steps.coords.outputs.search_endpoint }}
+      contracts_kb_indexer: ${{ steps.coords.outputs.indexer }}
     defaults:
       run:
         working-directory: modules/agents
@@ -402,7 +586,8 @@ jobs:
           azd config set auth.useAzCliAuth true
           azd config set defaults.subscription "$AZURE_SUBSCRIPTION_ID"
           azd config set alpha.deployment.stacks off
-          azd env select "$AZD_ENV_NAME" || azd env new "$AZD_ENV_NAME" --location "$AZURE_LOCATION" --subscription "$AZURE_SUBSCRIPTION_ID" --no-prompt
+          azd env select "$AZD_ENV_NAME" || azd env new "$AZD_ENV_NAME" \
+            --location "$AZURE_LOCATION" --subscription "$AZURE_SUBSCRIPTION_ID" --no-prompt
           azd env set AZURE_TENANT_ID "$AZURE_TENANT_ID"
           azd env set AZURE_SUBSCRIPTION_ID "$AZURE_SUBSCRIPTION_ID"
           azd env set AZURE_CLIENT_ID "$AZURE_CLIENT_ID"
@@ -427,13 +612,15 @@ jobs:
           azd env set ASSURANCE_ORCHESTRATOR_WEBIQ_ENABLED "${{ inputs.webiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_FOUNDRYIQ_ENABLED "${{ inputs.foundryiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_FABRICIQ_ENABLED "${{ inputs.fabriciq_enabled }}"
-          if [ -n "${AZURE_AI_PROJECT_ENDPOINT:-}" ]; then
+          # Repo-level Foundry outputs belong to the default environment. A custom
+          # azd environment must provision and hydrate its own project.
+          if [ "$AZD_ENV_NAME" = "waypoint-agents" ] && [ -n "${AZURE_AI_PROJECT_ENDPOINT:-}" ]; then
             azd env set AZURE_AI_PROJECT_ENDPOINT "$AZURE_AI_PROJECT_ENDPOINT"
           fi
-          if [ -n "${AZURE_AI_PROJECT_ID:-}" ]; then
+          if [ "$AZD_ENV_NAME" = "waypoint-agents" ] && [ -n "${AZURE_AI_PROJECT_ID:-}" ]; then
             azd env set AZURE_AI_PROJECT_ID "$AZURE_AI_PROJECT_ID"
           fi
-          if [ -n "${AZURE_AI_ACCOUNT_NAME:-}" ] && [ -n "${AZURE_AI_PROJECT_NAME:-}" ]; then
+          if [ "$AZD_ENV_NAME" = "waypoint-agents" ] && [ -n "${AZURE_AI_ACCOUNT_NAME:-}" ] && [ -n "${AZURE_AI_PROJECT_NAME:-}" ]; then
             azd env set USE_EXISTING_AI_PROJECT true
             azd env set AZURE_RESOURCE_GROUP "$AZURE_RESOURCE_GROUP"
             azd env set AZURE_AI_ACCOUNT_NAME "$AZURE_AI_ACCOUNT_NAME"
@@ -444,88 +631,891 @@ jobs:
           if [ -n "$wp_base" ]; then azd env set WAYPOINT_API_BASE_URL "$wp_base"; fi
           if [ -n "$wp_scope" ]; then azd env set WAYPOINT_API_SCOPE "$wp_scope"; fi
 
-      - name: Provision Foundry infrastructure
+      - name: Run azd provision
         if: ${{ inputs.provision_agents }}
         run: azd provision --no-prompt
         timeout-minutes: 45
 
-      - name: Resolve Foundry project endpoint
+      - name: Verify deployment outputs and resolve endpoint
         id: endpoint
+        # ┌─────────────────────────────────────────────────────────────┐
+        # │ LOAD-BEARING REGEX — DO NOT "SIMPLIFY" TO starts_with(...)  │
+        # └─────────────────────────────────────────────────────────────┘
+        # ^<env>-[0-9]+$ requires the exact env name followed only by azd's
+        # unix-timestamp suffix. A starts_with filter silently matches sibling
+        # envs where one name is a prefix of the other (e.g. 'forge' matches
+        # 'forge-demo-<ts>'), hydrating outputs from the wrong resource group.
         run: |
           set -euo pipefail
-          endpoint="$(azd env get-value AZURE_AI_PROJECT_ENDPOINT 2>/dev/null | grep -v 'not found' || true)"
-          if [ -z "$endpoint" ]; then
-            echo "::error::AZURE_AI_PROJECT_ENDPOINT is unavailable. Run with provision_agents=true or set AZURE_AI_PROJECT_ENDPOINT/AZURE_AI_PROJECT_ID repository variables."
+          DEPLOYMENT=$(az deployment sub list \
+            --query "[?properties.provisioningState=='Succeeded'].{name:name, ts:properties.timestamp}" \
+            -o json \
+            | jq -r --arg env "$AZD_ENV_NAME" '
+                map(select(.name | test("^" + $env + "-[0-9]+$")))
+                | sort_by(.ts)
+                | last
+                | .name // empty
+              ')
+          if [ -z "$DEPLOYMENT" ]; then
+            echo "::error::No succeeded azd deployment matching '^${AZD_ENV_NAME}-[0-9]+$' found. Run with provision_agents=true."
+            exit 1
+          fi
+          echo "Latest deployment: $DEPLOYMENT"
+          # Hydrate outputs so we can read AZURE_AI_PROJECT_ENDPOINT.
+          while IFS=$'\t' read -r key value; do
+            [ -z "$key" ] && continue
+            UPPER=$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]')
+            azd env set "$UPPER" "$value"
+          done < <(az deployment sub show --name "$DEPLOYMENT" \
+                    --query "properties.outputs" -o json \
+                    | jq -r 'to_entries[] | "\(.key)\t\(.value.value)"')
+          endpoint="$(azd env get-value AZURE_AI_PROJECT_ENDPOINT 2>/dev/null || true)"
+          if [ -z "$endpoint" ] || printf '%s' "$endpoint" | grep -qi 'not found'; then
+            echo "::error::AZURE_AI_PROJECT_ENDPOINT is unavailable after provisioning. Run with provision_agents=true or set AZURE_AI_PROJECT_ENDPOINT repository variable."
             exit 1
           fi
           echo "endpoint=$endpoint" >> "$GITHUB_OUTPUT"
+        timeout-minutes: 5
 
-      - name: Configure orchestrator endpoints
-        if: ${{ matrix.agent == 'assurance-orchestrator' }}
+      - name: Resolve contracts-kb coordinates
+        id: coords
+        # Surface storage/container/search-endpoint/indexer so the contracts-kb-upload
+        # job can perform an idempotent blob sync and reindex without hardcoding anything.
+        run: |
+          set -euo pipefail
+          STORAGE_ACCOUNT="$(azd env get-value AZURE_STORAGE_ACCOUNT_NAME 2>/dev/null || true)"
+          CONTAINER="$(azd env get-value AZURE_AI_SEARCH_CONTAINER_NAME 2>/dev/null || true)"
+          SEARCH_ENDPOINT="$(azd env get-value AZURE_AI_SEARCH_SERVICE_ENDPOINT 2>/dev/null || true)"
+          INDEXER="$(azd env get-value AZURE_AI_SEARCH_INDEXER_NAME 2>/dev/null || true)"
+          for var in STORAGE_ACCOUNT CONTAINER SEARCH_ENDPOINT INDEXER; do
+            eval "v=\${$var}"
+            case "$v" in *"not found"*|"ERROR"*) eval "$var=''" ;; esac
+          done
+          echo "storage_account=$STORAGE_ACCOUNT" >> "$GITHUB_OUTPUT"
+          echo "container=$CONTAINER" >> "$GITHUB_OUTPUT"
+          echo "search_endpoint=$SEARCH_ENDPOINT" >> "$GITHUB_OUTPUT"
+          echo "indexer=$INDEXER" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Foundry infrastructure"
+            echo ""
+            echo "- Project endpoint: \`${{ steps.endpoint.outputs.endpoint }}\`"
+            echo ""
+            echo "### contracts-kb coordinates"
+            echo ""
+            echo "| output | value |"
+            echo "| --- | --- |"
+            echo "| storage_account | \`${STORAGE_ACCOUNT:-<empty>}\` |"
+            echo "| container | \`${CONTAINER:-<empty>}\` |"
+            echo "| search_endpoint | \`${SEARCH_ENDPOINT:-<empty>}\` |"
+            echo "| indexer | \`${INDEXER:-<empty>}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+        timeout-minutes: 2
+
+  # ── deploy-agents ─────────────────────────────────────────────────────────────
+  # Matrix: one job per hosted agent. Each leg re-selects the azd env and
+  # hydrates all Foundry outputs from the exact ^<env>-[0-9]+$ ARM deployment —
+  # no per-leg azd provision, no shared mutable state between legs.
+  deploy-agents:
+    name: Deploy ${{ matrix.agent }}
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      inputs.deploy_agents &&
+      needs.validate.result == 'success' &&
+      needs.keyvault.result == 'success' &&
+      needs['provision-agents'].result == 'success' &&
+      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped')
+    needs: [validate, keyvault, deploy-app, provision-agents]
+    strategy:
+      fail-fast: false
+      matrix:
+        agent:
+          - invoice-analyst
+          - assurance-orchestrator
+          - collaboration-evidence-expert
+          - contract-policy-expert
+          - market-evidence-expert
+          - operations-data-expert
+          - waypoint-recorder
+    defaults:
+      run:
+        working-directory: modules/agents
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Azure Developer CLI
+        uses: Azure/setup-azd@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install azd AI Agents extension
+        run: azd ext install azure.ai.agents
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ needs.validate.outputs.azure_client_id }}
+          tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
+          subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
+
+      - name: Configure azd auth
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ needs.validate.outputs.azure_subscription_id }}
+        run: |
+          azd config set auth.useAzCliAuth true
+          azd config set defaults.subscription "$AZURE_SUBSCRIPTION_ID"
+          azd config set alpha.deployment.stacks off
+
+      - name: Select azd environment
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ needs.validate.outputs.azure_subscription_id }}
+        run: |
+          azd env new "$AZD_ENV_NAME" \
+            --location "$AZURE_LOCATION" \
+            --subscription "$AZURE_SUBSCRIPTION_ID" || \
+            azd env select "$AZD_ENV_NAME"
+
+      - name: Seed identity values
+        env:
+          AZURE_TENANT_ID: ${{ needs.validate.outputs.azure_tenant_id }}
+          AZURE_SUBSCRIPTION_ID: ${{ needs.validate.outputs.azure_subscription_id }}
+          AZURE_CLIENT_ID: ${{ needs.validate.outputs.azure_client_id }}
+        run: |
+          azd env set AZURE_TENANT_ID       "$AZURE_TENANT_ID"
+          azd env set AZURE_SUBSCRIPTION_ID "$AZURE_SUBSCRIPTION_ID"
+          azd env set AZURE_CLIENT_ID       "$AZURE_CLIENT_ID"
+          orch_bp_secret="${{ secrets.ASSURANCE_ORCHESTRATOR_BLUEPRINT_CLIENT_SECRET }}"
+          if [ -n "$orch_bp_secret" ]; then
+            azd env set ASSURANCE_ORCHESTRATOR_BLUEPRINT_CLIENT_SECRET "$orch_bp_secret"
+          fi
+          analyst_bp_secret="${{ secrets.INVOICE_ANALYST_BLUEPRINT_CLIENT_SECRET }}"
+          if [ -n "$analyst_bp_secret" ]; then
+            azd env set INVOICE_ANALYST_BLUEPRINT_CLIENT_SECRET "$analyst_bp_secret"
+          fi
+
+      - name: Hydrate azd env from last successful deployment
+        id: endpoint
+        # Reads every output from the most recent succeeded ARM deployment and copies
+        # them into the azd env. This makes provision-skipped legs behave identically
+        # to legs that just provisioned fresh infra.
+        run: |
+          set -euo pipefail
+          DEPLOYMENT=$(az deployment sub list \
+            --query "[?properties.provisioningState=='Succeeded'].{name:name, ts:properties.timestamp}" \
+            -o json \
+            | jq -r --arg env "$AZD_ENV_NAME" '
+                map(select(.name | test("^" + $env + "-[0-9]+$")))
+                | sort_by(.ts)
+                | last
+                | .name // empty
+              ')
+          if [ -z "$DEPLOYMENT" ]; then
+            echo "::error::No succeeded azd deployment matching '^${AZD_ENV_NAME}-[0-9]+$' found."
+            exit 1
+          fi
+          echo "Hydrating from deployment: $DEPLOYMENT"
+          while IFS=$'\t' read -r key value; do
+            [ -z "$key" ] && continue
+            UPPER=$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]')
+            azd env set "$UPPER" "$value"
+          done < <(az deployment sub show --name "$DEPLOYMENT" \
+                    --query "properties.outputs" -o json \
+                    | jq -r 'to_entries[] | "\(.key)\t\(.value.value)"')
+          ENDPOINT=$(azd env get-value AZURE_AI_PROJECT_ENDPOINT)
+          if [ -z "$ENDPOINT" ] || printf '%s' "$ENDPOINT" | grep -qi 'not found'; then
+            echo "::error::Deployment '$DEPLOYMENT' has no AZURE_AI_PROJECT_ENDPOINT output."
+            exit 1
+          fi
+          # The azure.ai.agent extension reads FOUNDRY_PROJECT_ENDPOINT during azd deploy.
+          azd env set FOUNDRY_PROJECT_ENDPOINT "$ENDPOINT"
+          echo "endpoint=$ENDPOINT" >> "$GITHUB_OUTPUT"
+        timeout-minutes: 2
+
+      - name: Seed Waypoint keys from Key Vault
+        # Guard on non-empty so runs without KV (e.g. repo-secret-only paths) do not
+        # shadow a local .env with empty strings.
+        env:
+          KV_NAME: ${{ needs.keyvault.outputs.key_vault_name }}
+        run: |
+          set -euo pipefail
+          writer_key="$(az keyvault secret show --vault-name "$KV_NAME" \
+            --name waypoint-writer-key --query value -o tsv 2>/dev/null || true)"
+          reader_key="$(az keyvault secret show --vault-name "$KV_NAME" \
+            --name waypoint-reader-key --query value -o tsv 2>/dev/null || true)"
+          if [ -n "$writer_key" ]; then
+            echo "::add-mask::$writer_key"
+            azd env set WAYPOINT_WRITER_API_KEY "$writer_key"
+          fi
+          if [ -n "$reader_key" ]; then
+            echo "::add-mask::$reader_key"
+            azd env set WAYPOINT_READER_API_KEY "$reader_key"
+          fi
+
+      - name: Seed API base URL, scope, and lane flags
+        env:
+          WAYPOINT_API_BASE_URL_FROM_APP: ${{ needs['deploy-app'].outputs.api_base_url }}
+          WAYPOINT_API_SCOPE_FROM_APP: ${{ needs['deploy-app'].outputs.api_default_scope }}
+        run: |
+          set -euo pipefail
+          WP_BASE="${WAYPOINT_API_BASE_URL_FROM_APP:-}"
+          if [ -z "$WP_BASE" ]; then WP_BASE="${{ vars.WAYPOINT_API_BASE_URL }}"; fi
+          if [ -n "$WP_BASE" ]; then azd env set WAYPOINT_API_BASE_URL "$WP_BASE"; fi
+          WP_SCOPE="${WAYPOINT_API_SCOPE_FROM_APP:-}"
+          if [ -z "$WP_SCOPE" ]; then WP_SCOPE="${{ vars.WAYPOINT_API_SCOPE }}"; fi
+          if [ -n "$WP_SCOPE" ]; then azd env set WAYPOINT_API_SCOPE "$WP_SCOPE"; fi
+          # lane flags
+          azd env set ASSURANCE_ORCHESTRATOR_WORKIQ_ENABLED    "${{ inputs.workiq_enabled }}"
+          azd env set ASSURANCE_ORCHESTRATOR_WEBIQ_ENABLED     "${{ inputs.webiq_enabled }}"
+          azd env set ASSURANCE_ORCHESTRATOR_FOUNDRYIQ_ENABLED "${{ inputs.foundryiq_enabled }}"
+          azd env set ASSURANCE_ORCHESTRATOR_FABRICIQ_ENABLED  "${{ inputs.fabriciq_enabled }}"
+          # WorkIQ: user-scoped M365 MCP servers (no key — AgenticIdentity)
+          azd env set WORKIQ_EMAIL_MCP_SERVER_URL "${{ vars.WORKIQ_EMAIL_MCP_SERVER_URL }}"
+          azd env set WORKIQ_TEAMS_MCP_SERVER_URL "${{ vars.WORKIQ_TEAMS_MCP_SERVER_URL }}"
+          azd env set WORKIQ_SHAREPOINT_MCP_SERVER_URL "${{ vars.WORKIQ_SHAREPOINT_MCP_SERVER_URL || vars.WORKIQ_MCP_SERVER_URL }}"
+          azd env set WORKIQ_MCP_SERVER_URL "${{ vars.WORKIQ_MCP_SERVER_URL }}"
+          if [ -n "${{ vars.WORKIQ_MCP_SCOPE }}" ]; then
+            azd env set WORKIQ_MCP_SCOPE "${{ vars.WORKIQ_MCP_SCOPE }}"
+          fi
+          # FabricIQ: operational data connection (plain repo vars — must be re-seeded per leg)
+          azd env set FABRIC_DATA_AGENT_CONNECTION_NAME "${{ vars.FABRIC_DATA_AGENT_CONNECTION_NAME || 'waypoint-data-agent-connection' }}"
+          azd env set FABRIC_MIRRORED_SQL_ENDPOINT "${{ vars.FABRIC_MIRRORED_SQL_ENDPOINT }}"
+          azd env set FABRIC_MIRRORED_DATABASE "${{ vars.FABRIC_MIRRORED_DATABASE }}"
+          azd env set FABRIC_MIRRORED_SCHEMA "${{ vars.FABRIC_MIRRORED_SCHEMA || '_public' }}"
+          # Content understanding
+          azd env set CONTENT_UNDERSTANDING_API_VERSION "2025-11-01"
+          azd env set CONTENT_UNDERSTANDING_ANALYZER_ID "prebuilt-invoice"
+          azd env set CONTENT_UNDERSTANDING_SCOPE "https://cognitiveservices.azure.com/.default"
+          azd env set CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME "${{ vars.CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME || 'gpt-4.1' }}"
+          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME "${{ vars.CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME || 'gpt-4.1' }}"
+          # Search (allow pre-existing connection bypass)
+          ENABLE_SEARCH_VAL="${{ vars.ENABLE_SEARCH || 'true' }}"
+          azd env set ENABLE_SEARCH "$ENABLE_SEARCH_VAL"
+          if [ "$ENABLE_SEARCH_VAL" = "false" ]; then
+            azd env set AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME "${{ vars.AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME || 'kb-mcp-connection' }}"
+            azd env set AZURE_AI_SEARCH_CONNECTION_NAME "${{ vars.AZURE_AI_SEARCH_CONNECTION_NAME || 'azure-ai-search-connection' }}"
+          fi
+
+      - name: Wire assurance-orchestrator pipeline endpoints
+        # Compute expert Responses endpoints from the project endpoint rather than
+        # letting keystone reach across repos. Stable names are the canonical
+        # hosted-agent name under <project_endpoint>/agents/<name>.
+        if: matrix.agent == 'assurance-orchestrator'
         env:
           FOUNDRY_PROJECT_ENDPOINT: ${{ steps.endpoint.outputs.endpoint }}
         run: |
           set -euo pipefail
           base="${FOUNDRY_PROJECT_ENDPOINT%/}"
-          azd env set WORKIQ_EXPERT_ENDPOINT "$base/agents/collaboration-evidence-expert"
-          azd env set WEBIQ_EXPERT_ENDPOINT "$base/agents/market-evidence-expert"
-          azd env set FOUNDRYIQ_EXPERT_ENDPOINT "$base/agents/contract-policy-expert"
-          azd env set FABRICIQ_EXPERT_ENDPOINT "$base/agents/operations-data-expert"
-          azd env set WAYPOINT_RECORDER_ENDPOINT "$base/agents/waypoint-recorder"
+          if [ -z "$base" ] || printf '%s' "$base" | grep -qi 'not found'; then
+            echo "::error::FOUNDRY_PROJECT_ENDPOINT empty; cannot wire orchestrator endpoints."
+            exit 1
+          fi
+          set_ep() { local url="${base}/agents/${2}"; azd env set "$1" "$url"; echo "  $1=$url"; }
+          echo "Wiring assurance-orchestrator fan-out endpoints from ${base}:"
+          set_ep WORKIQ_EXPERT_ENDPOINT         collaboration-evidence-expert
+          set_ep WEBIQ_EXPERT_ENDPOINT          market-evidence-expert
+          set_ep FOUNDRYIQ_EXPERT_ENDPOINT      contract-policy-expert
+          set_ep FABRICIQ_EXPERT_ENDPOINT       operations-data-expert
+          set_ep WAYPOINT_RECORDER_ENDPOINT     waypoint-recorder
+          azd env set ASSURANCE_ORCHESTRATOR_EXPERT_INVOCATION_MODE responses
+          azd env set ASSURANCE_ORCHESTRATOR_EXPERT_PROJECT_ENDPOINT ""
+          azd env set ASSURANCE_ORCHESTRATOR_EXPERT_MODEL ""
+        timeout-minutes: 2
 
-      - name: Create FoundryIQ toolbox
-        if: ${{ matrix.agent == 'contract-policy-expert' }}
+      - name: Create / update Foundry toolbox for ${{ matrix.agent }}
+        id: toolbox
+        # market-evidence-expert uses Foundry-native web search — no toolbox.
+        # operations-data-expert binds the Fabric data agent in main.py, not via toolbox.
+        # collaboration-evidence-expert uses the STABLE name 'collaboration-evidence-tools'
+        # (server_label must be stable — renaming = drop + add → hard deploy failure).
+        if: ${{ matrix.agent != 'market-evidence-expert' && matrix.agent != 'operations-data-expert' }}
+        continue-on-error: ${{ matrix.agent != 'collaboration-evidence-expert' && matrix.agent != 'contract-policy-expert' && matrix.agent != 'invoice-analyst' }}
         env:
-          FOUNDRY_PROJECT_ENDPOINT: ${{ steps.endpoint.outputs.endpoint }}
+          PROJECT_ENDPOINT: ${{ steps.endpoint.outputs.endpoint }}
         run: |
-          set -euo pipefail
           python -m pip install --quiet 'azure-ai-projects>=2.1.0,<3' azure-identity
-          kb_mcp="$(azd env get-value AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME 2>/dev/null | grep -v 'not found' || true)"
-          if [ -z "$kb_mcp" ]; then
-            echo "::error::AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME is missing; FoundryIQ cannot be deployed with its contracts knowledge-base toolbox."
+          KB_MCP_CONN_NAME="$(azd env get-value AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME 2>/dev/null || true)"
+          AI_SEARCH_CONN_NAME="$(azd env get-value AZURE_AI_SEARCH_CONNECTION_NAME 2>/dev/null || true)"
+          RC_KB_MCP_CONN_NAME="${{ vars.RELEASE_CAPTAIN_KB_MCP_CONNECTION_NAME }}"
+          case "$KB_MCP_CONN_NAME" in *"not found"*|"") KB_MCP_CONN_NAME="" ;; esac
+          case "$AI_SEARCH_CONN_NAME" in *"not found"*|"") AI_SEARCH_CONN_NAME="" ;; esac
+          TOOLBOX_NAME_ARG=()
+          if [ "${{ matrix.agent }}" = "collaboration-evidence-expert" ]; then
+            TOOLBOX_NAME_ARG=(--toolbox-name collaboration-evidence-tools)
+          fi
+          FOUNDRY_PROJECT_ENDPOINT="$PROJECT_ENDPOINT" \
+          GH_MCP_CONNECTION_ID="${{ vars.GH_MCP_CONNECTION_ID }}" \
+          GH_MCP_PAT="${{ secrets.GH_MCP_PAT }}" \
+          ADO_MCP_CONNECTION_ID="${{ vars.ADO_MCP_CONNECTION_ID }}" \
+          OUTLOOK_MCP_CONNECTION_ID="${{ vars.OUTLOOK_MCP_CONNECTION_ID }}" \
+          AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME="$KB_MCP_CONN_NAME" \
+          RELEASE_CAPTAIN_KB_MCP_CONNECTION_NAME="$RC_KB_MCP_CONN_NAME" \
+          AZURE_AI_SEARCH_CONNECTION_NAME="$AI_SEARCH_CONN_NAME" \
+            python scripts/create_toolbox.py --agent "${{ matrix.agent }}" "${TOOLBOX_NAME_ARG[@]}" \
+            | tee toolbox.log
+          ENDPOINT=$(grep '^TOOLBOX_MCP_ENDPOINT=' toolbox.log | cut -d= -f2-)
+          if [ -z "$ENDPOINT" ]; then
+            echo "::error::Toolbox script did not emit TOOLBOX_MCP_ENDPOINT"
             exit 1
           fi
-          AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME="$kb_mcp" \
-            python scripts/create_toolbox.py --agent contract-policy-expert | tee /tmp/toolbox.log
-          endpoint="$(grep '^TOOLBOX_MCP_ENDPOINT=' /tmp/toolbox.log | cut -d= -f2-)"
-          if [ -z "$endpoint" ]; then
-            echo "::error::Toolbox script did not emit TOOLBOX_MCP_ENDPOINT."
-            exit 1
+          if [ "${{ matrix.agent }}" = "collaboration-evidence-expert" ]; then
+            azd env set WORKIQ_TOOLBOX_NAME "collaboration-evidence-tools"
+            azd env set WORKIQ_TOOLBOX_MCP_ENDPOINT "$ENDPOINT"
+          else
+            azd env set TOOLBOX_MCP_ENDPOINT "$ENDPOINT"
           fi
-          azd env set TOOLBOX_MCP_ENDPOINT "$endpoint"
+        timeout-minutes: 5
 
-      - name: Deploy hosted agent
+      - name: Deploy ${{ matrix.agent }}
         run: |
           set +e
           max_attempts=3
           attempt=1
-          while [ "$attempt" -le "$max_attempts" ]; do
+          while [ $attempt -le $max_attempts ]; do
             echo "::group::azd deploy ${{ matrix.agent }} attempt $attempt / $max_attempts"
-            azd deploy "${{ matrix.agent }}" --no-prompt 2>&1 | tee /tmp/azd-deploy.log
+            azd deploy "${{ matrix.agent }}" --no-prompt 2>&1 | tee azd-deploy.log
             azd_exit=${PIPESTATUS[0]}
             echo "::endgroup::"
-            if [ "$azd_exit" -eq 0 ]; then
+            if [ $azd_exit -eq 0 ]; then
+              echo "::notice::Deploy succeeded on attempt $attempt"
               exit 0
             fi
-            if grep -qE "(InvalidRange|streaming remote build logs \(HTTP 416\)|failed retrieving package result details|failed to get tenant ID for subscription)" /tmp/azd-deploy.log; then
+            if grep -qE "(InvalidRange|streaming remote build logs \(HTTP 416\)|failed retrieving package result details)" azd-deploy.log; then
+              echo "::warning::Transient ACR log-streaming flake on attempt $attempt — retrying"
               attempt=$((attempt + 1))
               sleep $((10 * attempt))
               continue
             fi
+            if grep -qE "(failed to get tenant ID for subscription|failed to resolve user .* access to subscription)" azd-deploy.log; then
+              az account show -o none 2>/dev/null || true
+              az account set --subscription "${{ needs.validate.outputs.azure_subscription_id }}" 2>/dev/null || true
+              attempt=$((attempt + 1))
+              sleep $((10 * attempt))
+              continue
+            fi
+            echo "::error::azd deploy failed with a non-transient error"
             exit "$azd_exit"
           done
+          echo "::error::azd deploy failed after $max_attempts attempts"
           exit 1
         timeout-minutes: 45
 
       - name: Deployment summary
         if: always()
+        env:
+          FOUNDRY_ENDPOINT: ${{ steps.endpoint.outputs.endpoint }}
         run: |
           {
-            echo "## Hosted agent"
+            echo "## Hosted agent: ${{ matrix.agent }}"
             echo ""
-            echo "- Agent: \`${{ matrix.agent }}\`"
-            echo "- Project endpoint: \`${{ steps.endpoint.outputs.endpoint }}\`"
+            echo "- Project endpoint: \`${FOUNDRY_ENDPOINT:-<unavailable>}\`"
             if [ "${{ matrix.agent }}" = "assurance-orchestrator" ]; then
               echo "- Fan-out lanes: WorkIQ=${{ inputs.workiq_enabled }}, WebIQ=${{ inputs.webiq_enabled }}, FoundryIQ=${{ inputs.foundryiq_enabled }}, FabricIQ=${{ inputs.fabriciq_enabled }}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── onelake-upload ────────────────────────────────────────────────────────────
+  # Idempotent upload of the ledgerfield corpus (Files + Delta tables) to the
+  # provisioned Fabric OneLake lakehouse. Gated on successful Fabric provisioning.
+  onelake-upload:
+    name: Upload corpus to OneLake
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      inputs.fabric_provision_enabled &&
+      inputs.seed_data &&
+      inputs.deploy_app &&
+      needs['fabric-provision'].result == 'success' &&
+      needs['corpus-seed'].result == 'success'
+    needs: [validate, fabric-provision, corpus-seed]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ needs.validate.outputs.azure_client_id }}
+          tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
+          subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
+
+      - name: Upload corpus to OneLake
+        working-directory: modules/corpus
+        env:
+          ONELAKE_WORKSPACE: ${{ needs['fabric-provision'].outputs.onelake_workspace }}
+          ONELAKE_LAKEHOUSE: ${{ needs['fabric-provision'].outputs.onelake_lakehouse }}
+          ONELAKE_CORPUS_PREFIX: ${{ needs['fabric-provision'].outputs.onelake_corpus_prefix }}
+        run: |
+          set -euo pipefail
+          uv sync
+          uv run ledgerfield upload-onelake \
+            --workspace "$ONELAKE_WORKSPACE" \
+            --lakehouse "$ONELAKE_LAKEHOUSE" \
+            --corpus-prefix "${ONELAKE_CORPUS_PREFIX:-Files/corpus}"
+
+  # ── contracts-kb-upload ───────────────────────────────────────────────────────
+  # Idempotent blob sync of supplier contracts into the contracts-kb Search
+  # knowledge source, followed by an immediate reindex. Gated on FoundryIQ and
+  # resolved storage coordinates from provision-agents.
+  contracts-kb-upload:
+    name: Upload contracts to knowledge base
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      inputs.foundryiq_enabled &&
+      inputs.deploy_agents &&
+      needs['provision-agents'].result == 'success' &&
+      needs['provision-agents'].outputs.contracts_kb_storage_account != ''
+    needs: [validate, provision-agents]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ needs.validate.outputs.azure_client_id }}
+          tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
+          subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
+
+      - name: Upload contracts to knowledge base
+        working-directory: modules/corpus
+        env:
+          CONTRACTS_KB_STORAGE_ACCOUNT: ${{ needs['provision-agents'].outputs.contracts_kb_storage_account }}
+          CONTRACTS_KB_CONTAINER: ${{ needs['provision-agents'].outputs.contracts_kb_container }}
+          CONTRACTS_KB_SEARCH_ENDPOINT: ${{ needs['provision-agents'].outputs.contracts_kb_search_endpoint }}
+          CONTRACTS_KB_INDEXER: ${{ needs['provision-agents'].outputs.contracts_kb_indexer }}
+        run: |
+          set -euo pipefail
+          uv sync
+          uv run ledgerfield upload-contracts-kb \
+            --storage-account "$CONTRACTS_KB_STORAGE_ACCOUNT" \
+            --container "${CONTRACTS_KB_CONTAINER:-knowledge}" \
+            --search-endpoint "${CONTRACTS_KB_SEARCH_ENDPOINT:-}" \
+            --indexer "${CONTRACTS_KB_INDEXER:-contracts-ks-indexer}"
+
+  # ── seed-import ───────────────────────────────────────────────────────────────
+  # Wait for OneLake upload when Fabric is enabled so the seed references data
+  # that is already in the lake. When Fabric is disabled, onelake-upload is
+  # skipped and the 'skipped' result satisfies the gate below.
+  seed-import:
+    name: Import Waypoint seed
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      inputs.seed_data &&
+      inputs.deploy_app &&
+      needs['deploy-app'].result == 'success' &&
+      needs['corpus-seed'].result == 'success' &&
+      needs.keyvault.result == 'success' &&
+      (needs['onelake-upload'].result == 'success' || needs['onelake-upload'].result == 'skipped')
+    needs: [validate, keyvault, corpus-seed, deploy-app, onelake-upload]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ needs.validate.outputs.azure_client_id }}
+          tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
+          subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
+
+      - name: Download seed artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: waypoint-seed
+          path: seed
+
+      - name: Import seed
+        env:
+          SEED_FILE: seed/modules/corpus/data/waypoint/waypoint-seed.json
+          API_FQDN: ${{ needs['deploy-app'].outputs.api_fqdn }}
+          KV_NAME: ${{ needs.keyvault.outputs.key_vault_name }}
+        run: bash tools/deploy/scripts/seed_import.sh
+
+  # ── acceptance ────────────────────────────────────────────────────────────────
+  # Final gate: HTTP probes via verify_deployment.py + Container App inventory.
+  # Reader key is read from KV and masked immediately; never printed or uploaded.
+  # WorkIQ is user-scoped and excluded from required health checks. Disabled lanes
+  # are reported explicitly in the evidence rather than pretending they passed.
+  acceptance:
+    name: Acceptance and evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: |
+      always() &&
+      inputs.deploy_app &&
+      needs['deploy-app'].result == 'success'
+    needs:
+      - validate
+      - keyvault
+      - deploy-app
+      - fabric-provision
+      - provision-agents
+      - deploy-agents
+      - onelake-upload
+      - contracts-kb-upload
+      - seed-import
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ needs.validate.outputs.azure_client_id }}
+          tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
+          subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
+
+      - name: Run HTTP probes and build evidence
+        id: evidence
+        env:
+          KV_NAME: ${{ needs.keyvault.outputs.key_vault_name }}
+          API_BASE_URL: ${{ needs['deploy-app'].outputs.api_base_url }}
+          WEB_BASE_URL: ${{ needs['deploy-app'].outputs.web_base_url }}
+          PROJECT_ENDPOINT: ${{ needs['provision-agents'].outputs.project_endpoint }}
+          FABRIC_PROVISION_RESULT: ${{ needs['fabric-provision'].result }}
+          AGENT_DEPLOY_RESULT: ${{ needs['deploy-agents'].result }}
+          ONELAKE_UPLOAD_RESULT: ${{ needs['onelake-upload'].result }}
+          CONTRACTS_KB_UPLOAD_RESULT: ${{ needs['contracts-kb-upload'].result }}
+          SEED_IMPORT_RESULT: ${{ needs['seed-import'].result }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          reader_key="$(az keyvault secret show --vault-name "$KV_NAME" \
+            --name waypoint-reader-key --query value -o tsv 2>/dev/null || true)"
+          echo "::add-mask::$reader_key"
+
+          # Seed an empty probe report so evidence_builder.py always has a file to read.
+          echo '{"schema_version":"1.0","source_manifest":"tools/deploy/deployment.manifest.json","results":[],"passed":false}' \
+            > probe-results.json
+
+          # Run HTTP acceptance probes. Exit code is 1 when probes fail — capture it and
+          # re-raise at the end so evidence is always built and uploaded first.
+          probe_exit=0
+          python3 tools/deploy/scripts/verify_deployment.py \
+            --manifest tools/deploy/deployment.manifest.json \
+            --api-base-url "$API_BASE_URL" \
+            --web-base-url "$WEB_BASE_URL" \
+            --api-key "$reader_key" \
+            --require-authenticated \
+            --output probe-results.json || probe_exit=$?
+
+          # Inventory deployed Container Apps (sanitized — names only, no secrets).
+          container_apps="$(az containerapp list \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query "[].name" -o json 2>/dev/null || echo '[]')"
+
+          # Query Foundry itself instead of treating the manifest as proof that
+          # the declared agents were deployed.
+          inventory_result="skipped"
+          if [ "${{ inputs.deploy_agents }}" = "true" ]; then
+            if [ -z "$PROJECT_ENDPOINT" ]; then
+              echo "::error::Foundry project endpoint is unavailable for live inventory."
+              printf '[]' > live-agents.json
+              inventory_result="failed"
+            else
+              access_token="$(az account get-access-token \
+                --resource https://ai.azure.com \
+                --query accessToken -o tsv)"
+              inventory_exit=0
+              PROJECT_ENDPOINT="$PROJECT_ENDPOINT" ACCESS_TOKEN="$access_token" python3 - <<'PYEOF' || inventory_exit=$?
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+
+          endpoint = os.environ["PROJECT_ENDPOINT"].rstrip("/")
+          token = os.environ["ACCESS_TOKEN"]
+          params = {"api-version": "2025-11-15-preview", "limit": "100"}
+          names = []
+          while True:
+              url = f"{endpoint}/agents?{urllib.parse.urlencode(params)}"
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Foundry-Features": "AgentEndpoints=V1Preview,HostedAgents=V1Preview",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  body = json.load(response)
+              items = (
+                  body
+                  if isinstance(body, list)
+                  else body.get("data") or body.get("value") or []
+              )
+              names.extend(
+                  item.get("name") or item.get("id")
+                  for item in items
+                  if isinstance(item, dict) and (item.get("name") or item.get("id"))
+              )
+              if not (
+                  isinstance(body, dict)
+                  and body.get("has_more")
+                  and body.get("last_id")
+              ):
+                  break
+              params["after"] = str(body["last_id"])
+          agents = []
+          for name in sorted(set(names)):
+              url = (
+                  f"{endpoint}/agents/{urllib.parse.quote(name, safe='')}"
+                  "?api-version=2025-11-15-preview"
+              )
+              request = urllib.request.Request(
+                  url,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Foundry-Features": "AgentEndpoints=V1Preview,HostedAgents=V1Preview",
+                  },
+              )
+              with urllib.request.urlopen(request, timeout=60) as response:
+                  detail = json.load(response)
+              latest = (detail.get("versions") or {}).get("latest") or {}
+              agents.append(
+                  {
+                      "name": name,
+                      "version": latest.get("version"),
+                      "status": latest.get("status"),
+                  }
+              )
+          with open("live-agents.json", "w", encoding="utf-8") as handle:
+              json.dump(agents, handle)
+          PYEOF
+              unset access_token
+              if [ "$inventory_exit" -eq 0 ]; then
+                inventory_result="success"
+              else
+                echo "::error::Unable to query live Foundry agent inventory."
+                printf '[]' > live-agents.json
+                inventory_result="failed"
+              fi
+            fi
+          else
+            printf '[]' > live-agents.json
+          fi
+
+          # Drive a real invoice through the hosted orchestrator, then verify the
+          # recorder finalized the governed Waypoint run.
+          e2e_result="skipped"
+          printf '{"passed":false,"status":"skipped"}\n' > e2e-run.json
+          if [ "${{ inputs.deploy_agents }}" = "true" ] \
+            && [ "${{ inputs.seed_data }}" = "true" ] \
+            && [ "$AGENT_DEPLOY_RESULT" = "success" ] \
+            && [ "$SEED_IMPORT_RESULT" = "success" ] \
+            && [ "$inventory_result" = "success" ]; then
+            run_watermark="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            python3 -m pip install --quiet requests azure-identity
+            drive_exit=0
+            python3 modules/agents/scripts/drive_hosted_agent.py \
+              assurance-orchestrator \
+              --project-endpoint "$PROJECT_ENDPOINT" \
+              --input "Run the full invoice-assurance review for invoice INV-SUP-001-2026-10." \
+              --poll-timeout 2100 \
+              --poll-interval 10 \
+              > orchestrator-response.txt || drive_exit=$?
+            rm -f orchestrator-response.txt
+            if [ "$drive_exit" -eq 0 ]; then
+              verify_exit=0
+              python3 tools/deploy/scripts/verify_terminal_run.py \
+                --api-base-url "$API_BASE_URL" \
+                --api-key "$reader_key" \
+                --invoice-id INV-SUP-001-2026-10 \
+                --updated-after "$run_watermark" \
+                --output e2e-run.json || verify_exit=$?
+              if [ "$verify_exit" -eq 0 ]; then
+                e2e_result="success"
+              else
+                e2e_result="failed"
+              fi
+            else
+              e2e_result="failed"
+              E2E_DRIVE_EXIT="$drive_exit" python3 - <<'PYEOF'
+          import json
+          import os
+
+          with open("e2e-run.json", "w", encoding="utf-8") as handle:
+              json.dump(
+                  {
+                      "passed": False,
+                      "status": "failed",
+                      "detail": (
+                          "Hosted assurance-orchestrator invocation failed with exit "
+                          + os.environ["E2E_DRIVE_EXIT"]
+                      ),
+                  },
+                  handle,
+                  indent=2,
+                  sort_keys=True,
+              )
+          PYEOF
+            fi
+          fi
+
+          # Lane status: WorkIQ is user-scoped (not a headless health-check requirement).
+          lane_json='{"workiq":${{ inputs.workiq_enabled }},"webiq":${{ inputs.webiq_enabled }},"foundryiq":${{ inputs.foundryiq_enabled }},"fabriciq":${{ inputs.fabriciq_enabled }}}'
+
+          # Write evidence builder inline (no /tmp — workspace root is fine).
+          cat > evidence_builder.py << 'PYEOF'
+          import json, sys, os, datetime
+          sha = sys.argv[1]
+          env_name = sys.argv[2]
+          probes = json.load(open("probe-results.json"))
+          e2e_run = json.load(open("e2e-run.json"))
+          container_apps = json.loads(os.environ["CONTAINER_APPS"])
+          live_agents = json.loads(os.environ["LIVE_AGENTS"])
+          live_agent_names = [
+              agent.get("name") for agent in live_agents if isinstance(agent, dict)
+          ]
+          lane_status = json.loads(os.environ["LANE_JSON"])
+          manifest = json.load(open("tools/deploy/deployment.manifest.json"))
+          declared_agents = manifest.get("expected_components", {}).get("agents", [])
+          disabled_lanes = [k for k, v in lane_status.items() if not v]
+          evidence = {
+              "schema_version": probes.get("schema_version", "1.0"),
+              "commit_sha": sha,
+              "environment": env_name,
+              "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
+              "http_probes": probes.get("results", []),
+              "http_probes_passed": probes.get("passed", False),
+              "end_to_end_run": e2e_run,
+              "container_apps_deployed": sorted(container_apps),
+              "declared_agents": declared_agents,
+              "live_agents": live_agents,
+              "stages": {
+                  "fabric_provision": os.environ["FABRIC_PROVISION_RESULT"],
+                  "agent_deploy": os.environ["AGENT_DEPLOY_RESULT"],
+                  "agent_inventory": os.environ["AGENT_INVENTORY_RESULT"],
+                  "onelake_upload": os.environ["ONELAKE_UPLOAD_RESULT"],
+                  "contracts_kb_upload": os.environ["CONTRACTS_KB_UPLOAD_RESULT"],
+                  "seed_import": os.environ["SEED_IMPORT_RESULT"],
+                  "end_to_end_run": os.environ["E2E_RESULT"],
+              },
+              "lane_status": lane_status,
+              "disabled_lanes": disabled_lanes,
+              "passed": False,
+          }
+          issues = []
+          failed_probes = [r for r in evidence["http_probes"] if r.get("status") == "failed"]
+          if failed_probes:
+              issues.append("Failed HTTP probes: " + str([r["name"] for r in failed_probes]))
+          required_apps = {"api", "web"}
+          missing_apps = required_apps - set(evidence["container_apps_deployed"])
+          if missing_apps:
+              issues.append("Missing required Container Apps: " + str(sorted(missing_apps)))
+          if os.environ["DEPLOY_AGENTS_ENABLED"] == "true":
+              if os.environ["AGENT_INVENTORY_RESULT"] != "success":
+                  issues.append("Foundry live agent inventory query failed.")
+              missing_agents = sorted(set(declared_agents) - set(live_agent_names))
+              if missing_agents:
+                  issues.append(
+                      "Foundry live inventory is missing declared agents: "
+                      + ", ".join(missing_agents)
+                  )
+              inactive_agents = sorted(
+                  agent["name"]
+                  for agent in live_agents
+                  if agent.get("name") in declared_agents
+                  and agent.get("status") != "active"
+              )
+              if inactive_agents:
+                  issues.append(
+                      "Foundry agents are not active: " + ", ".join(inactive_agents)
+                  )
+              if os.environ["AGENT_DEPLOY_RESULT"] != "success":
+                  issues.append(
+                      "Agent deployment did not succeed: "
+                      + os.environ["AGENT_DEPLOY_RESULT"]
+                  )
+          if os.environ["FABRIC_PROVISION_ENABLED"] == "true":
+              for stage, result in (
+                  ("Fabric provisioning", os.environ["FABRIC_PROVISION_RESULT"]),
+                  ("OneLake upload", os.environ["ONELAKE_UPLOAD_RESULT"]),
+              ):
+                  if result != "success":
+                      issues.append(f"{stage} did not succeed: {result}")
+          if (
+              os.environ["DEPLOY_AGENTS_ENABLED"] == "true"
+              and os.environ["FOUNDRYIQ_ENABLED"] == "true"
+              and os.environ["CONTRACTS_KB_UPLOAD_RESULT"] != "success"
+          ):
+              issues.append(
+                  "Contracts KB upload did not succeed: "
+                  + os.environ["CONTRACTS_KB_UPLOAD_RESULT"]
+              )
+          if (
+              os.environ["SEED_DATA_ENABLED"] == "true"
+              and os.environ["SEED_IMPORT_RESULT"] != "success"
+          ):
+              issues.append(
+                  "Seed import did not succeed: " + os.environ["SEED_IMPORT_RESULT"]
+              )
+          if (
+              os.environ["DEPLOY_AGENTS_ENABLED"] == "true"
+              and os.environ["SEED_DATA_ENABLED"] == "true"
+              and os.environ["E2E_RESULT"] != "success"
+          ):
+              issues.append(
+                  "End-to-end assurance run did not succeed: "
+                  + os.environ["E2E_RESULT"]
+              )
+          evidence["passed"] = not issues
+          evidence["outcome"] = (
+              "failed" if issues else "partial" if disabled_lanes else "passed"
+          )
+          evidence["issues"] = issues
+          json.dump(evidence, open("deployment-evidence.json", "w"), indent=2, sort_keys=True)
+          if disabled_lanes:
+              print("::notice::Disabled lanes (expected — not a failure): " + str(disabled_lanes), flush=True)
+          if issues:
+              for issue in issues:
+                  print("::error::" + issue, flush=True)
+              sys.exit(1)
+          print("All acceptance checks passed.", flush=True)
+          PYEOF
+
+          live_agents="$(cat live-agents.json)"
+          CONTAINER_APPS="$container_apps" \
+          LIVE_AGENTS="$live_agents" \
+          LANE_JSON="$lane_json" \
+          DEPLOY_AGENTS_ENABLED="${{ inputs.deploy_agents }}" \
+          AGENT_INVENTORY_RESULT="$inventory_result" \
+          FABRIC_PROVISION_ENABLED="${{ inputs.fabric_provision_enabled }}" \
+          FOUNDRYIQ_ENABLED="${{ inputs.foundryiq_enabled }}" \
+          SEED_DATA_ENABLED="${{ inputs.seed_data }}" \
+          E2E_RESULT="$e2e_result" \
+          python3 evidence_builder.py "$COMMIT_SHA" "$AZD_ENV_NAME"
+          rm -f evidence_builder.py
+
+          # Re-raise probe exit so CI is red when probes fail.
+          exit $probe_exit
+
+      - name: Upload evidence artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-evidence-${{ github.sha }}
+          path: deployment-evidence.json
+          if-no-files-found: warn
+
+      - name: Summarise evidence
+        if: always()
+        run: |
+          {
+            echo "## Deployment evidence"
+            echo ""
+            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Environment: \`${{ env.AZD_ENV_NAME }}\`"
+            if [ -f deployment-evidence.json ]; then
+              outcome="$(python3 -c "import json; e=json.load(open('deployment-evidence.json')); print(e.get('outcome', 'unknown'))" 2>/dev/null || echo 'unknown')"
+              echo "- Outcome: $outcome"
+              disabled="$(python3 -c "import json; e=json.load(open('deployment-evidence.json')); print(', '.join(e.get('disabled_lanes', [])) or 'none')" 2>/dev/null || echo '')"
+              echo "- Disabled lanes: $disabled"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
