@@ -1,0 +1,20 @@
+ASTER RIDGE BIOMANUFACTURING
+Supplier invoice
+
+Invoice number: INV-ARB-001-2026-10
+Invoice date: 2026-10-31
+Purchase order: PO-ARB-001-2026-10
+Bill to: Waypoint Therapeutics
+
+Line  Description                                      Quantity    Unit price       Amount
+L001  ALLER-10 released tablet production             1,800,000       $0.42     $756,000.00
+L002  ALLER-20 released tablet production             1,400,000       $0.47     $664,720.00
+L003  Batch release administration                            2   $4,800.00       $9,600.00
+L004  Blister packaging surcharge                             1  $99,880.00      $99,880.00
+
+TOTAL                                                                      $1,530,200.00
+
+Supporting references:
+- BPR-AR-1026-A10/A20
+- QA release packet QA-AR-REL-1026
+- Packaging order PKG-AR-BLISTER-1026

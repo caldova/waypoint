@@ -29,6 +29,7 @@ Waypoint is Caldova's system of record for that assurance process. It helps team
 - `docs/status.md` explains what has been validated and what is still in progress.
 - `docs/getting-started.md` contains the current local validation path.
 - `docs/deployment.md` explains the repeatable GitHub Actions deployment path.
+- `docs/foundry-demo.md` launches the one-click, Foundry-only Pharmashield presenter story.
 - `docs/architecture.md` explains the app, corpus, agents, evals, optimization, and deployment layers.
 - `docs/data-disclaimer.md` describes the synthetic Caldova data set.
 - `docs/compatibility.md` explains why a few package and CLI names still use compatibility names.
@@ -46,5 +47,6 @@ Waypoint is Caldova's system of record for that assurance process. It helps team
 | `modules/optimization/` | Improvement workflows: optimizer artifacts, RFT/RLE materials, cost-quality demos, and telemetry-backed improvement planning. |
 | `tools/deploy/` | Deployment orchestration for the full Caldova Waypoint environment. |
 | `.github/extensions/` | Copilot canvas extensions used to inspect, demonstrate, and operate parts of the reference system. |
+| `.github/skills/` | Repo-scoped Copilot skills, including the one-step Pharmashield Foundry demo launcher. |
 
 The module names are intentionally simple and public-facing. They describe the role each part plays in Caldova's system rather than exposing the original internal project codenames used during development.
