@@ -58,23 +58,22 @@ deployments. The docs currently call out required defaults for:
 | Model family | Purpose | Forge status |
 | --- | --- | --- |
 | `text-embedding-3-large` | Content Understanding / indexing support | Already added for `contracts-kb` |
-| `gpt-4.1` or `gpt-5.2` | Completion model for `prebuilt-invoice`; Forge defaults to smaller `gpt-4.1` | Wired into Forge infra and deployed in the live Forge account |
-| `gpt-4.1-mini` | Required by some Content Understanding RAG/search analyzers | Not yet provisioned by Forge |
+| `gpt-5.5` | Shared completion model for hosted agents and `prebuilt-invoice` | Wired into Forge infra as the single completion deployment |
 
-Forge provisions the hosted-agent chat deployment, `text-embedding-3-large`, and
-the Content Understanding completion deployment. The default completion
-deployment is:
+Forge provisions one shared completion deployment plus
+`text-embedding-3-large`. Content Understanding reuses the completion
+deployment:
 
 | Setting | Value |
 | --- | --- |
-| Deployment name | `gpt-4.1` |
-| Model name | `gpt-4.1` |
-| Model version | `2025-04-14` |
+| Deployment name | `gpt-5.5` |
+| Model name | `gpt-5.5` |
+| Model version | `2026-04-24` |
 | SKU | `GlobalStandard` |
-| Capacity | `50` |
+| Capacity | `200` |
 
-Do not assume the hosted-agent chat deployment is automatically used by Content
-Understanding. Configure the Content Understanding defaults explicitly.
+The post-provision script explicitly maps Content Understanding defaults to the
+shared completion and embedding deployments.
 
 Direct testing against the Forge account showed this concrete failure mode:
 
@@ -84,11 +83,6 @@ Direct testing against the Forge account showed this concrete failure mode:
   "message": "This analyzer needs a 'completion' model deployment for current request, but none was resolved. Either 'models.completion' is not set on the analyzer, or the deployment it references is not registered for this resource. Configure it via 'PATCH /contentunderstanding/defaults'."
 }
 ```
-
-The same account had `text-embedding-3-large`, `gpt-5-mini`, and `gpt-5.5`
-deployments. `gpt-5.5` is not accepted as a substitute for the analyzer's
-supported completion models; a per-request override returned
-`DeploymentIdNotSupported`.
 
 ## Exact Bicep wiring
 
@@ -101,30 +95,16 @@ output CONTENT_UNDERSTANDING_ENDPOINT string = 'https://${useExistingAiProject ?
 output CONTENT_UNDERSTANDING_API_VERSION string = '2025-11-01'
 output CONTENT_UNDERSTANDING_ANALYZER_ID string = 'prebuilt-invoice'
 output CONTENT_UNDERSTANDING_SCOPE string = 'https://cognitiveservices.azure.com/.default'
-output CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME string = contentUnderstandingCompletionDeploymentName
-output CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME string = contentUnderstandingCompletionModelName
+output CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME string = modelDeploymentName
+output CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME string = modelName
 ```
 
-### 2. Add required model deployment knobs
+### 2. Reuse the primary completion deployment
 
-`infra\main.bicep` defines scalar params for the compatible completion model:
-
-```bicep
-@description('Content Understanding completion deployment name.')
-param contentUnderstandingCompletionDeploymentName string = 'gpt-4.1'
-
-@description('Content Understanding completion model name. prebuilt-invoice supports gpt-4.1 or gpt-5.2; default to the smaller supported model.')
-param contentUnderstandingCompletionModelName string = 'gpt-4.1'
-
-@description('Content Understanding completion model version.')
-param contentUnderstandingCompletionModelVersion string = '2025-04-14'
-
-@description('Content Understanding completion model capacity.')
-param contentUnderstandingCompletionModelSkuName string = 'GlobalStandard'
-
-@description('Content Understanding completion model capacity.')
-param contentUnderstandingCompletionModelCapacity string = '50'
-```
+`infra\main.bicep` derives the Content Understanding completion outputs from
+the primary `modelDeploymentName` and `modelName` parameters. The default list
+contains `gpt-5.5` followed by `text-embedding-3-large`; it does not provision a
+separate Content Understanding completion model.
 
 It includes them in `defaultDeployments` alongside the existing chat and
 embedding deployments:
@@ -228,8 +208,8 @@ Inputs:
 | --- | --- | --- |
 | `CONTENT_UNDERSTANDING_ENDPOINT` | yes | `https://<ai-account>.services.ai.azure.com` |
 | `CONTENT_UNDERSTANDING_API_VERSION` | yes | `2025-11-01` |
-| `CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME` | yes | Deployment to use for the `gpt-4.1` or `gpt-5.2` completion default |
-| `CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME` | yes | Supported completion model family; Forge defaults to `gpt-4.1` |
+| `CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME` | yes | Shared `gpt-5.5` deployment |
+| `CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME` | yes | Shared completion model family; Forge defaults to `gpt-5.5` |
 | `AZURE_AI_EMBEDDING_DEPLOYMENT_NAME` | yes | Deployment to use for `text-embedding-3-large` default |
 
 REST shape:
@@ -421,34 +401,19 @@ After changing this integration, validate in this order:
    - Assurance Orchestrator only prepares `write_plan.future_payloads[]`
    - only the waypoint-recorder writes to Waypoint
 
-## Live Forge validation
+## Deployment validation
 
-The live Forge account has been configured and smoke-tested:
-
-| Setting | Value |
-| --- | --- |
-| Resource group | `rg-forge` |
-| AI Services account | `ai-account-wi2egf4sh4hfq` |
-| Content Understanding endpoint | `https://ai-account-wi2egf4sh4hfq.services.ai.azure.com` |
-| Completion deployment | `gpt-4.1` |
-| Completion model/version | `gpt-4.1` / `2025-04-14` |
-| Completion SKU/capacity | `GlobalStandard` / `50` |
-| Embedding deployment | `text-embedding-3-large` |
-
-As of the latest local validation,
-`python scripts\test_content_understanding_preflight.py --skip-hosted-agent`
-passes against this account. The effective defaults include `gpt-4.1`,
-`prebuilt-analyzer-completion`, `text-embedding-3-large`, and
-`prebuilt-analyzer-embedding`.
-
-The account defaults PATCH returned these effective defaults:
+After provisioning, run
+`python scripts/test_content_understanding_preflight.py --skip-hosted-agent`.
+The effective defaults must map both the model family and analyzer alias to the
+shared deployments:
 
 ```json
 {
   "modelDeployments": {
-    "gpt-4.1": "gpt-4.1",
+    "gpt-5.5": "gpt-5.5",
     "text-embedding-3-large": "text-embedding-3-large",
-    "prebuilt-analyzer-completion": "gpt-4.1",
+    "prebuilt-analyzer-completion": "gpt-5.5",
     "prebuilt-analyzer-embedding": "text-embedding-3-large"
   }
 }

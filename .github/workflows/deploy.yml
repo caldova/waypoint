@@ -607,11 +607,6 @@ jobs:
           azd env set EMBEDDING_MODEL_VERSION "${{ vars.EMBEDDING_MODEL_VERSION || '1' }}"
           azd env set EMBEDDING_MODEL_SKU_NAME "${{ vars.EMBEDDING_MODEL_SKU_NAME || 'Standard' }}"
           azd env set EMBEDDING_MODEL_CAPACITY "${{ vars.EMBEDDING_MODEL_CAPACITY || '50' }}"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME "${{ vars.CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME || 'gpt-4.1' }}"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME "${{ vars.CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME || 'gpt-4.1' }}"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_VERSION "${{ vars.CONTENT_UNDERSTANDING_COMPLETION_MODEL_VERSION || '2025-04-14' }}"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_SKU_NAME "${{ vars.CONTENT_UNDERSTANDING_COMPLETION_MODEL_SKU_NAME || 'GlobalStandard' }}"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_CAPACITY "${{ vars.CONTENT_UNDERSTANDING_COMPLETION_MODEL_CAPACITY || '50' }}"
           azd env set ASSURANCE_ORCHESTRATOR_WORKIQ_ENABLED "${{ inputs.workiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_WEBIQ_ENABLED "${{ inputs.webiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_FOUNDRYIQ_ENABLED "${{ inputs.foundryiq_enabled }}"
@@ -679,6 +674,20 @@ jobs:
             exit 1
           fi
           echo "endpoint=$endpoint" >> "$GITHUB_OUTPUT"
+        timeout-minutes: 5
+
+      - name: Configure Content Understanding model defaults
+        run: |
+          set -euo pipefail
+          export CONTENT_UNDERSTANDING_ENDPOINT="$(azd env get-value CONTENT_UNDERSTANDING_ENDPOINT)"
+          export CONTENT_UNDERSTANDING_API_VERSION="$(azd env get-value CONTENT_UNDERSTANDING_API_VERSION)"
+          export CONTENT_UNDERSTANDING_SCOPE="$(azd env get-value CONTENT_UNDERSTANDING_SCOPE)"
+          export CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME="$(azd env get-value CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME)"
+          export CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME="$(azd env get-value CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME)"
+          export AZURE_AI_ACCOUNT_NAME="$(azd env get-value AZURE_AI_ACCOUNT_NAME)"
+          export AZURE_RESOURCE_GROUP="$(azd env get-value AZURE_RESOURCE_GROUP)"
+          export AZURE_AI_EMBEDDING_DEPLOYMENT_NAME="$(azd env get-value AZURE_AI_EMBEDDING_DEPLOYMENT_NAME)"
+          python scripts/configure_content_understanding.py
         timeout-minutes: 5
 
       - name: Resolve contracts-kb coordinates
@@ -892,8 +901,6 @@ jobs:
           azd env set CONTENT_UNDERSTANDING_API_VERSION "2025-11-01"
           azd env set CONTENT_UNDERSTANDING_ANALYZER_ID "prebuilt-invoice"
           azd env set CONTENT_UNDERSTANDING_SCOPE "https://cognitiveservices.azure.com/.default"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME "${{ vars.CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME || 'gpt-4.1' }}"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME "${{ vars.CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME || 'gpt-4.1' }}"
           # Search (allow pre-existing connection bypass)
           ENABLE_SEARCH_VAL="${{ vars.ENABLE_SEARCH || 'true' }}"
           azd env set ENABLE_SEARCH "$ENABLE_SEARCH_VAL"

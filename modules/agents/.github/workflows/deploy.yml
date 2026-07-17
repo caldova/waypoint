@@ -154,11 +154,6 @@ env:
   EMBEDDING_MODEL_VERSION: ${{ vars.EMBEDDING_MODEL_VERSION || '1' }}
   EMBEDDING_MODEL_SKU_NAME: ${{ vars.EMBEDDING_MODEL_SKU_NAME || 'Standard' }}
   EMBEDDING_MODEL_CAPACITY: ${{ vars.EMBEDDING_MODEL_CAPACITY || '50' }}
-  CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME: ${{ vars.CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME || 'gpt-4.1' }}
-  CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME: ${{ vars.CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME || 'gpt-4.1' }}
-  CONTENT_UNDERSTANDING_COMPLETION_MODEL_VERSION: ${{ vars.CONTENT_UNDERSTANDING_COMPLETION_MODEL_VERSION || '2025-04-14' }}
-  CONTENT_UNDERSTANDING_COMPLETION_MODEL_SKU_NAME: ${{ vars.CONTENT_UNDERSTANDING_COMPLETION_MODEL_SKU_NAME || 'GlobalStandard' }}
-  CONTENT_UNDERSTANDING_COMPLETION_MODEL_CAPACITY: ${{ vars.CONTENT_UNDERSTANDING_COMPLETION_MODEL_CAPACITY || '50' }}
 
 jobs:
   discover:
@@ -167,7 +162,7 @@ jobs:
     outputs:
       agents: ${{ steps.list.outputs.agents }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           repository: caldova/waypoint
           ref: ${{ inputs.source_ref || github.ref }}
@@ -175,7 +170,7 @@ jobs:
           fetch-depth: 0   # need history for `git diff`
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.12"
 
@@ -251,7 +246,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           repository: caldova/waypoint
           ref: ${{ inputs.source_ref || github.ref }}
@@ -274,10 +269,10 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Install Azure Developer CLI
-        uses: Azure/setup-azd@v2
+        uses: Azure/setup-azd@v2.3.0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.12"
 
@@ -285,7 +280,7 @@ jobs:
         run: azd ext install azure.ai.agents
 
       - name: Azure login (OIDC)
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -314,11 +309,6 @@ jobs:
           azd env set EMBEDDING_MODEL_VERSION "$EMBEDDING_MODEL_VERSION"
           azd env set EMBEDDING_MODEL_SKU_NAME "$EMBEDDING_MODEL_SKU_NAME"
           azd env set EMBEDDING_MODEL_CAPACITY "$EMBEDDING_MODEL_CAPACITY"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME "$CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME "$CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_VERSION "$CONTENT_UNDERSTANDING_COMPLETION_MODEL_VERSION"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_SKU_NAME "$CONTENT_UNDERSTANDING_COMPLETION_MODEL_SKU_NAME"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_CAPACITY "$CONTENT_UNDERSTANDING_COMPLETION_MODEL_CAPACITY"
 
           # WebIQ expert grounds on Azure "Grounding with Bing Search", provisioned
           # by bicep (core/search/bing_grounding.bicep) with its key auto-read via
@@ -393,7 +383,7 @@ jobs:
       !(github.event_name == 'workflow_dispatch' && inputs.skip_provision == true)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           repository: caldova/waypoint
           ref: ${{ inputs.source_ref || github.ref }}
@@ -417,10 +407,10 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Install Azure Developer CLI
-        uses: Azure/setup-azd@v2
+        uses: Azure/setup-azd@v2.3.0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.12"
 
@@ -428,7 +418,7 @@ jobs:
         run: azd ext install azure.ai.agents
 
       - name: Azure login (OIDC)
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -461,11 +451,6 @@ jobs:
           azd env set EMBEDDING_MODEL_VERSION "$EMBEDDING_MODEL_VERSION"
           azd env set EMBEDDING_MODEL_SKU_NAME "$EMBEDDING_MODEL_SKU_NAME"
           azd env set EMBEDDING_MODEL_CAPACITY "$EMBEDDING_MODEL_CAPACITY"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME "$CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME "$CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_VERSION "$CONTENT_UNDERSTANDING_COMPLETION_MODEL_VERSION"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_SKU_NAME "$CONTENT_UNDERSTANDING_COMPLETION_MODEL_SKU_NAME"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_CAPACITY "$CONTENT_UNDERSTANDING_COMPLETION_MODEL_CAPACITY"
 
           # WebIQ expert grounds on Azure "Grounding with Bing Search", provisioned
           # by bicep (key auto-read via listKeys()) — no secret or URL to seed here.
@@ -657,7 +642,7 @@ jobs:
       contracts_kb_indexer: ${{ steps.coords.outputs.indexer }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           repository: caldova/waypoint
           ref: ${{ inputs.source_ref || github.ref }}
@@ -680,10 +665,10 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Install Azure Developer CLI
-        uses: Azure/setup-azd@v2
+        uses: Azure/setup-azd@v2.3.0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.12"
 
@@ -691,7 +676,7 @@ jobs:
         run: azd ext install azure.ai.agents
 
       - name: Azure login (OIDC)
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -774,8 +759,6 @@ jobs:
           azd env set CONTENT_UNDERSTANDING_API_VERSION "2025-11-01"
           azd env set CONTENT_UNDERSTANDING_ANALYZER_ID "prebuilt-invoice"
           azd env set CONTENT_UNDERSTANDING_SCOPE "https://cognitiveservices.azure.com/.default"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME "$CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME"
-          azd env set CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME "$CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME"
           # Waypoint API base URL + scope are waypoint DEPLOY OUTPUTS (not self-computable
           # by forge). The keystone umbrella passes them as workflow_call inputs (fresh,
           # authoritative — waypoint-deploy runs BEFORE forge-deploy). For STANDALONE forge
@@ -1585,19 +1568,19 @@ jobs:
       (needs.deploy.result == 'success' || needs.deploy.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
         with:
           repository: caldova/waypoint
           ref: ${{ inputs.source_ref || github.ref }}
           token: ${{ secrets.REPO_TOKEN || github.token }}
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.12"
 
       - name: Azure login (OIDC)
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}

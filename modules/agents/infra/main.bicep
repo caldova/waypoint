@@ -127,21 +127,6 @@ param embeddingModelSkuName string = 'Standard'
 @description('TPM capacity for the embedding deployment, in the SKUs native unit. Passed as a string for azd-param-file compatibility; coerced to int when used.')
 param embeddingModelCapacity string = '50'
 
-@description('Name of the Content Understanding completion deployment used by prebuilt invoice analysis.')
-param contentUnderstandingCompletionDeploymentName string = 'gpt-4.1'
-
-@description('Catalog name of the Content Understanding completion model. prebuilt-invoice supports gpt-4.1 or gpt-5.2; default to the smaller supported model.')
-param contentUnderstandingCompletionModelName string = 'gpt-4.1'
-
-@description('Model version for the Content Understanding completion deployment.')
-param contentUnderstandingCompletionModelVersion string = '2025-04-14'
-
-@description('SKU name for the Content Understanding completion deployment.')
-param contentUnderstandingCompletionModelSkuName string = 'GlobalStandard'
-
-@description('TPM capacity for the Content Understanding completion deployment, in the SKU native unit. Passed as a string for azd-param-file compatibility; coerced to int when used.')
-param contentUnderstandingCompletionModelCapacity string = '50'
-
 @description('List of connections')
 param aiProjectConnectionsJson string = '[]'
 
@@ -208,18 +193,6 @@ var defaultDeployments = [
     sku: {
       name: embeddingModelSkuName
       capacity: int(embeddingModelCapacity)
-    }
-  }
-  {
-    name: contentUnderstandingCompletionDeploymentName
-    model: {
-      name: contentUnderstandingCompletionModelName
-      format: modelFormat
-      version: contentUnderstandingCompletionModelVersion
-    }
-    sku: {
-      name: contentUnderstandingCompletionModelSkuName
-      capacity: int(contentUnderstandingCompletionModelCapacity)
     }
   }
 ]
@@ -463,8 +436,8 @@ output CONTENT_UNDERSTANDING_ENDPOINT string = 'https://${useExistingAiProject ?
 output CONTENT_UNDERSTANDING_API_VERSION string = '2025-11-01'
 output CONTENT_UNDERSTANDING_ANALYZER_ID string = 'prebuilt-invoice'
 output CONTENT_UNDERSTANDING_SCOPE string = 'https://cognitiveservices.azure.com/.default'
-output CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME string = contentUnderstandingCompletionDeploymentName
-output CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME string = contentUnderstandingCompletionModelName
+output CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME string = modelDeploymentName
+output CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME string = modelName
 
 output AZURE_AI_ACCOUNT_ID string = useExistingAiProject
   ? existingAiProject.outputs.accountId

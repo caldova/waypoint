@@ -65,21 +65,6 @@
       "embeddingModelCapacity": {
         "value": "${EMBEDDING_MODEL_CAPACITY=50}"
       },
-      "contentUnderstandingCompletionDeploymentName": {
-        "value": "${CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT_NAME=gpt-4.1}"
-      },
-      "contentUnderstandingCompletionModelName": {
-        "value": "${CONTENT_UNDERSTANDING_COMPLETION_MODEL_NAME=gpt-4.1}"
-      },
-      "contentUnderstandingCompletionModelVersion": {
-        "value": "${CONTENT_UNDERSTANDING_COMPLETION_MODEL_VERSION=2025-04-14}"
-      },
-      "contentUnderstandingCompletionModelSkuName": {
-        "value": "${CONTENT_UNDERSTANDING_COMPLETION_MODEL_SKU_NAME=GlobalStandard}"
-      },
-      "contentUnderstandingCompletionModelCapacity": {
-        "value": "${CONTENT_UNDERSTANDING_COMPLETION_MODEL_CAPACITY=50}"
-      },
       "aiProjectConnectionsJson": {
         "value": "${AI_PROJECT_CONNECTIONS=[]}"
       },
