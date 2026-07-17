@@ -228,10 +228,10 @@ jobs:
     outputs:
       key_vault_name: ${{ steps.kv.outputs.kv_name }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Azure login
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ needs.validate.outputs.azure_client_id }}
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
@@ -282,10 +282,10 @@ jobs:
       api_app_id_uri: ${{ steps.msal.outputs.api_app_id_uri }}
       api_default_scope: ${{ steps.msal.outputs.api_default_scope }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Azure login
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ needs.validate.outputs.azure_client_id }}
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
@@ -313,10 +313,10 @@ jobs:
     outputs:
       artifact_name: waypoint-seed
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@v8.3.2
 
       - name: Generate seed
         working-directory: modules/corpus
@@ -326,7 +326,7 @@ jobs:
           uv run python -m json.tool data/waypoint/waypoint-seed.json > /dev/null
 
       - name: Upload seed artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: waypoint-seed
           path: |
@@ -352,10 +352,10 @@ jobs:
       DOTNET_GENERATE_ASPNET_CERTIFICATE: false
       NUGET_XMLDOC_MODE: skip
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6
+        uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: 10.0.x
 
@@ -366,7 +366,7 @@ jobs:
         run: echo "$HOME/.aspire/bin" >> "$GITHUB_PATH"
 
       - name: Azure login
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ needs.validate.outputs.azure_client_id }}
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
@@ -474,10 +474,10 @@ jobs:
       onelake_lakehouse: ${{ steps.fabric.outputs.onelake_lakehouse }}
       onelake_corpus_prefix: ${{ steps.fabric.outputs.onelake_corpus_prefix }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Azure login
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ needs.validate.outputs.azure_client_id }}
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
@@ -552,13 +552,13 @@ jobs:
       run:
         working-directory: modules/agents
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Install Azure Developer CLI
-        uses: Azure/setup-azd@v2
+        uses: Azure/setup-azd@v2.3.0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.12"
 
@@ -566,7 +566,7 @@ jobs:
         run: azd ext install azure.ai.agents
 
       - name: Azure login
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ needs.validate.outputs.azure_client_id }}
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
@@ -745,13 +745,13 @@ jobs:
       run:
         working-directory: modules/agents
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Install Azure Developer CLI
-        uses: Azure/setup-azd@v2
+        uses: Azure/setup-azd@v2.3.0
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.12"
 
@@ -759,7 +759,7 @@ jobs:
         run: azd ext install azure.ai.agents
 
       - name: Azure login
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ needs.validate.outputs.azure_client_id }}
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
@@ -1035,13 +1035,13 @@ jobs:
       needs['corpus-seed'].result == 'success'
     needs: [validate, fabric-provision, corpus-seed]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@v8.3.2
 
       - name: Azure login
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ needs.validate.outputs.azure_client_id }}
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
@@ -1077,13 +1077,13 @@ jobs:
       needs['provision-agents'].outputs.contracts_kb_storage_account != ''
     needs: [validate, provision-agents]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@v8.3.2
 
       - name: Azure login
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ needs.validate.outputs.azure_client_id }}
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
@@ -1122,17 +1122,17 @@ jobs:
       (needs['onelake-upload'].result == 'success' || needs['onelake-upload'].result == 'skipped')
     needs: [validate, keyvault, corpus-seed, deploy-app, onelake-upload]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Azure login
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ needs.validate.outputs.azure_client_id }}
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
           subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
 
       - name: Download seed artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: waypoint-seed
           path: seed
@@ -1168,10 +1168,10 @@ jobs:
       - contracts-kb-upload
       - seed-import
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.0
 
       - name: Azure login
-        uses: azure/login@v3
+        uses: azure/login@v3.0.0
         with:
           client-id: ${{ needs.validate.outputs.azure_client_id }}
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
@@ -1503,7 +1503,7 @@ jobs:
 
       - name: Upload evidence artifact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: deployment-evidence-${{ github.sha }}
           path: deployment-evidence.json
