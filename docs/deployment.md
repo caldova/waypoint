@@ -107,6 +107,18 @@ The workflow runs these stages in order:
 11. **seed-import** — imports `waypoint-seed.json` into the deployed Waypoint API. Waits for OneLake upload when Fabric is enabled.
 12. **acceptance** — runs HTTP probes via `verify_deployment.py` with the KV reader key, verifies every declared hosted agent exists and has an active version, drives a seeded invoice through the hosted orchestrator, confirms the recorder produced a newly updated successful terminal Waypoint run with telemetry correlation, inventories deployed Container Apps, and writes a sanitized JSON evidence artifact tied to `github.sha`. A deployment with disabled IQ lanes is explicitly reported as `partial`; required-stage or probe failures report `failed`.
 
+### Foundry service-principal preflight
+
+Azure may reject creation of a new AI Services account/project by the GitHub
+OIDC service principal with preflight code `715-123420` ("unusual activity")
+even when the same complete account, project, and model template validates for a
+tenant user. This is an Azure service-side identity restriction, not an ARM
+role-assignment failure. The tenant owner must have Microsoft clear the
+deployment application for AI Services provisioning before the one-click
+deployment can complete. Do not work around this by silently reusing an
+existing Foundry account/project: that breaks parallel-environment isolation
+and makes the deployment evidence misleading.
+
 ## Deployment manifest and acceptance probes
 
 `tools/deploy/deployment.manifest.json` is the machine-readable baseline for the
