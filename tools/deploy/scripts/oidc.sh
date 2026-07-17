@@ -112,7 +112,7 @@ TENANT_ID="$(az account show --query tenantId -o tsv)"
 SCOPE="/subscriptions/${SUBSCRIPTION_ID}"
 
 echo "Looking up app registration: ${APP_NAME}"
-APP_JSON="$(az ad app list --display-name "$APP_NAME" --query '[0]' -o json)"
+APP_JSON="$(az ad app list --filter "displayName eq '${APP_NAME}'" --query '[0]' -o json)"
 APP_ID="$(echo "$APP_JSON" | jq -r '.appId // empty')"
 APP_OBJECT_ID="$(echo "$APP_JSON" | jq -r '.id // empty')"
 
@@ -250,7 +250,7 @@ if [[ "$GRANT_GRAPH" == "true" ]]; then
 
   # Ensure the waypoint app reg exists, then make the deploy SP an owner of it.
   echo "Ensuring waypoint app registration + deploy-SP ownership: ${WAYPOINT_APP_NAME}"
-  WP_JSON="$(az ad app list --display-name "$WAYPOINT_APP_NAME" --query '[0]' -o json)"
+  WP_JSON="$(az ad app list --filter "displayName eq '${WAYPOINT_APP_NAME}'" --query '[0]' -o json)"
   WP_APP_ID="$(echo "$WP_JSON" | jq -r '.appId // empty')"
   WP_OBJ_ID="$(echo "$WP_JSON" | jq -r '.id // empty')"
   if [[ -z "$WP_APP_ID" ]]; then

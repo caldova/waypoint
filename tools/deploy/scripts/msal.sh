@@ -30,7 +30,7 @@ emit() { log "$1=$2"; [[ -n "${GITHUB_OUTPUT:-}" ]] && echo "$1=$2" >> "$GITHUB_
 resolve_app() {
   local app_id="${MSAL_CLIENT_ID:-}"
   if [[ -z "$app_id" ]]; then
-    app_id="$(az ad app list --display-name "$display_name" --query "[0].appId" -o tsv 2>/dev/null || true)"
+    app_id="$(az ad app list --filter "displayName eq '${display_name}'" --query "[0].appId" -o tsv 2>/dev/null || true)"
   fi
   if [[ -z "$app_id" || "$app_id" == "None" ]]; then
     if [[ "$mode" == "ensure" ]]; then
