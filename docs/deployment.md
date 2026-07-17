@@ -100,10 +100,11 @@ The workflow runs these stages in order:
 4. **corpus-seed** — generates `waypoint-seed.json` from the ledgerfield corpus.
 5. **deploy-app** — deploys Waypoint (Aspire) to Azure Container Apps with PostgreSQL and MSAL wired.
 6. **fabric-provision** — *(gated on `fabric_provision_enabled`)* explicitly runs `apps/waypoint/infra/scripts/provision-fabric.sh` to create the Fabric workspace and lakehouse, grants the app MI and deploy SP workspace Member roles, and updates the API container app with `APP_ONELAKE_*` values.
-7. **provision-agents** — creates the isolated AI Services parent account and
-   deployment-principal Foundry roles as a durable bootstrap boundary, then runs
-   `azd provision` once for the Foundry project. It deploys only the shared
-   `gpt-5.5` completion model and `text-embedding-3-large`, configures Content
+7. **provision-agents** — creates the isolated AI Services account, its
+   deployment-principal Foundry roles, and the child project as a durable,
+   idempotent bootstrap boundary, then runs `azd provision` once to reconcile
+   the complete Foundry environment. It deploys only the shared `gpt-5.5`
+   completion model and `text-embedding-3-large`, configures Content
    Understanding to reuse those deployments, and exposes the project endpoint
    and contracts-KB storage/search coordinates as job outputs.
 8. **deploy-agents** — matrix job (one leg per hosted agent). Each leg re-selects the azd environment, hydrates all Foundry outputs from the exact `^<env>-[0-9]+$` ARM deployment, seeds Waypoint writer/reader keys from Key Vault, wires API base URL/scope, lane flags, and orchestrator expert endpoints, then deploys the agent.
@@ -119,11 +120,13 @@ the GitHub OIDC identity. Its model template contains exactly two deployments:
 the shared `gpt-5.5` completion model and `text-embedding-3-large`. Content
 Understanding reuses the shared completion deployment rather than adding a
 second completion model. Account creation and the OIDC principal's account-level
-Foundry role assignments complete in a separate idempotent deployment before
-project validation. This avoids validating a child project against a parent
-account and role assignments that do not exist yet. Do not silently reuse an
-existing Foundry account/project; that breaks parallel-environment isolation
-and makes the deployment evidence misleading.
+Foundry role assignments complete in a separate deployment. The workflow then
+creates the child project with an idempotent resource PUT before `azd`
+reconciles the full template. This avoids the provider's `715-123420` ARM
+template preflight rejection for a not-yet-existing project while retaining a
+fresh, workflow-owned project. Do not silently reuse an existing Foundry
+account/project; that breaks parallel-environment isolation and makes the
+deployment evidence misleading.
 
 ## Deployment manifest and acceptance probes
 

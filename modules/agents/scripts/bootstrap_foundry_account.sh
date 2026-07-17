@@ -78,4 +78,41 @@ az deployment group create \
   --output none
 
 sleep 30
-echo "Foundry account and deployment-principal roles are ready; project provisioning can proceed."
+
+project_url="https://management.azure.com/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.CognitiveServices/accounts/${account_name}/projects/${project_name}?api-version=2026-03-01"
+if ! az rest --method get --url "$project_url" --output none 2>/dev/null; then
+  echo "Creating Foundry project outside ARM template preflight: ${account_name}/${project_name}"
+  project_body="$(
+    jq -n \
+      --arg location "$location" \
+      --arg display_name "$project_name" \
+      '{
+        location: $location,
+        kind: "AIServices",
+        sku: {name: "S0"},
+        identity: {type: "SystemAssigned"},
+        properties: {displayName: $display_name}
+      }'
+  )"
+  az rest \
+    --method put \
+    --url "$project_url" \
+    --body "$project_body" \
+    --output none
+fi
+
+for _ in {1..30}; do
+  project_state="$(az rest --method get --url "$project_url" --query properties.provisioningState -o tsv 2>/dev/null || true)"
+  if [[ "$project_state" == "Succeeded" ]]; then
+    echo "Foundry account, project, and deployment-principal roles are ready for azd reconciliation."
+    exit 0
+  fi
+  if [[ "$project_state" == "Failed" ]]; then
+    echo "Foundry project bootstrap entered a failed provisioning state." >&2
+    exit 1
+  fi
+  sleep 10
+done
+
+echo "Timed out waiting for Foundry project bootstrap to complete." >&2
+exit 1
