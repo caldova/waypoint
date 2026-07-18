@@ -71,19 +71,73 @@ export function renderHtml() {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
   <title>Pharmashield · Foundry Agent</title>
+  <script>
+    (() => {
+      const root = document.documentElement;
+      const media = window.matchMedia('(prefers-color-scheme: light)');
+      const readMode = (name) => root.getAttribute(name) || document.body?.getAttribute(name) || '';
+      const resolveTheme = () => {
+        const hostMode = [readMode('data-visual-mode'), readMode('data-color-mode')]
+          .find((mode) => mode === 'light' || mode === 'dark');
+        root.setAttribute('data-theme', hostMode === 'light' || hostMode === 'dark' ? hostMode : media.matches ? 'light' : 'dark');
+      };
+      resolveTheme();
+      const observer = new MutationObserver(resolveTheme);
+      const options = {
+        attributes: true,
+        attributeFilter: ['data-visual-mode', 'data-color-mode', 'data-light-theme', 'data-dark-theme'],
+      };
+      observer.observe(root, options);
+      document.addEventListener('DOMContentLoaded', () => observer.observe(document.body, options), { once: true });
+      media.addEventListener?.('change', resolveTheme);
+    })();
+  </script>
   <style>
     :root {
-      color-scheme: light dark;
-      --bg: var(--background-color-default, #f6f8fa);
-      --surface: var(--overlay-background, #ffffff);
-      --surface-subtle: var(--background-color-muted, #f0f3f6);
+      color-scheme: dark;
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface-subtle: #21262d;
+      --surface-raised: #1c2128;
+      --border: #30363d;
+      --border-strong: #484f58;
+      --text: #e6edf3;
+      --muted: #9da7b3;
+      --faint: #8b949e;
+      --accent: #58a6ff;
+      --accent-hover: #79c0ff;
+      --accent-soft: #102f4c;
+      --iq: #f778ba;
+      --iq-soft: #421c33;
+      --success: #56d364;
+      --success-soft: #173b22;
+      --warning: #e3b341;
+      --warning-soft: #3d2f05;
+      --danger: #ff7b72;
+      --danger-soft: #4c1f24;
+      --focus: #58a6ff;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .45);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, monospace;
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --ease: cubic-bezier(.16, 1, .3, 1);
+    }
+    :root[data-theme="light"],
+    :root[data-color-mode="light"],
+    :root[data-visual-mode="light"] {
+      color-scheme: light;
+      --bg: #f6f8fa;
+      --surface: #ffffff;
+      --surface-subtle: #f0f3f6;
       --surface-raised: #ffffff;
-      --border: var(--border-color-default, #d0d7de);
+      --border: #d0d7de;
       --border-strong: #afb8c1;
-      --text: var(--text-color-default, #1f2328);
-      --muted: var(--text-color-muted, #59636e);
-      --faint: #6e7781;
-      --accent: var(--true-color-blue, #0969da);
+      --text: #1f2328;
+      --muted: #59636e;
+      --faint: #656d76;
+      --accent: #0969da;
       --accent-hover: #075bbf;
       --accent-soft: #ddf4ff;
       --iq: #bf3989;
@@ -94,39 +148,8 @@ export function renderHtml() {
       --warning-soft: #fff8c5;
       --danger: #cf222e;
       --danger-soft: #ffebe9;
-      --focus: var(--color-focus-outline, #0969da);
+      --focus: #0969da;
       --shadow: 0 1px 2px rgba(31, 35, 40, .06);
-      --font: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
-      --mono: var(--font-mono, "SFMono-Regular", Consolas, monospace);
-      --radius-sm: 6px;
-      --radius-md: 8px;
-      --radius-lg: 12px;
-      --ease: cubic-bezier(.16, 1, .3, 1);
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: var(--background-color-default, #0d1117);
-        --surface: var(--overlay-background, #161b22);
-        --surface-subtle: var(--background-color-muted, #21262d);
-        --surface-raised: #1c2128;
-        --border: var(--border-color-default, #30363d);
-        --border-strong: #484f58;
-        --text: var(--text-color-default, #e6edf3);
-        --muted: var(--text-color-muted, #9da7b3);
-        --faint: #8b949e;
-        --accent: var(--true-color-blue, #58a6ff);
-        --accent-hover: #79c0ff;
-        --accent-soft: #102f4c;
-        --iq: #f778ba;
-        --iq-soft: #421c33;
-        --success: #56d364;
-        --success-soft: #173b22;
-        --warning: #e3b341;
-        --warning-soft: #3d2f05;
-        --danger: #ff7b72;
-        --danger-soft: #4c1f24;
-        --shadow: 0 1px 2px rgba(0, 0, 0, .45);
-      }
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; min-height: 100%; }
@@ -369,7 +392,8 @@ export function renderHtml() {
     }
     .beats strong { display: block; font-size: 10px; }
     .beats p { margin: 2px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
-    .trace-layout, .connection-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr); gap: 20px; }
+    .trace-layout { max-width: 900px; }
+    .connection-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(280px, .6fr); gap: 20px; }
     .pane-title { margin-bottom: 16px; }
     .pane-title h1 { margin: 0 0 4px; font-size: 20px; }
     .pane-title p { margin: 0; max-width: 760px; color: var(--muted); }
@@ -381,21 +405,36 @@ export function renderHtml() {
     .empty-state h2 { margin: 0 0 5px; color: var(--text); font-size: 14px; }
     .empty-state p { margin: 0 auto; max-width: 520px; font-size: 11px; }
     .trace-list { display: grid; gap: 12px; padding: 16px; }
-    .trace-item { overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-    .trace-head {
-      padding: 10px 12px; display: flex; align-items: center; gap: 8px;
-      border-bottom: 1px solid var(--border); background: var(--surface-subtle); font-size: 11px; font-weight: 600;
+    .trace-step {
+      overflow: hidden; border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface); box-shadow: var(--shadow);
     }
-    .trace-head svg { color: var(--iq); }
-    .trace-body { padding: 12px; }
-    .trace-block + .trace-block { margin-top: 12px; }
-    .trace-label { margin: 0 0 4px; color: var(--faint); font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+    .trace-step.error { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
+    .trace-step-head {
+      min-height: 42px; padding: 10px 12px; display: flex; align-items: center; gap: 9px;
+      border-bottom: 1px solid var(--border); background: var(--surface-subtle); font-size: 11px; font-weight: 700;
+    }
+    .trace-step-head svg { color: var(--iq); }
+    .trace-step.error .trace-step-head svg { color: var(--danger); }
+    .trace-step-body { padding: 12px; color: var(--muted); font-size: 11px; }
+    .trace-step-body p { margin: 0; }
+    .trace-step-body p + p { margin-top: 6px; }
+    .trace-step-body code { color: var(--text); }
     .trace-value {
-      margin: 0; max-height: 260px; overflow: auto; color: var(--muted);
-      font: 10px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere;
+      margin: 0; max-height: 360px; overflow: auto; color: var(--muted);
+      font: 10px/1.6 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere;
     }
-    .source-list { margin: 0; padding: 0; display: grid; gap: 8px; list-style: none; }
-    .source-list li { padding: 9px; border-radius: 8px; color: var(--iq); background: var(--iq-soft); font: 10px/1.45 var(--mono); overflow-wrap: anywhere; }
+    .trace-highlight {
+      padding: 1px 2px; border-radius: 3px; color: var(--text);
+      background: color-mix(in srgb, var(--warning) 28%, transparent);
+      box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--warning) 65%, transparent);
+    }
+    .trace-citations { margin: 0; padding: 0; display: grid; gap: 8px; list-style: none; }
+    .trace-citations li {
+      padding: 9px; border: 1px solid color-mix(in srgb, var(--iq) 28%, var(--border));
+      border-radius: 8px; color: var(--iq); background: var(--iq-soft);
+      font: 10px/1.45 var(--mono); overflow-wrap: anywhere;
+    }
     .connection-steps { display: grid; gap: 12px; }
     .connection-step { padding: 16px; display: grid; grid-template-columns: 32px 1fr; gap: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
     .connection-step > span {
@@ -419,7 +458,7 @@ export function renderHtml() {
     @keyframes progress-breathe { from { opacity: .55; transform: translateX(-8%); } to { opacity: 1; transform: translateX(18%); } }
     @media (max-width: 1080px) {
       .app { grid-template-columns: 240px minmax(0, 1fr); }
-      .chat-grid, .trace-layout, .connection-layout { grid-template-columns: 1fr; }
+      .chat-grid, .connection-layout { grid-template-columns: 1fr; }
       .side-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .presenter { grid-column: 1 / -1; }
     }
@@ -547,7 +586,7 @@ export function renderHtml() {
 
       <section class="pane" id="pane-trace" role="tabpanel" aria-labelledby="tab-trace" hidden>
         <div class="pane-wrap">
-          <div class="pane-title"><h1>Retrieval trace</h1><p>The hero of Part 2: the actual query sent to Foundry IQ, the contract text returned, and the source references used by the hosted expert.</p></div>
+          <div class="pane-title"><h1>Trace</h1><p>The live protocol sequence: the Foundry IQ call, query payload, retrieved contract text, and exact source references returned to the hosted expert.</p></div>
           <div class="trace-layout">
             <section class="panel" id="trace-content">
               <div class="empty-state">
@@ -556,12 +595,6 @@ export function renderHtml() {
                 <p>Trace remains empty until the hosted response contains a real <code>knowledge_base_retrieve</code> function call. A failed call is shown but does not pass the proof gate.</p>
               </div>
             </section>
-            <aside class="card">
-              <h2>Why this matters</h2>
-              <p>The invoice can prove arithmetic. It cannot prove negotiated rates or written authorization. Trace separates retrieved enterprise knowledge from model memory.</p>
-              <div class="boundary"><strong>Fail-closed:</strong> citations or confident prose do not count as grounded unless the hosted protocol returns a successful retrieval result.</div>
-              <ul class="source-list" id="source-list" style="margin-top:14px"><li>No live sources yet.</li></ul>
-            </aside>
           </div>
         </div>
       </section>
@@ -717,7 +750,6 @@ contract_policy_expert = evidence_expert(
       $('trace-count').hidden = true;
       $('trace-count').textContent = '0';
       $('trace-content').innerHTML = '<div class="empty-state"><span class="empty-icon">${ICONS.trace}</span><h2>No live trace yet</h2><p>Run the hosted audit to inspect the real knowledge-base request and response.</p></div>';
-      $('source-list').innerHTML = '<li>No live sources yet.</li>';
     }
 
     function renderResult(result) {
@@ -760,21 +792,97 @@ contract_policy_expert = evidence_expert(
         grouped.set(key, current);
       }
       const retrievals = [...grouped.values()].filter((call) => call.name.toLowerCase().includes('knowledge_base_retrieve'));
+      const sources = collectTraceSources(result, retrievals);
       $('trace-count').hidden = retrievals.length === 0;
       $('trace-count').textContent = String(retrievals.length);
       $('trace-content').innerHTML = retrievals.length
-        ? '<div class="trace-list">' + retrievals.map((call, index) =>
-            '<article class="trace-item"><div class="trace-head">${ICONS.trace}<span>knowledge_base_retrieve · call ' + (index + 1) + '</span></div>' +
-              '<div class="trace-body">' +
-                '<div class="trace-block"><p class="trace-label">Query</p><pre class="trace-value">' + esc(call.arguments || 'No query payload returned.') + '</pre></div>' +
-                '<div class="trace-block"><p class="trace-label">' + (result.grounded ? 'Retrieved contract text' : 'Retrieval result') + '</p><pre class="trace-value">' + esc(call.output || call.error || 'No retrieval payload returned.') + '</pre></div>' +
-              '</div></article>'
-          ).join('') + '</div>'
+        ? '<div class="trace-list">' +
+            retrievals.map((call, index) => renderRetrievalSteps(call, index)).join('') +
+            renderCitationStep(sources) +
+          '</div>'
         : '<div class="empty-state"><span class="empty-icon">${ICONS.trace}</span><h2>No verified retrieval call</h2><p>The response completed without a recognized knowledge_base_retrieve invocation.</p></div>';
-      const sources = [...new Set(evidence.map((item) => item.source_ref).filter(Boolean))];
-      $('source-list').innerHTML = sources.length
-        ? sources.map((source) => '<li>' + esc(source) + '</li>').join('')
-        : '<li>No live sources returned.</li>';
+    }
+
+    function renderRetrievalSteps(call, index) {
+      const output = call.output || call.error || 'No retrieval payload returned.';
+      const failed = traceOutputFailed(call.output, call.error);
+      const suffix = index ? ' · call ' + (index + 1) : '';
+      return traceStep(
+        'Calling Foundry IQ' + suffix,
+        '<p><code>knowledge_base_retrieve</code></p><p>Knowledge base · <code>contracts-kb</code></p>',
+        '${ICONS.connection}'
+      ) +
+      traceStep(
+        'Query sent to the knowledge base',
+        '<pre class="trace-value">' + esc(traceQuery(call.arguments)) + '</pre>',
+        '${ICONS.chat}'
+      ) +
+      traceStep(
+        failed ? 'knowledge_base_retrieve failed' : 'knowledge_base_retrieve returned',
+        '<pre class="trace-value">' + highlightTraceText(output) + '</pre>',
+        '${ICONS.context}',
+        failed
+      );
+    }
+
+    function traceStep(title, body, icon, failed = false) {
+      return '<article class="trace-step' + (failed ? ' error' : '') + '">' +
+        '<div class="trace-step-head">' + icon + '<span>' + esc(title) + '</span></div>' +
+        '<div class="trace-step-body">' + body + '</div>' +
+      '</article>';
+    }
+
+    function traceQuery(rawArguments) {
+      if (!rawArguments) return 'No query payload returned.';
+      try {
+        const parsed = JSON.parse(rawArguments);
+        if (Array.isArray(parsed.queries)) return parsed.queries.join('\\n');
+        if (typeof parsed.query === 'string') return parsed.query;
+      } catch {}
+      return rawArguments;
+    }
+
+    function traceOutputFailed(output, error) {
+      if (error || !String(output || '').trim()) return true;
+      const value = String(output).trim();
+      if (/^(error|function failed|failed\\b)/i.test(value)) return true;
+      try {
+        const parsed = JSON.parse(value);
+        return Boolean(parsed && typeof parsed === 'object' && (parsed.error || parsed.errors));
+      } catch {
+        return false;
+      }
+    }
+
+    function highlightTraceText(value) {
+      const clauses = /USD 0\\.42 per released tablet|6% volume discount|blister packaging[^\\n.]{0,180}|purchase order or written change authorization[^\\n.]{0,220}|USD 4,800[^\\n.]{0,120}/gi;
+      return esc(value).replace(clauses, (match) => '<mark class="trace-highlight">' + match + '</mark>');
+    }
+
+    function collectTraceSources(result, retrievals) {
+      const values = [];
+      if (result.grounded) {
+        for (const citation of Array.isArray(result.citations) ? result.citations : []) {
+          const label = citation.title || citation.filename || citation.url;
+          if (label || citation.url) values.push([label, citation.url].filter(Boolean).join(' · '));
+        }
+      }
+      for (const call of retrievals) {
+        if (traceOutputFailed(call.output, call.error)) continue;
+        const output = String(call.output || '');
+        for (const match of output.matchAll(/\\[ref_id:([^\\]]+)\\]/gi)) {
+          values.push('ref_id:' + match[1]);
+        }
+      }
+      return [...new Set(values.filter(Boolean))];
+    }
+
+    function renderCitationStep(sources) {
+      const body = sources.length
+        ? '<ul class="trace-citations">' + sources.map((source) => '<li>' + esc(source) + '</li>').join('') + '</ul>'
+        : '<p>No source references were returned. The retrieval call remains visible, but the presenter should not claim exact citations.</p>';
+      const count = sources.length === 1 ? '1 source reference' : sources.length + ' source references';
+      return traceStep('Citations · ' + count, body, '${ICONS.trace}');
     }
 
     function activateTab(name) {

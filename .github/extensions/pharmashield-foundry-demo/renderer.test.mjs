@@ -20,12 +20,53 @@ test("renders the canonical Foundry Part 2 structure", () => {
     }
 });
 
-test("follows system light and dark appearances", () => {
+test("follows the host app theme with complete explicit palettes", () => {
     const html = renderHtml();
 
-    assert.match(html, /color-scheme: light dark/);
-    assert.match(html, /@media \(prefers-color-scheme: dark\)/);
+    assert.match(html, /data-visual-mode/);
+    assert.match(html, /data-color-mode/);
+    assert.match(html, /data-theme/);
+    assert.match(html, /new MutationObserver\(resolveTheme\)/);
+    assert.match(html, /observer\.observe\(document\.body, options\)/);
+    assert.match(html, /matchMedia\('\(prefers-color-scheme: light\)'\)/);
+    assert.match(html, /:root\[data-theme="light"\]/);
+    assert.match(html, /--bg: #0d1117/);
+    assert.match(html, /--bg: #f6f8fa/);
+    assert.match(html, /--surface: #161b22/);
+    assert.match(html, /--surface: #ffffff/);
+    assert.match(html, /--text: #e6edf3/);
+    assert.match(html, /--text: #1f2328/);
+    assert.match(html, /--faint: #656d76/);
+    assert.doesNotMatch(
+        html,
+        /var\(--(?:background-color|overlay-background|border-color|text-color|true-color|color-focus|font-sans|font-mono)/,
+    );
     assert.match(html, /@media \(prefers-reduced-motion: reduce\)/);
+});
+
+test("renders the canonical chronological Trace sequence from live result fields", () => {
+    const html = renderHtml();
+    const labels = [
+        "Calling Foundry IQ",
+        "Query sent to the knowledge base",
+        "knowledge_base_retrieve returned",
+        "Citations · ",
+    ];
+    let previous = -1;
+    for (const label of labels) {
+        const position = html.indexOf(label);
+        assert.ok(position > previous, `${label} should follow the previous Trace event`);
+        previous = position;
+    }
+
+    assert.match(html, /highlightTraceText\(output\)/);
+    assert.match(html, /class="trace-highlight"/);
+    assert.match(html, /output\.matchAll/);
+    assert.match(html, /values\.push\('ref_id:'/);
+    assert.match(html, /if \(result\.grounded\)/);
+    assert.match(html, /if \(traceOutputFailed\(call\.output, call\.error\)\) continue/);
+    assert.match(html, /No source references were returned/);
+    assert.doesNotMatch(html, /class="trace-item"/);
 });
 
 test("keeps the full Chapter 2 handoff visible", () => {

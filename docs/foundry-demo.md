@@ -44,6 +44,11 @@ response contains a real `knowledge_base_retrieve` MCP call with a successful,
 non-empty tool result. A failed invocation is displayed as ungrounded. The
 canvas never substitutes a canned answer or fabricated retrieval trace.
 
+Trace follows the canonical event order: **Calling Foundry IQ**, **Query sent to
+the knowledge base**, **knowledge_base_retrieve returned**, then **Citations**.
+The returned rate, discount, batch-fee, and packaging clauses are highlighted
+only when those words occur in the live tool output.
+
 The included Aster Ridge invoice is a demo fixture retained from the canonical
 Pharmashield story. Contract conclusions still come exclusively from the live
 FoundryIQ knowledge base.
@@ -52,9 +57,10 @@ The hosted `contract-policy-expert` remains a read-only evidence expert. If the
 retrieved sources do not prove a purchase-order authorization, the canvas keeps
 that question unresolved instead of reproducing the scripted demo's conclusion.
 
-The canvas follows the operating system appearance automatically and includes
-complete light and dark palettes. It intentionally does not add a separate theme
-setting.
+The canvas follows the Copilot app appearance, updates live when the host theme
+changes, and uses the operating system appearance only as a fallback. Its light
+and dark palettes are complete and independent; it intentionally does not add a
+separate theme setting.
 
 ## Committed assets
 

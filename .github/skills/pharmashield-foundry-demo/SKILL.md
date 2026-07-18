@@ -44,8 +44,10 @@ If the canvas is not registered, call `extensions_reload`, confirm
    contract knowledge, and assemble the read-only evidence expert."
 4. **Run:** Return to **Chat** and click **Run grounded audit**. "This asks the same
    question as Part 1, now with access to what we actually signed."
-5. **Prove:** Open **Trace** after completion. "The real tool call, query, returned
-   clause text, and source references prove this is retrieval, not model memory."
+5. **Prove:** Open **Trace** after completion. Follow the chronological sequence:
+   "Foundry IQ was called, this exact query was sent, this contract text came
+   back, and these citations identify the sources." Highlighting appears only
+   where those clauses occur in the live retrieval result.
 6. **Hand off:** Point to the journey rail. "Waypoint governs the workflow; then
    delivery, evaluation, optimization, and workforce governance compound the
    value."
