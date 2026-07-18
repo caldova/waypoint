@@ -1,17 +1,144 @@
-# Caldova Waypoint
+<p align="center">
+  <img
+    src="https://raw.githubusercontent.com/caldova/waypoint/main/apps/waypoint/web/public/caldova-logo.png"
+    width="360"
+    alt="Caldova"
+  />
+</p>
 
-Waypoint is Caldova's invoice assurance workspace for contract manufacturing. Caldova is a fictional pharmaceutical operations company used to demonstrate how a real enterprise application can combine business records, governed agent workflows, evaluation, optimization, and deployment automation.
+<h1 align="center">Waypoint</h1>
 
-This repository is both the Waypoint product codebase and the reference implementation behind the demo. It is intentionally organized like a real company system: the application is the center, and the surrounding modules show how Caldova grounds, operates, evaluates, improves, and deploys that application.
+<p align="center">
+  <strong>
+    One repo. One Azure deployment. One live, contract-grounded story.
+  </strong>
+  <br />
+  From synthetic business records to hosted Foundry agents and governed
+  application workflows.
+</p>
+
+<p align="center">
+  <a href="https://github.com/caldova/waypoint/actions/workflows/deploy.yml">
+    <img
+      alt="Deploy to Azure"
+      src="https://img.shields.io/badge/1._Deploy_to_Azure-0969DA?style=for-the-badge&amp;logo=githubactions&amp;logoColor=white"
+    />
+  </a>
+  <a href="docs/foundry-demo.md">
+    <img
+      alt="Open the presenter guide"
+      src="https://img.shields.io/badge/2._Present_the_Demo-57606A?style=for-the-badge"
+    />
+  </a>
+</p>
+
+<p align="center">
+  <a href="docs/getting-started.md">Developer setup</a>
+  ·
+  <a href="docs/architecture.md">Architecture</a>
+  ·
+  <a href="docs/status.md">Project status</a>
+</p>
+
+Waypoint is Caldova's invoice assurance workspace for contract manufacturing.
+Caldova is a fictional pharmaceutical operations company used to demonstrate
+how a real enterprise application can combine business records, governed agent
+workflows, evaluation, optimization, and deployment automation.
 
 > [!NOTE]
-> We are publishing this reference app early so the architecture, code, and demo assets are available as soon as possible. Local validation paths are in place, but some cloud deployment flows are still being exercised and documented.
+> All suppliers, invoices, contracts, policies, findings, and evidence in this
+> repository are synthetic demo data.
 
-## The Caldova story
+## Deploy once, present the story
 
-Caldova relies on contract manufacturers to produce medicines, packaging, testing, logistics, and release services. Those suppliers send complex invoices that must be reconciled against contracts, policies, purchase orders, batch records, quality events, capacity approvals, and market context.
+The complete seller path has two parts: deploy the shared Azure environment,
+then open the live presenter experience. If your team already has a working
+Waypoint environment with `contract-policy-expert`, skip directly to
+[Present the demo](#2-present-the-demo).
 
-Waypoint is Caldova's system of record for that assurance process. It helps teams review supplier invoices, investigate evidence, track findings, manage governed cases, and prepare approved actions. Agents assist with evidence gathering and recommendations, but Waypoint remains the governed boundary for decisions, writes, audit, and approvals.
+### 1. Deploy the demo environment
+
+#### Configure deployment access once
+
+> [!IMPORTANT]
+> A deployment owner must establish GitHub-to-Azure OIDC trust once for each
+> repository and tenant. The repeatable deployment is one click after this
+> trust is configured. No Azure client secret is stored in GitHub.
+
+The deployment owner needs:
+
+- an Azure identity that can create app registrations, service principals,
+  resource groups, and role assignments;
+- repository administrator access;
+- Azure CLI, GitHub CLI, and `jq`; and
+- an authenticated Azure and GitHub CLI session.
+
+```bash
+az login
+gh auth login
+
+tools/deploy/scripts/oidc.sh \
+  --owner caldova \
+  --repo waypoint \
+  --subscription-id "$(az account show --query id -o tsv)" \
+  --app-name waypoint-gha-oidc \
+  --branch main \
+  --pull-request
+```
+
+The bootstrap is idempotent. It creates or reuses the deployment identity,
+configures GitHub's federated credential, assigns the required Azure roles, and
+writes the repository variables consumed by the deployment workflow.
+
+See [Azure deployment](docs/deployment.md) for permissions, optional settings,
+parallel environments, and troubleshooting.
+
+#### Run the deployment
+
+[![Open the Deploy Azure workflow](https://img.shields.io/badge/Open_Deploy_Azure-0969DA?style=flat-square&logo=githubactions&logoColor=white)](https://github.com/caldova/waypoint/actions/workflows/deploy.yml)
+
+1. Select **Run workflow**.
+2. Keep the defaults for a first deployment.
+3. Start the workflow and follow the acceptance job through completion.
+
+The default path deploys:
+
+- the Waypoint web application, API, PostgreSQL database, authentication, and
+  telemetry;
+- the synthetic corpus, seed data, and Fabric/OneLake storage;
+- the Foundry project, model deployments, search, and `contracts-kb`;
+- `invoice-analyst`, `assurance-orchestrator`, `contract-policy-expert`, and
+  `waypoint-recorder`; and
+- an acceptance artifact proving endpoint health, hosted-agent inventory, and
+  a completed orchestrator-to-recorder run.
+
+WorkIQ, WebIQ, and FabricIQ remain available as opt-in lanes. The default
+seller experience starts with FoundryIQ only.
+
+### 2. Present the demo
+
+On the presenter machine:
+
+1. Open this repository in GitHub Copilot.
+2. Authenticate Azure CLI to the tenant containing the deployment.
+3. Ask Copilot:
+
+> Start the Pharmashield Foundry demo.
+
+The repo-scoped skill opens the **Pharmashield · Foundry live demo** canvas. It
+discovers the deployed Foundry project, checks that `contract-policy-expert` is
+available, and enables one primary action: **Run grounded audit**.
+
+The Aster Ridge story is live:
+
+- the hosted agent receives the canonical invoice question;
+- Foundry IQ calls `knowledge_base_retrieve`;
+- Trace shows the exact query, returned contract text, and source references;
+  and
+- the presenter can distinguish invoice-only proof from contract-grounded
+  evidence without starting Ollama, Aspire, or the Waypoint web app.
+
+[![Open the complete presenter guide](https://img.shields.io/badge/Open_Presenter_Guide-57606A?style=flat-square)](docs/foundry-demo.md)
 
 ## What the reference app demonstrates
 
@@ -19,34 +146,84 @@ Waypoint is Caldova's system of record for that assurance process. It helps team
 | --- | --- |
 | Application | A production-style Waypoint app with API, web UI, auth, telemetry, persistence, and Fabric/OneLake integration. |
 | Corpus | A realistic synthetic domain corpus: suppliers, contracts, policies, invoice facts, scenarios, seed data, and generated documents. |
-| Agents | A multi-agent invoice assurance workflow with orchestrators, evidence experts, analyst surfaces, and write-boundary agents. |
-| Evaluations | Datasets, graders, golden cases, calibration, and eval plans for measuring agent quality. |
+| Agents | A multi-agent invoice assurance workflow with orchestration, read-only evidence experts, analyst surfaces, and one write-boundary agent. |
+| Evaluations | Datasets, graders, golden cases, calibration, and quality gates for measuring agent behavior. |
 | Optimization | Prompt optimization, RFT/RLE planning, cost-quality tradeoffs, promotion metadata, and telemetry backfill workflows. |
-| Deployment | Scripts and workflows for standing up the app, corpus, agents, cloud resources, and cross-system wiring. |
+| Deployment | An idempotent workflow for the app, corpus, agents, cloud resources, seed data, and cross-system wiring. |
 
-## Start here
+## How it works
 
-- `docs/status.md` explains what has been validated and what is still in progress.
-- `docs/getting-started.md` contains the current local validation path.
-- `docs/deployment.md` explains the repeatable GitHub Actions deployment path.
-- `docs/foundry-demo.md` launches the one-click, Foundry-only Pharmashield presenter story.
-- `docs/architecture.md` explains the app, corpus, agents, evals, optimization, and deployment layers.
-- `docs/data-disclaimer.md` describes the synthetic Caldova data set.
-- `docs/compatibility.md` explains why a few package and CLI names still use compatibility names.
-- `docs/repository-settings.md` lists recommended public repository settings.
-- `SECURITY.md`, `CONTRIBUTING.md`, and `SUPPORT.md` set expectations for public use.
+```mermaid
+flowchart LR
+    Corpus[Synthetic invoices<br/>contracts and policies]
+    App[Waypoint<br/>governed system of record]
+    Expert[Contract policy expert<br/>FoundryIQ]
+    Orchestrator[Assurance orchestrator]
+    Recorder[Waypoint recorder<br/>sole writer]
+    Evals[Evaluate and optimize]
+
+    Corpus --> App
+    Corpus --> Expert
+    App --> Orchestrator
+    Orchestrator --> Expert
+    Expert --> Orchestrator
+    Orchestrator --> Recorder
+    Recorder --> App
+    Orchestrator --> Evals
+```
+
+Waypoint remains the governed boundary. Evidence experts are read-only,
+orchestration combines their evidence, and `waypoint-recorder` is the sole
+agent allowed to write governed run results.
+
+## The Caldova story
+
+Caldova relies on contract manufacturers to produce medicines, packaging,
+testing, logistics, and release services. Those suppliers send complex
+invoices that must be reconciled against contracts, policies, purchase orders,
+batch records, quality events, capacity approvals, and market context.
+
+Waypoint helps teams review those invoices, investigate evidence, track
+findings, manage governed cases, and prepare approved actions. Agents assist
+with evidence gathering and recommendations, but Waypoint remains the system
+of record for decisions, writes, audit, and approvals.
+
+## Develop locally
+
+The local development path is separate from the seller demo. It exercises the
+Waypoint application, corpus tooling, agents, evaluations, and deployment
+checks without requiring the presenter canvas.
+
+- [Getting started](docs/getting-started.md)
+- [Waypoint application runtime](apps/waypoint/README.md)
+- [Architecture](docs/architecture.md)
+- [Project status](docs/status.md)
 
 ## Repository map
 
 | Path | Caldova responsibility |
 | --- | --- |
 | `apps/waypoint/` | Waypoint itself: Aspire AppHost, FastAPI API, React web app, infrastructure, tests, and product docs. |
-| `modules/corpus/` | The business ground truth for the demo: suppliers, contracts, policies, invoice scenarios, seed generation, document generation, and upload tooling. |
-| `modules/agents/` | Caldova's agent fleet: WaypointIQ contracts, prompts, toolboxes, orchestrator, evidence experts, analyst surfaces, eval assets, and agent deployment/publish tooling. |
-| `modules/evals/` | Quality gates: datasets, graders, calibration, eval planning, and repeatable checks for agent behavior. |
-| `modules/optimization/` | Improvement workflows: optimizer artifacts, RFT/RLE materials, cost-quality demos, and telemetry-backed improvement planning. |
-| `tools/deploy/` | Deployment orchestration for the full Caldova Waypoint environment. |
-| `.github/extensions/` | Copilot canvas extensions used to inspect, demonstrate, and operate parts of the reference system. |
+| `modules/corpus/` | Synthetic suppliers, contracts, policies, invoice scenarios, seed generation, document generation, and upload tooling. |
+| `modules/agents/` | Agent fleet, WaypointIQ contracts, prompts, toolboxes, orchestration, evidence experts, analyst surfaces, and publish tooling. |
+| `modules/evals/` | Datasets, graders, calibration, quality gates, and repeatable checks for agent behavior. |
+| `modules/optimization/` | Optimizer artifacts, RFT/RLE materials, cost-quality demos, promotion metadata, and telemetry-backed improvement planning. |
+| `tools/deploy/` | Environment discovery, preflight, Key Vault, MSAL, OIDC, deployment, seed import, wiring, and acceptance tooling. |
+| `.github/extensions/` | Copilot canvas extensions used to inspect, demonstrate, and operate the reference system. |
 | `.github/skills/` | Repo-scoped Copilot skills, including the one-step Pharmashield Foundry demo launcher. |
 
-The module names are intentionally simple and public-facing. They describe the role each part plays in Caldova's system rather than exposing the original internal project codenames used during development.
+## Documentation
+
+| Guide | Purpose |
+| --- | --- |
+| [Project status](docs/status.md) | Validated paths, current caveats, and work still in progress. |
+| [Getting started](docs/getting-started.md) | Local developer prerequisites and validation commands. |
+| [Azure deployment](docs/deployment.md) | Deployment variables, stages, optional lanes, parallel environments, and troubleshooting. |
+| [Foundry demo](docs/foundry-demo.md) | Live Pharmashield presenter workflow and fidelity contract. |
+| [Architecture](docs/architecture.md) | Application, corpus, agents, evaluations, optimization, and deployment layers. |
+| [Data disclaimer](docs/data-disclaimer.md) | Scope and handling of the synthetic Caldova data set. |
+| [Compatibility](docs/compatibility.md) | Compatibility names retained while the consolidated repository stabilizes. |
+| [Repository settings](docs/repository-settings.md) | Recommended settings for publishing and operating the repository. |
+
+See [Security](SECURITY.md), [Contributing](CONTRIBUTING.md), and
+[Support](SUPPORT.md) for public-use expectations.
