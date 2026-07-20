@@ -1,9 +1,19 @@
 <p align="center">
-  <img
-    src="https://raw.githubusercontent.com/caldova/waypoint/main/apps/waypoint/web/public/caldova-logo.png"
-    width="360"
-    alt="Caldova"
-  />
+  <picture>
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="https://raw.githubusercontent.com/caldova/.github/main/profile/assets/caldova-logo-white.svg"
+    />
+    <source
+      media="(prefers-color-scheme: light)"
+      srcset="https://raw.githubusercontent.com/caldova/.github/main/profile/assets/caldova-logo-color.svg"
+    />
+    <img
+      src="https://raw.githubusercontent.com/caldova/.github/main/profile/assets/caldova-logo-color.svg"
+      width="560"
+      alt="Caldova"
+    />
+  </picture>
 </p>
 
 <h1 align="center">Waypoint</h1>
