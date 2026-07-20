@@ -24,7 +24,7 @@
       src="https://img.shields.io/badge/1._Deploy_to_Azure-0969DA?style=for-the-badge&amp;logo=githubactions&amp;logoColor=white"
     />
   </a>
-  <a href="docs/foundry-demo.md">
+  <a href="https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fsession%2Fnew%3Frepo%3Dcaldova%252Fwaypoint%26mode%3Dinteractive%26prompt%3DStart%2520the%2520Pharmashield%2520Foundry%2520demo.">
     <img
       alt="Open the presenter guide"
       src="https://img.shields.io/badge/2._Present_the_Demo-57606A?style=for-the-badge"
@@ -117,11 +117,16 @@ seller experience starts with FoundryIQ only.
 
 ### 2. Present the demo
 
-On the presenter machine:
+[![Launch the demo in GitHub Copilot](https://img.shields.io/badge/Launch_in_GitHub_Copilot-57606A?style=for-the-badge)](https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fsession%2Fnew%3Frepo%3Dcaldova%252Fwaypoint%26mode%3Dinteractive%26prompt%3DStart%2520the%2520Pharmashield%2520Foundry%2520demo.)
 
-1. Open this repository in GitHub Copilot.
-2. Authenticate Azure CLI to the tenant containing the deployment.
-3. Ask Copilot:
+The launcher opens GitHub Copilot, clones or opens this repository, starts an
+interactive session, and supplies the kickoff prompt. The repo-scoped skill and
+canvas load from `.github/skills/` and `.github/extensions/`; no separate plugin
+installation is required.
+
+Before running the live audit, authenticate Azure CLI on the presenter machine
+to the tenant containing the deployment. If you open the repository manually,
+ask Copilot:
 
 > Start the Pharmashield Foundry demo.
 

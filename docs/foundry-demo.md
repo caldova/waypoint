@@ -6,7 +6,14 @@ interface.
 
 ## Start in one step
 
-Open this repository in GitHub Copilot and say:
+[![Launch the demo in GitHub Copilot](https://img.shields.io/badge/Launch_in_GitHub_Copilot-57606A?style=for-the-badge)](https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fsession%2Fnew%3Frepo%3Dcaldova%252Fwaypoint%26mode%3Dinteractive%26prompt%3DStart%2520the%2520Pharmashield%2520Foundry%2520demo.)
+
+The launcher uses GitHub Copilot's hosted deep-link handoff to clone or open
+this repository, start an interactive session, and supply the kickoff prompt.
+The project-scoped skill and canvas load from the repository automatically; no
+separate plugin installation is required.
+
+To launch manually, open this repository in GitHub Copilot and say:
 
 > Start the Pharmashield Foundry demo.
 
