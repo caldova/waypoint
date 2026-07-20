@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { renderHtml } from "./renderer.mjs";
 
-test("renders the canonical Foundry Part 2 structure", () => {
+test("renders the Foundry contract expert structure", () => {
     const html = renderHtml();
 
     for (const label of [
@@ -17,6 +17,27 @@ test("renders the canonical Foundry Part 2 structure", () => {
         "Connection",
     ]) {
         assert.match(html, new RegExp(`>${label}<|${label}`));
+    }
+});
+
+test("names the model and excludes the retired two-part narrative", () => {
+    const html = renderHtml();
+
+    assert.match(html, /gpt-5\.5/);
+    assert.match(html, /id="anatomy-model"/);
+    assert.match(html, /model = "<span id="code-model">gpt-5\.5<\/span>"/);
+    assert.match(html, /FoundryChatClient/);
+    assert.match(html, /Keeping model choice explicit|model choice is explicit/i);
+    for (const phrase of [
+        /Part 1/i,
+        /Part 2/i,
+        /local proof/i,
+        /same invoice/i,
+        /carried forward/i,
+        /proof of concept/i,
+        /laptop runtime/i,
+    ]) {
+        assert.doesNotMatch(html, phrase);
     }
 });
 
@@ -69,7 +90,7 @@ test("renders the canonical chronological Trace sequence from live result fields
     assert.doesNotMatch(html, /class="trace-item"/);
 });
 
-test("keeps the full Chapter 2 handoff visible", () => {
+test("keeps the full governed platform handoff visible", () => {
     const html = renderHtml();
 
     for (const stage of ["Build", "Deliver", "Evaluate", "Optimize", "Govern"]) {

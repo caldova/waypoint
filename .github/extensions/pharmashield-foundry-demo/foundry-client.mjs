@@ -65,7 +65,7 @@ export async function acquireFoundryToken(az = runAz) {
     return token;
 }
 
-export async function listHostedAgents({
+export async function listHostedAgentInventory({
     projectEndpoint,
     token,
     fetchImpl = fetch,
@@ -89,15 +89,33 @@ export async function listHostedAgents({
         throw new Error(`Foundry agent inventory failed (HTTP ${response.status}): ${text.slice(0, 500)}`);
     }
     const body = JSON.parse(text);
-    const agents = body.data || body.value || body.agents || [];
-    return agents
-        .map((agent) => String(agent.name || agent.id || ""))
-        .filter(Boolean);
+    return body.data || body.value || body.agents || [];
+}
+
+export async function listHostedAgents(options) {
+    const agents = await listHostedAgentInventory(options);
+    return agents.map((agent) => String(agent.name || agent.id || "")).filter(Boolean);
+}
+
+export async function getHostedAgentDetails(options) {
+    const agents = await listHostedAgentInventory(options);
+    const agentName = options.agentName || DEFAULT_AGENT;
+    const agent = agents.find((candidate) => String(candidate.name || candidate.id || "") === agentName);
+    if (!agent) return null;
+    const environment = agent.versions?.latest?.definition?.environment_variables || {};
+    return {
+        name: agentName,
+        model:
+            environment.AZURE_AI_MODEL_DEPLOYMENT_NAME ||
+            environment.MODEL_NAME ||
+            agent.model_deployment_name ||
+            agent.model ||
+            null,
+    };
 }
 
 export async function hasHostedAgent(options) {
-    const agents = await listHostedAgents(options);
-    return agents.includes(options.agentName || DEFAULT_AGENT);
+    return Boolean(await getHostedAgentDetails(options));
 }
 
 export function rankProject(project, preferredResourceGroup = "") {

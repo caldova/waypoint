@@ -3,7 +3,6 @@ import {
     CANONICAL_AUDIT_PROMPT,
     DEMO_BEATS,
     HERO_INVOICE,
-    INVOICE_ONLY_PROOF,
     JOURNEY_STAGES,
 } from "./demo-data.mjs";
 
@@ -38,7 +37,7 @@ const anatomyRows = AGENT_ANATOMY.map(
       <details class="anatomy-part part-${part.id}" data-part="${part.id}" open>
         <summary>
           <span class="part-icon" aria-hidden="true">${ICONS[part.id]}</span>
-          <span class="part-title"><strong>${part.label}</strong><small>${part.value}</small></span>
+          <span class="part-title"><strong>${part.label}</strong><small${part.id === "model" ? ' id="anatomy-model"' : ""}>${part.value}</small></span>
           <span class="part-state" aria-hidden="true"></span>
           <span class="chevron" aria-hidden="true">›</span>
         </summary>
@@ -282,14 +281,6 @@ export function renderHtml() {
       color: var(--success); background: var(--success-soft); font-size: 11px; font-weight: 600; white-space: nowrap;
     }
     .messages { min-height: 560px; padding: 20px; display: flex; flex-direction: column; gap: 16px; background: var(--bg); }
-    .bridge-card {
-      padding: 14px; display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center;
-      border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
-    }
-    .bridge-card strong, .bridge-card small { display: block; }
-    .bridge-card strong { font-size: 12px; }
-    .bridge-card small { color: var(--muted); font-size: 10px; margin-top: 2px; }
-    .bridge-arrow { color: var(--accent); }
     .message-row { max-width: 88%; display: flex; gap: 10px; }
     .message-row.user { margin-left: auto; flex-direction: row-reverse; }
     .avatar {
@@ -304,8 +295,8 @@ export function renderHtml() {
     .bubble p + p { margin-top: 8px; }
     .bubble .meta-line { color: var(--muted); font-size: 11px; margin-top: 8px; }
     .message-row.user .meta-line { color: rgba(255, 255, 255, .78); }
-    .local-proof {
-      margin-top: 10px; padding: 10px; border-radius: 8px; color: var(--warning); background: var(--warning-soft); font-size: 11px;
+    .context-note {
+      margin-top: 10px; padding: 10px; border-radius: 8px; color: var(--accent); background: var(--accent-soft); font-size: 11px;
     }
     .user-audit { display: none; }
     .user-audit.show { display: flex; }
@@ -483,8 +474,6 @@ export function renderHtml() {
       .pane-wrap { padding: 16px; }
       .side-stack { grid-template-columns: 1fr; }
       .anatomy-parts { grid-template-columns: 1fr; }
-      .bridge-card { grid-template-columns: 1fr; }
-      .bridge-arrow { transform: rotate(90deg); }
       .messages { padding: 14px; }
       .message-row { max-width: 100%; }
     }
@@ -498,20 +487,20 @@ export function renderHtml() {
     <aside class="anatomy" aria-label="Anatomy of the Foundry agent">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">${ICONS.shield}</span>
-        <div><strong>Pharmashield</strong><small>Part 2 · Promote to Foundry</small></div>
+        <div><strong>Pharmashield</strong><small>Foundry · Contract evidence</small></div>
       </div>
       <p class="section-label">Anatomy of an agent</p>
-      <p class="anatomy-intro">The same invoice-checking job from the local proof of concept, with one production addition: Tools.</p>
+      <p class="anatomy-intro">A contract-policy expert assembled in Microsoft Foundry with an explicit model, instructions, business context, conversation memory, and approved knowledge tools.</p>
       <div class="anatomy-parts">${anatomyRows}</div>
       <div class="equation">
         <strong>Model + Instructions + Context + Memory + Tools</strong><br />
-        = a grounded agent. The Trace proves the fifth part ran.
+        = a grounded agent. The Trace proves the knowledge tool ran.
       </div>
     </aside>
 
     <main class="workspace">
       <header class="topbar">
-        <div class="agent-title"><strong>contract-policy-expert</strong><small>Microsoft Foundry · read-only evidence expert</small></div>
+        <div class="agent-title"><strong>contract-policy-expert</strong><small>Microsoft Foundry · <span id="header-model">gpt-5.5</span> · read-only evidence expert</small></div>
         <div class="tabs" role="tablist" aria-label="Foundry Agent views">
           <button class="tab" role="tab" aria-selected="true" aria-controls="pane-chat" id="tab-chat" data-pane="chat">${ICONS.chat}<span>Chat</span></button>
           <button class="tab" role="tab" aria-selected="false" aria-controls="pane-trace" id="tab-trace" data-pane="trace">${ICONS.trace}<span>Trace</span><span class="count" id="trace-count" hidden>0</span></button>
@@ -520,34 +509,29 @@ export function renderHtml() {
         <span class="status-pill" id="overall-status"><span class="status-dot"></span><span>Checking Azure</span></span>
       </header>
 
-      <ol class="journey" aria-label="Chapter 2 Build, Deliver, Optimize journey">${journeyRows}</ol>
+      <ol class="journey" aria-label="Build, Deliver, Evaluate, Optimize, Govern journey">${journeyRows}</ol>
 
       <section class="pane active" id="pane-chat" role="tabpanel" aria-labelledby="tab-chat">
         <div class="pane-wrap chat-grid">
           <section class="panel conversation" aria-label="Live Foundry audit conversation">
             <div class="conversation-head">
-              <div><h1>Same invoice. New enterprise context.</h1><p>The Aster Ridge artifact carries forward; Foundry IQ supplies what the invoice cannot.</p></div>
+              <div><h1>Audit an invoice against enterprise contracts.</h1><p>The Aster Ridge invoice supplies the transaction context; Foundry IQ retrieves approved contract knowledge.</p></div>
               <span class="context-chip">${ICONS.context}<span>${HERO_INVOICE.id}</span></span>
             </div>
             <div class="messages" aria-live="polite">
-              <div class="bridge-card">
-                <div><strong>Part 1 · Local proof</strong><small>Invoice math, isolated workflow, explicit limits</small></div>
-                <span class="bridge-arrow" aria-hidden="true">${ICONS.arrow}</span>
-                <div><strong>Part 2 · Foundry</strong><small>Hosted runtime, approved knowledge, auditable retrieval</small></div>
-              </div>
               <div class="message-row">
                 <span class="avatar" aria-hidden="true">${ICONS.shield}</span>
                 <div class="bubble">
-                  <p><strong>The same Aster Ridge invoice is already attached.</strong> It contains four lines and a printed total of ${money(HERO_INVOICE.total)}.</p>
-                  <div class="local-proof">
-                    <strong>Invoice-only proof carried forward:</strong> ${INVOICE_ONLY_PROOF.arithmetic}, not ${money(INVOICE_ONLY_PROOF.billedAmount)}. The ${money(INVOICE_ONLY_PROOF.overstatement)} line overstatement is visible without a contract; rate and packaging questions still need enterprise evidence.
+                  <p><strong>The Aster Ridge invoice is attached as business context.</strong> It contains four lines and a printed total of ${money(HERO_INVOICE.total)}.</p>
+                  <div class="context-note">
+                    <strong>Grounding boundary:</strong> rate, fee, discount, and packaging claims must come from approved contract knowledge retrieved through Foundry IQ.
                   </div>
                   <p class="meta-line">Context · ${HERO_INVOICE.supplier} · ${HERO_INVOICE.purchaseOrder}</p>
                 </div>
               </div>
               <div class="message-row user user-audit" id="user-audit">
                 <span class="avatar" aria-hidden="true">${ICONS.chat}</span>
-                <div class="bubble"><p>${CANONICAL_AUDIT_PROMPT}</p><p class="meta-line">Same question as Part 1</p></div>
+                <div class="bubble"><p>${CANONICAL_AUDIT_PROMPT}</p><p class="meta-line">Live contract-grounded audit</p></div>
               </div>
               <div class="retrieving" id="retrieving"><span class="retrieving-dot"></span><span>Consulting Foundry IQ through knowledge_base_retrieve…</span></div>
               <div class="message-row result-message" id="result-message">
@@ -568,13 +552,13 @@ export function renderHtml() {
               <div class="buttons"><button class="btn btn-secondary" id="refresh" type="button">Refresh readiness</button></div>
             </section>
             <section class="card">
-              <div class="card-head"><h2>Run the story</h2><p>Asks the canonical Part 2 question and waits for the real hosted response.</p></div>
+              <div class="card-head"><h2>Run the story</h2><p>Sends the contract-audit question to the real hosted expert and waits for its response.</p></div>
               <button class="btn btn-primary" id="start" type="button" disabled>Run grounded audit</button>
               <div class="progress" id="progress" role="progressbar" aria-label="Hosted audit progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
               <div class="run-message" id="run-message" aria-live="polite">Waiting for readiness checks.</div>
             </section>
             <section class="card presenter">
-              <div class="card-head"><h2>Presenter beats</h2><p>The canonical Part 2 arc, with the next chapters kept in view.</p></div>
+              <div class="card-head"><h2>Presenter beats</h2><p>The Foundry contract-expert story, with the governed platform journey kept in view.</p></div>
               <details>
                 <summary>Open talk track</summary>
                 <ol class="beats">${beatRows}</ol>
@@ -601,19 +585,22 @@ export function renderHtml() {
 
       <section class="pane" id="pane-connection" role="tabpanel" aria-labelledby="tab-connection" hidden>
         <div class="pane-wrap">
-          <div class="pane-title"><h1>From proof of concept to production</h1><p>The canvas keeps the canonical three-move explanation while reflecting the consolidated platform's actual read-only expert boundary.</p></div>
+          <div class="pane-title"><h1>Assemble a contract-grounded expert</h1><p>The model, enterprise knowledge, and agent instructions remain explicit so each component can evolve independently.</p></div>
           <div class="connection-layout">
             <section>
               <div class="connection-steps">
-                <article class="connection-step"><span>1</span><div><strong>Use the hosted model</strong><p>Move the same invoice-checking job from a laptop runtime into a governed Microsoft Foundry project.</p></div></article>
+                <article class="connection-step"><span>1</span><div><strong>Choose the model</strong><p>This expert uses <code id="connection-model">gpt-5.5</code>. Keeping model choice explicit lets different agents use the right model for each job.</p></div></article>
                 <article class="connection-step"><span>2</span><div><strong>Connect approved knowledge</strong><p>Add <code>contracts-kb</code> through Foundry IQ so contract claims come from retrieved enterprise sources.</p></div></article>
-                <article class="connection-step"><span>3</span><div><strong>Assemble the evidence expert</strong><p>Keep the instructions and invoice context; add <code>knowledge_base_retrieve</code>. The expert returns evidence, not payment decisions.</p></div></article>
+                <article class="connection-step"><span>3</span><div><strong>Assemble the evidence expert</strong><p>Combine the model, instructions, and <code>knowledge_base_retrieve</code>. The invoice enters as request context; the expert returns evidence, not payment decisions.</p></div></article>
               </div>
               <div class="code-card">
-                <div class="code-head">Architecture sketch · same job + one new tool</div>
-                <pre><code>foundry_model = hosted_agent(
-    project=selected_project,
-    name="contract-policy-expert",
+                <div class="code-head">Architecture sketch · explicit model + approved knowledge</div>
+                <pre><code>model = "<span id="code-model">gpt-5.5</span>"
+
+foundry_client = FoundryChatClient(
+    project_endpoint=selected_project,
+    model=model,
+    credential=DefaultAzureCredential(),
 )
 
 contract_knowledge = foundry_iq(
@@ -621,10 +608,9 @@ contract_knowledge = foundry_iq(
     tool="knowledge_base_retrieve",
 )
 
-contract_policy_expert = evidence_expert(
-    model=foundry_model,
-    instructions=invoice_evidence_contract,
-    context=aster_ridge_invoice,
+contract_policy_expert = Agent(
+    client=foundry_client,
+    instructions=contract_policy_instructions,
     tools=[contract_knowledge],
 )</code></pre>
               </div>
@@ -636,6 +622,7 @@ contract_policy_expert = evidence_expert(
                 <dt>Project</dt><dd id="env-project">Resolving…</dd>
                 <dt>Resource group</dt><dd id="env-rg">Resolving…</dd>
                 <dt>Agent</dt><dd>contract-policy-expert</dd>
+                <dt>Model</dt><dd id="env-model">gpt-5.5</dd>
                 <dt>Knowledge</dt><dd>Foundry IQ · contracts-kb</dd>
                 <dt>Protocol</dt><dd>Hosted Responses · background</dd>
                 <dt>Grounding gate</dt><dd>successful knowledge_base_retrieve required</dd>
@@ -704,6 +691,7 @@ contract_policy_expert = evidence_expert(
         project?.resourceGroup ||
         project?.id?.match(/\\/resourceGroups\\/([^/]+)/i)?.[1] ||
         'Not discovered';
+      const model = data.preflight?.model || 'gpt-5.5';
       const visibleProjects = projects.filter((project) => project.score > 0 || project.id === selectedId);
       if (visibleProjects.length) {
         select.innerHTML = visibleProjects.map((project) =>
@@ -720,6 +708,11 @@ contract_policy_expert = evidence_expert(
 
       $('env-project').textContent = project ? projectName : 'Not ready';
       $('env-rg').textContent = resourceGroup;
+      $('env-model').textContent = model;
+      $('header-model').textContent = model;
+      $('anatomy-model').textContent = model + ' · Microsoft Foundry';
+      $('connection-model').textContent = model;
+      $('code-model').textContent = model;
       $('start').disabled = !ready || running;
       $('start').textContent = running ? 'Running against Foundry IQ…' : data.job?.status === 'completed' ? 'Run grounded audit again' : 'Run grounded audit';
       $('refresh').disabled = running;

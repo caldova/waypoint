@@ -1,8 +1,8 @@
 # Pharmashield Foundry-only demo
 
 This repository includes a committed Copilot skill and canvas for the live
-Pharmashield Aster Ridge story without Ollama, a local model, or the Waypoint web
-interface.
+Pharmashield Aster Ridge story directly from GitHub Copilot to a hosted
+Microsoft Foundry expert, without the Waypoint web interface.
 
 ## Start in one step
 
@@ -35,15 +35,21 @@ its readiness panel stays blocked and identifies the missing boundary.
 
 ## Live-fidelity contract
 
-The surface follows the canonical Pharmashield Part 2 story:
+The surface presents one Foundry contract-expert story:
 
-- the same Aster Ridge invoice carries forward from the local proof of concept;
-- the Anatomy panel restores Model + Instructions + Context + Memory and adds the
-  fifth production block, Tools;
-- Chat asks the same audit question, Trace proves live retrieval, and Connection
-  explains the three moves from proof of concept to production; and
+- the Aster Ridge invoice is the business context for the live audit;
+- the Anatomy panel names the live `gpt-5.5` deployment and shows Model +
+  Instructions + Context + Memory + Tools;
+- Chat asks the audit question, Trace proves live retrieval, and Connection
+  explains how the explicit model, approved knowledge, and instructions form the
+  expert; and
 - the journey rail hands the story into Waypoint delivery, evaluation,
   optimization, and workforce governance.
+
+The model shown in the canvas comes from the selected hosted agent's live
+deployment metadata, with the repository's `gpt-5.5` deployment default used
+only when that metadata is unavailable. Keeping the model explicit is
+intentional: different agents can use different models for their jobs.
 
 The canvas calls the hosted agent directly through the Foundry Responses
 endpoint in background mode. It displays the result as grounded only when the
@@ -56,9 +62,8 @@ the knowledge base**, **knowledge_base_retrieve returned**, then **Citations**.
 The returned rate, discount, batch-fee, and packaging clauses are highlighted
 only when those words occur in the live tool output.
 
-The included Aster Ridge invoice is a demo fixture retained from the canonical
-Pharmashield story. Contract conclusions still come exclusively from the live
-FoundryIQ knowledge base.
+The included Aster Ridge invoice is the demo's business artifact. Contract
+conclusions still come exclusively from the live FoundryIQ knowledge base.
 
 The hosted `contract-policy-expert` remains a read-only evidence expert. If the
 retrieved sources do not prove a purchase-order authorization, the canvas keeps

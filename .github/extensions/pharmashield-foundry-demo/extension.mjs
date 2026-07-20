@@ -10,7 +10,7 @@ import {
     azureIdentity,
     driveHostedAgent,
     extractHostedResult,
-    hasHostedAgent,
+    getHostedAgentDetails,
     resolveFoundryProject,
     resolveProjectEndpoint,
 } from "./foundry-client.mjs";
@@ -26,6 +26,7 @@ function createEntry(input = {}) {
             projectResourceId: String(input.projectResourceId || ""),
             preferredResourceGroup: String(input.preferredResourceGroup || ""),
             agentName: String(input.agentName || DEFAULT_AGENT),
+            modelName: String(input.modelName || process.env.AZURE_AI_MODEL_DEPLOYMENT_NAME || "gpt-5.5"),
         },
         state: {
             invoice: HERO_INVOICE,
@@ -35,6 +36,7 @@ function createEntry(input = {}) {
                 checks: [],
                 project: null,
                 projects: [],
+                model: null,
             },
             job: { status: "idle", message: "Waiting for readiness checks." },
             result: null,
@@ -97,35 +99,36 @@ async function performPreflight(entry) {
         const token = await acquireFoundryToken();
         let selected = resolved.selected;
         const probeErrors = [];
-        let agentReady = await probeAgent(entry, selected, token, probeErrors);
+        let agent = await probeAgent(entry, selected, token, probeErrors);
         const explicitlyConfigured = Boolean(
             entry.config.projectEndpoint || entry.config.projectResourceId,
         );
-        if (!agentReady && !explicitlyConfigured) {
+        if (!agent && !explicitlyConfigured) {
             for (const candidate of resolved.projects.filter(
                 (project) => project.id !== selected.id && project.score > 0,
             )) {
                 const project = await resolveProjectEndpoint(candidate.id);
-                const candidateReady = await probeAgent(
+                const candidateAgent = await probeAgent(
                     entry,
                     { ...candidate, ...project },
                     token,
                     probeErrors,
                 );
-                if (candidateReady) {
+                if (candidateAgent) {
                     selected = { ...candidate, ...project };
-                    agentReady = true;
+                    agent = candidateAgent;
                     break;
                 }
             }
         }
-        if (!agentReady) {
+        if (!agent) {
             throw new Error(
                 probeErrors.at(-1) ||
                     `Hosted agent ${entry.config.agentName} was not found in the visible Waypoint/Forge projects.`,
             );
         }
         entry.state.preflight.project = selected;
+        entry.state.preflight.model = agent.model || entry.config.modelName;
         entry.config.projectEndpoint = selected.endpoint;
         entry.config.projectResourceId = selected.id || entry.config.projectResourceId;
         entry.state.preflight.checks.push({
@@ -136,7 +139,7 @@ async function performPreflight(entry) {
         entry.state.preflight.checks.push({
             label: "Hosted agent",
             ok: true,
-            detail: `${entry.config.agentName} · present in live project inventory`,
+            detail: `${entry.config.agentName} · ${entry.state.preflight.model}`,
         });
         entry.state.preflight.checks.push({
             label: "Foundry IQ proof",
@@ -162,7 +165,7 @@ async function performPreflight(entry) {
 
 async function probeAgent(entry, project, token, errors) {
     try {
-        return await hasHostedAgent({
+        return await getHostedAgentDetails({
             projectEndpoint: project.endpoint,
             agentName: entry.config.agentName,
             token,
@@ -171,7 +174,7 @@ async function probeAgent(entry, project, token, errors) {
         errors.push(
             `${project.displayName || project.projectName || project.name}: ${errorMessage(error)}`,
         );
-        return false;
+        return null;
     }
 }
 
@@ -184,11 +187,11 @@ async function selectProject(entry, resourceId) {
         );
     }
     const project = await resolveProjectEndpoint(resourceId);
-    const agentReady = await hasHostedAgent({
+    const agent = await getHostedAgentDetails({
         projectEndpoint: project.endpoint,
         agentName: entry.config.agentName,
     });
-    if (!agentReady) {
+    if (!agent) {
         throw new CanvasError(
             "agent_not_deployed",
             `Hosted agent ${entry.config.agentName} is not deployed in ${project.displayName || project.name}.`,
@@ -200,6 +203,7 @@ async function selectProject(entry, resourceId) {
     entry.config.projectResourceId = resourceId;
     entry.config.projectEndpoint = project.endpoint;
     entry.state.preflight.project = { ...listed, ...project };
+    entry.state.preflight.model = agent.model || entry.config.modelName;
     entry.state.preflight.status = "ready";
     entry.state.preflight.message = "Ready for the live Foundry beat.";
     entry.state.preflight.checks = entry.state.preflight.checks.map((check) =>
@@ -209,7 +213,13 @@ async function selectProject(entry, resourceId) {
                   ok: true,
                   detail: `${project.displayName || project.name} · ${host(project.endpoint)}`,
               }
-            : check,
+            : check.label === "Hosted agent"
+              ? {
+                    ...check,
+                    ok: true,
+                    detail: `${entry.config.agentName} · ${entry.state.preflight.model}`,
+                }
+              : check,
     );
     entry.state.result = null;
     entry.state.job = { status: "idle", message: "Ready. Click once when you reach the live beat." };
@@ -406,6 +416,7 @@ await joinSession({
                     projectResourceId: { type: "string", description: "Optional Azure resource ID for the Foundry project." },
                     preferredResourceGroup: { type: "string", description: "Optional resource group preferred during discovery." },
                     agentName: { type: "string", description: "Hosted agent name; defaults to contract-policy-expert." },
+                    modelName: { type: "string", description: "Fallback model deployment name when the hosted inventory does not report one." },
                 },
                 additionalProperties: false,
             },

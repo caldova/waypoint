@@ -1,6 +1,6 @@
 ---
 name: pharmashield-foundry-demo
-description: "Open and guide the one-click, Foundry-only Pharmashield invoice-assurance demo. Use when the user says 'start the Pharmashield demo', 'run the Foundry invoice demo', 'show the Aster Ridge story', 'open the Foundry demo runbook', or asks for the live contract-grounded Chapter 2 Build story without Ollama or the Waypoint web app."
+description: "Open and guide the one-click, Foundry-only Pharmashield invoice-assurance demo. Use when the user says 'start the Pharmashield demo', 'run the Foundry invoice demo', 'show the Aster Ridge story', 'open the Foundry demo runbook', or asks for the live contract-grounded Foundry story without the Waypoint web app."
 license: MIT
 metadata:
   author: Caldova
@@ -36,14 +36,15 @@ If the canvas is not registered, call `extensions_reload`, confirm
 
 ## Presenter talk track
 
-1. **Promote:** "We proved the workflow locally. This is the same job, the same
-   instructions, and the same Aster Ridge invoice—promoted into Foundry."
-2. **Anatomy:** Point to Model + Instructions + Context + Memory, then Tools.
-   "Foundry adds the fifth part: approved contract knowledge through Foundry IQ."
-3. **Connect:** Open **Connection**. "Three moves: use the hosted model, connect
+1. **Start:** "From GitHub Copilot, we open a live contract-policy expert hosted
+   in Microsoft Foundry."
+2. **Anatomy:** Point to Model + Instructions + Context + Memory + Tools.
+   "This expert uses `gpt-5.5`. We name the model because different agent jobs can
+   use different models. Foundry IQ provides approved contract knowledge."
+3. **Connect:** Open **Connection**. "Three moves: choose the model, connect
    contract knowledge, and assemble the read-only evidence expert."
-4. **Run:** Return to **Chat** and click **Run grounded audit**. "This asks the same
-   question as Part 1, now with access to what we actually signed."
+4. **Run:** Return to **Chat** and click **Run grounded audit**. "The invoice
+   supplies the transaction; Foundry IQ retrieves the terms we actually signed."
 5. **Prove:** Open **Trace** after completion. Follow the chronological sequence:
    "Foundry IQ was called, this exact query was sent, this contract text came
    back, and these citations identify the sources." Highlighting appears only

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
     extractHostedResult,
+    getHostedAgentDetails,
     listHostedAgents,
     rankProject,
     resolveFoundryProject,
@@ -97,6 +98,36 @@ test("hosted agent inventory supports the Foundry data response shape", async ()
     });
 
     assert.deepEqual(agents, ["invoice-analyst", "contract-policy-expert"]);
+});
+
+test("hosted agent details expose the live model deployment", async () => {
+    const agent = await getHostedAgentDetails({
+        projectEndpoint: "https://example.services.ai.azure.com/api/projects/demo",
+        agentName: "contract-policy-expert",
+        token: "test-token",
+        fetchImpl: async () =>
+            new Response(
+                JSON.stringify({
+                    data: [
+                        {
+                            name: "contract-policy-expert",
+                            versions: {
+                                latest: {
+                                    definition: {
+                                        environment_variables: {
+                                            AZURE_AI_MODEL_DEPLOYMENT_NAME: "gpt-5.5",
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                }),
+                { status: 200 },
+            ),
+    });
+
+    assert.deepEqual(agent, { name: "contract-policy-expert", model: "gpt-5.5" });
 });
 
 test("citations without a retrieval call do not pass the grounding gate", () => {

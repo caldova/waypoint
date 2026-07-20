@@ -40,20 +40,12 @@ export const HERO_INVOICE = {
 export const CANONICAL_AUDIT_PROMPT =
     "Audit this invoice against our contracts. Flag every discrepancy with the source.";
 
-export const INVOICE_ONLY_PROOF = {
-    lineId: "L002",
-    billedAmount: 664720,
-    recomputedAmount: 658000,
-    overstatement: 6720,
-    arithmetic: "1,400,000 × $0.47 = $658,000",
-};
-
 export const AGENT_ANATOMY = [
     {
         id: "model",
         label: "Model",
-        value: "Hosted production model",
-        detail: "The same invoice-checking job, now running as a governed Microsoft Foundry service.",
+        value: "gpt-5.5 · Microsoft Foundry",
+        detail: "The selected model is explicit because different agent jobs can use different models.",
     },
     {
         id: "instructions",
@@ -65,7 +57,7 @@ export const AGENT_ANATOMY = [
         id: "context",
         label: "Context",
         value: HERO_INVOICE.id,
-        detail: "The same Aster Ridge invoice carries forward from the local proof of concept.",
+        detail: "The Aster Ridge invoice supplies the business artifact the expert must audit.",
     },
     {
         id: "memory",
@@ -77,34 +69,34 @@ export const AGENT_ANATOMY = [
         id: "tools",
         label: "Tools",
         value: "Foundry IQ · contracts-kb",
-        detail: "The fifth part: live knowledge_base_retrieve access to approved contract knowledge.",
+        detail: "Foundry IQ provides live knowledge_base_retrieve access to approved contract knowledge.",
     },
 ];
 
 export const DEMO_BEATS = [
     {
-        id: "promote",
-        label: "Make the turn",
+        id: "start",
+        label: "Start in GitHub Copilot",
         talkTrack:
-            "We proved the workflow locally. This is the same job, the same instructions, and the same Aster Ridge invoice—promoted into Microsoft Foundry.",
+            "From GitHub Copilot, we open a live contract-policy expert hosted in Microsoft Foundry.",
     },
     {
         id: "anatomy",
-        label: "Show the fifth part",
+        label: "Name every component",
         talkTrack:
-            "Model, Instructions, Context, and Memory are still here. Foundry adds Tools: approved contract knowledge through Foundry IQ.",
+            "This expert uses gpt-5.5. Model choice is explicit so every agent job can use the right model, alongside its instructions, context, memory, and tools.",
     },
     {
         id: "connect",
         label: "Open Connection",
         talkTrack:
-            "There are three moves: use the hosted model, connect contract knowledge, and assemble the read-only Contract Policy Expert.",
+            "There are three moves: choose the model, connect approved contract knowledge, and assemble the read-only Contract Policy Expert.",
     },
     {
         id: "audit",
-        label: "Ask the same question",
+        label: "Run the grounded audit",
         talkTrack:
-            "Run the live audit. The local proof could verify the line math; Foundry retrieves the terms the invoice alone cannot know.",
+            "Run the live audit. The invoice supplies the transaction; Foundry IQ retrieves the contract terms needed to evaluate it.",
     },
     {
         id: "trace",
