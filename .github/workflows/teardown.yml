@@ -1,0 +1,87 @@
+name: Teardown seller environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      subscription_id:
+        description: Exact Azure subscription ID containing this environment.
+        required: true
+        type: string
+      app_resource_group:
+        description: Exact application resource group to delete.
+        required: true
+        type: string
+      state_resource_group:
+        description: Exact state resource group to delete after the app resource group.
+        required: true
+        type: string
+      azd_env_name:
+        description: Exact azd environment name.
+        required: true
+        type: string
+      confirm_environment:
+        description: Type the azd environment name exactly. Required only when dry_run is false.
+        required: false
+        type: string
+      dry_run:
+        description: Inventory and emit the sanitized deletion plan without deleting.
+        required: true
+        type: boolean
+        default: true
+      delete_app_registrations:
+        description: Also delete owned, environment-tagged/recorded runtime app registrations.
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: teardown-${{ inputs.azd_env_name }}
+  cancel-in-progress: false
+
+jobs:
+  teardown:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ inputs.subscription_id }}
+      - uses: Azure/setup-azd@v2
+      - name: Inventory and teardown
+        env:
+          APPLY: ${{ !inputs.dry_run }}
+          APP_RESOURCE_GROUP: ${{ inputs.app_resource_group }}
+          AZD_ENV_NAME: ${{ inputs.azd_env_name }}
+          CONFIRM_ENVIRONMENT: ${{ inputs.confirm_environment }}
+          DELETE_APP_REGISTRATIONS: ${{ inputs.delete_app_registrations }}
+          DEPLOYMENT_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          STATE_RESOURCE_GROUP: ${{ inputs.state_resource_group }}
+          SUBSCRIPTION_ID: ${{ inputs.subscription_id }}
+        run: |
+          set -euo pipefail
+          args=(
+            --subscription-id "$SUBSCRIPTION_ID"
+            --app-resource-group "$APP_RESOURCE_GROUP"
+            --state-resource-group "$STATE_RESOURCE_GROUP"
+            --azd-env "$AZD_ENV_NAME"
+            --deployment-client-id "$DEPLOYMENT_CLIENT_ID"
+            --repository "${{ github.repository }}"
+            --confirm-environment "$CONFIRM_ENVIRONMENT"
+            --plan-out teardown-plan.json
+          )
+          if [ "$APPLY" = "true" ]; then args+=(--apply); fi
+          if [ "$DELETE_APP_REGISTRATIONS" = "true" ]; then args+=(--delete-app-registrations); fi
+          python3 tools/deploy/scripts/seller_teardown.py "${args[@]}"
+      - name: Publish sanitized plan
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: teardown-plan-${{ inputs.azd_env_name }}
+          path: teardown-plan.json
+          if-no-files-found: warn

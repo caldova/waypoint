@@ -66,6 +66,7 @@ SET_REPO_CONFIG="true"
 # privilege. ON by default; opt out with --no-graph-grants.
 GRANT_GRAPH="true"
 WAYPOINT_APP_NAME="waypoint"
+AZD_ENV_NAME="waypoint-agents"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -84,6 +85,7 @@ while [[ $# -gt 0 ]]; do
     --graph-grants) GRANT_GRAPH="true"; shift 1 ;;
     --no-graph-grants) GRANT_GRAPH="false"; shift 1 ;;
     --waypoint-app-name) WAYPOINT_APP_NAME="$2"; shift 2 ;;
+    --azd-env-name) AZD_ENV_NAME="$2"; shift 2 ;;
     -h|--help)
       sed -n '1,51p' "$0"
       exit 0
@@ -290,6 +292,23 @@ if [[ "$GRANT_GRAPH" == "true" ]]; then
     else
       echo "  deploy SP already owns ${WAYPOINT_APP_NAME}"
     fi
+    WP_EXISTING_TAGS="$(az ad app show --id "$WP_APP_ID" --query tags -o json 2>/dev/null || echo '[]')"
+    WP_TAG_BODY="$(AZD_ENV_NAME="$AZD_ENV_NAME" REPOSITORY="${OWNER}/${REPO}" python3 - "$WP_EXISTING_TAGS" <<'PY'
+import json, os, sys
+tags = set(json.loads(sys.argv[1] or "[]"))
+tags.update({
+    "waypoint-managed",
+    f"waypoint-environment={os.environ['AZD_ENV_NAME']}",
+    f"waypoint-repository={os.environ['REPOSITORY']}",
+})
+print(json.dumps({"tags": sorted(tags)}))
+PY
+)"
+    az rest --method PATCH \
+      --url "https://graph.microsoft.com/v1.0/applications/${WP_OBJ_ID}" \
+      --headers "Content-Type=application/json" \
+      --body "$WP_TAG_BODY" >/dev/null
+    echo "  tagged ${WAYPOINT_APP_NAME} for environment-scoped teardown"
   fi
 fi
 

@@ -60,7 +60,7 @@ if [[ "$mode" == "ensure" ]]; then
   # Ensure delegated API scopes before app roles. A newly created app has no
   # oauth2PermissionScopes, so the SPA cannot request its access token until
   # these are explicitly exposed.
-  existing_app="$(az rest --method GET --uri "${graph}/applications/${OBJ_ID}" --query '{appRoles:appRoles, scopes:api.oauth2PermissionScopes}' -o json 2>/dev/null || echo '{}')"
+  existing_app="$(az rest --method GET --uri "${graph}/applications/${OBJ_ID}" --query '{appRoles:appRoles, scopes:api.oauth2PermissionScopes, tags:tags}' -o json 2>/dev/null || echo '{}')"
   merged_scopes="$(python3 - "$existing_app" <<'PY'
 import json, sys, uuid
 
@@ -105,7 +105,7 @@ PY
   writer_role="${MSAL_WRITER_APP_ROLE:-Waypoint.Write}"
   reader_role="${MSAL_READER_APP_ROLE:-Waypoint.Read}"
   admin_role="${MSAL_ADMIN_APP_ROLE:-Waypoint.Admin}"
-  existing_app="$(az rest --method GET --uri "${graph}/applications/${OBJ_ID}" --query '{appRoles:appRoles, scopes:api.oauth2PermissionScopes}' -o json 2>/dev/null || echo '{}')"
+  existing_app="$(az rest --method GET --uri "${graph}/applications/${OBJ_ID}" --query '{appRoles:appRoles, scopes:api.oauth2PermissionScopes, tags:tags}' -o json 2>/dev/null || echo '{}')"
   merged_roles="$(MSAL_W="$writer_role" MSAL_R="$reader_role" MSAL_A="$admin_role" python3 - "$existing_app" <<'PY'
 import json, os, sys, uuid
 app = json.loads(sys.argv[1] or "{}")
@@ -138,6 +138,22 @@ PY
   log "ensuring app roles ($writer_role/$reader_role/$admin_role); total roles now=$added"
   az rest --method PATCH --uri "${graph}/applications/${OBJ_ID}" \
     --headers "Content-Type=application/json" --body "$merged_roles" -o none
+
+  # Mark only the runtime MSAL app as teardown-eligible. Teardown still requires
+  # deploy-principal ownership and never selects an app by display name.
+  managed_tags="$(AZD_ENV="${AZD_ENV_NAME:-waypoint-agents}" REPO="${GITHUB_REPOSITORY:-}" python3 - "$existing_app" <<'PY'
+import json, os, sys
+app = json.loads(sys.argv[1] or "{}")
+tags = set(app.get("tags") or [])
+tags.update({"waypoint-managed", f"waypoint-environment={os.environ['AZD_ENV']}"})
+if os.environ["REPO"]:
+    tags.add(f"waypoint-repository={os.environ['REPO']}")
+print(json.dumps({"tags": sorted(tags)}))
+PY
+)"
+  log "ensuring teardown ownership tags for ${AZD_ENV_NAME:-waypoint-agents}"
+  az rest --method PATCH --uri "${graph}/applications/${OBJ_ID}" \
+    --headers "Content-Type=application/json" --body "$managed_tags" -o none
 
   emit msal_tenant_id "$AZURE_TENANT_ID"
   emit msal_client_id "$APP_ID"

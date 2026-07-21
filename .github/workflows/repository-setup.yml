@@ -1,0 +1,69 @@
+name: Set up seller repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_owner:
+        description: GitHub user or organization that will administer the repository.
+        required: true
+        type: string
+      target_name:
+        description: Repository name to create or reuse.
+        required: true
+        type: string
+      subscription_id:
+        description: Azure subscription to configure for GitHub OIDC.
+        required: true
+        type: string
+      visibility:
+        description: Visibility used for template creation. Forks inherit source visibility.
+        required: true
+        type: choice
+        default: private
+        options:
+          - private
+          - internal
+          - public
+      azd_env_name:
+        description: Environment tag used by deployment and safe teardown.
+        required: true
+        type: string
+        default: waypoint-agents
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.SELLER_REPO_ADMIN_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ inputs.subscription_id }}
+      - name: Require repository-admin token
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::SELLER_REPO_ADMIN_TOKEN is required and must administer the target owner."
+            exit 1
+          fi
+      - name: Create repository and bootstrap OIDC
+        env:
+          AZD_ENV_NAME: ${{ inputs.azd_env_name }}
+          SUBSCRIPTION_ID: ${{ inputs.subscription_id }}
+          TARGET_NAME: ${{ inputs.target_name }}
+          TARGET_OWNER: ${{ inputs.target_owner }}
+          VISIBILITY: ${{ inputs.visibility }}
+        run: |
+          python3 tools/deploy/scripts/repository_setup.py \
+            --owner "$TARGET_OWNER" \
+            --repo "$TARGET_NAME" \
+            --source caldova/waypoint \
+            --visibility "$VISIBILITY" \
+            --subscription-id "$SUBSCRIPTION_ID" \
+            --azd-env-name "$AZD_ENV_NAME"
