@@ -1066,7 +1066,80 @@ jobs:
           fi
         timeout-minutes: 5
 
+      - name: Compare desired agent deployment state
+        id: agent-state
+        env:
+          FOUNDRY_PROJECT_ENDPOINT: ${{ steps.endpoint.outputs.endpoint }}
+          AGENT_NAME: ${{ matrix.agent }}
+        run: |
+          set -euo pipefail
+          source_hash="$(
+            {
+              git ls-files -z -- "agents/${AGENT_NAME}" \
+                | sort -z \
+                | xargs -0 sha256sum
+              sha256sum azure.yaml
+            } | sha256sum | cut -d' ' -f1
+          )"
+          env_hash="$(azd env get-values 2>/dev/null | LC_ALL=C sort | sha256sum | cut -d' ' -f1)"
+          desired_hash="$(printf '%s\n%s\n' "$source_hash" "$env_hash" | sha256sum | cut -d' ' -f1)"
+
+          token="$(az account get-access-token \
+            --resource https://ai.azure.com \
+            --query accessToken -o tsv)"
+          agent_exists=false
+          agent_json=""
+          if agent_json="$(curl --fail --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --header "Authorization: Bearer ${token}" \
+            --header "Foundry-Features: AgentEndpoints=V1Preview,HostedAgents=V1Preview" \
+            "${FOUNDRY_PROJECT_ENDPOINT%/}/agents/${AGENT_NAME}?api-version=2025-11-15-preview")"; then
+            agent_exists=true
+          fi
+          live_version="$(jq -r '.versions.latest.version // empty' <<<"$agent_json")"
+
+          mapfile -t bot_ids < <(
+            az resource list \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --resource-type Microsoft.BotService/botServices \
+              --query "[?starts_with(name, '${AGENT_NAME}-bot-')].id" \
+              -o tsv
+          )
+          if [ "${#bot_ids[@]}" -gt 1 ]; then
+            echo "::error::Multiple Bot Service resources found for ${AGENT_NAME}; reconcile drift before deployment."
+            exit 1
+          fi
+          state_resource_id="${bot_ids[0]:-}"
+          recorded_hash=""
+          recorded_version=""
+          if [ -n "$state_resource_id" ]; then
+            recorded_hash="$(az tag list \
+              --resource-id "$state_resource_id" \
+              --query properties.tags.waypoint_agent_hash \
+              -o tsv 2>/dev/null || true)"
+            recorded_version="$(az tag list \
+              --resource-id "$state_resource_id" \
+              --query properties.tags.waypoint_agent_version \
+              -o tsv 2>/dev/null || true)"
+          fi
+
+          needs_deploy=true
+          if [ "$agent_exists" = "true" ] \
+            && [ -n "$live_version" ] \
+            && [ "$recorded_version" = "$live_version" ] \
+            && [ "$recorded_hash" = "$desired_hash" ]; then
+            needs_deploy=false
+            echo "::notice::${AGENT_NAME} already matches desired deployment state; skipping azd deploy."
+          fi
+          {
+            echo "desired_hash=$desired_hash"
+            echo "needs_deploy=$needs_deploy"
+          } >> "$GITHUB_OUTPUT"
+        timeout-minutes: 3
+
       - name: Deploy ${{ matrix.agent }}
+        if: steps.agent-state.outputs.needs_deploy == 'true'
         run: |
           set +e
           max_attempts=3
@@ -1100,6 +1173,47 @@ jobs:
           exit 1
         timeout-minutes: 45
 
+      - name: Record agent deployment state
+        if: steps.agent-state.outputs.needs_deploy == 'true'
+        env:
+          DESIRED_HASH: ${{ steps.agent-state.outputs.desired_hash }}
+          FOUNDRY_PROJECT_ENDPOINT: ${{ steps.endpoint.outputs.endpoint }}
+          AGENT_NAME: ${{ matrix.agent }}
+        run: |
+          set -euo pipefail
+          token="$(az account get-access-token \
+            --resource https://ai.azure.com \
+            --query accessToken -o tsv)"
+          agent_json="$(curl --fail --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --header "Authorization: Bearer ${token}" \
+            --header "Foundry-Features: AgentEndpoints=V1Preview,HostedAgents=V1Preview" \
+            "${FOUNDRY_PROJECT_ENDPOINT%/}/agents/${AGENT_NAME}?api-version=2025-11-15-preview")"
+          live_version="$(jq -r '.versions.latest.version // empty' <<<"$agent_json")"
+          if [ -z "$live_version" ]; then
+            echo "::error::${AGENT_NAME} has no live version after deployment."
+            exit 1
+          fi
+          mapfile -t bot_ids < <(
+            az resource list \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --resource-type Microsoft.BotService/botServices \
+              --query "[?starts_with(name, '${AGENT_NAME}-bot-')].id" \
+              -o tsv
+          )
+          if [ "${#bot_ids[@]}" -ne 1 ]; then
+            echo "::error::Expected one Bot Service resource for ${AGENT_NAME}; found ${#bot_ids[@]}."
+            exit 1
+          fi
+          az tag update \
+            --resource-id "${bot_ids[0]}" \
+            --operation Merge \
+            --tags \
+              "waypoint_agent_hash=${DESIRED_HASH}" \
+              "waypoint_agent_version=${live_version}" \
+            --output none
+
       - name: Deployment summary
         if: always()
         env:
@@ -1109,6 +1223,7 @@ jobs:
             echo "## Hosted agent: ${{ matrix.agent }}"
             echo ""
             echo "- Project endpoint: \`${FOUNDRY_ENDPOINT:-<unavailable>}\`"
+            echo "- Deployment required: \`${{ steps.agent-state.outputs.needs_deploy }}\`"
             if [ "${{ matrix.agent }}" = "assurance-orchestrator" ]; then
               echo "- Fan-out lanes: WorkIQ=${{ inputs.workiq_enabled }}, WebIQ=${{ inputs.webiq_enabled }}, FoundryIQ=${{ inputs.foundryiq_enabled }}, FabricIQ=${{ inputs.fabriciq_enabled }}"
             fi

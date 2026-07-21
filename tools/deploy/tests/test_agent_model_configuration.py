@@ -138,7 +138,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
     def test_agent_deploy_uses_key_vault_keys_without_bearer_precedence(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
         deploy_agents = workflow.split("  deploy-agents:", 1)[1].split(
-            "  # ── corpus-seed", 1
+            "  # ── onelake-upload", 1
         )[0]
 
         self.assertIn(
@@ -154,6 +154,27 @@ class AgentModelConfigurationTests(unittest.TestCase):
             'azd env set WAYPOINT_API_SCOPE "$WP_SCOPE"',
             deploy_agents,
         )
+
+    def test_agent_deploy_skips_unchanged_active_versions(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        deploy_agents = workflow.split("  deploy-agents:", 1)[1].split(
+            "  # ── onelake-upload", 1
+        )[0]
+
+        self.assertIn("Compare desired agent deployment state", deploy_agents)
+        self.assertIn("git ls-files -z", deploy_agents)
+        self.assertIn("azd env get-values", deploy_agents)
+        self.assertIn("Microsoft.BotService/botServices", deploy_agents)
+        self.assertIn("waypoint_agent_hash", deploy_agents)
+        self.assertIn("waypoint_agent_version", deploy_agents)
+        self.assertIn("agent_exists=true", deploy_agents)
+        self.assertIn("--max-time 30", deploy_agents)
+        self.assertIn(
+            "if: steps.agent-state.outputs.needs_deploy == 'true'",
+            deploy_agents,
+        )
+        self.assertIn("az tag update", deploy_agents)
+        self.assertIn("--operation Merge", deploy_agents)
 
     def test_acceptance_selects_an_invoice_from_the_deployed_work_queue(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
