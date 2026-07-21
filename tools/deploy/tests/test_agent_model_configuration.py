@@ -107,6 +107,17 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("/projects/${project_name}", bootstrap)
         self.assertIn("az cognitiveservices account deployment create", bootstrap)
 
+    def test_storage_module_owns_deployment_principal_blob_role(self) -> None:
+        storage_bicep = (
+            ROOT / "modules/agents/infra/core/storage/storage.bicep"
+        ).read_text()
+        search_bicep = (
+            ROOT / "modules/agents/infra/core/search/azure_ai_search.bicep"
+        ).read_text()
+
+        self.assertIn("resource userStorageRoleAssignment", storage_bicep)
+        self.assertNotIn("userToStorageRoleAssignment", search_bicep)
+
 
 if __name__ == "__main__":
     unittest.main()

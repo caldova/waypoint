@@ -193,17 +193,6 @@ resource aiAccountToSearchDataRoleAssignment 'Microsoft.Authorization/roleAssign
   }
 }
 
-// User permissions - Storage Blob Data Contributor
-resource userToStorageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, principalId, 'Storage Blob Data Contributor', uniqueString(deployment().name))
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe') // Storage Blob Data Contributor
-    principalId: principalId
-    principalType: principalType
-  }
-}
-
 // // Project needs Search access - Index Data Contributor
 // resource projectToSearchRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 //   name: guid(searchService.id, aiProjectName, 'Search Index Data Contributor', uniqueString(deployment().name))
