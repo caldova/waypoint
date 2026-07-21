@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "environment_scope_id": "azure://resourceGroups/rg-waypoint-parity",
+  "scenarios": [
+    {
+      "id": "restore-api-foundry-role",
+      "type": "role_assignment_removal",
+      "target": {
+        "resource_id": "azure://roleAssignments/ra-api-foundry-user",
+        "resource_name": "api-foundry-user"
+      }
+    },
+    {
+      "id": "reconcile-api-foundry-endpoint",
+      "type": "container_app_env_drift",
+      "target": {
+        "resource_id": "azure://containerApps/api",
+        "resource_name": "api"
+      },
+      "env_var": "APP_FOUNDRY_ENDPOINT"
+    },
+    {
+      "id": "reconcile-orchestrator-hash",
+      "type": "hosted_agent_tag_hash_drift",
+      "target": {
+        "resource_id": "foundry://agents/assurance-orchestrator",
+        "resource_name": "assurance-orchestrator"
+      }
+    },
+    {
+      "id": "reconcile-contracts-content",
+      "type": "knowledge_base_content_hash_drift",
+      "target": {
+        "resource_id": "foundry://knowledgeBases/contracts-kb",
+        "resource_name": "contracts-kb"
+      }
+    },
+    {
+      "id": "reconcile-ledgerfield-count",
+      "type": "seed_count_drift",
+      "target": {
+        "resource_id": "waypoint://seedSets/ledgerfield",
+        "resource_name": "ledgerfield"
+      }
+    }
+  ]
+}

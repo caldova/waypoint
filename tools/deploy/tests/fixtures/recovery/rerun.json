@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "environment": {
+    "name": "waypoint-parity",
+    "scope_id": "azure://resourceGroups/rg-waypoint-parity"
+  },
+  "stages": {
+    "keyvault": "success",
+    "app": "success",
+    "fabric": "success",
+    "agents": "success",
+    "contracts_kb": "success",
+    "seed": "success",
+    "acceptance": "success"
+  },
+  "inventory": {
+    "role_assignments": [
+      {
+        "id": "azure://roleAssignments/ra-api-foundry-user",
+        "name": "api-foundry-user",
+        "state": {
+          "scope_id": "azure://aiAccounts/ai-waypoint-parity",
+          "principal_id": "principal://waypoint-api",
+          "role_definition_id": "role://azure-ai-user"
+        }
+      }
+    ],
+    "container_apps": [
+      {
+        "id": "azure://containerApps/api",
+        "name": "api",
+        "state": {
+          "environment_hashes": {
+            "APP_FOUNDRY_ENDPOINT": "sha256:foundry-endpoint-v1",
+            "APP_ONELAKE_WORKSPACE": "sha256:workspace-v1"
+          }
+        }
+      },
+      {
+        "id": "azure://containerApps/web",
+        "name": "web",
+        "state": {
+          "environment_hashes": {
+            "WAYPOINT_API_BASE_URL": "sha256:api-url-v1"
+          }
+        }
+      }
+    ],
+    "hosted_agents": [
+      {
+        "id": "foundry://agents/assurance-orchestrator",
+        "name": "assurance-orchestrator",
+        "state": {
+          "active_version_id": "version://orchestrator-v1",
+          "tag_hash": "sha256:agent-orchestrator-v1"
+        }
+      },
+      {
+        "id": "foundry://agents/contract-policy-expert",
+        "name": "contract-policy-expert",
+        "state": {
+          "active_version_id": "version://contract-v1",
+          "tag_hash": "sha256:agent-contract-v1"
+        }
+      }
+    ],
+    "models": [
+      {
+        "id": "azure://models/gpt-5.5",
+        "name": "gpt-5.5",
+        "state": {
+          "model": "gpt-5.5",
+          "version": "2026-05-01"
+        }
+      },
+      {
+        "id": "azure://models/text-embedding-3-large",
+        "name": "text-embedding-3-large",
+        "state": {
+          "model": "text-embedding-3-large",
+          "version": "1"
+        }
+      }
+    ],
+    "fabric_items": [
+      {
+        "id": "fabric://workspaces/waypoint-parity",
+        "name": "waypoint-parity",
+        "state": {
+          "kind": "workspace"
+        }
+      },
+      {
+        "id": "fabric://lakehouses/corpus",
+        "name": "corpus",
+        "state": {
+          "content_hash": "sha256:onelake-corpus-v1",
+          "kind": "lakehouse"
+        }
+      }
+    ],
+    "knowledge_bases": [
+      {
+        "id": "foundry://knowledgeBases/contracts-kb",
+        "name": "contracts-kb",
+        "state": {
+          "content_hash": "sha256:contracts-v1"
+        }
+      }
+    ],
+    "seed_sets": [
+      {
+        "id": "waypoint://seedSets/ledgerfield",
+        "name": "ledgerfield",
+        "state": {
+          "content_hash": "sha256:seed-v1",
+          "record_count": 3,
+          "record_ids": [
+            "invoice:INV-001",
+            "invoice:INV-002",
+            "invoice:INV-003"
+          ]
+        }
+      }
+    ]
+  }
+}

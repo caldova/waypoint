@@ -53,8 +53,20 @@ bash -n tools/deploy/scripts/*.sh
 python -m unittest discover -s tools/deploy/tests -p "test_*.py"
 ```
 
-The shell check proves syntax only. Deployment confidence comes from the root
-workflow's acceptance job and uploaded evidence artifact.
+These checks do not prove cloud deployment.
+
+## Recovery and drift evidence
+
+`scripts/verify_recovery_drift.py` compares sanitized baseline, interrupted,
+and rerun inventory snapshots without contacting Azure. It verifies recovered
+stages, managed-state convergence, duplicate-free resource inventories, and
+the bounded drift scenarios used by the hermetic recovery harness.
+
+See [Recovery and drift verification](docs/RECOVERY_DRIFT.md) for the snapshot
+contract, safety boundaries, and parity-environment commands.
+
+Deployment confidence comes from the root workflow's acceptance job and uploaded
+evidence artifact.
 
 ## Rerun behavior
 
