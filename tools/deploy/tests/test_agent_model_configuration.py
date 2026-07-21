@@ -220,6 +220,18 @@ class AgentModelConfigurationTests(unittest.TestCase):
             msal_auth,
         )
 
+    def test_app_deploy_retains_safe_startup_database_bootstrap(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        deploy_app = workflow.split("\n  deploy-app:\n", 1)[1].split(
+            "\n  # ── fabric-provision", 1
+        )[0]
+
+        self.assertNotIn("APP_RUN_STARTUP_DATABASE_BOOTSTRAP=false", deploy_app)
+        self.assertIn(
+            "pre-deploy database access cannot be proven on a first deployment",
+            deploy_app,
+        )
+
     def test_fabric_provision_wires_aspire_user_assigned_identity(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
         fabric = workflow.split("  fabric-provision:", 1)[1].split(

@@ -678,6 +678,7 @@ jobs:
             echo ""
             echo "- API: https://$api_fqdn"
             echo "- Web: https://$web_fqdn"
+            echo "- Database bootstrap: API startup bootstrap remains enabled because Aspire provisions PostgreSQL and injects its bootstrap connection during this same deploy; pre-deploy database access cannot be proven on a first deployment."
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ── fabric-provision ─────────────────────────────────────────────────────────
