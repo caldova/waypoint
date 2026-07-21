@@ -241,7 +241,7 @@ export function renderHtml() {
     }
     .tab:hover { color: var(--text); }
     .tab[aria-selected="true"] { color: var(--text); background: var(--surface); box-shadow: var(--shadow); font-weight: 600; }
-    .tab .count { min-width: 18px; padding: 0 5px; border-radius: 999px; color: var(--iq); background: var(--iq-soft); font-size: 10px; text-align: center; }
+    .tab .count { min-width: 18px; padding: 0 6px; border-radius: 999px; color: var(--iq); background: var(--iq-soft); font-size: 10px; text-align: center; white-space: nowrap; }
     .status-pill {
       margin-left: auto; min-height: 32px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 7px;
       border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: var(--surface); font-size: 11px; white-space: nowrap;
@@ -309,9 +309,54 @@ export function renderHtml() {
     .retrieving-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--iq); animation: pulse 1s ease-in-out infinite; }
     .result-message { display: none; }
     .result-message.show { display: flex; }
-    .result-message .bubble { width: 100%; }
-    .result-summary { margin: 0 0 12px; color: var(--text); font-weight: 600; }
-    .evidence-list { display: grid; gap: 8px; }
+    .result-message .bubble { width: 100%; padding: 0; overflow: hidden; }
+    .audit-overview { padding: 20px; border-bottom: 1px solid var(--border); }
+    .audit-eyebrow {
+      margin-bottom: 8px; color: var(--iq); font-size: 10px; font-weight: 700;
+      letter-spacing: .08em; text-transform: uppercase;
+    }
+    .audit-overview h2 { max-width: 32ch; margin: 0; font-size: 18px; line-height: 1.3; letter-spacing: -.02em; text-wrap: balance; }
+    .result-summary { max-width: 68ch; margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; text-wrap: pretty; }
+    .audit-metrics { display: flex; gap: 0; margin-top: 16px; border-top: 1px solid var(--border); }
+    .audit-metric { min-width: 112px; padding: 12px 20px 0 0; }
+    .audit-metric + .audit-metric { padding-left: 20px; border-left: 1px solid var(--border); }
+    .audit-metric strong { display: block; color: var(--text); font-size: 18px; font-variant-numeric: tabular-nums; }
+    .audit-metric span { display: block; margin-top: 2px; color: var(--muted); font-size: 10px; }
+    .key-findings { padding: 16px 20px 4px; }
+    .key-findings-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+    .key-findings-head h3 { margin: 0; font-size: 13px; }
+    .key-findings-head span { color: var(--muted); font-size: 10px; }
+    .finding-list { display: grid; gap: 8px; }
+    .finding {
+      position: relative; padding: 12px 12px 12px 16px; border: 1px solid var(--border);
+      border-radius: 8px; background: var(--surface-subtle);
+    }
+    .finding::before {
+      position: absolute; inset: 8px auto 8px 0; width: 3px; border-radius: 0 3px 3px 0;
+      background: var(--muted); content: "";
+    }
+    .finding.recover::before { background: var(--danger); }
+    .finding.review::before, .finding.escalate::before { background: var(--warning); }
+    .finding.approve::before { background: var(--success); }
+    .finding-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .finding-head h4 { margin: 0; font-size: 12px; line-height: 1.4; }
+    .finding-claim { margin: 6px 0 0; color: var(--text); font-size: 11px; line-height: 1.55; }
+    .finding-meta { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; color: var(--muted); font-size: 10px; }
+    .finding-meta span { display: inline-flex; align-items: center; gap: 5px; }
+    .finding-meta svg { width: 13px; height: 13px; }
+    .confidence { font-variant-numeric: tabular-nums; }
+    .reference { color: var(--iq); }
+    .review-questions, .evidence-details { margin: 12px 20px 0; border-top: 1px solid var(--border); }
+    .review-questions summary, .evidence-details summary {
+      min-height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      color: var(--text); cursor: pointer; font-size: 11px; font-weight: 600; list-style: none;
+    }
+    .review-questions summary::-webkit-details-marker, .evidence-details summary::-webkit-details-marker { display: none; }
+    .review-questions summary span, .evidence-details summary span { color: var(--muted); font-size: 10px; font-weight: 400; }
+    .review-questions summary:hover, .evidence-details summary:hover { color: var(--accent); }
+    .review-questions ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); font-size: 10px; }
+    .review-questions li + li { margin-top: 6px; }
+    .evidence-list { display: grid; gap: 8px; padding-bottom: 12px; }
     .evidence {
       padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle);
     }
@@ -324,11 +369,14 @@ export function renderHtml() {
     }
     .support.recover { color: var(--danger); background: var(--danger-soft); }
     .support.escalate, .support.review { color: var(--warning); background: var(--warning-soft); }
+    .support.approve { color: var(--success); background: var(--success-soft); }
     .proof-banner {
-      margin-top: 12px; padding: 10px; display: flex; align-items: center; gap: 8px;
+      width: calc(100% - 40px); min-height: 44px; margin: 12px 20px 20px; padding: 10px; display: flex; align-items: center; gap: 8px;
       border: 1px solid color-mix(in srgb, var(--success) 35%, var(--border)); border-radius: 8px;
       color: var(--success); background: var(--success-soft); font-size: 11px; font-weight: 600;
     }
+    button.proof-banner { cursor: pointer; transition: border-color .15s ease, background .15s ease; }
+    button.proof-banner:hover { border-color: var(--success); background: color-mix(in srgb, var(--success) 16%, var(--surface)); }
     .side-stack { display: grid; gap: 16px; }
     .card { padding: 16px; }
     .card h2 { margin: 0 0 3px; font-size: 14px; }
@@ -421,11 +469,18 @@ export function renderHtml() {
       box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--warning) 65%, transparent);
     }
     .trace-citations { margin: 0; padding: 0; display: grid; gap: 8px; list-style: none; }
-    .trace-citations li {
+    .trace-citation {
       padding: 9px; border: 1px solid color-mix(in srgb, var(--iq) 28%, var(--border));
-      border-radius: 8px; color: var(--iq); background: var(--iq-soft);
-      font: 10px/1.45 var(--mono); overflow-wrap: anywhere;
+      border-radius: 8px; color: var(--text); background: var(--iq-soft); overflow-wrap: anywhere;
     }
+    .trace-citation strong { display: block; font-size: 11px; }
+    .trace-citation-meta { display: block; margin-top: 3px; color: var(--iq); font: 9px/1.45 var(--mono); }
+    .trace-citation-detail { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
+    .trace-findings { margin: 0; padding: 0; display: grid; gap: 8px; list-style: none; }
+    .trace-finding { padding: 10px; border-left: 3px solid var(--warning); background: var(--surface-subtle); }
+    .trace-finding.recover { border-left-color: var(--danger); }
+    .trace-finding strong { display: block; color: var(--text); font-size: 11px; }
+    .trace-finding span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
     .connection-steps { display: grid; gap: 12px; }
     .connection-step { padding: 16px; display: grid; grid-template-columns: 32px 1fr; gap: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
     .connection-step > span {
@@ -476,6 +531,10 @@ export function renderHtml() {
       .anatomy-parts { grid-template-columns: 1fr; }
       .messages { padding: 14px; }
       .message-row { max-width: 100%; }
+      .audit-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .audit-metric { min-width: 0; padding-right: 8px; }
+      .audit-metric + .audit-metric { padding-left: 8px; }
+      .finding-head { display: grid; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
@@ -636,6 +695,7 @@ contract_policy_expert = Agent(
   </div>
   <script>
     const state = { current: null };
+    const invoice = ${JSON.stringify(HERO_INVOICE)};
     const $ = (id) => document.getElementById(id);
     const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 
@@ -742,24 +802,49 @@ contract_policy_expert = Agent(
       $('result-bubble').innerHTML = '';
       $('trace-count').hidden = true;
       $('trace-count').textContent = '0';
+      $('trace-count').removeAttribute('aria-label');
       $('trace-content').innerHTML = '<div class="empty-state"><span class="empty-icon">${ICONS.trace}</span><h2>No live trace yet</h2><p>Run the hosted audit to inspect the real knowledge-base request and response.</p></div>';
     }
 
     function renderResult(result) {
       const evidence = Array.isArray(result.parsedEvidence?.evidence) ? result.parsedEvidence.evidence : [];
+      const unsupported = Array.isArray(result.parsedEvidence?.unsupported) ? result.parsedEvidence.unsupported : [];
       const grounded = Boolean(result.grounded);
       const summary = result.parsedEvidence?.summary || result.outputText || 'Foundry returned no summary.';
+      const allFindings = grounded ? keyFindings(evidence) : [];
+      const findings = grounded ? primaryFindings(evidence) : [];
+      const recoveryCount = allFindings.filter((item) => item.supports === 'recover').length;
+      const reviewCount = allFindings.filter((item) => ['review', 'escalate', 'unknown'].includes(item.supports)).length;
+      const referenceCount = collectTraceSources(result, retrievalCalls(result), evidence).length;
       $('result-message').classList.add('show');
       $('result-bubble').innerHTML =
-        '<p class="result-summary">' + esc(summary) + '</p>' +
+        '<section class="audit-overview">' +
+          '<div class="audit-eyebrow">Foundry audit at a glance</div>' +
+          '<h2>' + esc(auditHeadline(findings)) + '</h2>' +
+          '<p class="result-summary">' + esc(summary) + '</p>' +
+          '<div class="audit-metrics">' +
+            auditMetric(recoveryCount, recoveryCount === 1 ? 'recovery signal' : 'recovery signals') +
+            auditMetric(reviewCount, reviewCount === 1 ? 'review area' : 'review areas') +
+            auditMetric(referenceCount, referenceCount === 1 ? 'source reference' : 'source references') +
+          '</div>' +
+        '</section>' +
+        (findings.length
+          ? '<section class="key-findings"><div class="key-findings-head"><h3>What matters</h3><span>Grounded contract evidence</span></div>' +
+              '<div class="finding-list">' + findings.map((item) => renderFinding(item, unsupported)).join('') + '</div></section>'
+          : '<section class="key-findings"><p>No structured evidence array was returned.</p></section>') +
+        (unsupported.length
+          ? '<details class="review-questions"><summary>Questions the evidence could not resolve<span>' + unsupported.length + ' open</span></summary>' +
+              '<ul>' + unsupported.map((item) => '<li>' + esc(item) + '</li>').join('') + '</ul></details>'
+          : '') +
         (evidence.length
-          ? '<div class="evidence-list">' + evidence.map((item) =>
+          ? '<details class="evidence-details"><summary>View all retrieved evidence<span>' + evidence.length + ' items</span></summary>' +
+              '<div class="evidence-list">' + evidence.map((item) =>
               '<article class="evidence"><div class="evidence-head"><strong>' + esc(item.claim || 'Grounded claim') + '</strong>' +
-              '<span class="support ' + esc(item.supports || '') + '">' + esc(item.supports || 'evidence') + '</span></div>' +
-              '<p>Confidence ' + esc(item.confidence ?? '—') + '</p>' +
+              '<span class="support ' + supportTone(item.supports) + '">' + esc(supportLabel(item.supports)) + '</span></div>' +
+              '<p>Confidence ' + esc(confidenceLabel(item.confidence)) + '</p>' +
               '<p class="source">' + esc(item.source_ref || 'No source_ref returned') + '</p></article>'
-            ).join('') + '</div>'
-          : '<p>No structured evidence array was returned.</p>') +
+            ).join('') + '</div></details>'
+          : '') +
         (grounded
           ? '<button class="proof-banner" type="button" data-open-trace="true">${ICONS.trace}<span>Grounding verified · Open the live retrieval trace</span></button>'
           : '<div class="proof-banner" style="color:var(--danger);background:var(--danger-soft);border-color:var(--danger)">' +
@@ -772,7 +857,161 @@ contract_policy_expert = Agent(
       renderTrace(result, evidence);
     }
 
-    function renderTrace(result, evidence) {
+    function keyFindings(evidence) {
+      const normalized = evidence.map((item, index) => ({
+        ...item,
+        supports: String(item.supports || '').toLowerCase(),
+        category: evidenceCategory(item.claim, index),
+      }));
+      const seen = new Set();
+      return normalized
+        .sort((left, right) => supportRank(left.supports) - supportRank(right.supports) || Number(right.confidence || 0) - Number(left.confidence || 0))
+        .filter((item) => {
+          if (seen.has(item.category.id)) return false;
+          seen.add(item.category.id);
+          return true;
+        })
+        .map((item) => ({
+          ...item,
+          related: normalized.filter((candidate) => candidate.category.id === item.category.id),
+        }))
+        .slice(0, 4);
+    }
+
+    function primaryFindings(evidence) {
+      const findings = keyFindings(evidence);
+      const preferred = findings.filter((item) => ['rate', 'packaging'].includes(item.category.id));
+      return [...preferred, ...findings.filter((item) => !preferred.includes(item))].slice(0, 2);
+    }
+
+    function evidenceCategory(claim, index) {
+      const text = String(claim || '');
+      if (/ALLER-20|L002|base rate|unit rate/i.test(text)) return { id: 'rate', title: 'Unit-rate discrepancy' };
+      if (/blister|packaging surcharge|packaging charge/i.test(text)) return { id: 'packaging', title: 'Packaging authorization' };
+      if (/batch release|administration fee|QA acceptance/i.test(text)) return { id: 'batch', title: 'Batch-release evidence' };
+      if (/volume discount|3,000,000|threshold/i.test(text)) return { id: 'discount', title: 'Volume discount' };
+      return { id: 'evidence-' + index, title: 'Contract evidence' };
+    }
+
+    function supportRank(value) {
+      return ({ recover: 0, escalate: 1, review: 2, unknown: 3, approve: 4 })[String(value || '').toLowerCase()] ?? 5;
+    }
+
+    function supportTone(value) {
+      const tone = String(value || '').toLowerCase();
+      return ['recover', 'escalate', 'review', 'approve'].includes(tone) ? tone : '';
+    }
+
+    function supportLabel(value) {
+      return ({
+        recover: 'Potential recovery',
+        escalate: 'Escalate',
+        review: 'Needs review',
+        approve: 'Contract supported',
+        unknown: 'Not confirmed',
+      })[String(value || '').toLowerCase()] || 'Evidence';
+    }
+
+    function confidenceLabel(value) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return 'Not reported';
+      const percentage = number <= 1 ? number * 100 : number;
+      return Math.round(percentage) + '%';
+    }
+
+    function auditHeadline(findings) {
+      if (findings.length > 1) return 'Foundry found ' + findings.length + ' priority findings.';
+      if (findings.length === 1) return 'Foundry found one priority finding.';
+      return 'The audit completed without structured findings.';
+    }
+
+    function auditMetric(value, label) {
+      return '<div class="audit-metric"><strong>' + esc(value) + '</strong><span>' + esc(label) + '</span></div>';
+    }
+
+    function renderFinding(item, unsupported) {
+      return '<article class="finding ' + supportTone(item.supports) + '">' +
+        '<div class="finding-head"><h4>' + esc(item.category.title) + '</h4>' +
+          '<span class="support ' + supportTone(item.supports) + '">' + esc(supportLabel(item.supports)) + '</span></div>' +
+        '<p class="finding-claim">' + esc(sellerClaim(item, unsupported)) + '</p>' +
+        '<div class="finding-meta">' +
+          '<span class="confidence">${ICONS.shield}<span>Confidence ' + esc(confidenceLabel(item.confidence)) + '</span></span>' +
+          '<span class="reference">${ICONS.connection}<span>' + esc(item.source_ref || 'No source reference returned') + '</span></span>' +
+        '</div></article>';
+    }
+
+    function sellerClaim(item, unsupported) {
+      const claim = String(item.claim || '');
+      const relatedClaims = (item.related || [item]).map((candidate) => candidate.claim || '').join(' ');
+      const openQuestions = unsupported.join(' ');
+      if (item.category.id === 'rate') {
+        const line = invoice.lines.find((candidate) => candidate.id === 'L002');
+        const contractRate = matchNumber(relatedClaims, /USD\\s+([\\d.]+)\\s+per released tablet/i);
+        if (line && contractRate !== null) {
+          const effectiveRate = line.amount / line.quantity;
+          const contractAmount = line.quantity * contractRate;
+          const difference = line.amount - contractAmount;
+          return 'Invoice L002 lists ' + currency(line.unitPrice) + ' per tablet, while its ' + currency(line.amount) +
+            ' line amount implies an effective ' + unitCurrency(effectiveRate) + ' per tablet. The retrieved contract rate is ' +
+            currency(contractRate) + ', which prices the line at ' + currency(contractAmount) +
+            ' — a potential ' + currency(difference) + ' recovery.';
+        }
+      }
+      if (item.category.id === 'packaging') {
+        const line = invoice.lines.find((candidate) => /blister packaging/i.test(candidate.description));
+        if (line) {
+          const missing = /executed PO|explicitly authorized|blister packaging/i.test(openQuestions);
+          return 'The ' + currency(line.amount) + ' blister-packaging surcharge requires a purchase order or written change authorization.' +
+            (missing ? ' The retrieved evidence did not verify that authorization.' : '');
+        }
+      }
+      if (item.category.id === 'batch') {
+        const line = invoice.lines.find((candidate) => /batch release/i.test(candidate.description));
+        const contractFee = matchNumber(relatedClaims, /USD\\s+([\\d,]+).*?(?:per released batch|once per released batch)/i);
+        if (line && contractFee !== null) {
+          const missing = /QA release packet|sponsor receipt|released status/i.test(openQuestions);
+          return 'The ' + currency(line.amount) + ' batch-release charge uses the retrieved ' + currency(contractFee) +
+            ' per-batch fee for ' + line.quantity + ' batches.' +
+            (missing ? ' Sponsor QA acceptance still needs to be confirmed.' : '');
+        }
+      }
+      if (item.category.id === 'discount') {
+        const discount = matchNumber(relatedClaims, /(\\d+(?:\\.\\d+)?)%\\s+discount/i);
+        const threshold = matchNumber(relatedClaims, /above\\s+([\\d,]+)\\s+tablets/i);
+        const volume = invoice.lines
+          .filter((line) => /tablet production/i.test(line.description))
+          .reduce((total, line) => total + line.quantity, 0);
+        if (discount !== null && threshold !== null) {
+          const unresolved = /threshold.*ALLER-10.*ALLER-20|combined or only per product/i.test(openQuestions);
+          return 'The invoice includes ' + volume.toLocaleString('en-US') + ' tablets across both products. The contract provides a ' +
+            discount + '% discount above ' + threshold.toLocaleString('en-US') + ' tablets.' +
+            (unresolved ? ' The retrieved evidence did not resolve whether that threshold combines both products.' : '');
+        }
+      }
+      return claim || 'Grounded claim';
+    }
+
+    function matchNumber(text, pattern) {
+      const match = String(text || '').match(pattern);
+      if (!match) return null;
+      const number = Number(match[1].replace(/,/g, ''));
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function currency(value) {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(value);
+    }
+
+    function unitCurrency(value) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 4,
+      }).format(value);
+    }
+
+    function retrievalCalls(result) {
       const calls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
       const grouped = new Map();
       for (const call of calls) {
@@ -784,25 +1023,32 @@ contract_policy_expert = Agent(
         if (call.error) current.error = call.error;
         grouped.set(key, current);
       }
-      const retrievals = [...grouped.values()].filter((call) => call.name.toLowerCase().includes('knowledge_base_retrieve'));
-      const sources = collectTraceSources(result, retrievals);
-      $('trace-count').hidden = retrievals.length === 0;
-      $('trace-count').textContent = String(retrievals.length);
+      return [...grouped.values()].filter((call) => call.name.toLowerCase().includes('knowledge_base_retrieve'));
+    }
+
+    function renderTrace(result, evidence) {
+      const retrievals = retrievalCalls(result);
+      const findings = result.grounded ? primaryFindings(evidence) : [];
+      const sources = collectTraceSources(result, retrievals, evidence);
+      $('trace-count').hidden = findings.length === 0;
+      $('trace-count').textContent = findings.length + (findings.length === 1 ? ' finding' : ' findings');
+      $('trace-count').setAttribute('aria-label', findings.length + (findings.length === 1 ? ' grounded finding' : ' grounded findings'));
       $('trace-content').innerHTML = retrievals.length
         ? '<div class="trace-list">' +
-            retrievals.map((call, index) => renderRetrievalSteps(call, index)).join('') +
+            retrievals.map((call, index) => renderRetrievalSteps(call, index, retrievals.length)).join('') +
+            renderTraceFindings(findings, result.parsedEvidence?.unsupported || []) +
             renderCitationStep(sources) +
           '</div>'
         : '<div class="empty-state"><span class="empty-icon">${ICONS.trace}</span><h2>No verified retrieval call</h2><p>The response completed without a recognized knowledge_base_retrieve invocation.</p></div>';
     }
 
-    function renderRetrievalSteps(call, index) {
+    function renderRetrievalSteps(call, index, total) {
       const output = call.output || call.error || 'No retrieval payload returned.';
       const failed = traceOutputFailed(call.output, call.error);
       const suffix = index ? ' · call ' + (index + 1) : '';
       return traceStep(
         'Calling Foundry IQ' + suffix,
-        '<p><code>knowledge_base_retrieve</code></p><p>Knowledge base · <code>contracts-kb</code></p>',
+        '<p><code>knowledge_base_retrieve</code></p><p>Knowledge base · <code>contracts-kb</code> · invocation ' + (index + 1) + ' of ' + total + '</p>',
         '${ICONS.connection}'
       ) +
       traceStep(
@@ -816,6 +1062,16 @@ contract_policy_expert = Agent(
         '${ICONS.context}',
         failed
       );
+    }
+
+    function renderTraceFindings(findings, unsupported) {
+      if (!findings.length) return '';
+      const body = '<ul class="trace-findings">' + findings.map((item) =>
+        '<li class="trace-finding ' + supportTone(item.supports) + '"><strong>' + esc(item.category.title) + '</strong>' +
+          '<span>' + esc(supportLabel(item.supports)) + ' · ' + esc(confidenceLabel(item.confidence)) + ' confidence</span>' +
+          '<span>' + esc(sellerClaim(item, unsupported)) + '</span></li>'
+      ).join('') + '</ul>';
+      return traceStep('Grounded findings · ' + findings.length, body, '${ICONS.shield}');
     }
 
     function traceStep(title, body, icon, failed = false) {
@@ -852,27 +1108,87 @@ contract_policy_expert = Agent(
       return esc(value).replace(clauses, (match) => '<mark class="trace-highlight">' + match + '</mark>');
     }
 
-    function collectTraceSources(result, retrievals) {
+    function collectTraceSources(result, retrievals, evidence) {
+      const groundedIds = new Set();
       const values = [];
       if (result.grounded) {
         for (const citation of Array.isArray(result.citations) ? result.citations : []) {
           const label = citation.title || citation.filename || citation.url;
-          if (label || citation.url) values.push([label, citation.url].filter(Boolean).join(' · '));
+          if (label || citation.url) {
+            values.push({
+              id: citation.url || label,
+              title: label || 'Foundry citation',
+              detail: citation.url || '',
+            });
+          }
         }
       }
       for (const call of retrievals) {
         if (traceOutputFailed(call.output, call.error)) continue;
         const output = String(call.output || '');
-        for (const match of output.matchAll(/\\[ref_id:([^\\]]+)\\]/gi)) {
-          values.push('ref_id:' + match[1]);
+        for (const match of output.matchAll(/\\[?ref_id:([A-Za-z0-9._-]+)/gi)) {
+          groundedIds.add(match[1]);
         }
       }
-      return [...new Set(values.filter(Boolean))];
+      const labels = evidenceSourceLabels(evidence);
+      for (const id of groundedIds) {
+        const source = labels.get(id);
+        values.push(source || {
+          id,
+          title: 'Retrieved contract source',
+          detail: 'The knowledge base returned this reference without a document label.',
+        });
+      }
+      return [...new Map(values.map((source) => [source.id, source])).values()];
+    }
+
+    function evidenceSourceLabels(evidence) {
+      const labels = new Map();
+      const add = (id, title, detail) => {
+        const current = labels.get(id) || { id, title: title || 'Retrieved contract source', details: [] };
+        if ((!current.title || current.title === 'Retrieved contract source') && title) current.title = title;
+        if (detail && !current.details.includes(detail)) current.details.push(detail);
+        current.detail = current.details.slice(0, 3).join(' · ');
+        labels.set(id, current);
+      };
+      for (const item of evidence) {
+        const source = String(item.source_ref || '');
+        let matched = false;
+        for (const match of source.matchAll(/(?:^|;\\s*)([^;\\[]+?)\\s*\\[ref_id:([^\\]]+)\\]\\s*(?:[—-]\\s*([^;]+))?/g)) {
+          matched = true;
+          add(match[2], match[1].trim(), String(match[3] || '').trim());
+        }
+        if (!matched) {
+          for (const match of source.matchAll(/(?:^|;\\s*)([^;]+?)\\s*;\\s*(?:KB\\s+)?ref_id:([A-Za-z0-9._-]+)/gi)) {
+            matched = true;
+            const label = sourceLabel(match[1]);
+            add(match[2], label.title, label.detail);
+          }
+        }
+        if (!matched) {
+          const legacy = source.match(/^ref_id:([A-Za-z0-9._-]+);\\s*([^,;]+)(?:[,;]\\s*(.*))?$/);
+          if (legacy) add(legacy[1], legacy[2].trim(), String(legacy[3] || '').trim());
+        }
+      }
+      return labels;
+    }
+
+    function sourceLabel(value) {
+      const parts = String(value || '').split(',').map((part) => part.trim()).filter(Boolean);
+      return {
+        title: parts.shift() || 'Retrieved contract source',
+        detail: parts.join(', '),
+      };
     }
 
     function renderCitationStep(sources) {
       const body = sources.length
-        ? '<ul class="trace-citations">' + sources.map((source) => '<li>' + esc(source) + '</li>').join('') + '</ul>'
+        ? '<ul class="trace-citations">' + sources.map((source) =>
+            '<li class="trace-citation"><strong>' + esc(source.title) + '</strong>' +
+              '<span class="trace-citation-meta">Foundry reference · ref_id:' + esc(source.id) + '</span>' +
+              (source.detail ? '<span class="trace-citation-detail">' + esc(source.detail) + '</span>' : '') +
+            '</li>'
+          ).join('') + '</ul>'
         : '<p>No source references were returned. The retrieval call remains visible, but the presenter should not claim exact citations.</p>';
       const count = sources.length === 1 ? '1 source reference' : sources.length + ' source references';
       return traceStep('Citations · ' + count, body, '${ICONS.trace}');

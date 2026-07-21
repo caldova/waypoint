@@ -43,12 +43,17 @@ If the canvas is not registered, call `extensions_reload`, confirm
    use different models. Foundry IQ provides approved contract knowledge."
 3. **Connect:** Open **Connection**. "Three moves: choose the model, connect
    contract knowledge, and assemble the read-only evidence expert."
-4. **Run:** Return to **Chat** and click **Run grounded audit**. "The invoice
-   supplies the transaction; Foundry IQ retrieves the terms we actually signed."
+4. **Run:** Return to **Chat** and click **Run grounded audit**. Start with the
+   **Foundry audit at a glance** headline, then the two priority findings.
+   The unit-rate finding reconciles the invoice's listed rate with its effective
+   line rate before showing the contract-priced amount and potential recovery.
+   Confidence and source references remain visible; deeper evidence stays
+   collapsed unless the audience asks for it.
 5. **Prove:** Open **Trace** after completion. Follow the chronological sequence:
    "Foundry IQ was called, this exact query was sent, this contract text came
-   back, and these citations identify the sources." Highlighting appears only
-   where those clauses occur in the live retrieval result.
+   back, these two grounded findings were derived, and these citations identify
+   the sources." Highlighting appears only where those clauses occur in the live
+   retrieval result.
 6. **Hand off:** Point to the journey rail. "Waypoint governs the workflow; then
    delivery, evaluation, optimization, and workforce governance compound the
    value."

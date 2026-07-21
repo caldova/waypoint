@@ -57,10 +57,20 @@ response contains a real `knowledge_base_retrieve` MCP call with a successful,
 non-empty tool result. A failed invocation is displayed as ungrounded. The
 canvas never substitutes a canned answer or fabricated retrieval trace.
 
+The Chat result leads with a seller-readable **Foundry audit at a glance**:
+live-grounded contract exceptions, deterministic invoice arithmetic, and two
+priority findings. The rate finding explicitly reconciles the invoice's listed
+unit rate with its effective line rate before calculating the contract-priced
+amount and potential recovery. Confidence and verified source references remain visible;
+the complete evidence set and unresolved questions are available through
+progressive disclosure.
+
 Trace follows the canonical event order: **Calling Foundry IQ**, **Query sent to
-the knowledge base**, **knowledge_base_retrieve returned**, then **Citations**.
-The returned rate, discount, batch-fee, and packaging clauses are highlighted
-only when those words occur in the live tool output.
+the knowledge base**, **knowledge_base_retrieve returned**, **Grounded findings**,
+then **Citations**. Overview and Trace reference counts share the same trust
+boundary: only references in a successful retrieval result qualify. The returned
+rate, discount, batch-fee, and packaging clauses are highlighted only when those
+words occur in the live tool output.
 
 The included Aster Ridge invoice is the demo's business artifact. Contract
 conclusions still come exclusively from the live FoundryIQ knowledge base.
