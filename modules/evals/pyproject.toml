@@ -9,12 +9,17 @@ dependencies = [
   "azure-identity>=1.17.0",
   "openai>=1.50.0",
   "python-dotenv>=1.0.0",
+  "pyyaml>=6.0.0",
 ]
 
 [dependency-groups]
 dev = [
   "ruff>=0.14.0",
+  "pytest>=8.0.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["setuptools>=69"]

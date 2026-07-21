@@ -13,8 +13,21 @@ from .contract_policy import (
 )
 from .doctor import run_doctor
 from .eval import build_eval_plan
+from .eval_assets import validate_eval_config
 from .forge import inspect_forge
 from .foundry_eval import export_eval_output_items
+from .gates import evaluate_gates
+from .lineage import (
+    REVIEW_STATUSES,
+    VERIFY_STATUSES,
+    append_snapshot,
+    build_snapshot,
+    default_ledger_path,
+    find_snapshot,
+    latest_snapshot,
+    lineage_report,
+    verify_snapshot,
+)
 from .manifest import build_manifest
 from .optimizer import build_optimizer_plan
 from .rft import build_rft_plan, package_rft_assets, read_rft_status
@@ -209,6 +222,21 @@ def _build_parser() -> argparse.ArgumentParser:
             out_path=args.out,
             limit=args.limit,
         )
+    )
+
+    eval_validate = eval_sub.add_parser(
+        "validate-assets",
+        help="Validate an eval.yaml plus its referenced dataset and rubric files.",
+    )
+    eval_validate.add_argument(
+        "--eval-config",
+        required=True,
+        type=Path,
+        help="Path to an azd ai agent eval.yaml config.",
+    )
+    eval_validate.add_argument("--json", action="store_true", help="Print JSON.")
+    eval_validate.set_defaults(
+        handler=lambda args: validate_eval_config(args.eval_config)
     )
 
     optimizer = sub.add_parser("optimizer", help="Agent Optimizer planning helpers.")
@@ -455,7 +483,272 @@ def _build_parser() -> argparse.ArgumentParser:
         )
     )
 
+    lineage = sub.add_parser(
+        "lineage",
+        help="Quality-evidence lineage: immutable, hash-anchored snapshots for FT/eval gates.",
+    )
+    lineage_sub = lineage.add_subparsers(dest="lineage_command")
+
+    lineage_snapshot = lineage_sub.add_parser(
+        "snapshot",
+        help="Compute and append an immutable lineage snapshot. Never overwrites.",
+    )
+    lineage_snapshot.add_argument("--agent", required=True, help="Agent name.")
+    lineage_snapshot.add_argument(
+        "--operation-id",
+        required=True,
+        help="Correlation id for the operation this snapshot documents (eval run, optimizer "
+        "job, RFT job, etc.).",
+    )
+    lineage_snapshot.add_argument(
+        "--operation-kind",
+        required=True,
+        help="Kind of operation, e.g. eval, agent_optimizer, rft, manual.",
+    )
+    lineage_snapshot.add_argument(
+        "--review-status",
+        default="draft",
+        choices=sorted(REVIEW_STATUSES),
+        help="Human review status for this snapshot.",
+    )
+    lineage_snapshot.add_argument(
+        "--environment",
+        default="local",
+        help="Non-secret environment label, e.g. local, dev, demo.",
+    )
+    lineage_snapshot.add_argument("--prompt-config", type=Path, help="Agent prompt/config file.")
+    lineage_snapshot.add_argument("--dataset", type=Path, help="Dataset JSONL file.")
+    lineage_snapshot.add_argument(
+        "--rubric-eval-config", type=Path, help="Rubric/eval config file, e.g. eval.yaml."
+    )
+    lineage_snapshot.add_argument("--grader", type=Path, help="Python grader file.")
+    lineage_snapshot.add_argument("--model-deployment", default="", help="Model deployment name.")
+    lineage_snapshot.add_argument("--base-model", default="", help="Base model name.")
+    lineage_snapshot.add_argument(
+        "--source-path",
+        type=Path,
+        default=None,
+        help="Path used to resolve the source commit SHA. Defaults to the current directory.",
+    )
+    lineage_snapshot.add_argument(
+        "--reference-only",
+        action="store_true",
+        help="Mark this snapshot as a historical reference whose sources cannot be re-hashed.",
+    )
+    lineage_snapshot.add_argument("--notes", default="", help="Free-form notes.")
+    lineage_snapshot.add_argument(
+        "--metric",
+        dest="metrics",
+        action="append",
+        default=[],
+        help="key=value metric to attach; repeat for multiple values.",
+    )
+    lineage_snapshot.add_argument(
+        "--approval",
+        dest="approvals",
+        action="append",
+        default=[],
+        help="approver:role approval to attach; repeat for multiple values.",
+    )
+    lineage_snapshot.add_argument(
+        "--ledger",
+        type=Path,
+        default=None,
+        help="Ledger JSONL path. Defaults to runs/lineage/<agent>/manifest.jsonl.",
+    )
+    lineage_snapshot.add_argument("--json", action="store_true", help="Print JSON.")
+    lineage_snapshot.set_defaults(handler=_handle_lineage_snapshot)
+
+    lineage_verify = lineage_sub.add_parser(
+        "verify",
+        help="Recompute hashes from current sources and classify current/stale/reference-only.",
+    )
+    lineage_verify.add_argument(
+        "--ledger",
+        type=Path,
+        default=None,
+        help="Ledger JSONL path. Required unless --agent is given with the default path.",
+    )
+    lineage_verify.add_argument(
+        "--agent", default="", help="Agent name, for the default ledger path."
+    )
+    lineage_verify.add_argument(
+        "--snapshot-id",
+        default="",
+        help="Snapshot id to verify. Defaults to the latest snapshot for --agent.",
+    )
+    lineage_verify.add_argument(
+        "--prompt-config", type=Path, help="Current agent prompt/config file."
+    )
+    lineage_verify.add_argument("--dataset", type=Path, help="Current dataset JSONL file.")
+    lineage_verify.add_argument(
+        "--rubric-eval-config", type=Path, help="Current rubric/eval config file."
+    )
+    lineage_verify.add_argument("--grader", type=Path, help="Current Python grader file.")
+    lineage_verify.add_argument(
+        "--model-deployment", default="", help="Current model deployment name."
+    )
+    lineage_verify.add_argument("--json", action="store_true", help="Print JSON.")
+    lineage_verify.set_defaults(handler=_handle_lineage_verify)
+
+    lineage_report = lineage_sub.add_parser(
+        "report",
+        help="Report current/stale/reference-only status per agent across the ledger.",
+    )
+    lineage_report.add_argument(
+        "--ledger", type=Path, default=None, help="Ledger JSONL path, for a single agent's ledger."
+    )
+    lineage_report.add_argument("--agent", default="", help="Filter to one agent.")
+    lineage_report.add_argument(
+        "--reference",
+        type=Path,
+        default=None,
+        help="Committed reference-lineage JSON file to include as reference_only evidence.",
+    )
+    lineage_report.add_argument("--json", action="store_true", help="Print JSON.")
+    lineage_report.set_defaults(handler=_handle_lineage_report)
+
+    gates = sub.add_parser(
+        "gates",
+        help="Fail-closed fine-tuning/eval promotion gates. Never applies/deploys/promotes.",
+    )
+    gates_sub = gates.add_subparsers(dest="gates_command")
+    gates_check = gates_sub.add_parser(
+        "check",
+        help="Evaluate whether a named operation would be allowed. Read-only; enforces nothing.",
+    )
+    gates_check.add_argument(
+        "--operation",
+        required=True,
+        help="Operation label, e.g. optimizer_apply, rft_submit, candidate_promote.",
+    )
+    gates_check.add_argument("--review-approved", action="store_true")
+    gates_check.add_argument(
+        "--lineage-status",
+        default="unverifiable",
+        choices=sorted(VERIFY_STATUSES),
+        help="Result of a prior `caliber lineage verify` run.",
+    )
+    gates_check.add_argument("--model-ready", action="store_true")
+    gates_check.add_argument("--quota-ready", action="store_true")
+    gates_check.add_argument("--spend-confirmed", action="store_true")
+    gates_check.add_argument(
+        "--protected-approver", default="", help="Name of a protected approver."
+    )
+    gates_check.add_argument(
+        "--required-approver-role",
+        default="",
+        help="Approver role required for protected_approval, e.g. eng-lead.",
+    )
+    gates_check.add_argument(
+        "--approval",
+        dest="approvals",
+        action="append",
+        default=[],
+        help="approver:role approval to consider; repeat for multiple values.",
+    )
+    gates_check.add_argument("--json", action="store_true", help="Print JSON.")
+    gates_check.set_defaults(handler=_handle_gates_check)
+
     return parser
+
+
+def _parse_key_value_pairs(values: list[str], *, label: str) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for value in values:
+        if "=" not in value:
+            raise ValueError(f"{label} must be in key=value form: {value}")
+        key, _, raw_value = value.partition("=")
+        if not key.strip():
+            raise ValueError(f"{label} key must not be empty: {value}")
+        parsed[key.strip()] = raw_value
+    return parsed
+
+
+def _parse_approvals(values: list[str]) -> list[dict[str, str]]:
+    approvals = []
+    for value in values:
+        if ":" not in value:
+            raise ValueError(f"--approval must be in approver:role form: {value}")
+        approver, _, role = value.partition(":")
+        if not approver.strip() or not role.strip():
+            raise ValueError(f"--approval must be in approver:role form: {value}")
+        approvals.append({"approver": approver.strip(), "role": role.strip()})
+    return approvals
+
+
+def _handle_lineage_snapshot(args: argparse.Namespace) -> dict[str, Any]:
+    ledger_path = args.ledger or default_ledger_path(args.agent)
+    snapshot = build_snapshot(
+        agent=args.agent,
+        operation_id=args.operation_id,
+        operation_kind=args.operation_kind,
+        review_status=args.review_status,
+        environment=args.environment,
+        prompt_config_path=args.prompt_config,
+        dataset_path=args.dataset,
+        rubric_eval_config_path=args.rubric_eval_config,
+        grader_path=args.grader,
+        model_deployment=args.model_deployment or None,
+        base_model=args.base_model or None,
+        source_path=args.source_path,
+        reference_only=args.reference_only,
+        notes=args.notes,
+        metrics=_parse_key_value_pairs(args.metrics, label="--metric"),
+        approvals=_parse_approvals(args.approvals),
+    )
+    appended = append_snapshot(ledger_path, snapshot)
+    return {"ledger": str(ledger_path), "snapshot": appended}
+
+
+def _handle_lineage_verify(args: argparse.Namespace) -> dict[str, Any]:
+    ledger_path = args.ledger or (default_ledger_path(args.agent) if args.agent else None)
+    if ledger_path is None:
+        raise ValueError("either --ledger or --agent is required")
+
+    if args.snapshot_id:
+        snapshot = find_snapshot(ledger_path, args.snapshot_id)
+        if snapshot is None:
+            raise ValueError(f"snapshot not found in {ledger_path}: {args.snapshot_id}")
+    else:
+        snapshot = latest_snapshot(ledger_path, agent=args.agent or None)
+        if snapshot is None:
+            raise ValueError(f"no snapshots found in {ledger_path}")
+
+    result = verify_snapshot(
+        snapshot,
+        prompt_config_path=args.prompt_config,
+        dataset_path=args.dataset,
+        rubric_eval_config_path=args.rubric_eval_config,
+        grader_path=args.grader,
+        model_deployment=args.model_deployment or None,
+    )
+    return {"ledger": str(ledger_path), "agent": snapshot.get("agent"), **result}
+
+
+def _handle_lineage_report(args: argparse.Namespace) -> dict[str, Any]:
+    ledger_path = args.ledger or (default_ledger_path(args.agent) if args.agent else None)
+    if ledger_path is None and args.reference is None:
+        raise ValueError("at least one of --ledger, --agent, or --reference is required")
+    return lineage_report(
+        ledger_path or Path(default_ledger_path(args.agent or "unknown")),
+        agent=args.agent or None,
+        reference_path=args.reference,
+    )
+
+
+def _handle_gates_check(args: argparse.Namespace) -> dict[str, Any]:
+    return evaluate_gates(
+        operation=args.operation,
+        review_approved=args.review_approved,
+        lineage_status=args.lineage_status,
+        model_ready=args.model_ready,
+        quota_ready=args.quota_ready,
+        spend_confirmed=args.spend_confirmed,
+        protected_approver=args.protected_approver or None,
+        required_approver_role=args.required_approver_role or None,
+        approvals=_parse_approvals(args.approvals),
+    )
 
 
 def _print_human(result: Any) -> None:

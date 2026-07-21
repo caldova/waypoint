@@ -77,6 +77,27 @@ Implemented so far:
   - `.rft_job.json`
   - `*.eval-results.json`
   - `*.fine-tune.json`
+- Quality-evidence lineage and fail-closed promotion gates (see
+  `docs/QUALITY_LINEAGE.md` for the full reference):
+  - `uv run caliber eval validate-assets --eval-config <eval.yaml>` — structural
+    validation of an agent's `eval.yaml` plus its referenced dataset and
+    rubric/evaluator files.
+  - `uv run caliber lineage snapshot ...` — compute a versioned, immutable,
+    hash-anchored quality-evidence snapshot (prompt/config, dataset,
+    rubric/eval config, grader, model/deployment, source commit, environment,
+    timestamps, operation id, review status) and append it to a JSONL ledger.
+    Append-only: byte-identical duplicate snapshots are rejected.
+  - `uv run caliber lineage verify ...` — recompute current hashes and report
+    `current` / `stale` / `reference_only` / `unverifiable` against the latest
+    (or a named) snapshot.
+  - `uv run caliber lineage report ...` — summarize a ledger's snapshots per
+    agent/operation with current/stale/reference-only counts.
+  - `uv run caliber gates check ...` — fail-closed gate evaluation for
+    optimizer/RFT/candidate-promotion operations: review approval, lineage
+    freshness, quota/model readiness, spend confirmation, and protected
+    approver role. Every gate defaults to blocked; nothing is auto-approved.
+  - These commands never apply a candidate, deploy a checkpoint, promote a
+    model, or mutate production state — they only compute, verify, and gate.
 
 ## Source-of-truth model
 
@@ -118,6 +139,9 @@ uv run caliber rft plan --train datasets\smoke.jsonl --validation datasets\smoke
 uv run caliber rft package --train datasets\contract-policy-expert\contract-policy-expert-train.jsonl --validation datasets\contract-policy-expert\contract-policy-expert-validation.jsonl --grader graders\contract-policy-expert\contract_policy_evidence_grader.py --agent contract-policy-expert --base-model o4-mini --suffix contract-policy-expert-cost --json
 uv run caliber rle plan --agent contract-policy-expert --environment dev --train datasets\contract-policy-expert\contract-policy-expert-train.jsonl --validation datasets\contract-policy-expert\contract-policy-expert-validation.jsonl --eval datasets\contract-policy-expert\contract-policy-expert-eval.jsonl --grader graders\contract-policy-expert\contract_policy_evidence_grader.py --plain-reinforcement --json
 uv run caliber grader calibrate --dataset datasets\contract-policy-expert\contract-policy-expert-eval.jsonl --outputs runs\eval-results\contract-policy-expert\output-items.jsonl --grader graders\contract-policy-expert\contract_policy_evidence_grader.py --json
+uv run caliber eval validate-assets --eval-config ..\agents\agents\contract-policy-expert\eval.yaml --json
+uv run caliber lineage report --agent contract-policy-expert --json
+uv run caliber gates check --operation rft_submit --json
 uv run ruff check .
 ```
 
@@ -203,3 +227,14 @@ uv run caliber inspect-forge --path ..\agents --json
 16. Add grader calibration utilities before submitting real RFT jobs.
 17. Add real Foundry submission/monitor/deploy commands only after baseline evals,
    dataset contracts, and graders are stable.
+18. Quality-evidence lineage, fail-closed gates, and eval-asset validation are
+   implemented (`caliber lineage`, `caliber gates`, `caliber eval
+   validate-assets`; see `docs/QUALITY_LINEAGE.md`). The historical
+   `opt_994a956b2d6e49939506323a15dfc5d2` and
+   `ftjob-0265d673736e496dbd360530958c6149` runs referenced above are captured
+   as `reference_only` snapshots in
+   `..\optimization\evidence\contract-policy-expert\reference-lineage.json` —
+   they always report `reference_only` lineage status, never `current`, even
+   if hashes happen to match. Real optimizer/RFT submission commands should
+   call `caliber gates check` before any spend-incurring or promotion action
+   and must not bypass a `blocked` result.

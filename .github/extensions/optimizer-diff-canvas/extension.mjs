@@ -3,10 +3,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { joinSession, createCanvas } from "@github/copilot-sdk/extension";
+import { lineageBadgeHtml, resolveLineageStatus } from "../shared/lineage-evidence.mjs";
 
 const jobId = "opt_994a956b2d6e49939506323a15dfc5d2";
 const baselineId = "cand_bc834224066e45d8938aa2fa738a9720";
 const candidateId = "cand_6bf6980ed16f4538ba0faf8935d93c01";
+const agentName = "contract-policy-expert";
 const extensionDir = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(extensionDir, "fixtures", jobId);
 const servers = new Map();
@@ -95,6 +97,18 @@ function artifactSourceDescription() {
 
 function artifactsAvailable() {
     return Boolean(artifactSourceDir());
+}
+
+function lineageStatus() {
+    const dir = artifactSourceDir();
+    const configPath = dir ? join(dir, "candidate_4-config.json") : null;
+    return resolveLineageStatus({
+        extensionDir,
+        agent: agentName,
+        operationId: jobId,
+        componentKey: "prompt_config",
+        currentFilePath: configPath,
+    });
 }
 
 function loadComparison() {
@@ -448,6 +462,7 @@ function renderHtml() {
     const { job, baselineConfig, candidateConfig, baselineResults, candidateResults } = loadComparison();
     const scoreLift = Number(candidateResults.avgScore || 0) - Number(baselineResults.avgScore || 0);
     const passLift = Number(candidateResults.passRate || 0) - Number(baselineResults.passRate || 0);
+    const lineage = lineageStatus();
 
     return `<!doctype html>
 <html>
@@ -664,6 +679,7 @@ function renderHtml() {
         </div>
         <div class="meta">
           <div>Status <strong>${escapeHtml(job.status)}</strong></div>
+          <div>${lineageBadgeHtml(lineage.status, lineage.reviewStatus ? `review: ${lineage.reviewStatus}` : undefined)}</div>
           <div>Baseline <code>${escapeHtml(baselineId.slice(0, 18))}...</code></div>
           <div>candidate_4 <code>${escapeHtml(candidateId.slice(0, 18))}...</code></div>
         </div>
@@ -701,12 +717,14 @@ function renderHtml() {
       ${renderToolInventory(baselineConfig.tools, candidateConfig.tools)}
 
       <div class="note">Loaded from ${escapeHtml(artifactSourceDescription())}: <code>${escapeHtml(artifactSourceDir())}</code></div>
+      <div class="note">Lineage evidence: <code>${escapeHtml(lineage.referencePath ?? "not found")}</code>${lineage.snapshotId ? ` (snapshot <code>${escapeHtml(lineage.snapshotId.slice(0, 12))}...</code>)` : ""}</div>
     </main>
   </body>
 </html>`;
 }
 
 function comparisonSummary() {
+    const lineage = lineageStatus();
     if (!artifactsAvailable()) {
         return {
             jobId,
@@ -714,6 +732,7 @@ function comparisonSummary() {
             artifactDir,
             fixtureDir,
             requiredFiles: requiredArtifacts,
+            lineage,
         };
     }
 
@@ -723,6 +742,7 @@ function comparisonSummary() {
         status: job.status,
         source: artifactSourceDescription(),
         sourceDir: artifactSourceDir(),
+        lineage,
         baseline: {
             id: baselineId,
             model: baselineConfig.model,

@@ -1,0 +1,224 @@
+{
+  "agent": "contract-policy-expert",
+  "description": "Committed, hash-anchored reference lineage for the historical Caldova contract-policy-expert Agent Optimizer + RFT promotion. Every entry sets reference_only: true, so caliber lineage verify/report and caliber gates check always classify these as reference_only, never current, even though the surviving fixture config files can still be re-hashed.",
+  "schema_version": "1",
+  "snapshots": [
+    {
+      "agent": "contract-policy-expert",
+      "approvals": [
+        {
+          "approver": "Seth",
+          "role": "eng-lead"
+        }
+      ],
+      "created_at": "2025-05-30T00:00:00Z",
+      "environment": "foundry-portal",
+      "hashes": {
+        "dataset": {
+          "available": false,
+          "identifier": "",
+          "label": "dataset",
+          "sha256": null
+        },
+        "grader": {
+          "available": false,
+          "identifier": "",
+          "label": "grader",
+          "sha256": null
+        },
+        "model_deployment": {
+          "available": true,
+          "identifier": "gpt-5.5",
+          "label": "model_deployment",
+          "sha256": "ffc50c70661c227edf8daae6f8dbed2dd0645386c12d43bc7fc44da166e043bd"
+        },
+        "prompt_config": {
+          "available": true,
+          "identifier": "../optimization/extensions/optimizer-diff-canvas/fixtures/opt_994a956b2d6e49939506323a15dfc5d2/candidate_4-config.json",
+          "label": "prompt_config",
+          "sha256": "659a1cc3fd7ac9100f1b9203becd1b4a599ae32e0e27f7a7ca63cfc07595712d"
+        },
+        "rubric_eval_config": {
+          "available": false,
+          "identifier": "",
+          "label": "rubric_eval_config",
+          "sha256": null
+        }
+      },
+      "metrics": {
+        "baseline_avg_score": 0.5084,
+        "baseline_candidate_id": "cand_bc834224066e45d8938aa2fa738a9720",
+        "baseline_config_sha256": "6e78f8b8f7fdc17108c8296bd6d3933e1701d5bea6ed6dc320806747430a41fa",
+        "baseline_pass_rate": 0.5,
+        "baseline_sample_size": 8,
+        "golden_avg_score": 0.8521,
+        "golden_candidate_id": "cand_6bf6980ed16f4538ba0faf8935d93c01",
+        "golden_config_sha256": "659a1cc3fd7ac9100f1b9203becd1b4a599ae32e0e27f7a7ca63cfc07595712d",
+        "golden_mutation_strategy": "skills + system_prompt",
+        "golden_pass_rate": 1.0,
+        "golden_sample_size": 8,
+        "reference_doc": "modules/optimization/docs/CONTRACT_POLICY_EXPERT_RFT_ARTIFACTS.md"
+      },
+      "model": {
+        "base_model": "gpt-5.5",
+        "deployment": "gpt-5.5"
+      },
+      "notes": "Historical Caldova Agent Optimizer lineage for contract-policy-expert. Raw output-items, tenant endpoints, and generated run payloads were archived outside the repo per modules/optimization/docs/CONTRACT_POLICY_EXPERT_RFT_ARTIFACTS.md; only the committed baseline/candidate_4 config+results fixtures under modules/optimization/extensions/optimizer-diff-canvas/fixtures/ can be re-hashed, so this snapshot is permanently reference_only and can never be reported as current.",
+      "operation_id": "opt_994a956b2d6e49939506323a15dfc5d2",
+      "operation_kind": "agent_optimizer",
+      "reference_only": true,
+      "review_status": "accepted",
+      "schema_version": "1",
+      "snapshot_id": "eb6564dec2b035df2f08fdcadb7bf6b427a5993b6e1c4efc590633944b5958e9",
+      "source_commit": "archived"
+    },
+    {
+      "agent": "contract-policy-expert",
+      "approvals": [
+        {
+          "approver": "Seth",
+          "role": "eng-lead"
+        }
+      ],
+      "created_at": "2025-06-15T00:00:00Z",
+      "environment": "foundry-portal",
+      "hashes": {
+        "dataset": {
+          "available": false,
+          "identifier": "",
+          "label": "dataset",
+          "sha256": null
+        },
+        "grader": {
+          "available": false,
+          "identifier": "",
+          "label": "grader",
+          "sha256": null
+        },
+        "model_deployment": {
+          "available": true,
+          "identifier": "contract-policy-expert-rft-o4-mini",
+          "label": "model_deployment",
+          "sha256": "d0240eb060469cda0e2a78a66dfb77d7e99a93ce6a541410e28a7ffd4cd4de56"
+        },
+        "prompt_config": {
+          "available": true,
+          "identifier": "../optimization/extensions/optimizer-diff-canvas/fixtures/opt_994a956b2d6e49939506323a15dfc5d2/candidate_4-config.json",
+          "label": "prompt_config",
+          "sha256": "659a1cc3fd7ac9100f1b9203becd1b4a599ae32e0e27f7a7ca63cfc07595712d"
+        },
+        "rubric_eval_config": {
+          "available": false,
+          "identifier": "",
+          "label": "rubric_eval_config",
+          "sha256": null
+        }
+      },
+      "metrics": {
+        "baseline_agent_version": "49",
+        "cost_per_10k_evidence_requests_usd": {
+          "golden_gpt55": 482.8,
+          "golden_rft_o4_mini": 146.85
+        },
+        "cost_per_24_row_run_usd": {
+          "golden_gpt55": 1.15873,
+          "golden_rft_o4_mini": 0.352442
+        },
+        "cost_per_evidence_request_usd": {
+          "golden_gpt55": 0.04828,
+          "golden_rft_o4_mini": 0.014685
+        },
+        "estimated_inference_cost_reduction_pct": 69.6,
+        "estimated_savings_per_10k_evidence_requests_usd": 335.95,
+        "estimated_savings_per_evidence_request_usd": 0.033595,
+        "eval_groups": {
+          "baseline": {
+            "agent_version": "49",
+            "aggregate": "96/120 = 80.0%",
+            "eval_id": "eval_ef07bed47adb4df4a4000c01ac4ba41d",
+            "five_run_pass_counts": [
+              "21/24",
+              "19/24",
+              "16/24",
+              "20/24",
+              "20/24"
+            ]
+          },
+          "golden_gpt55": {
+            "agent_version": "178",
+            "aggregate": "98/120 = 81.7%",
+            "eval_id": "eval_f5c6c2353d394846a4509b6c4c79bc94",
+            "five_run_pass_counts": [
+              "19/24",
+              "21/24",
+              "19/24",
+              "20/24",
+              "19/24"
+            ],
+            "run_ids": [
+              "evalrun_de54b5cbf2e649a39f99d7e6edb6dc9d",
+              "evalrun_40762a7463bf4a26b439b1bd478f7aee",
+              "evalrun_7cd9cee6c081435b9c25d95c5feb9e85",
+              "evalrun_95a5b091436b4a9fa195851548b1f534",
+              "evalrun_2ca07b69594e4d37a6bc68926be304ba"
+            ]
+          },
+          "golden_rft_o4_mini": {
+            "agent_version": "180",
+            "aggregate": "99/120 = 82.5%",
+            "eval_id": "eval_d7e99889495f4400a89412d0650acd92",
+            "five_run_pass_counts": [
+              "19/24",
+              "20/24",
+              "20/24",
+              "19/24",
+              "21/24"
+            ],
+            "run_ids": [
+              "evalrun_598bf58140b14af3be066beb7dc35205",
+              "evalrun_acc23aaec7484bf4b0ef23b2ad7ee395",
+              "evalrun_05c64263a2874c09bc372d8dbe6a8593",
+              "evalrun_25bbbd0d2fe94fdd8c22f908e7f852e4",
+              "evalrun_7d41d4db04c74db08b0d03936eeb21e4"
+            ]
+          }
+        },
+        "golden_agent_version": "178",
+        "pricing_per_million_tokens_usd": {
+          "contract-policy-expert-rft-o4-mini": {
+            "input": 1.1,
+            "output": 4.4
+          },
+          "gpt-5.5": {
+            "input": 5.0,
+            "output": 30.0
+          }
+        },
+        "reference_doc": "modules/optimization/docs/CONTRACT_POLICY_EXPERT_RFT_ARTIFACTS.md",
+        "rft_agent_version": "180",
+        "token_usage": {
+          "golden_gpt55": {
+            "input_tokens": 117842,
+            "output_tokens": 18984
+          },
+          "golden_rft_o4_mini": {
+            "input_tokens": 117842,
+            "output_tokens": 50640
+          }
+        }
+      },
+      "model": {
+        "base_model": "o4-mini-2025-04-16.ft-0265d673736e496dbd360530958c6149",
+        "deployment": "contract-policy-expert-rft-o4-mini"
+      },
+      "notes": "Historical Caldova RFT lineage for contract-policy-expert. RFT serving deployment (agent version 180) was cloned from golden GPT-5.5 agent version 178; only the model deployment changed, toolbox preserved. Raw output-items and hosted endpoint details were archived outside the repo per modules/optimization/docs/CONTRACT_POLICY_EXPERT_RFT_ARTIFACTS.md; this snapshot is permanently reference_only and can never be reported as current.",
+      "operation_id": "ftjob-0265d673736e496dbd360530958c6149",
+      "operation_kind": "rft",
+      "reference_only": true,
+      "review_status": "accepted",
+      "schema_version": "1",
+      "snapshot_id": "96d5cc49d370706f4c686e6e53dc2975ad040cead62c7db487ecf15813f9399e",
+      "source_commit": "archived"
+    }
+  ]
+}

@@ -2,9 +2,25 @@
 // RFT cost and quality comparison canvas with interactive cost slider.
 
 import { createServer } from "node:http";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { joinSession, createCanvas } from "@github/copilot-sdk/extension";
+import { lineageBadgeHtml, resolveLineageStatus } from "../shared/lineage-evidence.mjs";
 
 const servers = new Map();
+const extensionDir = dirname(fileURLToPath(import.meta.url));
+const agentName = "contract-policy-expert";
+// The RFT serving deployment was cloned from the golden optimizer candidate
+// (agent version 178); the surviving fixture config for that candidate is
+// committed beside the optimizer-diff-canvas, so it is what we re-hash here.
+const goldenConfigPath = join(
+    extensionDir,
+    "..",
+    "optimizer-diff-canvas",
+    "fixtures",
+    "opt_994a956b2d6e49939506323a15dfc5d2",
+    "candidate_4-config.json",
+);
 
 const metrics = {
     headline:
@@ -154,6 +170,16 @@ function jsonScript(value) {
     return JSON.stringify(value).replaceAll("<", "\\u003c");
 }
 
+function rftLineageStatus() {
+    return resolveLineageStatus({
+        extensionDir,
+        agent: agentName,
+        operationId: metrics.rftJob,
+        componentKey: "prompt_config",
+        currentFilePath: goldenConfigPath,
+    });
+}
+
 function sendJson(res, value) {
     res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
@@ -163,6 +189,7 @@ function sendJson(res, value) {
 }
 
 function renderHtml(instanceId) {
+    const lineage = rftLineageStatus();
     return `<!doctype html>
 <html lang="en">
 <head>
@@ -667,6 +694,7 @@ function renderHtml(instanceId) {
       <div class="link-row">
         <span class="meta">Golden GPT-5.5 eval: <code>${escapeHtml(metrics.goldenGptFoundryEvalId)}</code></span>
         <span class="meta">Golden RFT eval: <code>${escapeHtml(metrics.goldenRftFoundryEvalId)}</code></span>
+        <span class="meta">${lineageBadgeHtml(lineage.status, lineage.reviewStatus ? `review: ${lineage.reviewStatus}` : undefined)}</span>
         <span class="meta">${escapeHtml(metrics.artifactArchiveNote)}</span>
       </div>
     </section>
@@ -832,7 +860,7 @@ async function startServer(instanceId) {
     const server = createServer((req, res) => {
         const url = new URL(req.url || "/", "http://127.0.0.1");
         if (url.pathname === "/metrics") {
-            sendJson(res, metrics);
+            sendJson(res, { ...metrics, lineage: rftLineageStatus() });
             return;
         }
         if (url.pathname !== "/") {
@@ -862,8 +890,11 @@ await joinSession({
             actions: [
                 {
                     name: "get_metrics",
-                    description: "Return the RFT comparison metrics rendered by the canvas.",
-                    handler: async () => metrics,
+                    description:
+                        "Return the RFT comparison metrics rendered by the canvas, plus lineage status " +
+                        "(current/stale/reference_only/unverifiable) sourced from the shared quality-" +
+                        "evidence lineage evidence file.",
+                    handler: async () => ({ ...metrics, lineage: rftLineageStatus() }),
                 },
             ],
             open: async (ctx) => {

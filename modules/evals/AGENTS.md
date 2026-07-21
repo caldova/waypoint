@@ -81,3 +81,14 @@ uv run caliber doctor
 uv run caliber manifest
 uv run caliber inspect-forge --path C:\path\to\forge
 ```
+
+Quality-evidence lineage and fail-closed gates (see `docs/QUALITY_LINEAGE.md` for full
+reference):
+
+```powershell
+uv run caliber eval validate-assets --eval-config <path\to\eval.yaml>
+uv run caliber lineage snapshot --agent contract-policy-expert --operation-id <id> --operation-kind eval ...
+uv run caliber lineage verify --agent contract-policy-expert
+uv run caliber lineage report --agent contract-policy-expert
+uv run caliber gates check --operation rft_submit --review-approved --lineage-status current --model-ready --quota-ready --spend-confirmed
+```
