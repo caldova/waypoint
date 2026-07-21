@@ -16,6 +16,7 @@ from app.common.foundry_responses import (
 from app.common.repository import InMemoryWaypointRepository
 from app.common.settings import Settings, get_settings
 from app.main import app
+from app.modules.assurance_runs import service as service_module
 from app.modules.assurance_runs.routes import get_assurance_runs_service
 from app.modules.assurance_runs.service import AssuranceRunsService
 
@@ -26,10 +27,12 @@ class FakeFoundryClient:
         *,
         response_id: str = "caresp-test",
         error: FoundryInvocationError | None = None,
+        errors_by_invoice: dict[str, FoundryInvocationError] | None = None,
         release: asyncio.Event | None = None,
     ) -> None:
         self.response_id = response_id
         self.error = error
+        self.errors_by_invoice = errors_by_invoice or {}
         self.release = release
         self.calls: list[tuple[str, str]] = []
 
@@ -37,6 +40,9 @@ class FakeFoundryClient:
         self.calls.append((agent_name, prompt))
         if self.release is not None:
             await self.release.wait()
+        for invoice_id, error in self.errors_by_invoice.items():
+            if prompt.endswith(f"invoice {invoice_id}."):
+                raise error
         if self.error is not None:
             raise self.error
         return HostedResponseStart(response_id=self.response_id, status="in_progress")
@@ -118,6 +124,17 @@ def _headers() -> dict[str, str]:
 
 def _invoice_id(repository: InMemoryWaypointRepository) -> str:
     return next(iter(repository.invoices))
+
+
+def _add_invoice(repository: InMemoryWaypointRepository, invoice_id: str) -> str:
+    source = next(iter(repository.invoices.values()))
+    repository.invoices[invoice_id] = source.model_copy(
+        update={
+            "id": invoice_id,
+            "invoice_number": invoice_id.upper(),
+        }
+    )
+    return invoice_id
 
 
 @pytest.mark.asyncio
@@ -264,3 +281,192 @@ async def test_slow_foundry_start_does_not_block_health(trigger_client):
 
     assert health.status_code == 200
     assert trigger.status_code == 202
+
+
+@pytest.mark.asyncio
+async def test_batch_trigger_requires_authentication(trigger_client):
+    client, repository, _foundry, _service = trigger_client
+
+    response = await client.post(
+        "/api/invoices/assurance-runs/batch",
+        json={"invoice_ids": [_invoice_id(repository)]},
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invoice_ids",
+    [
+        [],
+        [""],
+        ["   "],
+        [f"invoice-{index}" for index in range(26)],
+    ],
+)
+async def test_batch_trigger_rejects_empty_and_over_limit_batches(
+    trigger_client,
+    invoice_ids,
+):
+    client, _repository, foundry, _service = trigger_client
+
+    response = await client.post(
+        "/api/invoices/assurance-runs/batch",
+        headers=_headers(),
+        json={"invoice_ids": invoice_ids},
+    )
+
+    assert response.status_code == 422
+    assert foundry.calls == []
+
+
+@pytest.mark.asyncio
+async def test_batch_trigger_deduplicates_ids_preserving_first_seen_order(trigger_client):
+    client, repository, foundry, _service = trigger_client
+    first = _invoice_id(repository)
+    second = _add_invoice(repository, "invoice-second")
+
+    response = await client.post(
+        "/api/invoices/assurance-runs/batch",
+        headers=_headers(),
+        json={"invoice_ids": [f" {second} ", first, second, first]},
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert [item["invoice_id"] for item in body["items"]] == [second, first]
+    assert [item["outcome"] for item in body["items"]] == ["accepted", "accepted"]
+    assert body["total"] == 2
+    assert body["accepted"] == 2
+    assert len(foundry.calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_batch_trigger_limits_startup_concurrency_to_four(trigger_client, monkeypatch):
+    client, _repository, _foundry, service = trigger_client
+    active = 0
+    maximum_active = 0
+
+    async def slow_not_found(*, invoice_id: str, actor: str):
+        nonlocal active, maximum_active
+        assert actor
+        active += 1
+        maximum_active = max(maximum_active, active)
+        await asyncio.sleep(0.01)
+        active -= 1
+        raise service_module.InvoiceNotFoundError(invoice_id)
+
+    monkeypatch.setattr(service, "trigger", slow_not_found)
+    invoice_ids = [f"invoice-{index}" for index in range(9)]
+
+    response = await client.post(
+        "/api/invoices/assurance-runs/batch",
+        headers=_headers(),
+        json={"invoice_ids": invoice_ids},
+    )
+
+    assert response.status_code == 202
+    assert maximum_active == 4
+    assert response.json()["not_found"] == len(invoice_ids)
+
+
+@pytest.mark.asyncio
+async def test_batch_trigger_returns_mixed_outcomes_without_rollback_or_detail_leak(
+    trigger_client,
+):
+    client, repository, foundry, service = trigger_client
+    reused_invoice = _invoice_id(repository)
+    accepted_invoice = _add_invoice(repository, "invoice-accepted")
+    failed_invoice = _add_invoice(repository, "invoice-failed")
+    missing_invoice = "invoice-missing"
+
+    initial = await client.post(
+        f"/api/invoices/{reused_invoice}/assurance-runs",
+        headers=_headers(),
+    )
+    assert initial.status_code == 202
+
+    failure_detail = "internal upstream detail must not reach the caller"
+    batch_foundry = FakeFoundryClient(
+        errors_by_invoice={
+            failed_invoice: FoundryInvocationError(failure_detail),
+        }
+    )
+    service.foundry_client = batch_foundry
+
+    response = await client.post(
+        "/api/invoices/assurance-runs/batch",
+        headers=_headers(),
+        json={
+            "invoice_ids": [
+                reused_invoice,
+                missing_invoice,
+                failed_invoice,
+                accepted_invoice,
+            ]
+        },
+    )
+
+    assert response.status_code == 202
+    body = response.json()
+    assert [item["outcome"] for item in body["items"]] == [
+        "reused",
+        "not_found",
+        "start_failed",
+        "accepted",
+    ]
+    assert body == {
+        "items": body["items"],
+        "total": 4,
+        "accepted": 1,
+        "reused": 1,
+        "not_found": 1,
+        "start_failed": 1,
+    }
+    assert body["items"][0]["run_id"] == initial.json()["run"]["id"]
+    assert body["items"][3]["run_id"]
+    assert body["items"][3]["invoice_number"] == accepted_invoice.upper()
+    assert failure_detail not in response.text
+    assert len(foundry.calls) == 1
+    assert len(batch_foundry.calls) == 2
+
+    runs = await repository.list_agent_runs()
+    statuses_by_invoice = {
+        run.metadata["invoice_id"]: run.status for run in runs if "invoice_id" in run.metadata
+    }
+    assert statuses_by_invoice[reused_invoice] == "running"
+    assert statuses_by_invoice[accepted_invoice] == "running"
+    assert statuses_by_invoice[failed_invoice] == "failed"
+
+
+@pytest.mark.asyncio
+async def test_batch_trigger_does_not_cancel_remaining_items_after_unexpected_failure(
+    trigger_client,
+    monkeypatch,
+):
+    client, _repository, _foundry, service = trigger_client
+    calls: list[str] = []
+    invoice_ids = [f"invoice-{index}" for index in range(6)]
+
+    async def mixed_failure(*, invoice_id: str, actor: str):
+        assert actor
+        calls.append(invoice_id)
+        await asyncio.sleep(0)
+        if invoice_id == invoice_ids[0]:
+            raise RuntimeError("unexpected internal detail")
+        raise service_module.InvoiceNotFoundError(invoice_id)
+
+    monkeypatch.setattr(service, "trigger", mixed_failure)
+
+    response = await client.post(
+        "/api/invoices/assurance-runs/batch",
+        headers=_headers(),
+        json={"invoice_ids": invoice_ids},
+    )
+
+    assert response.status_code == 202
+    assert calls == invoice_ids
+    assert response.json()["start_failed"] == 1
+    assert response.json()["not_found"] == len(invoice_ids) - 1
+    assert "unexpected internal detail" not in response.text

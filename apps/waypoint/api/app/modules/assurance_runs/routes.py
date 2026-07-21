@@ -10,7 +10,11 @@ from ...common.foundry_responses import FoundryResponsesClient
 from ...common.repository import WaypointRepository
 from ...common.settings import Settings, get_settings
 from ...common.tracer import trace_span
-from .schemas import AssuranceRunTriggerResult
+from .schemas import (
+    AssuranceRunTriggerResult,
+    BatchAssuranceRequest,
+    BatchAssuranceTriggerResult,
+)
 from .service import (
     AssuranceRunsService,
     AssuranceTriggerUnavailableError,
@@ -33,6 +37,27 @@ async def get_assurance_runs_service(
             timeout_seconds=settings.foundry_start_timeout_seconds,
         ),
     )
+
+
+@router.post(
+    "/assurance-runs/batch",
+    response_model=BatchAssuranceTriggerResult,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def trigger_batch_invoice_assurance(
+    request: BatchAssuranceRequest,
+    user: Annotated[UserContext, Depends(require_reader)],
+    service: Annotated[AssuranceRunsService, Depends(get_assurance_runs_service)],
+) -> BatchAssuranceTriggerResult:
+    assert user.email is not None
+    with trace_span(
+        "trigger_batch_invoice_assurance_endpoint",
+        attributes={"invoice_count": len(request.invoice_ids)},
+    ):
+        return await service.trigger_batch(
+            invoice_ids=request.invoice_ids,
+            actor=user.email,
+        )
 
 
 @router.post(

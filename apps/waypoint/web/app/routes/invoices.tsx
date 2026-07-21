@@ -183,6 +183,29 @@ interface AssuranceRunTriggerResult {
   foundry_response_id: string | null;
 }
 
+type BatchAssuranceOutcome = "accepted" | "reused" | "not_found" | "start_failed";
+
+interface BatchAssuranceItemResult {
+  invoice_id: string;
+  invoice_number: string | null;
+  outcome: BatchAssuranceOutcome;
+  run_id: string | null;
+  run_status: string | null;
+  foundry_response_id: string | null;
+}
+
+interface BatchAssuranceResult {
+  items: BatchAssuranceItemResult[];
+  total: number;
+  accepted: number;
+  reused: number;
+  not_found: number;
+  start_failed: number;
+}
+
+const MAX_BATCH_ASSURANCE_INVOICES = 25;
+const BATCH_ASSURANCE_CONCURRENCY = 4;
+
 interface AgentCaseEntry {
   case: AssuranceCase;
   recommendation: CaseRecommendation | null;
@@ -342,6 +365,13 @@ export default function Invoices() {
   const [agentLoading, setAgentLoading] = useState(false);
   const [triggeringInvoiceId, setTriggeringInvoiceId] = useState<string | null>(null);
   const [triggerError, setTriggerError] = useState<string | null>(null);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [batchConfirmOpen, setBatchConfirmOpen] = useState(false);
+  const [batchLoading, setBatchLoading] = useState(false);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  const [batchResult, setBatchResult] = useState<BatchAssuranceResult | null>(null);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const deepLinkAppliedRef = useRef(false);
@@ -768,6 +798,14 @@ export default function Invoices() {
     [visible],
   );
   const decidedCount = visible.length - pendingCount;
+  const selectedRows = useMemo(
+    () => decisions.filter((row) => selectedInvoiceIds.has(row.invoice_id)),
+    [decisions, selectedInvoiceIds],
+  );
+  const allVisibleSelected =
+    visible.length > 0 && visible.every((row) => selectedInvoiceIds.has(row.invoice_id));
+  const someVisibleSelected = visible.some((row) => selectedInvoiceIds.has(row.invoice_id));
+  const batchSelectionTooLarge = selectedRows.length > MAX_BATCH_ASSURANCE_INVOICES;
 
   const filtersActive =
     decisionFilter !== "all" ||
@@ -796,6 +834,91 @@ export default function Invoices() {
     },
     [navigate],
   );
+
+  const toggleInvoiceSelection = useCallback((invoiceId: string) => {
+    setSelectedInvoiceIds((current) => {
+      const next = new Set(current);
+      if (next.has(invoiceId)) {
+        next.delete(invoiceId);
+      } else {
+        next.add(invoiceId);
+      }
+      return next;
+    });
+    setBatchError(null);
+  }, []);
+
+  const toggleVisibleSelection = useCallback(() => {
+    setSelectedInvoiceIds((current) => {
+      const next = new Set(current);
+      if (visible.every((row) => next.has(row.invoice_id))) {
+        for (const row of visible) {
+          next.delete(row.invoice_id);
+        }
+      } else {
+        for (const row of visible) {
+          next.add(row.invoice_id);
+        }
+      }
+      return next;
+    });
+    setBatchError(null);
+  }, [visible]);
+
+  const triggerBatchAssurance = useCallback(async () => {
+    const invoiceIds = selectedRows.map((row) => row.invoice_id);
+    if (
+      invoiceIds.length === 0 ||
+      invoiceIds.length > MAX_BATCH_ASSURANCE_INVOICES
+    ) {
+      return;
+    }
+
+    setBatchLoading(true);
+    setBatchError(null);
+    try {
+      const response = await tracedFetch(
+        "triggerBatchInvoiceAssurance",
+        "/api/invoices/assurance-runs/batch",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ invoice_ids: invoiceIds }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`Unable to start batch assurance (${response.status}).`);
+      }
+      const result = (await response.json()) as BatchAssuranceResult;
+      setBatchResult(result);
+      setBatchConfirmOpen(false);
+      setSelectedInvoiceIds(new Set());
+      await fetchDecisions();
+    } catch (err) {
+      setBatchError(
+        err instanceof Error ? err.message : "Unable to start batch assurance.",
+      );
+    } finally {
+      setBatchLoading(false);
+    }
+  }, [fetchDecisions, selectedRows]);
+
+  const openBatchActivity = useCallback(() => {
+    const item = batchResult?.items.find(
+      (candidate) =>
+        (candidate.outcome === "accepted" || candidate.outcome === "reused") &&
+        candidate.run_id,
+    );
+    if (!item) {
+      navigate("/activity");
+      return;
+    }
+    const params = new URLSearchParams({
+      invoice: item.invoice_number || item.invoice_id,
+      run: item.run_id as string,
+    });
+    navigate(`/activity?${params.toString()}`);
+  }, [batchResult, navigate]);
 
   return (
     <RequireAuth>
@@ -911,15 +1034,26 @@ export default function Invoices() {
                       ? `Showing ${visible.length} of ${decisions.length}`
                       : `${decisions.length} invoice${decisions.length === 1 ? "" : "s"}`}
                 </span>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={fetchDecisions}
-                  disabled={loading || auth.status !== "authenticated"}
-                >
-                  <HiRefresh className={loading ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-                  Refresh
-                </button>
+                <div className="flex items-center gap-2">
+                  {!loading && visible.length > 0 ? (
+                    <button
+                      type="button"
+                      className="min-h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                      onClick={toggleVisibleSelection}
+                    >
+                      {allVisibleSelected ? "Clear visible" : "Select visible"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={fetchDecisions}
+                    disabled={loading || auth.status !== "authenticated"}
+                  >
+                    <HiRefresh className={loading ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
+                    Refresh
+                  </button>
+                </div>
               </div>
 
               <div className="min-h-0 flex-1 overflow-auto">
@@ -934,6 +1068,7 @@ export default function Invoices() {
                 ) : (
                   <table className="w-full table-fixed text-left text-[13px]">
                     <colgroup>
+                      <col className="w-[44px]" />
                       <col className="w-[170px]" />
                       <col />
                       <col className="w-[100px]" />
@@ -945,6 +1080,23 @@ export default function Invoices() {
                     </colgroup>
                     <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-[0.16em] text-slate-500 shadow-[0_1px_0_rgba(0,0,0,0.06)]">
                       <tr>
+                        <th className="p-0" scope="col">
+                          <label
+                            className="inline-flex h-11 w-11 cursor-pointer items-center justify-center"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <SelectionCheckbox
+                              checked={allVisibleSelected}
+                              mixed={someVisibleSelected && !allVisibleSelected}
+                              label={
+                                allVisibleSelected
+                                  ? "Clear all visible invoices"
+                                  : "Select all visible invoices"
+                              }
+                              onChange={toggleVisibleSelection}
+                            />
+                          </label>
+                        </th>
                         <th className="px-3 py-2" scope="col">Invoice</th>
                         <th className="px-3 py-2" scope="col">Reasoning</th>
                         <th className="px-3 py-2" scope="col">Decision</th>
@@ -965,6 +1117,7 @@ export default function Invoices() {
                           key={row.invoice_id}
                           className={[
                             "cursor-pointer hover:bg-slate-50",
+                            selectedInvoiceIds.has(row.invoice_id) ? "bg-indigo-50/60" : "",
                             selectedDecision?.invoice_id === row.invoice_id ? "bg-blue-50/70" : "",
                           ].join(" ")}
                           onClick={() => openRow(row)}
@@ -977,6 +1130,19 @@ export default function Invoices() {
                           tabIndex={0}
                           aria-selected={selectedDecision?.invoice_id === row.invoice_id}
                         >
+                          <td className="p-0">
+                            <label
+                              className="inline-flex h-11 w-11 cursor-pointer items-center justify-center"
+                              onClick={(event) => event.stopPropagation()}
+                              onKeyDown={(event) => event.stopPropagation()}
+                            >
+                              <SelectionCheckbox
+                                checked={selectedInvoiceIds.has(row.invoice_id)}
+                                label={`Select invoice ${row.invoice_number}`}
+                                onChange={() => toggleInvoiceSelection(row.invoice_id)}
+                              />
+                            </label>
+                          </td>
                           <td className="px-3 py-2.5">
                             <span className="block truncate font-semibold">{row.invoice_number}</span>
                             {row.supplier_name ? (
@@ -1060,6 +1226,17 @@ export default function Invoices() {
                   </table>
                 )}
               </div>
+              {selectedRows.length > 0 || batchResult || batchError ? (
+                <BatchAssuranceBar
+                  selectedCount={selectedRows.length}
+                  selectionTooLarge={batchSelectionTooLarge}
+                  result={batchResult}
+                  error={batchError}
+                  onReview={() => setBatchConfirmOpen(true)}
+                  onClear={() => setSelectedInvoiceIds(new Set())}
+                  onViewActivity={openBatchActivity}
+                />
+              ) : null}
             </section>
 
             <aside className="flex min-h-0 flex-col gap-2 overflow-auto">
@@ -1103,6 +1280,21 @@ export default function Invoices() {
               />
             ) : null}
 
+            {batchConfirmOpen ? (
+              <BatchAssuranceConfirmation
+                rows={selectedRows}
+                loading={batchLoading}
+                error={batchError}
+                onConfirm={() => void triggerBatchAssurance()}
+                onClose={() => {
+                  if (!batchLoading) {
+                    setBatchConfirmOpen(false);
+                    setBatchError(null);
+                  }
+                }}
+              />
+            ) : null}
+
             {preview ? (
               <DocumentPreviewModal preview={preview} onClose={() => setPreview(null)} />
             ) : previewLoading ? (
@@ -1112,6 +1304,261 @@ export default function Invoices() {
         </div>
       </div>
     </RequireAuth>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Batch assurance
+// ---------------------------------------------------------------------------
+
+function SelectionCheckbox({
+  checked,
+  mixed = false,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  mixed?: boolean;
+  label: string;
+  onChange: () => void;
+}) {
+  const checkboxRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (checkboxRef.current) {
+      checkboxRef.current.indeterminate = mixed;
+    }
+  }, [mixed]);
+
+  return (
+    <input
+      ref={checkboxRef}
+      type="checkbox"
+      checked={checked}
+      aria-label={label}
+      onChange={onChange}
+      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+    />
+  );
+}
+
+function BatchAssuranceBar({
+  selectedCount,
+  selectionTooLarge,
+  result,
+  error,
+  onReview,
+  onClear,
+  onViewActivity,
+}: {
+  selectedCount: number;
+  selectionTooLarge: boolean;
+  result: BatchAssuranceResult | null;
+  error: string | null;
+  onReview: () => void;
+  onClear: () => void;
+  onViewActivity: () => void;
+}) {
+  const hasActivityRuns = Boolean(
+    result?.items.some(
+      (item) =>
+        (item.outcome === "accepted" || item.outcome === "reused") && item.run_id,
+    ),
+  );
+
+  return (
+    <div
+      className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 px-3 py-2.5 shadow-[0_-4px_14px_rgba(15,23,42,0.08)] backdrop-blur"
+      aria-live="polite"
+    >
+      {selectedCount > 0 ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">
+              {selectedCount} invoice{selectedCount === 1 ? "" : "s"} selected
+            </p>
+            <p
+              className={`text-xs ${
+                selectionTooLarge ? "font-medium text-rose-700" : "text-slate-500"
+              }`}
+            >
+              {selectionTooLarge
+                ? `Reduce the selection to ${MAX_BATCH_ASSURANCE_INVOICES} invoices or fewer.`
+                : `Batch limit ${MAX_BATCH_ASSURANCE_INVOICES} · up to ${BATCH_ASSURANCE_CONCURRENCY} starts at once`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-md px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+              onClick={onClear}
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={onReview}
+              disabled={selectionTooLarge}
+            >
+              <HiSparkles className="h-4 w-4" aria-hidden="true" />
+              Review batch
+            </button>
+          </div>
+        </div>
+      ) : result ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
+              <HiCheckCircle className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+              Batch request processed
+            </p>
+            <p className="mt-0.5 text-xs text-slate-600">
+              {result.accepted} started · {result.reused} reused · {result.not_found} not found ·{" "}
+              {result.start_failed} failed to start
+            </p>
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={onViewActivity}
+            disabled={!hasActivityRuns}
+          >
+            View Activity
+            <HiExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
+      ) : error ? (
+        <p className="text-sm text-rose-700" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function BatchAssuranceConfirmation({
+  rows,
+  loading,
+  error,
+  onConfirm,
+  onClose,
+}: {
+  rows: InvoiceDecision[];
+  loading: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const totalAtRisk = rows.reduce(
+    (sum, row) => sum + overpaymentAmount(row),
+    0,
+  );
+
+  useEffect(() => {
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape" && !loading) {
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [loading, onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="batch-assurance-title"
+      aria-describedby="batch-assurance-guidance"
+      onClick={loading ? undefined : onClose}
+    >
+      <section
+        className="w-full max-w-lg overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-700">
+              Batch assurance
+            </p>
+            <h2 id="batch-assurance-title" className="mt-1 text-xl font-semibold">
+              Start assurance for {rows.length} invoice{rows.length === 1 ? "" : "s"}?
+            </h2>
+          </div>
+          <button
+            type="button"
+            className="rounded-md p-1 text-slate-400 hover:bg-slate-50 disabled:opacity-50"
+            onClick={onClose}
+            disabled={loading}
+          >
+            <HiX className="h-5 w-5" aria-hidden="true" />
+            <span className="sr-only">Close batch confirmation</span>
+          </button>
+        </div>
+
+        <div className="space-y-4 p-4">
+          <div
+            id="batch-assurance-guidance"
+            className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-5 text-blue-950"
+          >
+            Each newly accepted invoice starts a hosted agent orchestration and may incur usage
+            cost. Active runs are reused automatically. Waypoint starts at most{" "}
+            {BATCH_ASSURANCE_CONCURRENCY} invoices concurrently and accepts up to{" "}
+            {MAX_BATCH_ASSURANCE_INVOICES} per batch.
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-500">Current recoverable amount</span>
+            <span className="font-semibold text-emerald-700">{formatMoney(totalAtRisk)}</span>
+          </div>
+
+          <ul className="max-h-40 divide-y divide-slate-100 overflow-auto rounded-lg border border-slate-200">
+            {rows.map((row) => (
+              <li
+                key={row.invoice_id}
+                className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+              >
+                <span className="truncate font-medium text-slate-800">{row.invoice_number}</span>
+                <span className="truncate text-slate-500">{row.supplier_name}</span>
+              </li>
+            ))}
+          </ul>
+
+          {error ? (
+            <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 px-4 py-3">
+          <button
+            type="button"
+            className="rounded-md px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-50"
+            onClick={onClose}
+            disabled={loading}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+            onClick={onConfirm}
+            disabled={loading}
+            autoFocus
+          >
+            {loading ? (
+              <HiRefresh className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <HiSparkles className="h-4 w-4" aria-hidden="true" />
+            )}
+            {loading ? "Starting batch…" : "Start batch assurance"}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from uuid import uuid4
 
 from ...common.foundry_responses import FoundryInvocationError, FoundryResponsesClient
@@ -10,7 +12,16 @@ from ...common.settings import Settings
 from ...common.tracer import trace
 from ..runs.schemas import AgentRunCreate, AgentRunUpdate
 from ..runs.service import RunsService
-from .schemas import AssuranceRunTriggerResult
+from .schemas import (
+    AssuranceRunTriggerResult,
+    BatchAssuranceItemResult,
+    BatchAssuranceTriggerResult,
+)
+
+logger = logging.getLogger(__name__)
+
+# Keep hosted-agent startup pressure bounded even when the API accepts the full batch.
+BATCH_ASSURANCE_CONCURRENCY = 4
 
 
 class InvoiceNotFoundError(ValueError):
@@ -107,4 +118,65 @@ class AssuranceRunsService:
             run=running,
             reused=False,
             foundry_response_id=started.response_id,
+        )
+
+    @trace
+    async def trigger_batch(
+        self,
+        *,
+        invoice_ids: list[str],
+        actor: str,
+    ) -> BatchAssuranceTriggerResult:
+        semaphore = asyncio.Semaphore(BATCH_ASSURANCE_CONCURRENCY)
+
+        async def trigger_one(invoice_id: str) -> BatchAssuranceItemResult:
+            async with semaphore:
+                try:
+                    result = await self.trigger(invoice_id=invoice_id, actor=actor)
+                except InvoiceNotFoundError:
+                    return BatchAssuranceItemResult(
+                        invoice_id=invoice_id,
+                        outcome="not_found",
+                    )
+                except AssuranceTriggerUnavailableError:
+                    logger.warning(
+                        "Batch assurance startup failed for invoice %s",
+                        invoice_id,
+                    )
+                    return BatchAssuranceItemResult(
+                        invoice_id=invoice_id,
+                        outcome="start_failed",
+                    )
+                except Exception:
+                    logger.exception(
+                        "Unexpected batch assurance startup failure for invoice %s",
+                        invoice_id,
+                    )
+                    return BatchAssuranceItemResult(
+                        invoice_id=invoice_id,
+                        outcome="start_failed",
+                    )
+
+                invoice_number = result.run.metadata.get("invoice_number")
+                return BatchAssuranceItemResult(
+                    invoice_id=invoice_id,
+                    invoice_number=(invoice_number if isinstance(invoice_number, str) else None),
+                    outcome="reused" if result.reused else "accepted",
+                    run_id=result.run.id,
+                    run_status=result.run.status,
+                    foundry_response_id=result.foundry_response_id,
+                )
+
+        items = await asyncio.gather(*(trigger_one(invoice_id) for invoice_id in invoice_ids))
+        counts = {
+            outcome: sum(item.outcome == outcome for item in items)
+            for outcome in ("accepted", "reused", "not_found", "start_failed")
+        }
+        return BatchAssuranceTriggerResult(
+            items=items,
+            total=len(items),
+            accepted=counts["accepted"],
+            reused=counts["reused"],
+            not_found=counts["not_found"],
+            start_failed=counts["start_failed"],
         )
