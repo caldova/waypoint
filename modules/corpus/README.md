@@ -1,10 +1,11 @@
 # Ledgerfield demo data
 
-Ledgerfield is a shared demo-data repository for a Waypoint-style pharma contract manufacturing invoice assurance demo.
+Ledgerfield is the corpus package and CLI under `modules/corpus` for Waypoint's
+pharma contract manufacturing invoice-assurance demo.
 
 Waypoint is the contract manufacturing invoice assurance lane in the broader Road to Start story. It reconciles supplier invoices against contract pricing, purchase orders, receipts, batch records, quality release, milestones, materials, capacity, and timing rules to find payment leakage, explain the finding, and draft supplier responses.
 
-## Repository layout
+## Module layout
 
 ```text
 data/
@@ -117,7 +118,9 @@ Seed generation is deterministic: invoice dates derive from a fixed base date pl
 
 The `Waypoint Seed` workflow (`.github/workflows/waypoint-seed.yml`) regenerates the seed, validates the JSON, runs a drift check (`git diff --exit-code` proves the regenerated file matches the committed copy), and uploads it as a build artifact named `waypoint-seed-<version>-<short-sha>` (containing `waypoint-seed.json` and a `counts.json` summary). It runs on pushes to `main`, `v*` tags, pull requests touching the seed inputs, and `workflow_dispatch`.
 
-The workflow also exposes a `workflow_call` interface with an `artifact-name` output, so the umbrella deploy can call it and then download the artifact non-interactively (e.g. `actions/download-artifact` by that name) to seed Azure Postgres through Waypoint's own admin import endpoint.
+The seed workflow exposes an `artifact-name` output. The root monorepo deployment
+downloads that artifact non-interactively and imports it through Waypoint's
+admin seed endpoint.
 
 > Optional follow-up: an Azure Blob upload job (OIDC `azure/login` + `az storage blob upload`) gated on `main`/tags could publish the seed to a fixed blob URL the deploy reads directly. This requires a federated credential / storage-account contract and is intentionally out of scope for the current artifact-only flow.
 
@@ -155,7 +158,8 @@ Then call:
 - `POST /api/agent/bootstrap?artifacts=true` to generate local artifacts.
 - `POST /api/agent/bootstrap?artifacts=true&seed_db=true&append_cycles=1` to generate artifacts and seed Postgres in one call.
 
-Waypoint should consume the generated `data/waypoint/waypoint-seed.json` through its own admin import endpoint rather than copying Ledgerfield corpus files into the Waypoint repo.
+Waypoint consumes the generated `data/waypoint/waypoint-seed.json` through its
+admin import endpoint rather than copying corpus files into the app module.
 
 ## Postgres seeding
 
@@ -172,13 +176,17 @@ Set `LEDGERFIELD_DATABASE_URL` or pass `--dsn` to point at another Postgres data
 
 ## Agent and Copilot guidance
 
-This repo includes custom instructions for Copilot CLI, Copilot agents, and other agentic tools:
+This module includes custom instructions for Copilot CLI, Copilot agents, and
+other agentic tools:
 
-- `.github/copilot-instructions.md` for repository-wide Copilot context.
+- `.github/copilot-instructions.md` for corpus-module Copilot context.
 - `.github/instructions/*.instructions.md` for path-specific data and Python conventions.
 - `.github/skills/ledgerfield-demo-data/SKILL.md` as a portable Agent Skill for consuming projects such as Waypoint.
 - `AGENTS.md` for agent runtimes that read the common agent-instructions format.
 
-These instructions tell agents to treat Ledgerfield as the canonical corpus/tooling repo, use `uv`, preserve the contract/policy/scenario separation, and avoid committing generated invoice, PDF, DOCX, or cache artifacts.
+These instructions tell agents to treat Ledgerfield as the canonical corpus
+package, use `uv`, preserve the contract/policy/scenario separation, and avoid
+committing generated invoice, PDF, DOCX, or cache artifacts.
 
-To use the skill in another repository, copy the `ledgerfield-demo-data` folder into that project's `.github/skills/` directory and reload skills in the agent client. The skill teaches consuming apps to use Ledgerfield's CLI and `/api/agent/*` endpoints instead of hard-coding generated artifacts.
+The `ledgerfield-demo-data` skill teaches consuming apps to use the CLI and
+`/api/agent/*` endpoints instead of hard-coding generated artifacts.

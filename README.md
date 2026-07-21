@@ -71,8 +71,8 @@ Waypoint environment with `contract-policy-expert`, skip directly to
 #### Configure deployment access once
 
 > [!IMPORTANT]
-> A deployment owner must establish GitHub-to-Azure OIDC trust once for each
-> repository and tenant. The repeatable deployment is one click after this
+> A deployment owner must establish GitHub-to-Azure OIDC trust once for this
+> repository in each target tenant. The repeatable deployment is one click after this
 > trust is configured. No Azure client secret is stored in GitHub.
 
 The deployment owner needs:
@@ -125,6 +125,13 @@ The default path deploys:
 WorkIQ, WebIQ, and FabricIQ remain available as opt-in lanes. The default
 seller experience starts with FoundryIQ only.
 
+The full default deployment has been validated end to end, including an
+unchanged rerun that reused stable resources and skipped unchanged hosted-agent
+versions. In the app, a seller can trigger assurance for one invoice from the
+invoice queue; that operation invokes `assurance-orchestrator` and persists the
+result only through `waypoint-recorder`. Batch assurance is not part of the
+validated seller path.
+
 ### 2. Present the demo
 
 [![Launch the demo in GitHub Copilot](https://img.shields.io/badge/Launch_in_GitHub_Copilot-57606A?style=for-the-badge)](https://github.com/copilot/app/launch?open=ghapp%3A%2F%2Fsession%2Fnew%3Frepo%3Dcaldova%252Fwaypoint%26mode%3Dinteractive%26prompt%3DStart%2520the%2520Pharmashield%2520Foundry%2520demo.)
@@ -162,8 +169,8 @@ The Aster Ridge story is live:
 | Application | A production-style Waypoint app with API, web UI, auth, telemetry, persistence, and Fabric/OneLake integration. |
 | Corpus | A realistic synthetic domain corpus: suppliers, contracts, policies, invoice facts, scenarios, seed data, and generated documents. |
 | Agents | A multi-agent invoice assurance workflow with orchestration, read-only evidence experts, analyst surfaces, and one write-boundary agent. |
-| Evaluations | Datasets, graders, golden cases, calibration, and quality gates for measuring agent behavior. |
-| Optimization | Prompt optimization, RFT/RLE planning, cost-quality tradeoffs, promotion metadata, and telemetry backfill workflows. |
+| Evaluations | Foundry-native evaluations plus Caliber datasets, graders, golden cases, calibration, and quality gates. |
+| Optimization | Foundry Agent Optimizer and Caliber RFT/RLE planning, cost-quality tradeoffs, promotion metadata, and telemetry backfill workflows. |
 | Deployment | An idempotent workflow for the app, corpus, agents, cloud resources, seed data, and cross-system wiring. |
 
 ## How it works

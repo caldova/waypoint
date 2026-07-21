@@ -19,7 +19,7 @@ Foundry agents. Their `prompt.md` files remain the instruction source, but
 | `operations-data-expert` | Hosted agent | Current implementation is an honest no-Fabric-source-yet stub; hosting keeps the orchestrator transport consistent. |
 | `assurance-orchestrator` | Hosted agent | Owns deterministic invoice-assurance orchestration, Content Understanding, and Waypoint read workflow. |
 | `waypoint-recorder` | Hosted agent | Owns write-boundary behavior and Waypoint recommendation persistence. |
-| `assurance-analyst` | Hosted agent | Owns the Teams/M365 status surface plus read-only analysis over Waypoint status, WaypointIQ operational facts, and FoundryIQ contract/policy grounding. |
+| `invoice-analyst` | Hosted agent | Owns the Teams/M365 status surface plus read-only analysis over Waypoint status, WaypointIQ operational facts, and FoundryIQ contract/policy grounding. |
 
 ## Source of truth
 

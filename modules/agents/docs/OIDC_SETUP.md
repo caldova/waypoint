@@ -1,112 +1,85 @@
 # GitHub Actions OIDC setup
 
-The deploy workflow (`.github/workflows/deploy.yml`) authenticates to Azure with
-**OIDC** (federated credentials) — no client secrets are stored in GitHub. This
-doc explains how to stand that up in a fresh tenant so anyone can reproduce the
-deploy in one command.
+Waypoint's root deployment workflow authenticates to Azure with GitHub OIDC.
+No Azure client secret is stored in GitHub.
 
-## What you need
+This document covers the monorepo deployment identity. The canonical workflow is
+`/.github/workflows/deploy.yml`; module-local workflows are not the one-click
+deployment entry point.
 
-- `az` CLI logged in as a user who can create an app registration + role
-  assignments (Owner, or Contributor + User Access Administrator on the target
-  subscription).
-- `gh` CLI authenticated to the GitHub repo (only needed to auto-write the repo
-  variables; otherwise the script prints them).
-- `jq`.
+## Prerequisites
 
-## One command
+- Azure CLI authenticated as a user who can create app registrations, service
+  principals, and role assignments
+- GitHub CLI authenticated with repository administrator access
+- `jq`
+- Owner, or Contributor plus User Access Administrator, on the target
+  subscription
 
-```bash
-make setup-oidc SUBSCRIPTION_ID=<your-subscription-id>
-```
+The bootstrap also grants the least-privilege Microsoft Graph application
+permission needed for the deployment identity to create or update the Waypoint
+MSAL application and makes the deployment identity an owner of that
+application.
 
-That runs `scripts/oidc.sh` with the umbrella-ready defaults and, idempotently:
+## Bootstrap
 
-1. Creates (or reuses) a dedicated Entra app registration `forge-gha-oidc` + its
-   service principal.
-2. Adds a federated credential for the deploy branch
-   (`repo:<owner>/<repo>:ref:refs/heads/main`).
-3. Adds a **flexible** federated credential matching `job_workflow_ref` so other
-   repos that call forge's **reusable** deploy workflow (the keystone umbrella)
-   are trusted. When workflow A calls forge's reusable workflow, the OIDC subject
-   reflects the *caller* repo, so matching `job_workflow_ref` is the robust way
-   to trust callers without hard-coding each caller's subject.
-4. Assigns `Contributor` + `User Access Administrator` on the subscription
-   (UAA is required because the infra bicep creates role assignments of its own).
-5. Writes `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` /
-   `AZURE_LOCATION` / `AZD_ENV_NAME` as GitHub repo **variables** (forge reads
-   Azure creds as variables, not secrets). This happens **automatically** — after
-   one run the repo is fully configured. Requires `gh` authenticated with repo
-   admin; if a write fails the script prints the exact manual commands.
-
-## Direct script usage
-
-`make setup-oidc` is a thin wrapper. For full control call the script directly:
+Run from the repository root:
 
 ```bash
-./scripts/oidc.sh \
-  --owner caldova --repo forge \
-  --subscription-id <SUB_ID> \
-  --app-name forge-gha-oidc \
+az login
+gh auth login
+
+tools/deploy/scripts/oidc.sh \
+  --owner caldova \
+  --repo waypoint \
+  --subscription-id "$(az account show --query id -o tsv)" \
+  --app-name waypoint-gha-oidc \
   --branch main \
-  --location swedencentral --env-name forge \
-  --pull-request \
-  --reusable-callers
+  --pull-request
 ```
 
-Useful flags:
+The script is idempotent. It creates or reuses:
 
-- `--environment <name>` — use a GitHub Environment subject instead of a branch.
-- `--location <region>` / `--env-name <azd-env>` — values written to the
-  `AZURE_LOCATION` / `AZD_ENV_NAME` repo variables (default `swedencentral` /
-  `forge`). Keep `AZURE_LOCATION` in sync with where you provision — `deploy.yml`'s
-  built-in fallback is `eastus2`, so the variable must be set to override it.
-- `--no-set-repo-variables` — skip writing repo variables (they're written by
-  default); the values are still printed so you can set them yourself.
-- `--pull-request` — trust `pull_request` runs. **Included by default in
-  `make setup-oidc`** because forge's deploy now runs a read-only
-  `azd provision --preview` what-if on every PR (the `whatif` job). That job needs
-  a `pull_request` federated credential to mint its OIDC token. Drop this flag
-  only if you intentionally do not want PR what-if (the job would then fail to
-  authenticate). Real provision/deploy are still gated off `pull_request`.
-- `--roles "Contributor,User Access Administrator"` — override role assignments.
-- `--workflow-path .github/workflows/deploy.yml` — workflow file the
-  reusable-caller match expression points at.
+1. The Entra application and service principal.
+2. A federated credential for `main`.
+3. A federated credential for pull-request validation.
+4. Contributor and User Access Administrator assignments on the subscription.
+5. The Graph grant and Waypoint app ownership needed for MSAL reconciliation.
+6. The GitHub repository configuration consumed by the root workflow.
 
-The script is idempotent — re-running never duplicates anything.
+Use `--environment <name>` instead of the branch subject when deployment is
+gated by a GitHub Environment. Use `--no-pull-request` only if pull-request jobs
+must not authenticate to Azure.
 
-## What runs on a PR
+## What the workflow reads
 
-`deploy.yml` is gated so the **real** `provision` and `deploy` jobs **do not run
-on `pull_request`**. Instead a PR runs:
+The deployment expects these repository variables:
 
-- `validate.yml` — static checks (no Azure).
-- the `whatif` job in `deploy.yml` — `azd provision --preview`, an ARM what-if
-  that compiles the bicep, resolves parameters, and prints the resource delta
-  **without creating or mutating anything**. It authenticates via the
-  `pull_request` federated credential created by `make setup-oidc`.
+- `AZURE_CLIENT_ID`
+- `AZURE_TENANT_ID`
+- `AZURE_SUBSCRIPTION_ID`
+- `AZURE_LOCATION`
 
-This fully vets the infra side of a PR while keeping it non-mutating. (Agent
-images use `docker.remoteBuild=true`, so they build in ACR at deploy time — there
-is no local image build to vet in a PR.)
+The bootstrap writes the supported repository configuration by default. Use
+`--no-set-repo-config` only when an administrator will set the values manually.
 
-> Fork PRs cannot mint an OIDC token, so the `whatif` job is skipped for forks.
+## Security notes
 
-## Simulating a deploy locally (no mutation)
-
-To see what a deploy *would* do without changing Azure, from your machine:
-
-```bash
-azd auth login
-azd provision --preview   # ARM what-if: shows resource changes, mutates nothing
-```
+- OIDC federated credentials are scoped to the configured repository subject.
+- The workflow's Azure identity is separate from the Waypoint human-login app.
+- Runtime API keys and PostgreSQL passwords are generated in Key Vault, not
+  stored in GitHub.
+- Never paste tenant IDs, subscription IDs, object IDs, tokens, or generated
+  secrets into documentation or committed output.
 
 ## Troubleshooting
 
-- `AADSTS700213: No matching federated identity record found for presented
-  assertion subject 'repo:<owner>/<repo>:...'` — the app exists but has no
-  federated credential for that subject. Re-run `make setup-oidc` (for a branch
-  subject) or add `--pull-request` / `--environment` for those subjects.
-- Flexible credential warning — creating the `job_workflow_ref` match needs a
-  recent `az` CLI. Upgrade `az` and re-run, or add it in the portal under the
-  app's **Federated credentials** with the printed match expression.
+| Symptom | Action |
+| --- | --- |
+| `AADSTS700213` or no matching federated identity | Rerun the bootstrap with the same owner, repository, branch or environment, and pull-request setting used by the workflow. |
+| Role-assignment failure | Confirm the signed-in bootstrap user has Owner, or Contributor plus User Access Administrator, at subscription scope. |
+| GitHub configuration write fails | Confirm `gh auth status` and repository admin access, or rerun with `--no-set-repo-config` and set the printed values manually. |
+| MSAL reconciliation fails | Confirm the Graph grant was not disabled and the deployment identity owns the Waypoint app registration. |
+
+See the canonical [Azure deployment guide](../../../docs/deployment.md) for the
+full workflow and environment inputs.

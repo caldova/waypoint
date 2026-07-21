@@ -1,27 +1,24 @@
-# Consolidation notes
+# Historical consolidation notes
 
-This document tracks internal consolidation context while the public README stays focused on Caldova Waypoint as a reference app.
+> [!WARNING]
+> This document records the completed source consolidation. It is not an
+> architecture or deployment guide. Use the root [README](../README.md),
+> [architecture](architecture.md), and [deployment guide](deployment.md) for the
+> current system.
 
-## Current status
+Waypoint now contains the application, corpus, agents, evaluations,
+optimization assets, deployment tooling, Copilot skills, and canvases in one
+monorepo.
 
-The first consolidation pass imported tracked source from the original project family into the public-facing repository structure:
-
-| Original source | Current home |
+| Current path | Responsibility |
 | --- | --- |
-| Legacy Waypoint runtime | `apps/waypoint/` |
-| Ledgerfield demo data and generation tooling | `modules/corpus/` |
-| Caldova Forge agent fleet | `modules/agents/` |
-| Caliber evaluation tooling | `modules/evals/` |
-| Caliber optimization and RFT materials | `modules/optimization/` |
-| Keystone deployment orchestration | `tools/deploy/` |
+| `apps/waypoint/` | Application runtime |
+| `modules/corpus/` | Synthetic data and document generation |
+| `modules/agents/` | Hosted Foundry agents and toolboxes |
+| `modules/evals/` | Caliber evaluation tooling |
+| `modules/optimization/` | Optimization and RFT/RLE assets |
+| `tools/deploy/` | Monorepo deployment helpers |
 
-Compatibility names are being kept where they protect functionality. Some CLIs, package internals, docs, and historical runbooks may still use their original names until replacement paths and public docs are stable.
-
-## Consolidation principles
-
-- Keep Waypoint as the product identity and Caldova as the demo company identity.
-- Preserve behavior and contracts before renaming internals.
-- Keep generated run/eval/RFT outputs, tenant-specific IDs, endpoints, uploaded-file IDs, and secrets out of git.
-- Treat the Waypoint API/OpenAPI/app-role contract and corpus seed schema as product contracts.
-- Keep live service wiring behind explicit environment configuration until local and staged validation pass.
-- Optimize for a repository that feels real while still teaching the architecture clearly.
+Compatibility package and CLI names remain only where changing them would break
+imports, commands, or persisted contracts. They do not imply separate
+repositories or a separate deployment orchestrator.

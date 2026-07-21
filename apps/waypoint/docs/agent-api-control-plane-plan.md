@@ -1,5 +1,11 @@
 # Waypoint agent API and control-plane plan
 
+> [!WARNING]
+> Historical planning artifact retained for provenance. The implemented
+> monorepo architecture, recorder-only write boundary, seller operation, and
+> deployment path are documented in the root `docs/architecture.md`,
+> `docs/deployment.md`, and `modules/agents/docs/AGENT_PIPELINE.md`.
+
 ## Purpose
 
 This plan captures the current design direction for making Waypoint usable by external apps and agents while preserving the product's finance, procurement, legal, quality, and IP-sensitive governance boundaries.

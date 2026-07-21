@@ -1,5 +1,12 @@
 # Foundry traces and fine-tuning roadmap
 
+> [!IMPORTANT]
+> The current target is `contract-policy-expert`, using Foundry-native
+> evaluations and Agent Optimizer with Caliber datasets, graders, calibration,
+> and RFT/RLE planning. References to `assurance-analyst` and
+> `foundryiq-expert` below are retained historical run and artifact names, not
+> active runtime agents.
+
 Caliber should become the flywheel between production Forge agents, Foundry
 traces, curated eval datasets, graders, and fine-tuned model deployments.
 

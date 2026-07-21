@@ -1,6 +1,13 @@
 # Agent pipeline audit
 
-This is the current confidence audit for the invoice-assurance agent pipeline.
+> [!WARNING]
+> Historical snapshot from before the validated monorepo deployment. Names,
+> deployment confidence, and remaining-work claims below are retained for
+> provenance only. Use [FORGE_CURRENT_STATE.md](FORGE_CURRENT_STATE.md),
+> [AGENT_CATALOG.md](AGENT_CATALOG.md), and
+> [docs/deployment.md](../../../docs/deployment.md) for current state.
+
+This was the confidence audit for the invoice-assurance agent pipeline.
 It separates implemented behavior from intended architecture, ordered from most
 done to least done.
 

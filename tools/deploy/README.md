@@ -1,63 +1,68 @@
 # Deployment tooling
 
-This folder contains the deployment orchestration for the Caldova Waypoint reference environment. It wires together the Waypoint app, synthetic corpus, agent fleet, Microsoft Fabric/OneLake resources, Foundry resources, Key Vault, MSAL/OIDC setup, seed import, and post-deploy agent/app configuration.
-
-> [!NOTE]
-> The current GitHub Actions entry point is the root workflow at `.github/workflows/deploy.yml`. It deploys the Waypoint app plus the full hosted agent suite, while the Assurance Orchestrator fan-out starts with only WebIQ (`market-evidence-expert`) and FoundryIQ (`contract-policy-expert`) enabled. Treat the scripts in this folder as lower-level building blocks and compatibility helpers for broader deployment work.
+This directory contains the lower-level scripts, manifest, tests, and historical
+workflow assets used by Waypoint's monorepo deployment.
 
 > [!IMPORTANT]
-> Deployment is the main remaining public-readiness caveat. The scripts and workflow contracts are included so readers can inspect the intended production-style shape, but the full cloud path is still being exercised end-to-end. Treat this folder as advanced until `docs/status.md` says deployment validation is complete.
+> The canonical entry point is the root
+> [Deploy Azure workflow](../../.github/workflows/deploy.yml), and the canonical
+> operator guide is [docs/deployment.md](../../docs/deployment.md). Do not run
+> the workflow under `tools/deploy/.github/` as the current deployment path.
 
-## What the deployment path is intended to do
+## Current deployment shape
 
-The deployment flow is staged so each step can be validated independently:
+The validated default deployment provisions the Waypoint app, corpus seed,
+Fabric/OneLake storage, Foundry project and knowledge base, and four hosted
+agents:
 
-1. Discover or create the Azure deployment identity and resource anchors.
-2. Preflight the target environment and decide which stages need to run.
-3. Provision Key Vault secrets for Waypoint API keys and database credentials.
-4. Ensure the Waypoint MSAL application registration and app roles.
-5. Generate and publish the Waypoint seed from the corpus module.
-6. Deploy the Caldova Forge agent fleet.
-7. Deploy the Waypoint app runtime.
-8. Provision or reuse Fabric/OneLake corpus storage.
-9. Upload corpus and contracts knowledge-base content.
-10. Import the Waypoint seed and wire deployed endpoints back into agents.
-11. Record state so later runs can skip unchanged stages safely.
+- `invoice-analyst`
+- `assurance-orchestrator`
+- `contract-policy-expert`
+- `waypoint-recorder`
 
-## Prerequisites
+FoundryIQ is the only evidence lane enabled by default. WorkIQ, WebIQ, and
+FabricIQ are optional and add their expert only when selected.
 
-Cloud deployment requires:
+`waypoint-recorder` is the sole agent writer. The app's seller operation and
+deployment acceptance both run one invoice through `assurance-orchestrator`,
+then verify that the recorder finalized the governed Waypoint run.
 
-- Azure CLI authenticated with permission to create resource groups, app registrations, service principals, role assignments, Key Vault, Azure Container Apps, Azure Database for PostgreSQL, Log Analytics, and Application Insights resources.
-- GitHub CLI authenticated to the target repository when bootstrapping OIDC settings.
-- Azure AI Foundry access for hosted agents.
-- Microsoft Fabric workspace/capacity permissions for OneLake corpus provisioning.
-- Microsoft 365 permissions for any live Teams or admin-center publishing paths.
-- `uv`, Node.js/npm, .NET SDK, Aspire CLI, Bash, and `azd` for local helper paths.
+## Directory map
 
-Do not put tenant IDs, subscription IDs, private endpoints, uploaded-file IDs, tokens, or secrets into docs, issues, commits, or sample outputs.
+| Path | Purpose |
+| --- | --- |
+| `deployment.manifest.json` | Canonical source roots, default lanes, expected components, and HTTP probes. |
+| `scripts/oidc.sh` | One-time GitHub-to-Azure OIDC bootstrap. |
+| `scripts/keyvault.sh` | Idempotent Key Vault and generated-secret helpers. |
+| `scripts/msal.sh` | Waypoint Entra application reconciliation. |
+| `scripts/verify_deployment.py` | Versioned HTTP acceptance probes. |
+| `scripts/verify_terminal_run.py` | Verifies a newly finalized assurance run. |
+| `tests/` | Deployment contract and probe tests. |
+| `.github/workflows/deploy.yml` | Historical pre-consolidation workflow retained for reference. |
 
-## Local static checks
+Some scripts preserve compatibility names internally. The root workflow supplies
+the monorepo paths and current resource values; public guidance should use
+Waypoint terminology and the root workflow.
+
+## Local checks
 
 From the repository root:
 
-```powershell
+```bash
 bash -n tools/deploy/scripts/*.sh
+python -m unittest discover -s tools/deploy/tests -p "test_*.py"
 ```
 
-This only checks shell syntax. It does not prove cloud deployment.
+The shell check proves syntax only. Deployment confidence comes from the root
+workflow's acceptance job and uploaded evidence artifact.
 
-## Environment file
+## Rerun behavior
 
-Copy `.env.example` to `.env` only for local deployment-helper experiments. The canonical public path should prefer GitHub Actions with OIDC configuration and secrets/variables managed outside the repository.
+The full default deployment and an unchanged rerun have been validated. Stable
+secrets and resource identities are reused, and hosted-agent versions are
+skipped when their source, configuration, and relevant infrastructure inputs
+match the active version.
 
-The example file intentionally leaves real Azure identity values blank and documents which values are computed at runtime. Keep it that way.
-
-## Current caveats
-
-- Some script and tag names still preserve compatibility terms so existing behavior can be verified before resource names are changed.
-- The scripts assume a configured Azure tenant and may require admin approval for Graph/MSAL operations.
-- Fabric, Foundry, Microsoft 365, and Azure AI Search setup is environment-specific.
-- A full rerunnable deployment must be validated before this folder should be described as production-ready.
-
-See `docs/status.md` for the current public-readiness status.
+This agent-level skip is the current selective deployment behavior. Batch
+assurance and separate quality-operation triggers are not implemented by these
+tools.

@@ -1,6 +1,12 @@
 # Invoice Assurance E2E Readiness TODO
 
-This is the living record for what remains before the Assurance Orchestrator invoice assurance
+> [!WARNING]
+> Historical readiness tracker retained for provenance. Its agent names, live
+> resource details, and open items predate the validated monorepo deployment.
+> Use [FORGE_CURRENT_STATE.md](FORGE_CURRENT_STATE.md) and
+> [docs/deployment.md](../../../docs/deployment.md) for current state.
+
+This was the living record for what remained before the Assurance Orchestrator invoice assurance
 pipeline is honestly end-to-end.
 
 For the current agent fleet, deployment paths by kind, shared resources, stubbed

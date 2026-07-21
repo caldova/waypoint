@@ -1,5 +1,11 @@
 # Continuing Caliber work
 
+> [!WARNING]
+> Historical continuation notes retained for provenance. The current target is
+> `contract-policy-expert`; use `modules/evals/README.md` and
+> `modules/optimization/docs/FOUNDRY_TRACES_AND_FINE_TUNING.md` for the supported
+> Foundry-native plus Caliber quality path.
+
 This document is the handoff for future Caliber sessions.
 
 ## Current state

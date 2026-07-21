@@ -1,5 +1,10 @@
 # Caldova Migration Guide
 
+> [!WARNING]
+> Historical planning notes retained for provenance. The consolidation is
+> complete; use the root README and `docs/architecture.md` for current ownership
+> and topology.
+
 Components. General goal is to consolidate the various repos into a single monorepo. This will make it easier to manage dependencies and streamline development.
 
 ## Waypoint - Seth
