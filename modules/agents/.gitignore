@@ -1,5 +1,3 @@
-third_party/p2m/build/
-third_party/p2m/*.egg-info/
 **/*.egg-info/
 
 # Python environments and caches

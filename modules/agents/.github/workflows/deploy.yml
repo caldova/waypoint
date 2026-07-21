@@ -124,8 +124,8 @@ on:
 
 # NOTE: M365 / Teams listing is intentionally NOT a CI input. The Foundry
 # publish API requires a user-delegated token and rejects app-only SP tokens.
-# Run `make publish <agent>` from a developer laptop instead. Post-deploy
-# evals are owned by .github/workflows/evals.yml (scheduled + manual).
+# Run `make publish <agent>` from a developer laptop instead. Foundry-native
+# evaluation contracts are operated separately from deployment.
 
 
 concurrency:
@@ -1348,9 +1348,8 @@ jobs:
           #      from this account's ACR (sanity check that azd deploy
           #      pushed a new image, not that Foundry re-used a stale one).
           #
-          # Real end-to-end coverage of the container path is exercised
-          # by post-deploy evals (.github/workflows/evals.yml) and by
-          # manual "what can you do?" testing in Teams against a hire.
+          # Real end-to-end coverage of the container path is exercised by
+          # the root deployment acceptance run and direct hosted-agent smoke.
           set +e
           set -u
           echo "Smoke-testing ${AGENT} via Foundry control plane…"
@@ -1446,15 +1445,10 @@ jobs:
               sleep 15
               continue
             fi
-            echo "::warning::Agent ${AGENT} v${VERSION} is active (control plane 200) but never surfaced an ACR image digest (image field empty) after ${max_img_polls} polls. Treating as a soft pass: azd reported the container was packaged, published and the version reached active. Container-path is covered by post-deploy evals."
+            echo "::warning::Agent ${AGENT} v${VERSION} is active (control plane 200) but never surfaced an ACR image digest (image field empty) after ${max_img_polls} polls. Treating as a soft pass: azd reported the container was packaged, published and the version reached active. Exercise the hosted response through the root deployment acceptance run."
             break
           done
         timeout-minutes: 8
-
-      # Post-deploy evals run from .github/workflows/evals.yml on a schedule
-      # (and can be triggered manually there). They intentionally do not run
-      # in this workflow to keep deploys fast and to keep eval failures from
-      # blocking deploys.
 
       - name: Tail recent logs on failure
         if: failure()

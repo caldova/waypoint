@@ -42,15 +42,10 @@ def _inspect_agents(agents_dir: Path) -> list[dict[str, Any]]:
 
 def _inspect_evals(evals_dir: Path) -> dict[str, Any]:
     if not evals_dir.is_dir():
-        return {"cases": [], "p2m_specs": [], "p2m_prompts": []}
+        return {"cases": []}
 
     cases_dir = evals_dir / "cases"
-    p2m_dir = evals_dir / "p2m"
-    return {
-        "cases": _names(cases_dir, "*.jsonl"),
-        "p2m_specs": _names(p2m_dir, "*.eval.yaml"),
-        "p2m_prompts": _names(p2m_dir, "*_eval.md"),
-    }
+    return {"cases": _names(cases_dir, "*.jsonl")}
 
 
 def _names(path: Path, pattern: str) -> list[str]:

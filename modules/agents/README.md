@@ -97,41 +97,25 @@ See [`.github/copilot-instructions.md`](.github/copilot-instructions.md) for det
 - Build & deploy in parallel
 - Run smoke tests
 
-**Manual dispatch:** Use `workflow_dispatch` to target a single agent or run evals.
+**Manual dispatch:** Use `workflow_dispatch` to target a single agent.
 
 For PR validation (no deploy), see `.github/workflows/validate.yml`.
 
 ## More
 
-- **Evals** — See `evals/` folder and [P2M docs](third_party/p2m)
+- **Evals** — Foundry-native contracts live with each agent; reusable datasets,
+  graders, and optimization tooling live under `modules/evals`.
 - **Publishing to Teams/M365** — Run `make publish <agent>` (see copilot-instructions.md)
 - **Advanced model setup** — See `infra/main.bicep`
 - **GitHub Actions setup** — Required repo variables in [copilot-instructions.md](.github/copilot-instructions.md)
 - **WaypointIQ** — Agent-facing toolbox boundary over Caldova Waypoint, documented in [docs/WAYPOINTIQ.md](docs/WAYPOINTIQ.md)
 
-### P2M integration path
+### Evaluation path
 
-P2M is the only eval path in this repo for both local runs and CI.
-
-- P2M call target: [evals/p2m_adapter.py](evals/p2m_adapter.py)
-- Local P2M spec: [evals/p2m/assurance-orchestrator_local.eval.yaml](evals/p2m/assurance-orchestrator_local.eval.yaml)
-- Hosted P2M spec: `evals/p2m/<agent>_hosted.eval.yaml` (created after first deploy)
-
-How it works:
-
-- **Local dev**: `make p2m-eval assurance-orchestrator P2M_MODE=local` will start the agent on
-  localhost if it is not already running, then execute the P2M spec.
-- **CI / hosted agent**: the Actions workflow runs P2M in hosted mode and calls
-  the deployed agent through the adapter.
-
-This gives you the demo payoff of "spec-driven evals via P2M" with the same
-runtime locally and in CI.
-
-### Gates
-
-Each agent config defines minimum overall and per-category pass rates plus max
-latency per case. The eval step fails if gates are not met, making regressions
-visible and enforceable in CI.
+Hosted quality checks use Foundry-native eval contracts such as
+`agents/contract-policy-expert/eval.yaml`. Committed golden cases remain under
+`evals/cases/`; shared dataset generation, deterministic graders, output-item
+export, optimizer planning, and RFT packaging live under `modules/evals`.
 
 ## Publishing a hosted agent to Microsoft 365 Copilot + Teams
 

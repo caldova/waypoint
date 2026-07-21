@@ -366,7 +366,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Then call the local Responses endpoint or run the P2M local eval path.
+Then call the local Responses endpoint directly.
 
 ## Publishing to Microsoft 365 / Teams (AI Teammate)
 

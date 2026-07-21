@@ -204,7 +204,7 @@ reviewed change there.
 
 Forge successfully exercised the Foundry-native eval path for the lineage
 `contract-policy-expert` target on branch `<agent-fleet-branch>` at
-commit `0bbc6df`. This did not use P2M or a custom eval loop. Caliber treats
+commit `0bbc6df`. This used the Foundry-native evaluation path. Caliber treats
 that run as calibration lineage; new branch-native runs should target
 `assurance-analyst`.
 

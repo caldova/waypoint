@@ -86,11 +86,11 @@ one place.
 Each agent does one narrow job so we can:
 
 1. **Fine-tune cheaply** — small single-purpose prompts + small models per task.
-2. **Unit-test** — each current active agent should have golden cases in
-   `evals/cases/<agent>_golden.jsonl` and a P2M config in
-   `evals/p2m/<agent>_local.eval.yaml`. The golden sets double as future SFT
-   seed data. Historical eval assets without a matching active agent folder are
-   not part of the current fleet.
+2. **Evaluate** — each current active agent should have golden cases in
+   `evals/cases/<agent>_golden.jsonl` and a reviewed Foundry-native evaluation
+   contract. The golden sets double as future SFT seed data. Historical eval
+   assets without a matching active agent folder are not part of the current
+   fleet.
 3. **Govern the write boundary** — write-capable agents use explicit WaypointIQ
    write bindings behind one app role.
 

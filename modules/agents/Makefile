@@ -5,9 +5,6 @@ SHELL := /bin/bash
 #   make new-agent <name>          # e.g. `make new-agent oracle`
 #   make new-agent NAME=<name>     # equivalent
 #   make publish <name>            # publish <name> to Teams / M365 Copilot
-#   make eval <name> [TIER=quick]  # run evals and write artifacts/evals
-#   make p2m-install               # install the vendored P2M package locally
-#   make p2m-eval <name>           # run the P2M eval path for <name>
 #   make list-agents
 #   make help
 
@@ -62,62 +59,10 @@ ifeq (next-steps,$(firstword $(MAKECMDGOALS)))
     $(eval $(POS_ARGS):;@:)
   endif
 endif
-ifeq (eval,$(firstword $(MAKECMDGOALS)))
-  POS_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
-  ifneq ($(POS_ARGS),)
-    AGENT ?= $(firstword $(POS_ARGS))
-    $(eval $(POS_ARGS):;@:)
-  endif
-endif
-ifeq (p2m-eval,$(firstword $(MAKECMDGOALS)))
-  POS_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
-  ifneq ($(POS_ARGS),)
-    AGENT ?= $(firstword $(POS_ARGS))
-    $(eval $(POS_ARGS):;@:)
-  endif
-endif
-ifeq (local-agent-up,$(firstword $(MAKECMDGOALS)))
-  POS_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
-  ifneq ($(POS_ARGS),)
-    AGENT ?= $(firstword $(POS_ARGS))
-    $(eval $(POS_ARGS):;@:)
-  endif
-endif
-
 AGENTS_DIR := agents
 TEMPLATE_DIR := $(AGENTS_DIR)/_template
 
-.PHONY: help new-agent list-agents publish unpublish next-steps teams-config grants grant-hires eval eval-all p2m-install p2m-eval local-agent-up waypoint-iq-auth analyst-waypoint-tool contracts-kb-seed contracts-kb-reindex
-
-P2M_PYTHON ?= python3
-P2M_LOCAL_AGENT_URL ?= http://127.0.0.1:8088/responses
-P2M_MODE ?= local
-
-define require_p2m_env
-	@set -a; [ -f .env ] && . ./.env; set +a; \
-	if [ -z "$$AZURE_API_BASE" ] && [ -z "$$AZURE_OPENAI_API_BASE" ] && [ -z "$$AZURE_ENDPOINT" ] && [ -z "$$AZURE_OPENAI_ENDPOINT" ]; then \
-		echo "ERROR: P2M requires Azure model endpoint env for LiteLLM." ; \
-		echo "Set one of AZURE_API_BASE, AZURE_OPENAI_API_BASE, AZURE_ENDPOINT, or AZURE_OPENAI_ENDPOINT." ; \
-		exit 1; \
-	fi
-	@set -a; [ -f .env ] && . ./.env; set +a; \
-	if [ -z "$$AZURE_API_KEY" ] && [ -z "$$AZURE_OPENAI_API_KEY" ]; then \
-		echo "ERROR: P2M requires Azure model credentials." ; \
-		echo "Set AZURE_API_KEY or AZURE_OPENAI_API_KEY before running evals." ; \
-		exit 1; \
-	fi
-endef
-
-define ensure_local_agent
-	url="$(P2M_LOCAL_AGENT_URL)"; \
-	payload='{"input":"ping","stream":false,"store":false}'; \
-	if curl -fsS -X POST "$$url" -H "Content-Type: application/json" --data "$$payload" >/dev/null 2>&1; then \
-		echo "Local agent already listening at $$url"; \
-	else \
-		echo "Starting local $(AGENT) agent at $$url"; \
-		$(MAKE) --no-print-directory local-agent-up AGENT=$(AGENT) P2M_LOCAL_AGENT_URL="$(P2M_LOCAL_AGENT_URL)"; \
-	fi
-endef
+.PHONY: help new-agent list-agents publish unpublish next-steps teams-config grants grant-hires waypoint-iq-auth analyst-waypoint-tool contracts-kb-seed contracts-kb-reindex
 
 help:
 	@echo "Targets:"
@@ -141,12 +86,6 @@ help:
 	@echo "                            Also runs automatically as the last step of"
 	@echo "                            'make publish' (no-op until first hire)."
 	@echo "  make list-agents          List discoverable agents."
-	@echo "  make eval <name>          Run evals for <name>."
-	@echo "                            Optional: TIER=quick|pr|nightly"
-	@echo "  make eval-all             Run evals for all discovered agents."
-	@echo "  make p2m-install          Install the vendored P2M package locally."
-	@echo "  make p2m-eval <name>      Run the P2M demo path for <name>."
-	@echo "  make local-agent-up <name> Start <name> locally on the Responses endpoint."
 	@echo "  make contracts-kb-seed    Idempotently ensure the Foundry IQ knowledge"
 	@echo "                            base contracts-kb / contracts-ks + MCP connection"
 	@echo "                            over the already-uploaded corpus, then reindex."
@@ -164,9 +103,6 @@ help:
 	@echo "  make new-agent oracle"
 	@echo "  make new-agent NAME=oracle"
 	@echo "  make publish rhodes"
-	@echo "  make eval lovelace TIER=quick"
-	@echo "  make p2m-install"
-	@echo "  make p2m-eval lovelace P2M_MODE=hosted"
 
 list-agents:
 	@python3 scripts/discover_agents.py
@@ -195,119 +131,6 @@ setup-oidc:
 		--app-name "$(OIDC_APP_NAME)" --branch "$(OIDC_BRANCH)" \
 		--location "$(OIDC_LOCATION)" --env-name "$(OIDC_ENV_NAME)" \
 		--pull-request --reusable-callers
-
-TIER ?= quick
-
-
-# Default eval target now uses P2M
-eval:
-	@if [ -z "$(AGENT)" ]; then \
-		echo "ERROR: agent name required."; \
-		echo "  make eval <name>"; \
-		echo "  make eval AGENT=<name>"; \
-		exit 1; \
-	fi
-	@if [ ! -f "evals/p2m/$(AGENT)_$(P2M_MODE).eval.yaml" ]; then \
-		echo "ERROR: evals/p2m/$(AGENT)_$(P2M_MODE).eval.yaml not found."; \
-		exit 1; \
-	fi
-	@if ! $(P2M_PYTHON) -m p2m.cli --help >/dev/null 2>&1; then \
-		echo "ERROR: p2m package is not installed on this machine."; \
-		echo "Run 'make p2m-install' first, then rerun make eval $(AGENT)."; \
-		exit 1; \
-	fi
-	$(require_p2m_env)
-	@if [ "$(P2M_MODE)" = "local" ]; then $(ensure_local_agent); fi
-	@P2M_TARGET_MODE=$(P2M_MODE) P2M_AGENT_NAME=$(AGENT) P2M_LOCAL_AGENT_URL="$(P2M_LOCAL_AGENT_URL)" \
-		$(P2M_PYTHON) -m p2m.cli run --config "evals/p2m/$(AGENT)_$(P2M_MODE).eval.yaml"
-
-eval-all:
-	@$(P2M_PYTHON) -m pip install --quiet third_party/p2m
-	$(require_p2m_env)
-	@failed=""; passed=""; skipped=""; \
-	for a in $$(python3 scripts/discover_agents.py | python3 -c 'import json,sys; print(" ".join(json.load(sys.stdin)))'); do \
-		cfg="evals/p2m/$${a}_$(P2M_MODE).eval.yaml"; \
-		if [ ! -f "$$cfg" ]; then \
-			echo "::warning::No $$cfg — skipping"; \
-			skipped="$$skipped $$a"; \
-			continue; \
-		fi; \
-		echo "== Running evals for $$a =="; \
-		if [ "$(P2M_MODE)" = "local" ]; then \
-			$(MAKE) --no-print-directory local-agent-up AGENT=$$a P2M_LOCAL_AGENT_URL="$(P2M_LOCAL_AGENT_URL)"; \
-		fi; \
-		if P2M_TARGET_MODE=$(P2M_MODE) P2M_AGENT_NAME=$$a P2M_LOCAL_AGENT_URL="$(P2M_LOCAL_AGENT_URL)" \
-			$(P2M_PYTHON) -m p2m.cli run --config "$$cfg"; then \
-			passed="$$passed $$a"; \
-		else \
-			failed="$$failed $$a"; \
-		fi; \
-	done; \
-	echo ""; \
-	echo "== eval-all summary =="; \
-	[ -n "$$passed" ]  && echo "  passed: $$passed"  || echo "  passed: (none)"; \
-	[ -n "$$skipped" ] && echo "  skipped (no config): $$skipped" || true; \
-	[ -n "$$failed" ]  && echo "  failed: $$failed"  || echo "  failed: (none)"; \
-	if [ -n "$$failed" ]; then exit 1; fi
-
-p2m-install:
-	@$(P2M_PYTHON) -m pip install --quiet third_party/p2m
-
-p2m-eval:
-	@if [ -z "$(AGENT)" ]; then \
-		echo "ERROR: agent name required."; \
-		echo "  make p2m-eval <name>"; \
-		echo "  make p2m-eval AGENT=<name>"; \
-		exit 1; \
-	fi
-	@if [ ! -f "evals/p2m/$(AGENT)_$(P2M_MODE).eval.yaml" ]; then \
-		echo "ERROR: evals/p2m/$(AGENT)_$(P2M_MODE).eval.yaml not found."; \
-		exit 1; \
-	fi
-	@if ! $(P2M_PYTHON) -m p2m.cli --help >/dev/null 2>&1; then \
-		echo "ERROR: p2m package is not installed on this machine."; \
-		echo "Run 'make p2m-install' first, then rerun make p2m-eval $(AGENT)."; \
-		exit 1; \
-	fi
-	$(require_p2m_env)
-	@if [ "$(P2M_MODE)" = "local" ]; then $(ensure_local_agent); fi
-	@P2M_TARGET_MODE=$(P2M_MODE) P2M_AGENT_NAME=$(AGENT) P2M_LOCAL_AGENT_URL="$(P2M_LOCAL_AGENT_URL)" \
-		$(P2M_PYTHON) -m p2m.cli run --config "evals/p2m/$(AGENT)_$(P2M_MODE).eval.yaml"
-
-local-agent-up:
-	@if [ -z "$(AGENT)" ]; then \
-		echo "ERROR: agent name required."; \
-		echo "  make local-agent-up <name>"; \
-		echo "  make local-agent-up AGENT=<name>"; \
-		exit 1; \
-	fi
-	@if [ ! -d "agents/$(AGENT)" ]; then \
-		echo "ERROR: agents/$(AGENT) not found."; \
-		exit 1; \
-	fi
-	@url="$(P2M_LOCAL_AGENT_URL)"; \
-	payload='{"input":"ping","stream":false,"store":false}'; \
-	if curl -fsS -X POST "$$url" -H "Content-Type: application/json" --data "$$payload" >/dev/null 2>&1; then \
-		echo "Local $(AGENT) agent already listening at $$url"; \
-		exit 0; \
-	fi
-	@bash -lc 'set -euo pipefail; \
-		cd "$(AGENTS_DIR)/$(AGENT)"; \
-		if [ ! -d .venv ]; then python3 -m venv .venv; fi; \
-		source .venv/bin/activate; \
-		pip install --quiet -r requirements.txt; \
-		set -a; [ -f ../../.env ] && . ../../.env; set +a; \
-		nohup python main.py >/tmp/$(AGENT)-local-agent.log 2>&1 & \
-		payload='\''{"input":"ping","stream":false,"store":false}'\''; \
-		for attempt in $$(seq 1 30); do \
-			if curl -fsS -X POST "$(P2M_LOCAL_AGENT_URL)" -H "Content-Type: application/json" --data "$$payload" >/dev/null 2>&1; then \
-				echo "Local $(AGENT) agent is ready at $(P2M_LOCAL_AGENT_URL)"; \
-				exit 0; \
-			fi; \
-			sleep 1; \
-		done; \
-		echo "ERROR: local $(AGENT) agent did not become ready. See /tmp/$(AGENT)-local-agent.log"; \
-		exit 1'
 
 new-agent:
 	@if [ -z "$(NAME)" ]; then \

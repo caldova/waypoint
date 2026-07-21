@@ -139,16 +139,6 @@ jobs:
                           f"azure.yaml service '{service_name}' points at non-discoverable agent {project!r}"
                       )
 
-          for config_path in sorted((root / "evals" / "p2m").glob("*.eval.yaml")):
-              config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-              for key in ("suite", "run", "concept", "pipeline"):
-                  if key not in config:
-                      errors.append(f"{config_path} missing required key: {key}")
-              pipeline = config.get("pipeline") or {}
-              for key in ("policy", "seeds", "rollout", "judge"):
-                  if key not in pipeline:
-                      errors.append(f"{config_path} pipeline missing required key: {key}")
-
           for cases_path in sorted((root / "evals" / "cases").glob("*.jsonl")):
               for line_number, raw_line in enumerate(cases_path.read_text(encoding="utf-8").splitlines(), 1):
                   if not raw_line.strip():
