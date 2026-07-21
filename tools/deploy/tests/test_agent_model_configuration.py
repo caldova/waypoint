@@ -182,6 +182,17 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("connect: connection refused", deploy_app)
         self.assertIn("Transient Azure/registry failure", deploy_app)
 
+    def test_fabric_provision_wires_aspire_user_assigned_identity(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        fabric = workflow.split("  fabric-provision:", 1)[1].split(
+            "  # ── provision-agents", 1
+        )[0]
+
+        self.assertIn(".userAssignedIdentities", fabric)
+        self.assertIn('WAYPOINT_FABRIC_MI_PRINCIPAL_ID="$app_mi"', fabric)
+        self.assertIn("AZURE_CLIENT_ID=", fabric)
+        self.assertIn("has no resolvable managed identity", fabric)
+
 
 if __name__ == "__main__":
     unittest.main()

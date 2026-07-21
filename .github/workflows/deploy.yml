@@ -531,15 +531,27 @@ jobs:
             cap_name="waypointcorpus"
           fi
           export WAYPOINT_FABRIC_CAPACITY_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.Fabric/capacities/${cap_name}"
-          # Grant the app managed identity (runtime OneLake reads) a workspace Member role.
-          app_mi="$(az containerapp show --name api --resource-group "$AZURE_RESOURCE_GROUP" \
-            --query identity.principalId -o tsv 2>/dev/null || true)"
-          export WAYPOINT_FABRIC_MI_PRINCIPAL_ID="${app_mi:-}"
+          # Aspire assigns a user-assigned identity to the container app. Support either identity
+          # shape so runtime OneLake access is never silently omitted.
+          app_identity="$(az containerapp show --name api --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query identity -o json)"
+          app_mi="$(jq -r \
+            '.principalId // ((.userAssignedIdentities // {}) | to_entries[0].value.principalId) // empty' \
+            <<<"$app_identity")"
+          app_mi_client_id="$(jq -r \
+            '((.userAssignedIdentities // {}) | to_entries[0].value.clientId) // empty' \
+            <<<"$app_identity")"
+          if [ -z "$app_mi" ]; then
+            echo "::error::The Waypoint API container app has no resolvable managed identity."
+            exit 1
+          fi
+          export WAYPOINT_FABRIC_MI_PRINCIPAL_ID="$app_mi"
           # Grant the deploy SP (corpus uploads) a workspace Member role.
           deploy_sp="$(az ad sp show --id "${{ needs.validate.outputs.azure_client_id }}" \
             --query id -o tsv 2>/dev/null || true)"
           export WAYPOINT_FABRIC_DEPLOY_PRINCIPAL_ID="${deploy_sp:-}"
           bash apps/waypoint/infra/scripts/provision-fabric.sh
+          echo "app_mi_client_id=$app_mi_client_id" >> "$GITHUB_OUTPUT"
 
       - name: Update API container app with OneLake coordinates
         env:
@@ -551,12 +563,17 @@ jobs:
             echo "::warning::Fabric workspace id is empty; skipping APP_ONELAKE_* update."
             exit 0
           fi
+          onelake_env=(
+            "APP_ONELAKE_WORKSPACE=${ONELAKE_WORKSPACE}"
+            "APP_ONELAKE_LAKEHOUSE=${ONELAKE_LAKEHOUSE}"
+          )
+          if [ -n "${{ steps.fabric.outputs.app_mi_client_id }}" ]; then
+            onelake_env+=("AZURE_CLIENT_ID=${{ steps.fabric.outputs.app_mi_client_id }}")
+          fi
           az containerapp update \
             --name api \
             --resource-group "$AZURE_RESOURCE_GROUP" \
-            --set-env-vars \
-              "APP_ONELAKE_WORKSPACE=${ONELAKE_WORKSPACE}" \
-              "APP_ONELAKE_LAKEHOUSE=${ONELAKE_LAKEHOUSE}" \
+            --set-env-vars "${onelake_env[@]}" \
             --output none
           echo "Updated api with APP_ONELAKE_WORKSPACE=${ONELAKE_WORKSPACE} APP_ONELAKE_LAKEHOUSE=${ONELAKE_LAKEHOUSE}"
 

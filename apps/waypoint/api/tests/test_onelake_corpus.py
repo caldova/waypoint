@@ -1,5 +1,8 @@
 """Tests for OneLake corpus document resolution and the context gateway."""
 
+import asyncio
+import time
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -225,3 +228,25 @@ async def test_context_bundle_degrades_without_lake(client: AsyncClient):
     bundle = response.json()
     assert bundle["contract_documents"][0]["text"] is None
     assert bundle["contract_documents"][0]["content_source"] == SOURCE_URI_ONLY
+
+
+@pytest.mark.asyncio
+async def test_slow_onelake_read_does_not_block_other_requests(client: AsyncClient):
+    override_settings(Settings(local_auth_enabled=True, default_seed_enabled=True))
+
+    class _SlowOneLake(_FakeOneLake):
+        def resolve_document(self, uri: str | None, category: str) -> ResolvedDocument:
+            time.sleep(0.1)
+            return super().resolve_document(uri, category)
+
+    app.dependency_overrides[get_work_onelake_client] = lambda: _SlowOneLake(
+        {"contract": "CONTRACT", "policy": "POLICY"}
+    )
+
+    context_request = asyncio.create_task(client.get("/api/invoices/inv-2026-08034/context"))
+    await asyncio.sleep(0.02)
+
+    assert not context_request.done()
+    health = await client.get("/health")
+    assert health.status_code == 200
+    assert (await context_request).status_code == 200

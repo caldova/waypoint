@@ -1,5 +1,7 @@
 """Business logic for derived operational work views."""
 
+import asyncio
+
 from ...common.onelake import OneLakeClient
 from ...common.repository import WaypointRepository
 from ...common.tracer import trace
@@ -72,12 +74,22 @@ class WorkService:
         }
         policy_ids = {policy_id for finding in detail.findings for policy_id in finding.policy_ids}
         contracts = [
-            build_contract_document_detail(document, self.onelake, True)
+            await asyncio.to_thread(
+                build_contract_document_detail,
+                document,
+                self.onelake,
+                True,
+            )
             for document_id in sorted(contract_ids)
             if (document := await self.repository.get_contract_document(document_id))
         ]
         policies = [
-            build_policy_detail(policy, self.onelake, True)
+            await asyncio.to_thread(
+                build_policy_detail,
+                policy,
+                self.onelake,
+                True,
+            )
             for policy_id in sorted(policy_ids)
             if (policy := await self.repository.get_policy(policy_id))
         ]

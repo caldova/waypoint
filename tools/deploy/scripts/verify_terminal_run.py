@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -21,7 +22,9 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--api-key", required=True)
     parser.add_argument("--invoice-id", required=True)
     parser.add_argument("--updated-after", required=True)
-    parser.add_argument("--timeout-seconds", type=float, default=30.0)
+    parser.add_argument("--timeout-seconds", type=float, default=15.0)
+    parser.add_argument("--poll-timeout-seconds", type=float, default=180.0)
+    parser.add_argument("--poll-interval-seconds", type=float, default=5.0)
     parser.add_argument("--output", type=Path)
     return parser.parse_args()
 
@@ -41,28 +44,48 @@ def _verify(
     invoice_id: str,
     updated_after: datetime,
     timeout_seconds: float,
+    poll_timeout_seconds: float = 0.0,
+    poll_interval_seconds: float = 5.0,
 ) -> dict[str, Any]:
     url = f"{api_base_url.rstrip('/')}/api/runs"
     request = urllib.request.Request(
         url,
         headers={"Accept": "application/json", "X-API-Key": api_key},
     )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
-            payload = json.load(response)
-    except urllib.error.HTTPError as error:
-        return {
-            "passed": False,
-            "invoice_id": invoice_id,
-            "detail": f"Runs endpoint returned HTTP {error.code}.",
-        }
-    except urllib.error.URLError as error:
-        return {
-            "passed": False,
-            "invoice_id": invoice_id,
-            "detail": f"Runs endpoint request failed: {error.reason}.",
-        }
+    deadline = time.monotonic() + max(0.0, poll_timeout_seconds)
+    while True:
+        try:
+            with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+                payload = json.load(response)
+        except urllib.error.HTTPError as error:
+            result = {
+                "passed": False,
+                "invoice_id": invoice_id,
+                "detail": f"Runs endpoint returned HTTP {error.code}.",
+            }
+            retryable = error.code == 429 or error.code >= 500
+        except (TimeoutError, urllib.error.URLError) as error:
+            reason = getattr(error, "reason", error)
+            result = {
+                "passed": False,
+                "invoice_id": invoice_id,
+                "detail": f"Runs endpoint request failed: {reason}.",
+            }
+            retryable = True
+        else:
+            result = _evaluate_payload(payload, invoice_id, updated_after)
+            retryable = not result["passed"]
 
+        if not retryable or time.monotonic() >= deadline:
+            return result
+        time.sleep(max(0.0, poll_interval_seconds))
+
+
+def _evaluate_payload(
+    payload: Any,
+    invoice_id: str,
+    updated_after: datetime,
+) -> dict[str, Any]:
     if not isinstance(payload, list):
         return {
             "passed": False,
@@ -120,6 +143,8 @@ def main() -> int:
         invoice_id=args.invoice_id,
         updated_after=datetime.fromisoformat(args.updated_after.replace("Z", "+00:00")),
         timeout_seconds=args.timeout_seconds,
+        poll_timeout_seconds=args.poll_timeout_seconds,
+        poll_interval_seconds=args.poll_interval_seconds,
     )
     rendered = json.dumps(result, indent=2, sort_keys=True)
     print(rendered)

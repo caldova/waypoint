@@ -1,5 +1,6 @@
 """Business logic for Waypoint invoice assurance data."""
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Iterable
@@ -105,7 +106,12 @@ class WaypointService:
         document = await self.repository.get_contract_document(document_id)
         if not document:
             return None
-        return build_contract_document_detail(document, self.onelake, include_content)
+        return await asyncio.to_thread(
+            build_contract_document_detail,
+            document,
+            self.onelake,
+            include_content,
+        )
 
     @trace
     async def get_policy(self, policy_id: str) -> Policy | None:
@@ -120,7 +126,12 @@ class WaypointService:
         policy = await self.repository.get_policy(policy_id)
         if not policy:
             return None
-        return build_policy_detail(policy, self.onelake, include_content)
+        return await asyncio.to_thread(
+            build_policy_detail,
+            policy,
+            self.onelake,
+            include_content,
+        )
 
     @trace
     async def get_invoice_pdf(self, invoice_id: str) -> ResolvedBytes | None:
@@ -137,7 +148,11 @@ class WaypointService:
             return None
         if self.onelake is None:
             return ResolvedBytes(data=None, content_source="uri-only", path=detail.pdf_uri)
-        return self.onelake.resolve_document_bytes(detail.pdf_uri, "invoice-pdf")
+        return await asyncio.to_thread(
+            self.onelake.resolve_document_bytes,
+            detail.pdf_uri,
+            "invoice-pdf",
+        )
 
     @trace
     async def list_invoices(
