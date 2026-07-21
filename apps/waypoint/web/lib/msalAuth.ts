@@ -201,13 +201,20 @@ function normalizeConfig(config: MsalRuntimeConfig): MsalRuntimeConfig {
     tenantId: normalizeValue(config.tenantId),
     clientId: normalizeValue(config.clientId),
     apiScope: normalizeValue(config.apiScope),
-    redirectUri: normalizeValue(config.redirectUri),
+    redirectUri: normalizeValue(config.redirectUri) ?? getCurrentOriginLoginUri(),
   };
 }
 
 function normalizeValue(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function getCurrentOriginLoginUri() {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  return new URL("/login", window.location.origin).toString();
 }
 
 async function acquireAccessToken(options: MsalTokenOptions) {

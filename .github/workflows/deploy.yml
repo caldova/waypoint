@@ -428,6 +428,14 @@ jobs:
               --query id -o tsv)"
             export Waypoint__Fabric__AdministratorMembersJson="[\"${deploy_sp_object_id}\"]"
           fi
+          existing_web_fqdn="$(az containerapp show \
+            --name web \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn \
+            -o tsv 2>/dev/null || true)"
+          if [ -n "$existing_web_fqdn" ]; then
+            export Waypoint__Msal__RedirectUri="https://${existing_web_fqdn}/login"
+          fi
           pg_app="$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name postgres-app-password --query value -o tsv)"
           pg_admin="$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name postgres-admin-password --query value -o tsv)"
           api_keys="$(az keyvault secret show --vault-name "$KEY_VAULT_NAME" --name waypoint-api-keys --query value -o tsv)"

@@ -182,6 +182,23 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("connect: connection refused", deploy_app)
         self.assertIn("Transient Azure/registry failure", deploy_app)
 
+    def test_app_redeploy_preserves_msal_redirect_without_invalid_revision(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        deploy_app = workflow.split("  deploy-app:", 1)[1].split(
+            "  # ── provision-agents", 1
+        )[0]
+        msal_auth = (ROOT / "apps/waypoint/web/lib/msalAuth.ts").read_text()
+
+        self.assertIn("existing_web_fqdn=", deploy_app)
+        self.assertIn(
+            'Waypoint__Msal__RedirectUri="https://${existing_web_fqdn}/login"',
+            deploy_app,
+        )
+        self.assertIn(
+            "normalizeValue(config.redirectUri) ?? getCurrentOriginLoginUri()",
+            msal_auth,
+        )
+
     def test_fabric_provision_wires_aspire_user_assigned_identity(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
         fabric = workflow.split("  fabric-provision:", 1)[1].split(
