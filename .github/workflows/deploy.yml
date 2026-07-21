@@ -902,18 +902,18 @@ jobs:
             azd env set WAYPOINT_READER_API_KEY "$reader_key"
           fi
 
-      - name: Seed API base URL, scope, and lane flags
+      - name: Seed API base URL, key auth, and lane flags
         env:
           WAYPOINT_API_BASE_URL_FROM_APP: ${{ needs['deploy-app'].outputs.api_base_url }}
-          WAYPOINT_API_SCOPE_FROM_APP: ${{ needs['deploy-app'].outputs.api_default_scope }}
         run: |
           set -euo pipefail
           WP_BASE="${WAYPOINT_API_BASE_URL_FROM_APP:-}"
           if [ -z "$WP_BASE" ]; then WP_BASE="${{ vars.WAYPOINT_API_BASE_URL }}"; fi
           if [ -n "$WP_BASE" ]; then azd env set WAYPOINT_API_BASE_URL "$WP_BASE"; fi
-          WP_SCOPE="${WAYPOINT_API_SCOPE_FROM_APP:-}"
-          if [ -z "$WP_SCOPE" ]; then WP_SCOPE="${{ vars.WAYPOINT_API_SCOPE }}"; fi
-          if [ -n "$WP_SCOPE" ]; then azd env set WAYPOINT_API_SCOPE "$WP_SCOPE"; fi
+          # The consolidated deployment deliberately routes reader/writer keys from
+          # Key Vault. Clear a stale scope so clients select x-api-key instead of an
+          # un-granted hosted-agent managed-identity token.
+          azd env set WAYPOINT_API_SCOPE ""
           azd env set ASSURANCE_ORCHESTRATOR_WORKIQ_ENABLED    "${{ inputs.workiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_WEBIQ_ENABLED     "${{ inputs.webiq_enabled }}"
           azd env set ASSURANCE_ORCHESTRATOR_FOUNDRYIQ_ENABLED "${{ inputs.foundryiq_enabled }}"

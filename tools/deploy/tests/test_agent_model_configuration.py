@@ -135,6 +135,26 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("if: ${{ inputs.foundryiq_enabled }}", provision)
         self.assertIn("needs: [validate, provision-agents]", upload)
 
+    def test_agent_deploy_uses_key_vault_keys_without_bearer_precedence(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        deploy_agents = workflow.split("  deploy-agents:", 1)[1].split(
+            "  # ── corpus-seed", 1
+        )[0]
+
+        self.assertIn(
+            'azd env set WAYPOINT_WRITER_API_KEY "$writer_key"',
+            deploy_agents,
+        )
+        self.assertIn(
+            'azd env set WAYPOINT_READER_API_KEY "$reader_key"',
+            deploy_agents,
+        )
+        self.assertIn('azd env set WAYPOINT_API_SCOPE ""', deploy_agents)
+        self.assertNotIn(
+            'azd env set WAYPOINT_API_SCOPE "$WP_SCOPE"',
+            deploy_agents,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
