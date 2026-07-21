@@ -17,7 +17,7 @@ export function loader() {
   const isDev = process.env.NODE_ENV === "development";
 
   const otelConfig = {
-    serviceName: process.env.OTEL_SERVICE_NAME || "starter-web",
+    serviceName: process.env.OTEL_SERVICE_NAME || "waypoint-web",
     resourceAttributes: process.env.OTEL_RESOURCE_ATTRIBUTES || undefined,
     tracesSampler: process.env.OTEL_TRACES_SAMPLER || undefined,
     otlpHttpEndpoint: hasOtlpEndpoint ? "/otlp/v1/traces" : undefined,

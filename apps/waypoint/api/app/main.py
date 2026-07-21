@@ -15,7 +15,6 @@ from .common.settings import get_settings
 from .modules.assurance_runs import assurance_runs_router
 from .modules.cases.routes import router as cases_router
 from .modules.config import config_router
-from .modules.items import items_router
 from .modules.records.routes import router as records_router
 from .modules.runs.reaper import start_run_reaper, stop_run_reaper
 from .modules.runs.routes import router as runs_router
@@ -68,7 +67,6 @@ app.add_middleware(
 app.add_middleware(AuditMiddleware)
 
 # Register routers
-app.include_router(items_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
 app.include_router(records_router, prefix="/api")
 app.include_router(assurance_runs_router, prefix="/api")
@@ -86,9 +84,9 @@ async def root() -> str:
     )
     return f"""
     <html>
-        <head><title>FastAPI React Aspire Starter</title></head>
+        <head><title>Caldova Waypoint</title></head>
         <body>
-            <h1>Welcome to the FastAPI React Aspire Starter</h1>
+            <h1>Welcome to Caldova Waypoint</h1>
             {docs_link}
             <p>Health check: <a href="/health">/health</a></p>
         </body>

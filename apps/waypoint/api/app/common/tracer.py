@@ -16,7 +16,7 @@ from opentelemetry.trace import Span, Status, StatusCode
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TRACER_NAME = "starter.api"
+DEFAULT_TRACER_NAME = "waypoint.api"
 
 # Patterns that indicate sensitive data that should be masked
 SENSITIVE_PATTERNS = ["key", "secret", "password", "credential", "token", "connection"]

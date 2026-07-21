@@ -45,7 +45,10 @@ async def get_waypoint_repository_for_settings(settings: Settings) -> "WaypointR
         return _repository
 
     if settings.database_connection:
-        if settings.database_bootstrap_connection:
+        run_privileged_bootstrap = (
+            bool(settings.database_bootstrap_connection) and settings.run_startup_database_bootstrap
+        )
+        if run_privileged_bootstrap:
             await _bootstrap_postgres_application_role(
                 settings.database_bootstrap_connection,
                 settings.database_connection,
@@ -59,7 +62,7 @@ async def get_waypoint_repository_for_settings(settings: Settings) -> "WaypointR
             load_default_seed=settings.default_seed_enabled
             and not _has_configured_seed_source(settings)
         )
-        if settings.fabric_mirror_enabled and settings.database_bootstrap_connection:
+        if settings.fabric_mirror_enabled and run_privileged_bootstrap:
             await _bootstrap_fabric_mirroring_role(
                 settings.database_bootstrap_connection,
                 settings.database_connection,
@@ -81,6 +84,51 @@ async def get_waypoint_repository_for_settings(settings: Settings) -> "WaypointR
     _repository_connection = repository_key
     logger.info("Configured in-memory Waypoint repository")
     return memory_repository
+
+
+async def bootstrap_database(settings: Settings) -> None:
+    """Run the privileged, idempotent database and role bootstrap out of band.
+
+    This is the deploy-owned counterpart to request-serving startup: it holds the privileged
+    ``database_bootstrap_connection`` and performs the operations the least-privilege API runtime
+    must not do -- creating the application database and login role, applying the schema, and
+    (when enabled) provisioning the Fabric Mirroring role. It is invoked by ``python -m
+    app.bootstrap`` before the API starts. Every step is guarded or naturally idempotent, so the
+    command is safe to re-run. Failures propagate to the caller and are never swallowed.
+    """
+
+    from .repository import PostgresWaypointRepository
+
+    if not settings.database_connection:
+        raise ValueError("APP_DATABASE_CONNECTION must be configured to bootstrap the database")
+    if not settings.database_bootstrap_connection:
+        raise ValueError(
+            "APP_DATABASE_BOOTSTRAP_CONNECTION must be configured to bootstrap the database"
+        )
+
+    await _bootstrap_postgres_application_role(
+        settings.database_bootstrap_connection,
+        settings.database_connection,
+    )
+
+    repository = PostgresWaypointRepository(
+        settings.database_connection,
+        min_pool_size=settings.database_pool_min_size,
+        max_pool_size=settings.database_pool_max_size,
+    )
+    try:
+        await repository.initialize(load_default_seed=False)
+    finally:
+        await repository.close()
+
+    if settings.fabric_mirror_enabled:
+        await _bootstrap_fabric_mirroring_role(
+            settings.database_bootstrap_connection,
+            settings.database_connection,
+            settings,
+        )
+
+    logger.info("Completed out-of-band database bootstrap")
 
 
 def _has_configured_seed_source(settings: Settings) -> bool:

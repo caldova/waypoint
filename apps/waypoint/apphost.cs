@@ -9,7 +9,7 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
 // Configure Azure Container App Environment for deployment
-var appContainer = builder.AddAzureContainerAppEnvironment("starter-env");
+var appContainer = builder.AddAzureContainerAppEnvironment("waypoint-env");
 
 var msalEnabled = builder.Configuration["Waypoint:Msal:Enabled"]
     ?? (builder.ExecutionContext.IsRunMode ? "false" : "true");

@@ -12,5 +12,4 @@ export default [
   route("agent", "routes/agent.tsx"),
   route("activity", "routes/activity.tsx"),
   route("invoices", "routes/invoices.tsx"),
-  route("items", "routes/items.tsx"),
 ] satisfies RouteConfig;

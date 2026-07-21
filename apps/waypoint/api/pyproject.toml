@@ -24,6 +24,9 @@ dependencies = [
   "azure-storage-file-datalake>=12.18.0",
 ]
 
+[project.scripts]
+waypoint-bootstrap = "app.bootstrap:main"
+
 [project.optional-dependencies]
 dev = [
   "pytest>=8.3.0",

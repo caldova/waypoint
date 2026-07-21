@@ -38,8 +38,17 @@ class Settings(BaseSettings):
             "Privileged PostgreSQL/HorizonDB connection string used only for startup bootstrap"
         ),
     )
+    run_startup_database_bootstrap: bool = Field(
+        default=True,
+        description=(
+            "Run the privileged database/role bootstrap during API startup when a bootstrap "
+            "connection is configured. Set to false once the deploy pipeline runs the dedicated "
+            "'python -m app.bootstrap' command before the API starts, so the request-serving "
+            "runtime connects only as the least-privilege application role."
+        ),
+    )
     database_name: str = Field(
-        default="StarterDB",
+        default="WaypointDB",
         description="Database name",
     )
     database_pool_min_size: int = Field(
