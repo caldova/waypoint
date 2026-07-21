@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "1.0",
+  "manifestId": "waypoint-quality-operations",
+  "evidenceState": "reference-only",
+  "reviewedAt": "2026-07-21T23:00:00Z",
+  "staleAfter": "2026-08-20T23:00:00Z",
+  "source": {
+    "repository": "caldova/waypoint",
+    "workflow": ".github/workflows/seller-operations.yml",
+    "kind": "versioned-static-evidence"
+  },
+  "stateDefinitions": [
+    {
+      "state": "current",
+      "label": "Current",
+      "description": "Verified by the named source within its freshness window."
+    },
+    {
+      "state": "reference-only",
+      "label": "Reference only",
+      "description": "Commit-safe lineage for review, not a live control-plane response."
+    },
+    {
+      "state": "stale",
+      "label": "Stale",
+      "description": "Past its freshness window or awaiting a new live verification."
+    }
+  ],
+  "checks": [
+    {
+      "name": "Operations workflow contract",
+      "state": "current",
+      "detail": "Manual dispatch, OIDC, bounded operations, protected RFT gate, and sanitized artifacts are represented by the committed workflow."
+    },
+    {
+      "name": "Optimizer and RFT lineage",
+      "state": "reference-only",
+      "detail": "Identifiers and aggregate outcomes are preserved from reviewed commit-safe quality evidence."
+    },
+    {
+      "name": "Live Foundry job status",
+      "state": "stale",
+      "detail": "This static manifest does not query Foundry. Open the workflow run or Foundry project for current status."
+    }
+  ],
+  "lineage": {
+    "agent": "contract-policy-expert",
+    "environment": "reviewed-demo-reference",
+    "dataset": {
+      "name": "contract-policy-evidence-compliance",
+      "version": "6.0",
+      "samplesPerRun": 24
+    },
+    "evaluator": {
+      "name": "contract-policy-evidence-compliance",
+      "version": "6"
+    },
+    "baseline": {
+      "state": "reference-only",
+      "agentVersion": "49",
+      "model": "gpt-5.5",
+      "evaluationId": "eval_ef07bed47adb4df4a4000c01ac4ba41d",
+      "aggregatePassRate": 0.8,
+      "runs": 5
+    },
+    "optimizer": {
+      "state": "reference-only",
+      "jobId": "opt_994a956b2d6e49939506323a15dfc5d2",
+      "status": "succeeded",
+      "baselineCandidateId": "cand_bc834224066e45d8938aa2fa738a9720",
+      "baselineScore": 0.5084,
+      "acceptedCandidateId": "cand_6bf6980ed16f4538ba0faf8935d93c01",
+      "acceptedScore": 0.8521,
+      "strategy": "skills + system_prompt"
+    },
+    "rft": {
+      "state": "reference-only",
+      "jobId": "ftjob-0265d673736e496dbd360530958c6149",
+      "model": "o4-mini-2025-04-16.ft-0265d673736e496dbd360530958c6149",
+      "deployment": "contract-policy-expert-rft-o4-mini",
+      "evaluationId": "eval_d7e99889495f4400a89412d0650acd92",
+      "aggregatePassRate": 0.825,
+      "estimatedCostReduction": 0.696
+    }
+  },
+  "operations": [
+    {
+      "id": "invoice-run",
+      "label": "Invoice assurance",
+      "availability": "available",
+      "execution": "bounded",
+      "prerequisites": [
+        "Deployed assurance-orchestrator",
+        "Foundry project endpoint",
+        "Azure OIDC repository variables"
+      ]
+    },
+    {
+      "id": "trace-export",
+      "label": "Trace metadata export",
+      "availability": "available",
+      "execution": "bounded",
+      "prerequisites": [
+        "Trace ID",
+        "Log Analytics workspace customer ID",
+        "Azure OIDC repository variables"
+      ]
+    },
+    {
+      "id": "eval-run",
+      "label": "Foundry evaluation",
+      "availability": "available",
+      "execution": "no-wait",
+      "prerequisites": [
+        "Reviewed eval config",
+        "Existing evaluator model deployment",
+        "Foundry project endpoint"
+      ]
+    },
+    {
+      "id": "quality-status",
+      "label": "Quality readiness",
+      "availability": "available",
+      "execution": "bounded",
+      "prerequisites": [
+        "Committed Caliber datasets and grader"
+      ]
+    },
+    {
+      "id": "optimizer-start",
+      "label": "Agent Optimizer",
+      "availability": "guarded",
+      "execution": "no-wait",
+      "prerequisites": [
+        "Optimizer-ready hosted agent",
+        "Reviewed eval config",
+        "Existing eval and optimization model deployments"
+      ]
+    },
+    {
+      "id": "rft-prepare",
+      "label": "RFT preparation",
+      "availability": "available",
+      "execution": "bounded",
+      "prerequisites": [
+        "Reviewed train and validation datasets",
+        "Reviewed Python grader",
+        "Accepted optimizer lineage"
+      ]
+    },
+    {
+      "id": "rft-submit",
+      "label": "Live RFT submission",
+      "availability": "blocked",
+      "execution": "protected",
+      "prerequisites": [
+        "quality-rft-submit environment approval",
+        "Explicit live-spend confirmation",
+        "First-class committed submission command"
+      ]
+    }
+  ]
+}

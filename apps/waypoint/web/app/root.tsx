@@ -56,7 +56,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
  * Root application component.
  */
 export default function App() {
-  const { otelConfig, msalConfig, env, buildVersion } =
+  const { otelConfig, msalConfig, env, qualityOperations, buildVersion } =
     useLoaderData<typeof import("./root.loader").loader>();
 
   // Initialize telemetry on mount
@@ -89,7 +89,7 @@ export default function App() {
 
   return (
     <AuthProvider localMode={env.localMode} msalConfig={msalConfig}>
-      <Outlet context={{ env, buildVersion }} />
+      <Outlet context={{ env, qualityOperations, buildVersion }} />
     </AuthProvider>
   );
 }

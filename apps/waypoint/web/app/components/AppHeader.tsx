@@ -83,6 +83,7 @@ export function AppHeader() {
             <AppNavLink to="/invoices">Invoices</AppNavLink>
             <AppNavLink to="/activity">Activity</AppNavLink>
             <AppNavLink to="/agent">Agent Details</AppNavLink>
+            <AppNavLink to="/quality">Quality</AppNavLink>
             {user ? (
               <UserMenu
                 user={user}
