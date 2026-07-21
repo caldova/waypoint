@@ -32,6 +32,7 @@ import subprocess
 import sys
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Callable, Sequence
 
@@ -55,6 +56,7 @@ class CommandResult:
 
 Runner = Callable[[Sequence[str]], CommandResult]
 SleepFn = Callable[[float], None]
+ClockFn = Callable[[], float]
 
 
 def default_runner(args: Sequence[str], timeout: float = 120.0) -> CommandResult:
@@ -282,9 +284,19 @@ def find_newest_run(list_runs_result: CommandResult, dispatched_after: float) ->
         return None
     if not isinstance(runs, list):
         return None
-    candidates = [run for run in runs if isinstance(run, dict) and run.get("event") == "workflow_dispatch"]
-    if not candidates:
-        candidates = [run for run in runs if isinstance(run, dict)]
+    candidates = []
+    for run in runs:
+        if not isinstance(run, dict) or run.get("event") != "workflow_dispatch":
+            continue
+        created_at = run.get("createdAt")
+        if not isinstance(created_at, str):
+            continue
+        try:
+            created_epoch = datetime.fromisoformat(created_at.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            continue
+        if created_epoch >= dispatched_after:
+            candidates.append(run)
     if not candidates:
         return None
     # createdAt is ISO8601 UTC; string comparison sorts correctly for that format.
@@ -314,11 +326,14 @@ def run_deploy(
     ref: str = DEFAULT_REF,
     run: Runner = default_runner,
     sleep: SleepFn = time.sleep,
+    clock: ClockFn = time.time,
     max_attempts: int = 10,
     interval_seconds: float = 3.0,
 ) -> dict:
     require_confirmation(confirm, "deploy (workflow dispatch)")
-    dispatched_at = time.time()
+    # GitHub's createdAt value is second-granular. Floor the local timestamp so
+    # a run created in the same second as dispatch is not rejected.
+    dispatched_at = float(int(clock()))
     dispatch_result = run(build_dispatch_args(owner=owner, repo=repo, names=names, ref=ref))
     if not dispatch_result.ok:
         return {

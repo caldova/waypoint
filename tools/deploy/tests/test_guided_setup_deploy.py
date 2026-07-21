@@ -196,10 +196,31 @@ class FindNewestRunTests(unittest.TestCase):
         result = guided_setup_deploy.find_newest_run(cmd(stdout=json.dumps(runs)), 0.0)
         self.assertEqual(result["databaseId"], 3)
 
-    def test_falls_back_to_any_run_when_no_dispatch_event(self):
+    def test_ignores_non_dispatch_runs(self):
         runs = [{"databaseId": 9, "event": "push", "createdAt": "2026-01-01T00:00:00Z"}]
         result = guided_setup_deploy.find_newest_run(cmd(stdout=json.dumps(runs)), 0.0)
+        self.assertIsNone(result)
+
+    def test_ignores_dispatch_runs_created_before_current_dispatch(self):
+        runs = [
+            {"databaseId": 8, "event": "workflow_dispatch", "createdAt": "2026-01-01T00:00:00Z"},
+            {"databaseId": 9, "event": "workflow_dispatch", "createdAt": "2026-01-02T00:00:00Z"},
+        ]
+        result = guided_setup_deploy.find_newest_run(
+            cmd(stdout=json.dumps(runs)),
+            1767268800.0,  # 2026-01-01T12:00:00Z
+        )
         self.assertEqual(result["databaseId"], 9)
+
+    def test_returns_none_when_only_previous_dispatch_exists(self):
+        runs = [
+            {"databaseId": 8, "event": "workflow_dispatch", "createdAt": "2025-12-31T23:59:59Z"},
+        ]
+        result = guided_setup_deploy.find_newest_run(
+            cmd(stdout=json.dumps(runs)),
+            1767225600.0,  # 2026-01-01T00:00:00Z
+        )
+        self.assertIsNone(result)
 
 
 class RunDeployPollingTests(unittest.TestCase):
@@ -229,6 +250,7 @@ class RunDeployPollingTests(unittest.TestCase):
             confirm=True,
             run=fake_run,
             sleep=lambda seconds: sleeps.append(seconds),
+            clock=lambda: 0.0,
             max_attempts=5,
             interval_seconds=1.0,
         )
@@ -236,6 +258,45 @@ class RunDeployPollingTests(unittest.TestCase):
         self.assertTrue(result["run_found"])
         self.assertEqual(result["run_id"], 42)
         self.assertEqual(len(sleeps), 1, "should sleep exactly once between the two list attempts")
+
+    def test_deploy_does_not_attach_to_previous_dispatch(self):
+        calls = []
+        sleeps = []
+        responses = [
+            cmd(stdout=""),
+            cmd(
+                stdout=json.dumps(
+                    [{"databaseId": 41, "event": "workflow_dispatch",
+                      "createdAt": "2025-12-31T23:59:59Z", "status": "completed"}]
+                )
+            ),
+            cmd(
+                stdout=json.dumps(
+                    [{"databaseId": 42, "event": "workflow_dispatch",
+                      "createdAt": "2026-01-01T00:00:00Z", "status": "queued"}]
+                )
+            ),
+        ]
+
+        def fake_run(args):
+            calls.append(args)
+            return responses[len(calls) - 1]
+
+        result = guided_setup_deploy.run_deploy(
+            owner="caldova",
+            repo="waypoint",
+            names={},
+            confirm=True,
+            run=fake_run,
+            sleep=lambda seconds: sleeps.append(seconds),
+            clock=lambda: 1767225600.5,
+            max_attempts=3,
+            interval_seconds=1.0,
+        )
+
+        self.assertTrue(result["run_found"])
+        self.assertEqual(result["run_id"], 42)
+        self.assertEqual(len(sleeps), 1)
 
     def test_deploy_reports_dispatch_failure_without_polling(self):
         calls = []
