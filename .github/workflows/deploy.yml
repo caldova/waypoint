@@ -1368,13 +1368,22 @@ jobs:
             && [ "$AGENT_DEPLOY_RESULT" = "success" ] \
             && [ "$SEED_IMPORT_RESULT" = "success" ] \
             && [ "$inventory_result" = "success" ]; then
+            e2e_invoice_id="$(
+              curl -fsS -H "x-api-key: $reader_key" "$API_BASE_URL/api/work" \
+                | jq -r '[.[].invoice_id | select(type == "string" and length > 0)] | first // empty'
+            )"
+            if [ -z "$e2e_invoice_id" ]; then
+              echo "::error::The deployed Waypoint work queue contains no invoice target for E2E acceptance."
+              exit 1
+            fi
+            echo "Selected E2E invoice from deployed work queue: $e2e_invoice_id"
             run_watermark="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
             python3 -m pip install --quiet requests azure-identity
             drive_exit=0
             python3 modules/agents/scripts/drive_hosted_agent.py \
               assurance-orchestrator \
               --project-endpoint "$PROJECT_ENDPOINT" \
-              --input "Run the full invoice-assurance review for invoice INV-SUP-001-2026-10." \
+              --input "Run the full invoice-assurance review for invoice ${e2e_invoice_id}." \
               --poll-timeout 2100 \
               --poll-interval 10 \
               > orchestrator-response.txt || drive_exit=$?
@@ -1384,7 +1393,7 @@ jobs:
               python3 tools/deploy/scripts/verify_terminal_run.py \
                 --api-base-url "$API_BASE_URL" \
                 --api-key "$reader_key" \
-                --invoice-id INV-SUP-001-2026-10 \
+                --invoice-id "$e2e_invoice_id" \
                 --updated-after "$run_watermark" \
                 --output e2e-run.json || verify_exit=$?
               if [ "$verify_exit" -eq 0 ]; then

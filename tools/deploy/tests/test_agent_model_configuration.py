@@ -155,6 +155,19 @@ class AgentModelConfigurationTests(unittest.TestCase):
             deploy_agents,
         )
 
+    def test_acceptance_selects_an_invoice_from_the_deployed_work_queue(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        acceptance = workflow.split("  acceptance:", 1)[1]
+
+        self.assertIn('"$API_BASE_URL/api/work"', acceptance)
+        self.assertIn("e2e_invoice_id=", acceptance)
+        self.assertIn(
+            '--input "Run the full invoice-assurance review for invoice ${e2e_invoice_id}."',
+            acceptance,
+        )
+        self.assertIn('--invoice-id "$e2e_invoice_id"', acceptance)
+        self.assertNotIn("INV-SUP-001-2026-10", acceptance)
+
 
 if __name__ == "__main__":
     unittest.main()
