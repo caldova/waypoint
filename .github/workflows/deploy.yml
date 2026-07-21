@@ -20,6 +20,17 @@ on:
         required: false
         type: boolean
         default: true
+      force_full:
+        description: Ignore source impact detection and run every enabled deployment stage.
+        required: false
+        type: boolean
+        default: false
+      deployment_base_sha:
+        description: >-
+          Optional known-good deployment SHA override. Normally read from deployment state.
+        required: false
+        type: string
+        default: ''
       seed_data:
         description: Generate and import the Waypoint seed after the app deploys.
         required: false
@@ -156,9 +167,164 @@ env:
   AZD_ENV_NAME: ${{ inputs.azd_env_name || vars.AZD_ENV_NAME || 'waypoint-agents' }}
 
 jobs:
+  plan:
+    name: Plan selective deployment
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.plan.outputs.app }}
+      corpus_seed: ${{ steps.plan.outputs.corpus_seed }}
+      seed_import: ${{ steps.plan.outputs.seed_import }}
+      fabric_infrastructure: ${{ steps.plan.outputs.fabric_infrastructure }}
+      onelake_upload: ${{ steps.plan.outputs.onelake_upload }}
+      contracts_kb: ${{ steps.plan.outputs.contracts_kb }}
+      foundry_infrastructure: ${{ steps.plan.outputs.foundry_infrastructure }}
+      deploy_agents: ${{ steps.plan.outputs.deploy_agents }}
+      evals: ${{ steps.plan.outputs.evals }}
+      optimization: ${{ steps.plan.outputs.optimization }}
+      wiring: ${{ steps.plan.outputs.wiring }}
+      acceptance: ${{ steps.plan.outputs.acceptance }}
+      selected_agents: ${{ steps.plan.outputs.selected_agents }}
+      has_deployment_work: ${{ steps.plan.outputs.has_deployment_work }}
+      full_deployment: ${{ steps.plan.outputs.full_deployment }}
+      mode: ${{ steps.plan.outputs.mode }}
+      controls_hash: ${{ steps.state.outputs.controls_hash }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Azure login
+        uses: azure/login@v3.0.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Read recorded state and live drift
+        id: state
+        env:
+          BASE_OVERRIDE: ${{ inputs.deployment_base_sha }}
+          FABRIC_CAPACITY_NAME: ${{ inputs.fabric_capacity_name || vars.WAYPOINT_FABRIC_CAPACITY_NAME || 'waypointcorpus' }}
+          WORKIQ_ENABLED: ${{ inputs.workiq_enabled }}
+          WEBIQ_ENABLED: ${{ inputs.webiq_enabled }}
+          FOUNDRYIQ_ENABLED: ${{ inputs.foundryiq_enabled }}
+          FABRICIQ_ENABLED: ${{ inputs.fabriciq_enabled }}
+          DEPLOY_APP: ${{ inputs.deploy_app }}
+          DEPLOY_AGENTS: ${{ inputs.deploy_agents }}
+          PROVISION_AGENTS: ${{ inputs.provision_agents }}
+          SEED_DATA: ${{ inputs.seed_data }}
+          FABRIC_PROVISION_ENABLED: ${{ inputs.fabric_provision_enabled }}
+        run: |
+          set -euo pipefail
+          tags="$(az group show --name "$STATE_RESOURCE_GROUP" --query tags -o json 2>/dev/null || echo '{}')"
+          recorded_base="$(jq -r '.waypoint_deployment_base_sha // empty' <<<"$tags")"
+          base_sha="${BASE_OVERRIDE:-$recorded_base}"
+          controls="$(
+            printf '%s\n' \
+              "deploy_app=${DEPLOY_APP}" \
+              "deploy_agents=${DEPLOY_AGENTS}" \
+              "provision_agents=${PROVISION_AGENTS}" \
+              "seed_data=${SEED_DATA}" \
+              "fabric_provision_enabled=${FABRIC_PROVISION_ENABLED}" \
+              "workiq=${WORKIQ_ENABLED}" \
+              "webiq=${WEBIQ_ENABLED}" \
+              "foundryiq=${FOUNDRYIQ_ENABLED}" \
+              "fabriciq=${FABRICIQ_ENABLED}" \
+              | sha256sum | cut -d' ' -f1
+          )"
+          recorded_controls="$(jq -r '.waypoint_deployment_controls_hash // empty' <<<"$tags")"
+          jq -n \
+            --arg base "$base_sha" \
+            --arg base_override "$BASE_OVERRIDE" \
+            --argjson initialized "$([ -n "$base_sha" ] && echo true || echo false)" \
+            --arg controls "$controls" \
+            --arg recorded_controls "$recorded_controls" \
+            '{
+              base_sha: (if $base == "" then null else $base end),
+              initialized: (
+                $initialized
+                and (
+                  $base_override != ""
+                  or (
+                    $recorded_controls != ""
+                    and $controls == $recorded_controls
+                  )
+                )
+              ),
+              stages: {}
+            }' > deployment-state.json
+          echo "controls_hash=$controls" >> "$GITHUB_OUTPUT"
+
+          jq -n '{stages: {}, agents: {}}' > live-drift.json
+          if ! az containerapp show --name api --resource-group "$AZURE_RESOURCE_GROUP" -o none 2>/dev/null \
+            || ! az containerapp show --name web --resource-group "$AZURE_RESOURCE_GROUP" -o none 2>/dev/null; then
+            jq '.stages.app = {drifted: true}' live-drift.json > live-drift.tmp
+            mv live-drift.tmp live-drift.json
+          fi
+          if [ "${{ inputs.fabric_provision_enabled }}" = "true" ] \
+            && ! az resource show \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --resource-type Microsoft.Fabric/capacities \
+              --name "$FABRIC_CAPACITY_NAME" -o none 2>/dev/null; then
+            jq '.stages.fabric_infrastructure = {drifted: true}' live-drift.json > live-drift.tmp
+            mv live-drift.tmp live-drift.json
+          fi
+
+          deployment="$(
+            az deployment sub list \
+              --query "[?properties.provisioningState=='Succeeded'].name" -o tsv 2>/dev/null \
+              | grep -E "^${AZD_ENV_NAME}-[0-9]+$" | tail -1 || true
+          )"
+          if [ "${{ inputs.deploy_agents }}" = "true" ] && [ -z "$deployment" ]; then
+            jq '.stages.foundry_infrastructure = {drifted: true}' live-drift.json > live-drift.tmp
+            mv live-drift.tmp live-drift.json
+          fi
+
+      - name: Build deployment plan
+        id: plan
+        env:
+          FORCE_FULL: ${{ inputs.force_full }}
+        run: |
+          set -euo pipefail
+          args=(
+            --manifest tools/deploy/deployment.manifest.json
+            --repo .
+            --head "${{ github.sha }}"
+            --state deployment-state.json
+            --drift live-drift.json
+            --output deployment-plan.json
+          )
+          if [ "$FORCE_FULL" = "true" ]; then
+            args+=(--force-full)
+          fi
+          python3 tools/deploy/scripts/plan_deployment.py "${args[@]}"
+
+      - name: Summarize manual upper bounds
+        run: |
+          {
+            echo ""
+            echo "### Manual deployment controls"
+            echo ""
+            echo "| Control | Enabled | Effect |"
+            echo "| --- | --- | --- |"
+            echo "| deploy_app | ${{ inputs.deploy_app }} | Upper bound for app, seed import, wiring, and acceptance |"
+            echo "| deploy_agents | ${{ inputs.deploy_agents }} | Upper bound for Foundry, agents, contracts KB, and wiring |"
+            echo "| provision_agents | ${{ inputs.provision_agents }} | Upper bound for Foundry infrastructure reconciliation |"
+            echo "| seed_data | ${{ inputs.seed_data }} | Upper bound for corpus seed, OneLake upload, and seed import |"
+            echo "| fabric_provision_enabled | ${{ inputs.fabric_provision_enabled }} | Upper bound for Fabric and OneLake |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload sanitized deployment plan
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: deployment-plan-${{ github.sha }}
+          path: deployment-plan.json
+          if-no-files-found: error
+
   validate:
     name: Validate configuration
     runs-on: ubuntu-latest
+    needs: plan
     outputs:
       azure_client_id: ${{ steps.required.outputs.azure_client_id }}
       azure_tenant_id: ${{ steps.required.outputs.azure_tenant_id }}
@@ -186,6 +352,7 @@ jobs:
           WORKIQ_ENABLED: ${{ inputs.workiq_enabled }}
           WEBIQ_ENABLED: ${{ inputs.webiq_enabled }}
           FABRICIQ_ENABLED: ${{ inputs.fabriciq_enabled }}
+          PLANNED_AGENTS: ${{ needs.plan.outputs.selected_agents }}
         run: |
           set -euo pipefail
           missing=()
@@ -222,16 +389,22 @@ jobs:
             echo "azure_client_id=$AZURE_CLIENT_ID"
             echo "azure_tenant_id=$AZURE_TENANT_ID"
             echo "azure_subscription_id=$AZURE_SUBSCRIPTION_ID"
-            agents='["invoice-analyst","assurance-orchestrator","contract-policy-expert","waypoint-recorder"]'
+            enabled_agents='["invoice-analyst","assurance-orchestrator","contract-policy-expert","waypoint-recorder"]'
             if [ "$WORKIQ_ENABLED" = "true" ]; then
-              agents="$(jq -c '. + ["collaboration-evidence-expert"]' <<<"$agents")"
+              enabled_agents="$(jq -c '. + ["collaboration-evidence-expert"]' <<<"$enabled_agents")"
             fi
             if [ "$WEBIQ_ENABLED" = "true" ]; then
-              agents="$(jq -c '. + ["market-evidence-expert"]' <<<"$agents")"
+              enabled_agents="$(jq -c '. + ["market-evidence-expert"]' <<<"$enabled_agents")"
             fi
             if [ "$FABRICIQ_ENABLED" = "true" ]; then
-              agents="$(jq -c '. + ["operations-data-expert"]' <<<"$agents")"
+              enabled_agents="$(jq -c '. + ["operations-data-expert"]' <<<"$enabled_agents")"
             fi
+            agents="$(
+              jq -cn \
+                --argjson planned "$PLANNED_AGENTS" \
+                --argjson enabled "$enabled_agents" \
+                '$planned | map(select(. as $agent | $enabled | index($agent)))'
+            )"
             echo "agent_matrix=$agents"
           } >> "$GITHUB_OUTPUT"
 
@@ -323,7 +496,8 @@ jobs:
   corpus-seed:
     name: Generate Waypoint seed
     runs-on: ubuntu-latest
-    if: ${{ inputs.seed_data }}
+    if: ${{ inputs.seed_data && needs.plan.outputs.corpus_seed == 'true' }}
+    needs: plan
     outputs:
       artifact_name: waypoint-seed
     steps:
@@ -351,8 +525,14 @@ jobs:
   deploy-app:
     name: Deploy Waypoint app
     runs-on: ubuntu-latest
-    if: ${{ inputs.deploy_app }}
-    needs: [validate, keyvault, msal]
+    if: |
+      always() &&
+      inputs.deploy_app &&
+      needs.plan.outputs.app == 'true' &&
+      needs.validate.result == 'success' &&
+      needs.keyvault.result == 'success' &&
+      needs.msal.result == 'success'
+    needs: [plan, validate, keyvault, msal]
     outputs:
       api_fqdn: ${{ steps.outputs.outputs.api_fqdn }}
       web_fqdn: ${{ steps.outputs.outputs.web_fqdn }}
@@ -501,13 +681,20 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ── fabric-provision ─────────────────────────────────────────────────────────
-  # Explicitly provision the Fabric workspace and lakehouse AFTER Aspire deploy.
-  # Do NOT assume `aspire deploy` runs azd hooks — it does not in CI.
+  # Explicitly reconcile the Fabric workspace and lakehouse after the app is
+  # available. The app deploy may be skipped when an existing runtime is reused.
   fabric-provision:
     name: Provision Fabric workspace and lakehouse
     runs-on: ubuntu-latest
-    if: ${{ inputs.fabric_provision_enabled && inputs.deploy_app }}
-    needs: [validate, keyvault, deploy-app]
+    if: |
+      always() &&
+      inputs.fabric_provision_enabled &&
+      (needs.plan.outputs.fabric_infrastructure == 'true' ||
+       needs.plan.outputs.onelake_upload == 'true') &&
+      needs.validate.result == 'success' &&
+      needs.keyvault.result == 'success' &&
+      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped')
+    needs: [plan, validate, keyvault, deploy-app]
     outputs:
       onelake_workspace: ${{ steps.fabric.outputs.onelake_workspace }}
       onelake_lakehouse: ${{ steps.fabric.outputs.onelake_lakehouse }}
@@ -594,10 +781,15 @@ jobs:
     if: |
       always() &&
       inputs.deploy_agents &&
+      (needs.plan.outputs.foundry_infrastructure == 'true' ||
+       needs.plan.outputs.deploy_agents == 'true' ||
+       needs.plan.outputs.contracts_kb == 'true' ||
+       needs.plan.outputs.wiring == 'true' ||
+       needs.plan.outputs.acceptance == 'true') &&
       needs.validate.result == 'success' &&
       needs.keyvault.result == 'success' &&
       (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped')
-    needs: [validate, keyvault, deploy-app]
+    needs: [plan, validate, keyvault, deploy-app]
     outputs:
       project_endpoint: ${{ steps.endpoint.outputs.endpoint }}
       ai_account_id: ${{ steps.endpoint.outputs.ai_account_id }}
@@ -694,7 +886,7 @@ jobs:
         timeout-minutes: 10
 
       - name: Run azd provision
-        if: ${{ inputs.provision_agents }}
+        if: ${{ inputs.provision_agents && needs.plan.outputs.foundry_infrastructure == 'true' }}
         run: azd provision --no-prompt
         timeout-minutes: 45
 
@@ -825,11 +1017,13 @@ jobs:
     if: |
       always() &&
       inputs.deploy_agents &&
+      needs.plan.outputs.deploy_agents == 'true' &&
+      needs.validate.outputs.agent_matrix != '[]' &&
       needs.validate.result == 'success' &&
       needs.keyvault.result == 'success' &&
       needs['provision-agents'].result == 'success' &&
       (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped')
-    needs: [validate, keyvault, deploy-app, provision-agents]
+    needs: [plan, validate, keyvault, deploy-app, provision-agents]
     strategy:
       fail-fast: false
       matrix:
@@ -1247,10 +1441,11 @@ jobs:
       always() &&
       inputs.deploy_app &&
       inputs.deploy_agents &&
-      needs['deploy-app'].result == 'success' &&
+      needs.plan.outputs.wiring == 'true' &&
+      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped') &&
       needs['provision-agents'].result == 'success' &&
-      needs['deploy-agents'].result == 'success'
-    needs: [validate, deploy-app, provision-agents, deploy-agents]
+      (needs['deploy-agents'].result == 'success' || needs['deploy-agents'].result == 'skipped')
+    needs: [plan, validate, deploy-app, provision-agents, deploy-agents]
     steps:
       - name: Azure login
         uses: azure/login@v3.0.0
@@ -1325,10 +1520,10 @@ jobs:
       always() &&
       inputs.fabric_provision_enabled &&
       inputs.seed_data &&
-      inputs.deploy_app &&
+      needs.plan.outputs.onelake_upload == 'true' &&
       needs['fabric-provision'].result == 'success' &&
-      needs['corpus-seed'].result == 'success'
-    needs: [validate, fabric-provision, corpus-seed]
+      (needs['corpus-seed'].result == 'success' || needs['corpus-seed'].result == 'skipped')
+    needs: [plan, validate, fabric-provision, corpus-seed]
     steps:
       - uses: actions/checkout@v7.0.0
 
@@ -1368,9 +1563,10 @@ jobs:
       always() &&
       inputs.foundryiq_enabled &&
       inputs.deploy_agents &&
+      needs.plan.outputs.contracts_kb == 'true' &&
       needs['provision-agents'].result == 'success' &&
       needs['provision-agents'].outputs.contracts_kb_storage_account != ''
-    needs: [validate, provision-agents]
+    needs: [plan, validate, provision-agents]
     steps:
       - uses: actions/checkout@v7.0.0
 
@@ -1411,11 +1607,12 @@ jobs:
       always() &&
       inputs.seed_data &&
       inputs.deploy_app &&
-      needs['deploy-app'].result == 'success' &&
+      needs.plan.outputs.seed_import == 'true' &&
+      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped') &&
       needs['corpus-seed'].result == 'success' &&
       needs.keyvault.result == 'success' &&
       (needs['onelake-upload'].result == 'success' || needs['onelake-upload'].result == 'skipped')
-    needs: [validate, keyvault, corpus-seed, deploy-app, onelake-upload]
+    needs: [plan, validate, keyvault, corpus-seed, deploy-app, onelake-upload]
     steps:
       - uses: actions/checkout@v7.0.0
 
@@ -1437,7 +1634,16 @@ jobs:
           SEED_FILE: seed/data/waypoint/waypoint-seed.json
           API_FQDN: ${{ needs['deploy-app'].outputs.api_fqdn }}
           KV_NAME: ${{ needs.keyvault.outputs.key_vault_name }}
-        run: bash tools/deploy/scripts/seed_import.sh
+        run: |
+          set -euo pipefail
+          if [ -z "$API_FQDN" ]; then
+            API_FQDN="$(
+              az containerapp show --name api --resource-group "$AZURE_RESOURCE_GROUP" \
+                --query properties.configuration.ingress.fqdn -o tsv
+            )"
+            export API_FQDN
+          fi
+          bash tools/deploy/scripts/seed_import.sh
 
   # ── acceptance ────────────────────────────────────────────────────────────────
   # Final gate: HTTP probes via verify_deployment.py + Container App inventory.
@@ -1451,8 +1657,11 @@ jobs:
     if: |
       always() &&
       inputs.deploy_app &&
-      needs['deploy-app'].result == 'success'
+      needs.plan.outputs.acceptance == 'true' &&
+      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped') &&
+      needs.keyvault.result == 'success'
     needs:
+      - plan
       - validate
       - keyvault
       - deploy-app
@@ -1487,9 +1696,29 @@ jobs:
           ONELAKE_UPLOAD_RESULT: ${{ needs['onelake-upload'].result }}
           CONTRACTS_KB_UPLOAD_RESULT: ${{ needs['contracts-kb-upload'].result }}
           SEED_IMPORT_RESULT: ${{ needs['seed-import'].result }}
+          AGENT_DEPLOY_PLANNED: ${{ needs.plan.outputs.deploy_agents }}
+          WIRING_PLANNED: ${{ needs.plan.outputs.wiring }}
+          FABRIC_INFRASTRUCTURE_PLANNED: ${{ needs.plan.outputs.fabric_infrastructure }}
+          ONELAKE_UPLOAD_PLANNED: ${{ needs.plan.outputs.onelake_upload }}
+          CONTRACTS_KB_PLANNED: ${{ needs.plan.outputs.contracts_kb }}
+          SEED_IMPORT_PLANNED: ${{ needs.plan.outputs.seed_import }}
           COMMIT_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+          if [ -z "$API_BASE_URL" ]; then
+            api_fqdn="$(
+              az containerapp show --name api --resource-group "$AZURE_RESOURCE_GROUP" \
+                --query properties.configuration.ingress.fqdn -o tsv
+            )"
+            API_BASE_URL="https://${api_fqdn}"
+          fi
+          if [ -z "$WEB_BASE_URL" ]; then
+            web_fqdn="$(
+              az containerapp show --name web --resource-group "$AZURE_RESOURCE_GROUP" \
+                --query properties.configuration.ingress.fqdn -o tsv
+            )"
+            WEB_BASE_URL="https://${web_fqdn}"
+          fi
           reader_key="$(az keyvault secret show --vault-name "$KV_NAME" \
             --name waypoint-reader-key --query value -o tsv 2>/dev/null || true)"
           echo "::add-mask::$reader_key"
@@ -1610,8 +1839,6 @@ jobs:
           printf '{"passed":false,"status":"skipped"}\n' > e2e-run.json
           if [ "${{ inputs.deploy_agents }}" = "true" ] \
             && [ "${{ inputs.seed_data }}" = "true" ] \
-            && [ "$AGENT_DEPLOY_RESULT" = "success" ] \
-            && [ "$SEED_IMPORT_RESULT" = "success" ] \
             && [ "$inventory_result" = "success" ]; then
             e2e_invoice_id="$(
               curl -fsS -H "x-api-key: $reader_key" "$API_BASE_URL/api/work" \
@@ -1740,25 +1967,45 @@ jobs:
                   issues.append(
                       "Foundry agents are not active: " + ", ".join(inactive_agents)
                   )
-              if os.environ["AGENT_DEPLOY_RESULT"] != "success":
+              if (
+                  os.environ["AGENT_DEPLOY_PLANNED"] == "true"
+                  and declared_agents
+                  and os.environ["AGENT_DEPLOY_RESULT"] != "success"
+              ):
                   issues.append(
                       "Agent deployment did not succeed: "
                       + os.environ["AGENT_DEPLOY_RESULT"]
                   )
-              if os.environ["APP_OPERATIONS_WIRING_RESULT"] != "success":
+              if (
+                  os.environ["WIRING_PLANNED"] == "true"
+                  and os.environ["APP_OPERATIONS_WIRING_RESULT"] != "success"
+              ):
                   issues.append(
                       "Waypoint seller-operation wiring did not succeed: "
                       + os.environ["APP_OPERATIONS_WIRING_RESULT"]
                   )
-          if os.environ["FABRIC_PROVISION_ENABLED"] == "true":
-              for stage, result in (
-                  ("Fabric provisioning", os.environ["FABRIC_PROVISION_RESULT"]),
-                  ("OneLake upload", os.environ["ONELAKE_UPLOAD_RESULT"]),
-              ):
-                  if result != "success":
-                      issues.append(f"{stage} did not succeed: {result}")
           if (
-              os.environ["DEPLOY_AGENTS_ENABLED"] == "true"
+              os.environ["FABRIC_INFRASTRUCTURE_PLANNED"] == "true"
+              and os.environ["FABRIC_PROVISION_ENABLED"] == "true"
+              and os.environ["FABRIC_PROVISION_RESULT"] != "success"
+          ):
+              issues.append(
+                  "Fabric provisioning did not succeed: "
+                  + os.environ["FABRIC_PROVISION_RESULT"]
+              )
+          if (
+              os.environ["ONELAKE_UPLOAD_PLANNED"] == "true"
+              and os.environ["FABRIC_PROVISION_ENABLED"] == "true"
+              and os.environ["SEED_DATA_ENABLED"] == "true"
+              and os.environ["ONELAKE_UPLOAD_RESULT"] != "success"
+          ):
+              issues.append(
+                  "OneLake upload did not succeed: "
+                  + os.environ["ONELAKE_UPLOAD_RESULT"]
+              )
+          if (
+              os.environ["CONTRACTS_KB_PLANNED"] == "true"
+              and os.environ["DEPLOY_AGENTS_ENABLED"] == "true"
               and os.environ["FOUNDRYIQ_ENABLED"] == "true"
               and os.environ["CONTRACTS_KB_UPLOAD_RESULT"] != "success"
           ):
@@ -1767,7 +2014,8 @@ jobs:
                   + os.environ["CONTRACTS_KB_UPLOAD_RESULT"]
               )
           if (
-              os.environ["SEED_DATA_ENABLED"] == "true"
+              os.environ["SEED_IMPORT_PLANNED"] == "true"
+              and os.environ["SEED_DATA_ENABLED"] == "true"
               and os.environ["SEED_IMPORT_RESULT"] != "success"
           ):
               issues.append(
@@ -1802,10 +2050,16 @@ jobs:
           LIVE_AGENTS="$live_agents" \
           LANE_JSON="$lane_json" \
           DEPLOY_AGENTS_ENABLED="${{ inputs.deploy_agents }}" \
+          AGENT_DEPLOY_PLANNED="${{ needs.plan.outputs.deploy_agents }}" \
+          WIRING_PLANNED="${{ needs.plan.outputs.wiring }}" \
           AGENT_INVENTORY_RESULT="$inventory_result" \
           FABRIC_PROVISION_ENABLED="${{ inputs.fabric_provision_enabled }}" \
+          FABRIC_INFRASTRUCTURE_PLANNED="${{ needs.plan.outputs.fabric_infrastructure }}" \
+          ONELAKE_UPLOAD_PLANNED="${{ needs.plan.outputs.onelake_upload }}" \
           FOUNDRYIQ_ENABLED="${{ inputs.foundryiq_enabled }}" \
+          CONTRACTS_KB_PLANNED="${{ needs.plan.outputs.contracts_kb }}" \
           SEED_DATA_ENABLED="${{ inputs.seed_data }}" \
+          SEED_IMPORT_PLANNED="${{ needs.plan.outputs.seed_import }}" \
           E2E_RESULT="$e2e_result" \
           python3 evidence_builder.py "$COMMIT_SHA" "$AZD_ENV_NAME"
           rm -f evidence_builder.py
@@ -1835,4 +2089,110 @@ jobs:
               disabled="$(python3 -c "import json; e=json.load(open('deployment-evidence.json')); print(', '.join(e.get('disabled_lanes', [])) or 'none')" 2>/dev/null || echo '')"
               echo "- Disabled lanes: $disabled"
             fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  record-deployment-state:
+    name: Record deployment baseline
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      !cancelled() &&
+      needs.plan.result == 'success' &&
+      needs.keyvault.result == 'success'
+    needs:
+      - plan
+      - validate
+      - keyvault
+      - msal
+      - corpus-seed
+      - deploy-app
+      - fabric-provision
+      - provision-agents
+      - deploy-agents
+      - wire-app-operations
+      - onelake-upload
+      - contracts-kb-upload
+      - seed-import
+      - acceptance
+    steps:
+      - name: Azure login
+        uses: azure/login@v3.0.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Advance trusted deployment baseline
+        env:
+          APP_PLANNED: ${{ needs.plan.outputs.app }}
+          APP_ENABLED: ${{ inputs.deploy_app }}
+          APP_RESULT: ${{ needs['deploy-app'].result }}
+          CORPUS_SEED_PLANNED: ${{ needs.plan.outputs.corpus_seed }}
+          CORPUS_SEED_ENABLED: ${{ inputs.seed_data }}
+          CORPUS_SEED_RESULT: ${{ needs['corpus-seed'].result }}
+          SEED_IMPORT_PLANNED: ${{ needs.plan.outputs.seed_import }}
+          SEED_IMPORT_ENABLED: ${{ inputs.seed_data && inputs.deploy_app }}
+          SEED_IMPORT_RESULT: ${{ needs['seed-import'].result }}
+          FABRIC_PLANNED: ${{ needs.plan.outputs.fabric_infrastructure }}
+          FABRIC_ENABLED: ${{ inputs.fabric_provision_enabled }}
+          FABRIC_RESULT: ${{ needs['fabric-provision'].result }}
+          ONELAKE_PLANNED: ${{ needs.plan.outputs.onelake_upload }}
+          ONELAKE_ENABLED: ${{ inputs.fabric_provision_enabled && inputs.seed_data }}
+          ONELAKE_RESULT: ${{ needs['onelake-upload'].result }}
+          CONTRACTS_KB_PLANNED: ${{ needs.plan.outputs.contracts_kb }}
+          CONTRACTS_KB_ENABLED: ${{ inputs.deploy_agents && inputs.foundryiq_enabled }}
+          CONTRACTS_KB_RESULT: ${{ needs['contracts-kb-upload'].result }}
+          FOUNDRY_PLANNED: ${{ needs.plan.outputs.foundry_infrastructure }}
+          FOUNDRY_ENABLED: ${{ inputs.deploy_agents && inputs.provision_agents }}
+          FOUNDRY_RESULT: ${{ needs['provision-agents'].result }}
+          AGENTS_PLANNED: ${{ needs.plan.outputs.deploy_agents }}
+          AGENTS_ENABLED: ${{ inputs.deploy_agents }}
+          AGENTS_RESULT: ${{ needs['deploy-agents'].result }}
+          WIRING_PLANNED: ${{ needs.plan.outputs.wiring }}
+          WIRING_ENABLED: ${{ inputs.deploy_app && inputs.deploy_agents }}
+          WIRING_RESULT: ${{ needs['wire-app-operations'].result }}
+          ACCEPTANCE_PLANNED: ${{ needs.plan.outputs.acceptance }}
+          ACCEPTANCE_ENABLED: ${{ inputs.deploy_app }}
+          ACCEPTANCE_RESULT: ${{ needs.acceptance.result }}
+          CONTROLS_HASH: ${{ needs.plan.outputs.controls_hash }}
+        run: |
+          set -euo pipefail
+          complete=true
+          check_stage() {
+            local label="$1" planned="$2" enabled="$3" result="$4"
+            if [ "$planned" != "true" ]; then
+              return
+            fi
+            if [ "$enabled" != "true" ]; then
+              echo "::notice::${label} was planned but intentionally disabled by workflow input."
+            elif [ "$result" != "success" ]; then
+              echo "::notice::Not advancing baseline: ${label} result was ${result}."
+              complete=false
+            fi
+          }
+          check_stage app "$APP_PLANNED" "$APP_ENABLED" "$APP_RESULT"
+          check_stage corpus_seed "$CORPUS_SEED_PLANNED" "$CORPUS_SEED_ENABLED" "$CORPUS_SEED_RESULT"
+          check_stage seed_import "$SEED_IMPORT_PLANNED" "$SEED_IMPORT_ENABLED" "$SEED_IMPORT_RESULT"
+          check_stage fabric_infrastructure "$FABRIC_PLANNED" "$FABRIC_ENABLED" "$FABRIC_RESULT"
+          check_stage onelake_upload "$ONELAKE_PLANNED" "$ONELAKE_ENABLED" "$ONELAKE_RESULT"
+          check_stage contracts_kb "$CONTRACTS_KB_PLANNED" "$CONTRACTS_KB_ENABLED" "$CONTRACTS_KB_RESULT"
+          check_stage foundry_infrastructure "$FOUNDRY_PLANNED" "$FOUNDRY_ENABLED" "$FOUNDRY_RESULT"
+          check_stage deploy_agents "$AGENTS_PLANNED" "$AGENTS_ENABLED" "$AGENTS_RESULT"
+          check_stage wiring "$WIRING_PLANNED" "$WIRING_ENABLED" "$WIRING_RESULT"
+          check_stage acceptance "$ACCEPTANCE_PLANNED" "$ACCEPTANCE_ENABLED" "$ACCEPTANCE_RESULT"
+          if [ "$complete" != "true" ]; then
+            echo "Deployment baseline was not advanced." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          az group update \
+            --name "$STATE_RESOURCE_GROUP" \
+            --set \
+              "tags.waypoint_deployment_base_sha=${{ github.sha }}" \
+              "tags.waypoint_deployment_controls_hash=${CONTROLS_HASH}" \
+            --output none
+          {
+            echo "## Deployment baseline"
+            echo ""
+            echo "- Recorded source SHA: \`${{ github.sha }}\`"
+            echo "- Plan mode: \`${{ needs.plan.outputs.mode }}\`"
           } >> "$GITHUB_STEP_SUMMARY"

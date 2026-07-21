@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1",
+  "schema_version": "1.2",
   "canonical_sources": {
     "application": "apps/waypoint",
     "corpus": "modules/corpus",
@@ -7,6 +7,274 @@
     "evaluations": "modules/evals",
     "optimization": "modules/optimization",
     "workflow": ".github/workflows/deploy.yml"
+  },
+  "deployment_impact": {
+    "schema_version": "1.0",
+    "unknown_path_behavior": "full",
+    "full_deploy_paths": [
+      ".github/workflows/deploy.yml",
+      "tools/deploy/deployment.manifest.json",
+      "tools/deploy/scripts/plan_deployment.py",
+      "tools/deploy/.github/workflows/deploy.yml"
+    ],
+    "ignored_paths": [
+      ".github/ISSUE_TEMPLATE/**",
+      "docs/**",
+      "tools/deploy/tests/**",
+      "**/README.md",
+      "**/AGENTS.md",
+      "**/.github/copilot-instructions.md"
+    ],
+    "stages": {
+      "app": {
+        "label": "Waypoint application",
+        "propagates_to": [
+          "wiring",
+          "acceptance"
+        ]
+      },
+      "corpus_seed": {
+        "label": "Corpus seed generation",
+        "propagates_to": [
+          "seed_import",
+          "acceptance"
+        ]
+      },
+      "seed_import": {
+        "label": "Waypoint seed import",
+        "propagates_to": [
+          "acceptance"
+        ]
+      },
+      "fabric_infrastructure": {
+        "label": "Fabric and OneLake infrastructure",
+        "propagates_to": [
+          "onelake_upload",
+          "acceptance"
+        ]
+      },
+      "onelake_upload": {
+        "label": "OneLake corpus upload",
+        "propagates_to": [
+          "acceptance"
+        ]
+      },
+      "contracts_kb": {
+        "label": "Contracts knowledge-base upload",
+        "propagates_to": [
+          "acceptance"
+        ]
+      },
+      "foundry_infrastructure": {
+        "label": "Foundry infrastructure",
+        "select_all_agents": true,
+        "propagates_to": [
+          "deploy_agents",
+          "wiring",
+          "acceptance"
+        ]
+      },
+      "deploy_agents": {
+        "label": "Hosted agents",
+        "propagates_to": [
+          "acceptance"
+        ]
+      },
+      "evals": {
+        "label": "Evaluation assets",
+        "deployable": false,
+        "propagates_to": []
+      },
+      "optimization": {
+        "label": "Optimization assets",
+        "deployable": false,
+        "propagates_to": []
+      },
+      "wiring": {
+        "label": "Cross-component wiring",
+        "propagates_to": [
+          "acceptance"
+        ]
+      },
+      "acceptance": {
+        "label": "Deployment acceptance",
+        "propagates_to": []
+      }
+    },
+    "agents": [
+      "invoice-analyst",
+      "assurance-orchestrator",
+      "contract-policy-expert",
+      "waypoint-recorder",
+      "collaboration-evidence-expert",
+      "market-evidence-expert",
+      "operations-data-expert"
+    ],
+    "agent_sources": {
+      "root": "modules/agents/agents",
+      "shared_paths": [
+        "modules/agents/agents/_template/**",
+        "modules/agents/scripts/create_toolbox.py",
+        "modules/agents/scripts/deploy_prompt_agents.py",
+        "modules/agents/scripts/discover_agents.py",
+        "modules/agents/scripts/patch_agent_endpoint.py",
+        "modules/agents/scripts/publish_agent.py",
+        "modules/agents/scripts/reconcile_agents.py"
+      ]
+    },
+    "path_rules": [
+      {
+        "name": "waypoint-app",
+        "paths": [
+          "apps/waypoint/**"
+        ],
+        "stages": [
+          "app"
+        ]
+      },
+      {
+        "name": "fabric-provisioning",
+        "paths": [
+          "apps/waypoint/infra/scripts/provision-fabric.sh"
+        ],
+        "stages": [
+          "fabric_infrastructure"
+        ]
+      },
+      {
+        "name": "corpus-business-data",
+        "paths": [
+          "modules/corpus/data/invoices/**",
+          "modules/corpus/data/scenarios/**",
+          "modules/corpus/data/suppliers/**",
+          "modules/corpus/data/waypoint/invoice-decisions.json"
+        ],
+        "stages": [
+          "corpus_seed",
+          "onelake_upload"
+        ],
+        "exclusive": true
+      },
+      {
+        "name": "corpus-contract-documents",
+        "paths": [
+          "modules/corpus/data/contracts/source-markdown/**",
+          "modules/corpus/data/policies/source-markdown/**"
+        ],
+        "stages": [
+          "onelake_upload",
+          "contracts_kb"
+        ],
+        "exclusive": true
+      },
+      {
+        "name": "corpus-seed-code",
+        "paths": [
+          "modules/corpus/src/ledgerfield/waypoint_seed.py"
+        ],
+        "stages": [
+          "corpus_seed"
+        ],
+        "exclusive": true
+      },
+      {
+        "name": "onelake-upload-code",
+        "paths": [
+          "modules/corpus/src/ledgerfield/onelake_upload.py"
+        ],
+        "stages": [
+          "onelake_upload"
+        ],
+        "exclusive": true
+      },
+      {
+        "name": "contracts-kb-upload-code",
+        "paths": [
+          "modules/corpus/src/ledgerfield/contracts_kb_upload.py"
+        ],
+        "stages": [
+          "contracts_kb"
+        ],
+        "exclusive": true
+      },
+      {
+        "name": "shared-corpus-code",
+        "paths": [
+          "modules/corpus/src/**",
+          "modules/corpus/pyproject.toml",
+          "modules/corpus/uv.lock"
+        ],
+        "stages": [
+          "corpus_seed",
+          "onelake_upload",
+          "contracts_kb"
+        ]
+      },
+      {
+        "name": "foundry-infrastructure",
+        "paths": [
+          "modules/agents/azure.yaml",
+          "modules/agents/infra/**",
+          "modules/agents/scripts/bootstrap_foundry_account.sh",
+          "modules/agents/scripts/configure_content_understanding.py",
+          "modules/agents/scripts/initialize_contracts_kb.py"
+        ],
+        "stages": [
+          "foundry_infrastructure"
+        ]
+      },
+      {
+        "name": "shared-agent-deployment",
+        "paths": [
+          "modules/agents/Makefile",
+          "modules/agents/scripts/**"
+        ],
+        "stages": [
+          "deploy_agents"
+        ],
+        "all_agents": true
+      },
+      {
+        "name": "eval-assets",
+        "paths": [
+          "modules/evals/**"
+        ],
+        "stages": [
+          "evals"
+        ]
+      },
+      {
+        "name": "optimization-assets",
+        "paths": [
+          "modules/optimization/**"
+        ],
+        "stages": [
+          "optimization"
+        ]
+      },
+      {
+        "name": "deployment-wiring",
+        "paths": [
+          "tools/deploy/scripts/keyvault.sh",
+          "tools/deploy/scripts/msal.sh",
+          "tools/deploy/scripts/seed_import.sh",
+          "tools/deploy/scripts/wire.sh"
+        ],
+        "stages": [
+          "wiring"
+        ]
+      },
+      {
+        "name": "acceptance-tools",
+        "paths": [
+          "tools/deploy/scripts/verify_deployment.py",
+          "tools/deploy/scripts/verify_terminal_run.py"
+        ],
+        "stages": [
+          "acceptance"
+        ]
+      }
+    ]
   },
   "deployment": {
     "defaults": {

@@ -133,7 +133,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
             provision,
         )
         self.assertIn("if: ${{ inputs.foundryiq_enabled }}", provision)
-        self.assertIn("needs: [validate, provision-agents]", upload)
+        self.assertIn("needs: [plan, validate, provision-agents]", upload)
 
     def test_agent_deploy_uses_key_vault_keys_without_bearer_precedence(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
@@ -256,7 +256,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
 
     def test_acceptance_requires_seller_operation_wiring(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
-        acceptance = workflow.split("  acceptance:", 1)[1]
+        acceptance = workflow.split("\n  acceptance:\n", 1)[1]
 
         self.assertIn("- wire-app-operations", acceptance)
         self.assertIn(
@@ -264,10 +264,29 @@ class AgentModelConfigurationTests(unittest.TestCase):
             acceptance,
         )
         self.assertIn(
-            'if os.environ["APP_OPERATIONS_WIRING_RESULT"] != "success":',
+            'os.environ["WIRING_PLANNED"] == "true"',
             acceptance,
         )
         self.assertIn("Waypoint seller-operation wiring did not succeed", acceptance)
+
+    def test_selective_agent_matrix_guard_uses_filtered_matrix(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        deploy_agents = workflow.split("\n  deploy-agents:\n", 1)[1].split(
+            "\n  # ── wire-app-operations", 1
+        )[0]
+
+        self.assertIn("needs.validate.outputs.agent_matrix != '[]'", deploy_agents)
+        self.assertNotIn("needs.plan.outputs.selected_agents != '[]'", deploy_agents)
+
+    def test_acceptance_respects_manual_stage_upper_bounds(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        acceptance = workflow.split("\n  acceptance:\n", 1)[1].split(
+            "\n  record-deployment-state:\n", 1
+        )[0]
+
+        self.assertIn('os.environ["FABRIC_PROVISION_ENABLED"] == "true"', acceptance)
+        self.assertIn('os.environ["FOUNDRYIQ_ENABLED"] == "true"', acceptance)
+        self.assertIn('os.environ["SEED_DATA_ENABLED"] == "true"', acceptance)
 
 
 if __name__ == "__main__":
