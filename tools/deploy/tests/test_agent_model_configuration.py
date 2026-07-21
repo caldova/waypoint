@@ -118,6 +118,23 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("resource userStorageRoleAssignment", storage_bicep)
         self.assertNotIn("userToStorageRoleAssignment", search_bicep)
 
+    def test_foundry_provision_initializes_contracts_kb_before_upload(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        provision = workflow.split("  provision-agents:", 1)[1].split(
+            "  # ── deploy-agents", 1
+        )[0]
+        upload = workflow.split("  contracts-kb-upload:", 1)[1].split(
+            "  # ── seed-import", 1
+        )[0]
+
+        self.assertIn("Initialize contracts knowledge base", provision)
+        self.assertIn(
+            "python scripts/initialize_contracts_kb.py --skip-upload",
+            provision,
+        )
+        self.assertIn("if: ${{ inputs.foundryiq_enabled }}", provision)
+        self.assertIn("needs: [validate, provision-agents]", upload)
+
 
 if __name__ == "__main__":
     unittest.main()

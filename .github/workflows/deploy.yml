@@ -744,6 +744,28 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
         timeout-minutes: 2
 
+      - name: Initialize contracts knowledge base
+        if: ${{ inputs.foundryiq_enabled }}
+        run: |
+          set -euo pipefail
+          get() { azd env get-value "$1" 2>/dev/null | grep -v 'not found' || true; }
+
+          export AZURE_SUBSCRIPTION_ID="${{ needs.validate.outputs.azure_subscription_id }}"
+          export AZURE_RESOURCE_GROUP="$(get AZURE_RESOURCE_GROUP)"
+          export AZURE_AI_ACCOUNT_NAME="$(get AZURE_AI_ACCOUNT_NAME)"
+          export AZURE_AI_PROJECT_NAME="$(get AZURE_AI_PROJECT_NAME)"
+          export AZURE_AI_SEARCH_SERVICE_NAME="$(get AZURE_AI_SEARCH_SERVICE_NAME)"
+          export AZURE_STORAGE_ACCOUNT_NAME="$(get AZURE_STORAGE_ACCOUNT_NAME)"
+          export AZURE_STORAGE_CONTAINER_NAME="$(get AZURE_AI_SEARCH_CONTAINER_NAME)"
+          export AZURE_AI_SEARCH_KNOWLEDGE_BASE_NAME="$(get AZURE_AI_SEARCH_KNOWLEDGE_BASE_NAME)"
+          export AZURE_AI_SEARCH_KNOWLEDGE_SOURCE_NAME="$(get AZURE_AI_SEARCH_KNOWLEDGE_SOURCE_NAME)"
+          export AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME="$(get AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME)"
+          export AZURE_AI_MODEL_DEPLOYMENT_NAME="$(get AZURE_AI_MODEL_DEPLOYMENT_NAME)"
+          export AZURE_AI_EMBEDDING_DEPLOYMENT_NAME="$(get AZURE_AI_EMBEDDING_DEPLOYMENT_NAME)"
+
+          python scripts/initialize_contracts_kb.py --skip-upload
+        timeout-minutes: 10
+
   # ── deploy-agents ─────────────────────────────────────────────────────────────
   # Matrix: one job per hosted agent. Each leg re-selects the azd env and
   # hydrates all Foundry outputs from the exact ^<env>-[0-9]+$ ARM deployment —
