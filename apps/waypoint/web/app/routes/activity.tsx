@@ -9,6 +9,11 @@ import {
   HiOutlineExternalLink,
 } from "react-icons/hi";
 import { authFetch } from "../../lib/msalAuth";
+import {
+  appInsightsOperationLink,
+  fetchDrilldownConfig,
+  type DrilldownConfig,
+} from "../../lib/waypointConfig";
 import { AppHeader } from "../components/AppHeader";
 import { useAuth } from "../components/AuthProvider";
 import { RequireAuth } from "../components/RequireAuth";
@@ -174,6 +179,9 @@ export default function Activity() {
   const [showDone, setShowDone] = useState(false);
   const [searchParams] = useSearchParams();
   const focusInvoice = searchParams.get("invoice");
+  const focusedRunId = searchParams.get("run");
+  const reused = searchParams.get("reused") === "true";
+  const [drilldownConfig, setDrilldownConfig] = useState<DrilldownConfig | null>(null);
   // A ticking clock so elapsed timers on active runs stay live between polls.
   const [nowTick, setNowTick] = useState(() => Date.now());
 
@@ -210,6 +218,7 @@ export default function Activity() {
   useEffect(() => {
     if (auth.status === "authenticated") {
       void fetchRuns();
+      void fetchDrilldownConfig().then(setDrilldownConfig);
     }
   }, [auth.status, fetchRuns]);
 
@@ -283,6 +292,14 @@ export default function Activity() {
             </div>
           </div>
 
+          {focusInvoice ? (
+            <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              {reused
+                ? `Reused the active assurance run for invoice ${focusInvoice}; no duplicate Foundry run was started.`
+                : `Assurance was accepted for invoice ${focusInvoice}. This page refreshes while the hosted run completes.`}
+            </div>
+          ) : null}
+
           {/* Summary strip */}
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             <SummaryStat label="Active" value={active.length} tone="blue" pulse={active.length > 0} />
@@ -315,7 +332,8 @@ export default function Activity() {
                     run={run}
                     now={nowTick}
                     live
-                    highlight={runMatchesInvoice(run, focusInvoice)}
+                    highlight={run.id === focusedRunId || runMatchesInvoice(run, focusInvoice)}
+                    drilldownConfig={drilldownConfig}
                   />
                 ))}
               </div>
@@ -333,7 +351,8 @@ export default function Activity() {
                     key={run.id}
                     run={run}
                     now={nowTick}
-                    highlight={runMatchesInvoice(run, focusInvoice)}
+                    highlight={run.id === focusedRunId || runMatchesInvoice(run, focusInvoice)}
+                    drilldownConfig={drilldownConfig}
                   />
                 ))}
               </div>
@@ -353,7 +372,12 @@ export default function Activity() {
               {showDone ? (
                 <div className="mt-2 grid gap-2">
                   {done.slice(0, 25).map((run) => (
-                    <RunCard key={run.id} run={run} now={nowTick} />
+                    <RunCard
+                      key={run.id}
+                      run={run}
+                      now={nowTick}
+                      drilldownConfig={drilldownConfig}
+                    />
                   ))}
                 </div>
               ) : null}
@@ -452,11 +476,13 @@ function RunCard({
   now,
   live,
   highlight,
+  drilldownConfig,
 }: {
   run: AgentRun;
   now: number;
   live?: boolean;
   highlight?: boolean;
+  drilldownConfig: DrilldownConfig | null;
 }) {
   const style = statusStyle(run.status);
   const meta = run.metadata ?? {};
@@ -464,6 +490,9 @@ function RunCard({
   const invoice = meta.invoice_number ?? meta.invoice_id;
   const startedAgo = relativeTime(run.created_at, now);
   const cardRef = useRef<HTMLDivElement>(null);
+  const traceLink = drilldownConfig
+    ? appInsightsOperationLink(drilldownConfig, run.app_insights_operation_id)
+    : null;
 
   useEffect(() => {
     if (highlight && cardRef.current) {
@@ -523,6 +552,17 @@ function RunCard({
             Details
             <HiOutlineExternalLink className="h-3.5 w-3.5" />
           </Link>
+          {traceLink ? (
+            <a
+              href={traceLink}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Open trace
+              <HiOutlineExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ) : null}
         </div>
       </div>
 

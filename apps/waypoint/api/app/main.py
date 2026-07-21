@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .common.audit import AuditMiddleware
 from .common.database import close_waypoint_repository, get_waypoint_repository_for_settings
 from .common.settings import get_settings
+from .modules.assurance_runs import assurance_runs_router
 from .modules.cases.routes import router as cases_router
 from .modules.config import config_router
 from .modules.items import items_router
@@ -70,6 +71,7 @@ app.add_middleware(AuditMiddleware)
 app.include_router(items_router, prefix="/api")
 app.include_router(user_router, prefix="/api")
 app.include_router(records_router, prefix="/api")
+app.include_router(assurance_runs_router, prefix="/api")
 app.include_router(cases_router, prefix="/api")
 app.include_router(runs_router, prefix="/api")
 app.include_router(work_router, prefix="/api")

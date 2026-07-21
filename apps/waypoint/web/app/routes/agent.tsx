@@ -2027,9 +2027,9 @@ function EmptyState() {
     <div className="rounded-md border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center">
       <h3 className="text-base font-semibold text-slate-700">No agent runs yet</h3>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-        Trigger a Validation Orchestrator fan-out (via the Pipeline Mission Control canvas or the local
-        pipeline) and the aggregator will write the run here, grouped by invoice with a
-        grounded decision and per-expert evidence trail.
+        Open an invoice and choose Run assurance, or dispatch the repository operations
+        workflow. Completed runs appear here with a grounded decision and per-expert
+        evidence trail.
       </p>
     </div>
   );

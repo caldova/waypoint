@@ -174,6 +174,15 @@ interface AgentRunRef {
   metadata: { decision?: string; fanout?: FanoutLane[] };
 }
 
+interface AssuranceRunTriggerResult {
+  reused: boolean;
+  run: {
+    id: string;
+    status: string;
+  };
+  foundry_response_id: string | null;
+}
+
 interface AgentCaseEntry {
   case: AssuranceCase;
   recommendation: CaseRecommendation | null;
@@ -331,6 +340,8 @@ export default function Invoices() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [agentContext, setAgentContext] = useState<AgentContext | null>(null);
   const [agentLoading, setAgentLoading] = useState(false);
+  const [triggeringInvoiceId, setTriggeringInvoiceId] = useState<string | null>(null);
+  const [triggerError, setTriggerError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const deepLinkAppliedRef = useRef(false);
@@ -503,6 +514,39 @@ export default function Invoices() {
       cancelled = true;
     };
   }, [auth.status, selectedDecision]);
+
+  const triggerAssurance = useCallback(
+    async (decision: InvoiceDecision) => {
+      setTriggeringInvoiceId(decision.invoice_id);
+      setTriggerError(null);
+      try {
+        const response = await tracedFetch(
+          "triggerInvoiceAssurance",
+          `/api/invoices/${encodeURIComponent(decision.invoice_id)}/assurance-runs`,
+          { method: "POST" },
+        );
+        if (!response.ok) {
+          const body = (await response.json().catch(() => null)) as { detail?: string } | null;
+          throw new Error(body?.detail || `Unable to start assurance (${response.status}).`);
+        }
+        const result = (await response.json()) as AssuranceRunTriggerResult;
+        await fetchDecisions();
+        const params = new URLSearchParams({
+          invoice: decision.invoice_number || decision.invoice_id,
+          run: result.run.id,
+        });
+        if (result.reused) {
+          params.set("reused", "true");
+        }
+        navigate(`/activity?${params.toString()}`);
+      } catch (err) {
+        setTriggerError(err instanceof Error ? err.message : "Unable to start assurance.");
+      } finally {
+        setTriggeringInvoiceId(null);
+      }
+    },
+    [fetchDecisions, navigate],
+  );
 
   useEffect(() => {
     if (auth.status !== "authenticated" || !selectedDecision) {
@@ -1036,6 +1080,16 @@ export default function Invoices() {
                 loading={detailLoading}
                 agentContext={agentContext}
                 agentLoading={agentLoading}
+                triggering={triggeringInvoiceId === selectedDecision.invoice_id}
+                triggerError={triggerError}
+                onRunAssurance={() => void triggerAssurance(selectedDecision)}
+                onViewActivity={() =>
+                  navigate(
+                    `/activity?invoice=${encodeURIComponent(
+                      selectedDecision.invoice_number || selectedDecision.invoice_id,
+                    )}`,
+                  )
+                }
                 onOpenDocument={openDocumentPreview}
                 onOpenPdf={(uri) =>
                   setPreview({
@@ -1534,6 +1588,10 @@ function DecisionDrawer({
   loading,
   agentContext,
   agentLoading,
+  triggering,
+  triggerError,
+  onRunAssurance,
+  onViewActivity,
   onOpenDocument,
   onOpenPdf,
   onClose,
@@ -1543,6 +1601,10 @@ function DecisionDrawer({
   loading: boolean;
   agentContext: AgentContext | null;
   agentLoading: boolean;
+  triggering: boolean;
+  triggerError: string | null;
+  onRunAssurance: () => void;
+  onViewActivity: () => void;
   onOpenDocument: (type: "contract" | "policy", id: string) => void;
   onOpenPdf: (uri: string) => void;
   onClose: () => void;
@@ -1610,6 +1672,26 @@ function DecisionDrawer({
             ) : null}
             <SummaryChip tone="slate">{decision.category}</SummaryChip>
             <SummaryChip tone="slate">{decision.evidence_count} evidence</SummaryChip>
+          </div>
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={decision.has_active_run ? onViewActivity : onRunAssurance}
+              disabled={triggering}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+            >
+              <HiSparkles className={triggering ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
+              {triggering
+                ? "Starting assurance…"
+                : decision.has_active_run
+                  ? "View active run"
+                  : "Run assurance"}
+            </button>
+            {triggerError ? (
+              <p className="mt-2 text-sm text-rose-700" role="alert">
+                {triggerError}
+              </p>
+            ) : null}
           </div>
         </div>
 

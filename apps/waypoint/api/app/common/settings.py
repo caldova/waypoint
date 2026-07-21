@@ -115,10 +115,24 @@ class Settings(BaseSettings):
         description="Comma-separated tables whose ownership transfers to the mirroring role",
     )
 
-    # AI settings (for future Azure AI Foundry integration)
+    # AI settings
     foundry_endpoint: str = Field(
         default="",
         description="Azure AI Foundry project endpoint",
+    )
+    foundry_orchestrator_agent_name: str = Field(
+        default="assurance-orchestrator",
+        description="Server-owned hosted agent used for invoice assurance triggers",
+    )
+    foundry_responses_api_version: str = Field(
+        default="2025-11-15-preview",
+        description="Foundry hosted-agent Responses API version",
+    )
+    foundry_start_timeout_seconds: float = Field(
+        default=60,
+        gt=0,
+        le=120,
+        description="Timeout for starting a Foundry background response",
     )
     azure_openai_endpoint: str = Field(
         default="",

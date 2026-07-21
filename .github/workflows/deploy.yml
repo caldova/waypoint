@@ -600,6 +600,7 @@ jobs:
     needs: [validate, keyvault, deploy-app]
     outputs:
       project_endpoint: ${{ steps.endpoint.outputs.endpoint }}
+      ai_account_id: ${{ steps.endpoint.outputs.ai_account_id }}
       contracts_kb_storage_account: ${{ steps.coords.outputs.storage_account }}
       contracts_kb_container: ${{ steps.coords.outputs.container }}
       contracts_kb_search_endpoint: ${{ steps.coords.outputs.search_endpoint }}
@@ -735,7 +736,13 @@ jobs:
             echo "::error::AZURE_AI_PROJECT_ENDPOINT is unavailable after provisioning. Run with provision_agents=true or set AZURE_AI_PROJECT_ENDPOINT repository variable."
             exit 1
           fi
+          ai_account_id="$(azd env get-value AZURE_AI_ACCOUNT_ID 2>/dev/null || true)"
+          if [ -z "$ai_account_id" ] || printf '%s' "$ai_account_id" | grep -qi 'not found'; then
+            echo "::error::AZURE_AI_ACCOUNT_ID is unavailable after provisioning."
+            exit 1
+          fi
           echo "endpoint=$endpoint" >> "$GITHUB_OUTPUT"
+          echo "ai_account_id=$ai_account_id" >> "$GITHUB_OUTPUT"
         timeout-minutes: 5
 
       - name: Configure Content Understanding model defaults
@@ -1229,6 +1236,85 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # ── wire-app-operations ───────────────────────────────────────────────────────
+  # Let the authenticated Waypoint API start the hosted orchestrator without
+  # exposing Foundry credentials to the browser. The API uses its existing
+  # user-assigned identity and receives only the Foundry User role.
+  wire-app-operations:
+    name: Wire Waypoint seller operations
+    runs-on: ubuntu-latest
+    if: |
+      always() &&
+      inputs.deploy_app &&
+      inputs.deploy_agents &&
+      needs['deploy-app'].result == 'success' &&
+      needs['provision-agents'].result == 'success' &&
+      needs['deploy-agents'].result == 'success'
+    needs: [validate, deploy-app, provision-agents, deploy-agents]
+    steps:
+      - name: Azure login
+        uses: azure/login@v3.0.0
+        with:
+          client-id: ${{ needs.validate.outputs.azure_client_id }}
+          tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
+          subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
+
+      - name: Grant API identity Foundry invocation access
+        env:
+          AI_ACCOUNT_ID: ${{ needs['provision-agents'].outputs.ai_account_id }}
+        run: |
+          set -euo pipefail
+          app_identity="$(az containerapp show --name api --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query identity -o json)"
+          app_principal_id="$(jq -r \
+            '.principalId // ((.userAssignedIdentities // {}) | to_entries[0].value.principalId) // empty' \
+            <<<"$app_identity")"
+          app_client_id="$(jq -r \
+            '((.userAssignedIdentities // {}) | to_entries[0].value.clientId) // empty' \
+            <<<"$app_identity")"
+          if [ -z "$app_principal_id" ] || [ -z "$app_client_id" ]; then
+            echo "::error::The Waypoint API user-assigned identity is incomplete."
+            exit 1
+          fi
+          foundry_user_role="/subscriptions/${{ needs.validate.outputs.azure_subscription_id }}/providers/Microsoft.Authorization/roleDefinitions/53ca6127-db72-4b80-b1b0-d745d6d5456d"
+          existing="$(az role assignment list \
+            --assignee-object-id "$app_principal_id" \
+            --scope "$AI_ACCOUNT_ID" \
+            --query "[?roleDefinitionId=='${foundry_user_role}'].id | [0]" -o tsv)"
+          if [ -z "$existing" ]; then
+            az role assignment create \
+              --assignee-object-id "$app_principal_id" \
+              --assignee-principal-type ServicePrincipal \
+              --role "$foundry_user_role" \
+              --scope "$AI_ACCOUNT_ID" \
+              --output none
+            echo "Granted Foundry User to the Waypoint API identity."
+          else
+            echo "Reused the Waypoint API identity's Foundry User assignment."
+          fi
+          echo "app_client_id=$app_client_id" >> "$GITHUB_ENV"
+
+      - name: Configure API seller-operation endpoint
+        env:
+          PROJECT_ENDPOINT: ${{ needs['provision-agents'].outputs.project_endpoint }}
+        run: |
+          set -euo pipefail
+          az containerapp update \
+            --name api \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --set-env-vars \
+              "APP_FOUNDRY_ENDPOINT=${PROJECT_ENDPOINT}" \
+              "APP_FOUNDRY_ORCHESTRATOR_AGENT_NAME=assurance-orchestrator" \
+              "AZURE_CLIENT_ID=${app_client_id}" \
+            --output none
+          configured_endpoint="$(az containerapp show --name api --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query "properties.template.containers[0].env[?name=='APP_FOUNDRY_ENDPOINT'].value | [0]" \
+            -o tsv)"
+          if [ "$configured_endpoint" != "$PROJECT_ENDPOINT" ]; then
+            echo "::error::Waypoint API Foundry endpoint wiring did not converge."
+            exit 1
+          fi
+
   # ── onelake-upload ────────────────────────────────────────────────────────────
   # Idempotent upload of the ledgerfield corpus (Files + Delta tables) to the
   # provisioned Fabric OneLake lakehouse. Gated on successful Fabric provisioning.
@@ -1373,6 +1459,7 @@ jobs:
       - fabric-provision
       - provision-agents
       - deploy-agents
+      - wire-app-operations
       - onelake-upload
       - contracts-kb-upload
       - seed-import
@@ -1396,6 +1483,7 @@ jobs:
           SELECTED_AGENTS: ${{ needs.validate.outputs.agent_matrix }}
           FABRIC_PROVISION_RESULT: ${{ needs['fabric-provision'].result }}
           AGENT_DEPLOY_RESULT: ${{ needs['deploy-agents'].result }}
+          APP_OPERATIONS_WIRING_RESULT: ${{ needs['wire-app-operations'].result }}
           ONELAKE_UPLOAD_RESULT: ${{ needs['onelake-upload'].result }}
           CONTRACTS_KB_UPLOAD_RESULT: ${{ needs['contracts-kb-upload'].result }}
           SEED_IMPORT_RESULT: ${{ needs['seed-import'].result }}
@@ -1614,6 +1702,7 @@ jobs:
               "stages": {
                   "fabric_provision": os.environ["FABRIC_PROVISION_RESULT"],
                   "agent_deploy": os.environ["AGENT_DEPLOY_RESULT"],
+                  "app_operations_wiring": os.environ["APP_OPERATIONS_WIRING_RESULT"],
                   "agent_inventory": os.environ["AGENT_INVENTORY_RESULT"],
                   "onelake_upload": os.environ["ONELAKE_UPLOAD_RESULT"],
                   "contracts_kb_upload": os.environ["CONTRACTS_KB_UPLOAD_RESULT"],
@@ -1655,6 +1744,11 @@ jobs:
                   issues.append(
                       "Agent deployment did not succeed: "
                       + os.environ["AGENT_DEPLOY_RESULT"]
+                  )
+              if os.environ["APP_OPERATIONS_WIRING_RESULT"] != "success":
+                  issues.append(
+                      "Waypoint seller-operation wiring did not succeed: "
+                      + os.environ["APP_OPERATIONS_WIRING_RESULT"]
                   )
           if os.environ["FABRIC_PROVISION_ENABLED"] == "true":
               for stage, result in (

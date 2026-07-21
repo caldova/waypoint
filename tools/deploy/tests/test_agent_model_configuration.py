@@ -231,6 +231,44 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("AZURE_CLIENT_ID=", fabric)
         self.assertIn("has no resolvable managed identity", fabric)
 
+    def test_seller_operations_use_api_identity_and_foundry_account_scope(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        provision = workflow.split("  provision-agents:", 1)[1].split(
+            "  # ── deploy-agents", 1
+        )[0]
+        wiring = workflow.split("  wire-app-operations:", 1)[1].split(
+            "  # ── onelake-upload", 1
+        )[0]
+
+        self.assertIn("ai_account_id: ${{ steps.endpoint.outputs.ai_account_id }}", provision)
+        self.assertIn("AZURE_AI_ACCOUNT_ID", provision)
+        self.assertIn(
+            "53ca6127-db72-4b80-b1b0-d745d6d5456d",
+            wiring,
+        )
+        self.assertIn('--scope "$AI_ACCOUNT_ID"', wiring)
+        self.assertIn("APP_FOUNDRY_ENDPOINT=${PROJECT_ENDPOINT}", wiring)
+        self.assertIn(
+            "APP_FOUNDRY_ORCHESTRATOR_AGENT_NAME=assurance-orchestrator",
+            wiring,
+        )
+        self.assertIn("AZURE_CLIENT_ID=${app_client_id}", wiring)
+
+    def test_acceptance_requires_seller_operation_wiring(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        acceptance = workflow.split("  acceptance:", 1)[1]
+
+        self.assertIn("- wire-app-operations", acceptance)
+        self.assertIn(
+            "APP_OPERATIONS_WIRING_RESULT: ${{ needs['wire-app-operations'].result }}",
+            acceptance,
+        )
+        self.assertIn(
+            'if os.environ["APP_OPERATIONS_WIRING_RESULT"] != "success":',
+            acceptance,
+        )
+        self.assertIn("Waypoint seller-operation wiring did not succeed", acceptance)
+
 
 if __name__ == "__main__":
     unittest.main()

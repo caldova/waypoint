@@ -30,6 +30,17 @@ class RunsService:
         *,
         actor: str,
     ) -> AgentRun:
+        run, _created = await self.create_or_reuse_agent_run(run_create, actor=actor)
+        return run
+
+    async def create_or_reuse_agent_run(
+        self,
+        run_create: AgentRunCreate,
+        *,
+        actor: str,
+    ) -> tuple[AgentRun, bool]:
+        """Create a run anchor or return the matching idempotent/active anchor."""
+
         if run_create.case_id and not await self.repository.get_case(run_create.case_id):
             raise ValueError(f"Case '{run_create.case_id}' not found.")
         now = _now()
@@ -44,8 +55,8 @@ class RunsService:
             candidate, ACTIVE_RUN_STATUSES
         )
         if created:
-            return run
-        return await self._reuse_run(run, run_create)
+            return run, True
+        return await self._reuse_run(run, run_create), False
 
     async def _reuse_run(self, existing: AgentRun, run_create: AgentRunCreate) -> AgentRun:
         """Return an existing anchor and backfill correlation ids that are still absent."""
