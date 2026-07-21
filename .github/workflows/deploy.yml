@@ -441,7 +441,24 @@ jobs:
           export Parameters__postgres_app_password="$pg_app"
           export Parameters__postgres_admin_password="$pg_admin"
           export Parameters__api_keys="$api_keys"
-          aspire deploy --non-interactive
+          set +e
+          max_attempts=3
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "::group::aspire deploy attempt $attempt / $max_attempts"
+            aspire deploy --non-interactive 2>&1 | tee aspire-deploy.log
+            deploy_exit=${PIPESTATUS[0]}
+            echo "::endgroup::"
+            if [ "$deploy_exit" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$attempt" -eq "$max_attempts" ] || ! grep -Eqi \
+              'connect: connection refused|connection reset by peer|TLS handshake timeout|unexpected EOF|i/o timeout|temporarily unavailable|status code (429|5[0-9]{2})' \
+              aspire-deploy.log; then
+              exit "$deploy_exit"
+            fi
+            echo "::warning::Transient Azure/registry failure; retrying idempotent Aspire deploy."
+            sleep $((20 * attempt))
+          done
 
       - name: Apply deployed MSAL redirect
         env:

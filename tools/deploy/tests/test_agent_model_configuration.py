@@ -168,6 +168,20 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn('--invoice-id "$e2e_invoice_id"', acceptance)
         self.assertNotIn("INV-SUP-001-2026-10", acceptance)
 
+    def test_app_deploy_retries_transient_registry_failures(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        deploy_app = workflow.split("  deploy-app:", 1)[1].split(
+            "  # ── provision-agents", 1
+        )[0]
+
+        self.assertIn("max_attempts=3", deploy_app)
+        self.assertIn(
+            "aspire deploy --non-interactive 2>&1 | tee aspire-deploy.log",
+            deploy_app,
+        )
+        self.assertIn("connect: connection refused", deploy_app)
+        self.assertIn("Transient Azure/registry failure", deploy_app)
+
 
 if __name__ == "__main__":
     unittest.main()
