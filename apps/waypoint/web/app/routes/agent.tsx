@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   HiChevronDown,
   HiChevronRight,
-  HiClipboardCheck,
   HiClock,
   HiCube,
   HiDatabase,
@@ -147,7 +146,7 @@ const IQ_META: Record<IqKey, IqMeta> = {
   fabriciq: {
     key: "fabriciq",
     label: "FabricIQ",
-    agent: "Accounting Data Expert",
+    agent: "Operations Data Expert",
     tool: "Microsoft Fabric",
     icon: HiDatabase,
     img: "/iq/fabric-iq.png",
@@ -210,36 +209,55 @@ const IQ_META: Record<IqKey, IqMeta> = {
   },
 };
 
-// Order the four canonical IQs deterministically for the sidebar.
+// Order the canonical IQs deterministically for the sidebar.
 const IQ_ORDER: IqKey[] = ["fabriciq", "foundryiq", "webiq", "workiq"];
 
-// Left-to-right order the experts fan out in the run graph (matches forge's
-// Pipeline Mission Control topology column).
-const FANOUT_EXPERTS: IqKey[] = ["workiq", "webiq", "foundryiq", "fabriciq"];
-
 function iqKeyForLane(lane: FanoutLane): IqKey {
-  const raw = (lane.plane ?? lane.agent ?? "").toLowerCase();
-  if (raw.includes("fabric")) return "fabriciq";
-  if (raw.includes("foundry")) return "foundryiq";
-  if (raw.includes("web") || raw.includes("regulator")) return "webiq";
+  const raw = `${lane.plane ?? ""} ${lane.agent ?? ""}`.toLowerCase();
+  if (raw.includes("fabric") || raw.includes("operations-data")) return "fabriciq";
+  if (raw.includes("foundry") || raw.includes("contract-policy")) return "foundryiq";
+  if (raw.includes("webiq") || raw.includes("market-evidence") || raw.includes("regulator")) {
+    return "webiq";
+  }
   if (
-    raw.includes("work") ||
-    raw.includes("contract") ||
-    raw.includes("policy") ||
-    raw.includes("document") ||
-    raw.includes("finance")
+    raw.includes("workiq") ||
+    raw.includes("collaboration-evidence") ||
+    raw.includes("microsoft 365")
   ) {
     return "workiq";
   }
   return "other";
 }
 
+function isAnalystLane(lane: FanoutLane): boolean {
+  return [lane.agent, lane.plane].some((value) => {
+    const identifier = (value ?? "").trim().toLowerCase().replace(/[\s_]+/g, "-");
+    return identifier === "invoice-analyst" || identifier === "assurance-analyst";
+  });
+}
+
+function citedEvidence(lane: FanoutLane): FanoutEvidence[] {
+  return Array.isArray(lane.evidence)
+    ? lane.evidence.filter(
+        (item) => typeof item.source_ref === "string" && item.source_ref.trim().length > 0,
+      )
+    : [];
+}
+
+function isEvidenceLane(lane: FanoutLane): boolean {
+  return !isAnalystLane(lane) && citedEvidence(lane).length > 0;
+}
+
+function evidenceFanout(metadata: RunMetadata): FanoutLane[] {
+  return Array.isArray(metadata.fanout) ? metadata.fanout.filter(isEvidenceLane) : [];
+}
+
 function laneClaimCount(lane: FanoutLane): number {
-  return Array.isArray(lane.evidence) ? lane.evidence.length : 0;
+  return citedEvidence(lane).length;
 }
 
 function laneAvgConfidence(lane: FanoutLane): number | null {
-  const items = (lane.evidence ?? []).filter((item) => typeof item.confidence === "number");
+  const items = citedEvidence(lane).filter((item) => typeof item.confidence === "number");
   if (items.length === 0) {
     return null;
   }
@@ -313,12 +331,8 @@ function buildInvoiceGroups(runs: AgentRun[]): InvoiceGroup[] {
     );
     const latestRun = sorted[0];
     const latestMeta = latestRun.metadata ?? {};
-    const fanout = Array.isArray(latestMeta.fanout) ? latestMeta.fanout : [];
-    // Only surface experts that actually returned claims — a consulted-but-empty
-    // lane (e.g. WorkIQ with 0 claims) should not earn a pill.
-    const iqKeys = Array.from(
-      new Set(fanout.filter((lane) => laneClaimCount(lane) > 0).map(iqKeyForLane)),
-    );
+    const fanout = evidenceFanout(latestMeta);
+    const iqKeys = Array.from(new Set(fanout.map(iqKeyForLane)));
     groups.push({
       key,
       label: invoiceLabelFor(latestRun),
@@ -364,7 +378,7 @@ function buildIqStats(runs: AgentRun[], groups: InvoiceGroup[]): IqStat[] {
 
   // How many times each IQ ran + claims it contributed, across every run.
   for (const run of runs) {
-    const fanout = Array.isArray(run.metadata?.fanout) ? run.metadata.fanout : [];
+    const fanout = evidenceFanout(run.metadata ?? {});
     const seen = new Set<IqKey>();
     for (const lane of fanout) {
       const key = iqKeyForLane(lane);
@@ -396,7 +410,7 @@ function buildIqStats(runs: AgentRun[], groups: InvoiceGroup[]): IqStat[] {
     claimCount: claimCount[key],
     moneyAtRisk: moneyAtRisk[key],
     avgConfidence: confidenceCount[key] > 0 ? confidenceSum[key] / confidenceCount[key] : null,
-  }));
+  })).filter((stat) => stat.runCount > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -641,7 +655,7 @@ export default function Agent() {
                     Work done by invoice
                   </h1>
                   <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                    Every Validation Orchestrator fan-out is grouped by the invoice it assured. Each row rolls
+                    Every Assurance Orchestrator run is grouped by the invoice it assured. Each row rolls
                     up how many times the experts ran, the current decision, and money at risk.
                     Open a run to see the IQ-by-IQ evidence trail of what it found.
                   </p>
@@ -721,11 +735,17 @@ export default function Agent() {
                   How often each expert ran across all work, and the evidence each
                   contributed to the decision.
                 </p>
-                <ul className="mt-2.5 space-y-2">
-                  {iqStats.map((stat) => (
-                    <IqUsageTile key={stat.meta.key} stat={stat} />
-                  ))}
-                </ul>
+                {iqStats.length > 0 ? (
+                  <ul className="mt-2.5 space-y-2">
+                    {iqStats.map((stat) => (
+                      <IqUsageTile key={stat.meta.key} stat={stat} />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2.5 rounded-md border border-dashed border-slate-200 bg-slate-50/60 p-2.5 text-xs leading-5 text-slate-500">
+                    No expert contributed cited evidence in the selected runs.
+                  </p>
+                )}
               </section>
 
               <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
@@ -1294,10 +1314,8 @@ function RunRow({
   onOpen: () => void;
 }) {
   const meta = run.metadata ?? {};
-  const fanout = Array.isArray(meta.fanout) ? meta.fanout : [];
-  const iqKeys = Array.from(
-    new Set(fanout.filter((lane) => laneClaimCount(lane) > 0).map(iqKeyForLane)),
-  );
+  const fanout = evidenceFanout(meta);
+  const iqKeys = Array.from(new Set(fanout.map(iqKeyForLane)));
   return (
     <li>
       <button
@@ -1347,7 +1365,7 @@ function RunRow({
 
 function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
   const meta = run.metadata ?? {};
-  const fanout = Array.isArray(meta.fanout) ? meta.fanout : [];
+  const fanout = evidenceFanout(meta);
   const invoiceLabel = meta.invoice_number || meta.invoice_id || run.name;
 
   useEffect(() => {
@@ -1494,30 +1512,29 @@ function TelemetryRow({ label, value }: { label: string; value: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Fan-out graph — Validation Orchestrator → IQ experts → aggregator (forge-style topology)
+// Fan-out graph — invoice intake → Assurance Orchestrator → evidence experts → Waypoint Recorder
 // ---------------------------------------------------------------------------
 
 interface ExpertNode {
-  key: IqKey;
+  key: string;
   meta: IqMeta;
+  agentLabel: string;
+  planeLabel: string;
   claims: number;
   confidence: number | null;
-  active: boolean;
 }
 
-// Vertical placement (as a fraction of the SVG height) for each stacked expert.
-const EXPERT_Y = [12, 37, 63, 88];
-const CU_X = 7; // Content Understanding (invoice intake)
-const ORCHESTRATOR_X = 25;
-const EXPERT_X = 50;
-const AGG_X = 73;
-const RECORDER_X = 92; // Validation Result Recorder (writes to Waypoint)
+const INTAKE_X = 8;
+const ORCHESTRATOR_X = 30;
+const EXPERT_X = 58;
+const RECORDER_X = 89;
 const MID_Y = 50;
-const BACKBONE = "#2563eb"; // always-on intake/write path
+const BACKBONE = "#2563eb";
 
-// Fixed logical size of the pipeline "stage" that gets scaled/panned as a unit.
+// Logical pipeline stage bounds, scaled and panned as a unit.
 const STAGE_W = 1040;
-const STAGE_H = 380;
+const BASE_STAGE_H = 380;
+const EXPERT_ROW_H = 96;
 const MIN_SCALE = 0.4;
 const MAX_SCALE = 2.5;
 
@@ -1525,7 +1542,7 @@ const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
 type ViewTransform = { scale: number; x: number; y: number };
 
-function usePanZoom() {
+function usePanZoom(stageHeight: number) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<ViewTransform>({ scale: 1, x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -1538,13 +1555,13 @@ function usePanZoom() {
     const w = el.clientWidth;
     const h = el.clientHeight;
     if (!w || !h) return;
-    const scale = Math.min(1, w / STAGE_W);
+    const scale = Math.min(1, w / STAGE_W, h / stageHeight);
     setView({
       scale,
       x: (w - STAGE_W * scale) / 2,
-      y: (h - STAGE_H * scale) / 2,
+      y: (h - stageHeight * scale) / 2,
     });
-  }, []);
+  }, [stageHeight]);
 
   // Fit once on mount (and when the viewport first gets a real size).
   useEffect(() => {
@@ -1658,40 +1675,54 @@ function FanoutGraph({
   moneyAtRisk: number | undefined;
   confidence: number | undefined;
 }) {
-  const laneByKey = useMemo(() => {
-    const map = new Map<IqKey, FanoutLane>();
-    for (const lane of fanout) {
-      const key = iqKeyForLane(lane);
-      if (!map.has(key)) map.set(key, lane);
-    }
-    return map;
-  }, [fanout]);
-
   const experts: ExpertNode[] = useMemo(
     () =>
-      FANOUT_EXPERTS.map((key) => {
-        const lane = laneByKey.get(key);
-        const claims = lane ? laneClaimCount(lane) : 0;
+      fanout.map((lane, index) => {
+        const meta = IQ_META[iqKeyForLane(lane)];
+        const rawLabel = lane.agent || lane.plane || `Evidence expert ${index + 1}`;
+        const humanizedLabel = rawLabel
+          .replace(/[-_]+/g, " ")
+          .replace(/\b\w/g, (letter) => letter.toUpperCase())
+          .replace(/\bIq\b/g, "IQ");
         return {
-          key,
-          meta: IQ_META[key],
-          claims,
-          confidence: lane ? laneAvgConfidence(lane) : null,
-          active: claims > 0,
+          key: `${lane.agent ?? lane.plane ?? "lane"}-${index}`,
+          meta,
+          agentLabel: meta.key === "other" ? humanizedLabel : meta.agent,
+          planeLabel:
+            meta.key === "other"
+              ? (lane.plane || "Evidence source")
+                  .replace(/[-_]+/g, " ")
+                  .replace(/\b\w/g, (letter) => letter.toUpperCase())
+                  .replace(/\bIq\b/g, "IQ")
+              : meta.label,
+          claims: laneClaimCount(lane),
+          confidence: laneAvgConfidence(lane),
         };
       }),
-    [laneByKey],
+    [fanout],
   );
 
-  const activeCount = experts.filter((expert) => expert.active).length;
-  const pz = usePanZoom();
+  const stageHeight = Math.max(BASE_STAGE_H, experts.length * EXPERT_ROW_H + 80);
+  const expertY = useMemo(() => {
+    if (experts.length === 0) return [];
+    if (experts.length === 1) return [MID_Y];
+    const edgePadding = 56;
+    const usableHeight = stageHeight - edgePadding * 2;
+    return experts.map(
+      (_, index) => ((edgePadding + (usableHeight * index) / (experts.length - 1)) / stageHeight) * 100,
+    );
+  }, [experts, stageHeight]);
+  const pz = usePanZoom(stageHeight);
+  const expertNames = experts.map((expert) => expert.agentLabel).join(", ");
 
   return (
     <div>
       <div className="flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-800">Assurance pipeline</h3>
         <span className="text-xs text-slate-400">
-          {activeCount} of {experts.length} experts returned evidence
+          {experts.length === 0
+            ? "No experts contributed cited evidence"
+            : `${experts.length} ${experts.length === 1 ? "expert" : "experts"} contributed evidence`}
         </span>
       </div>
 
@@ -1736,13 +1767,17 @@ function FanoutGraph({
           onPointerUp={pz.endDrag}
           onPointerCancel={pz.endDrag}
           role="img"
-          aria-label="Content Understanding feeds Validation Orchestrator, which fans out to expert agents connected to their IQ tools; the aggregator decides and Validation Result Recorder writes to Waypoint"
+          aria-label={`Invoice intake feeds Assurance Orchestrator, which ${
+            experts.length > 0
+              ? `uses cited evidence from ${expertNames}`
+              : "recorded no cited expert evidence"
+          }; Waypoint Recorder writes the governed result to Waypoint`}
         >
           <div
             className="absolute left-0 top-0 origin-top-left"
             style={{
               width: STAGE_W,
-              height: STAGE_H,
+              height: stageHeight,
               transform: `translate(${pz.view.x}px, ${pz.view.y}px) scale(${pz.view.scale})`,
             }}
           >
@@ -1768,9 +1803,9 @@ function FanoutGraph({
             preserveAspectRatio="none"
             aria-hidden="true"
           >
-            {/* Content Understanding → orchestrator (always-on intake) */}
+            {/* invoice intake → orchestrator */}
             <path
-              d={`M ${CU_X} ${MID_Y} L ${ORCHESTRATOR_X} ${MID_Y}`}
+              d={`M ${INTAKE_X} ${MID_Y} L ${ORCHESTRATOR_X} ${MID_Y}`}
               fill="none"
               stroke={BACKBONE}
               strokeWidth={2}
@@ -1779,100 +1814,82 @@ function FanoutGraph({
               vectorEffect="non-scaling-stroke"
               className="fg-flow"
             />
-            {/* orchestrator → experts → aggregator (fan-out) */}
+            {/* orchestrator → evidence experts → recorder */}
             {experts.map((expert, index) => {
-              const ey = EXPERT_Y[index];
-              const stroke = expert.active ? expert.meta.hex : "#cbd5e1";
+              const ey = expertY[index];
               return (
                 <g key={expert.key}>
                   <path
-                    d={`M ${ORCHESTRATOR_X} ${MID_Y} C 39 ${MID_Y}, 37 ${ey}, ${EXPERT_X} ${ey}`}
+                    d={`M ${ORCHESTRATOR_X} ${MID_Y} C 42 ${MID_Y}, 43 ${ey}, ${EXPERT_X} ${ey}`}
                     fill="none"
-                    stroke={stroke}
+                    stroke={expert.meta.hex}
                     strokeWidth={2}
-                    strokeOpacity={expert.active ? 0.9 : 0.5}
-                    strokeDasharray={expert.active ? "5 7" : "3 5"}
+                    strokeOpacity={0.9}
+                    strokeDasharray="5 7"
                     vectorEffect="non-scaling-stroke"
-                    className={expert.active ? "fg-flow" : ""}
+                    className="fg-flow"
                   />
                   <path
-                    d={`M ${EXPERT_X} ${ey} C 63 ${ey}, 63 ${MID_Y}, ${AGG_X} ${MID_Y}`}
+                    d={`M ${EXPERT_X} ${ey} C 73 ${ey}, 76 ${MID_Y}, ${RECORDER_X} ${MID_Y}`}
                     fill="none"
-                    stroke={stroke}
+                    stroke={expert.meta.hex}
                     strokeWidth={2}
-                    strokeOpacity={expert.active ? 0.9 : 0.35}
-                    strokeDasharray={expert.active ? "5 7" : "3 5"}
+                    strokeOpacity={0.9}
+                    strokeDasharray="5 7"
                     vectorEffect="non-scaling-stroke"
-                    className={expert.active ? "fg-flow fg-flow-in" : ""}
+                    className="fg-flow fg-flow-in"
                   />
                 </g>
               );
             })}
-            {/* aggregator → Validation Result Recorder (always-on write path) */}
-            <path
-              d={`M ${AGG_X} ${MID_Y} L ${RECORDER_X} ${MID_Y}`}
-              fill="none"
-              stroke={BACKBONE}
-              strokeWidth={2}
-              strokeOpacity={0.85}
-              strokeDasharray="5 7"
-              vectorEffect="non-scaling-stroke"
-              className="fg-flow fg-flow-out"
-            />
+            {experts.length === 0 ? (
+              <path
+                d={`M ${ORCHESTRATOR_X} ${MID_Y} L ${RECORDER_X} ${MID_Y}`}
+                fill="none"
+                stroke={BACKBONE}
+                strokeWidth={2}
+                strokeOpacity={0.85}
+                strokeDasharray="5 7"
+                vectorEffect="non-scaling-stroke"
+                className="fg-flow fg-flow-out"
+              />
+            ) : null}
           </svg>
 
-          {/* Content Understanding — invoice intake */}
-          <GraphNodePositioned x={CU_X} y={MID_Y}>
+          {/* invoice intake */}
+          <GraphNodePositioned x={INTAKE_X} y={MID_Y}>
             <div className="flex w-[134px] flex-col items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-center shadow-sm">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
                 <HiDocumentText className="h-5 w-5" />
               </span>
-              <span className="text-xs font-semibold leading-tight text-slate-800">
+              <span className="text-xs font-semibold leading-tight text-slate-800">Invoice intake</span>
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">
                 Content Understanding
               </span>
-              <span className="text-[10px] uppercase tracking-wide text-slate-400">invoice intake</span>
               <span className="text-[10px] text-slate-400">prebuilt-invoice</span>
             </div>
           </GraphNodePositioned>
 
-          {/* Validation Orchestrator coordinator */}
+          {/* Assurance Orchestrator coordinator */}
           <GraphNodePositioned x={ORCHESTRATOR_X} y={MID_Y}>
-            <div className="fg-pulse flex w-[118px] flex-col items-center gap-1 rounded-lg border border-blue-200 bg-white px-2.5 py-2 text-center shadow-sm ring-1 ring-blue-100">
+            <div className="fg-pulse flex w-[154px] flex-col items-center gap-1 rounded-lg border border-blue-200 bg-white px-2.5 py-2 text-center shadow-sm ring-1 ring-blue-100">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
                 <HiCube className="h-5 w-5" />
               </span>
               <span className="text-xs font-semibold leading-tight text-slate-800">
-                Validation Orchestrator
+                Assurance Orchestrator
               </span>
               <span className="text-[10px] uppercase tracking-wide text-blue-700">coordinator</span>
-            </div>
-          </GraphNodePositioned>
-
-          {/* IQ experts */}
-          {experts.map((expert, index) => (
-            <GraphNodePositioned key={expert.key} x={EXPERT_X} y={EXPERT_Y[index]}>
-              <ExpertGraphNode expert={expert} />
-            </GraphNodePositioned>
-          ))}
-
-          {/* aggregator — fuse evidence + decide */}
-          <GraphNodePositioned x={AGG_X} y={MID_Y}>
-            <div className="flex w-[130px] flex-col items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-center shadow-sm">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                <HiClipboardCheck className="h-5 w-5" />
-              </span>
-              <span className="text-sm font-semibold text-slate-800">aggregator</span>
-              <span className="text-[10px] uppercase tracking-wide text-slate-400">
-                fuse · decide
-              </span>
               <span
                 className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase capitalize ring-1 ${decisionStyle(decision)}`}
               >
                 {decision}
               </span>
-              <span className="text-[11px] font-semibold text-emerald-700">
-                {formatMoney(moneyAtRisk)}
-              </span>
+              {typeof moneyAtRisk === "number" && moneyAtRisk > 0 ? (
+                <span className="text-[11px] font-semibold text-emerald-700">
+                  {formatMoney(moneyAtRisk)} at risk
+                </span>
+              ) : null}
               {typeof confidence === "number" ? (
                 <span className="text-[10px] text-slate-400">
                   {Math.round(confidence * 100)}% confidence
@@ -1881,17 +1898,24 @@ function FanoutGraph({
             </div>
           </GraphNodePositioned>
 
-          {/* Validation Result Recorder — final policy check + write */}
+          {/* Evidence experts */}
+          {experts.map((expert, index) => (
+            <GraphNodePositioned key={expert.key} x={EXPERT_X} y={expertY[index]}>
+              <ExpertGraphNode expert={expert} />
+            </GraphNodePositioned>
+          ))}
+
+          {/* Waypoint Recorder — sole Waypoint writer */}
           <GraphNodePositioned x={RECORDER_X} y={MID_Y}>
             <div className="flex w-[142px] flex-col items-center gap-1 rounded-lg border border-emerald-200 bg-white px-2.5 py-2 text-center shadow-sm ring-1 ring-emerald-100">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
                 <HiDatabase className="h-5 w-5" />
               </span>
               <span className="text-xs font-semibold leading-tight text-slate-800">
-                Validation Result Recorder
+                Waypoint Recorder
               </span>
               <span className="text-[10px] uppercase tracking-wide text-emerald-700">
-                writes to Waypoint
+                sole Waypoint writer
               </span>
               <span className="text-[10px] leading-tight text-slate-400">
                 run · case · recommendation
@@ -1902,10 +1926,10 @@ function FanoutGraph({
         </div>
       </div>
       <p className="mt-1.5 text-xs leading-5 text-slate-400">
-        Invoice PDFs are extracted by Content Understanding, then Validation Orchestrator fans out to
-        each expert agent (each connected to its Microsoft IQ tool). The aggregator fuses the evidence
-        into a decision, and Validation Result Recorder runs the final policy check before writing the run,
-        case, and recommendation to Waypoint. Experts that returned no evidence are dimmed.
+        This diagram reflects cited evidence recorded for this run. Invoice intake is coordinated by
+        Assurance Orchestrator, which uses the experts shown above to gather evidence and fuse a
+        decision. Waypoint Recorder is the sole writer of the governed run, case, and recommendation.
+        Experts without cited run evidence are not shown.
       </p>
     </div>
   );
@@ -1934,26 +1958,20 @@ function ExpertGraphNode({ expert }: { expert: ExpertNode }) {
   const { meta } = expert;
   return (
     <div
-      className={`flex w-[224px] flex-col gap-1.5 rounded-lg border bg-white px-2.5 py-2 shadow-sm transition ${
-        expert.active ? `${meta.ring} ring-1` : "opacity-55"
-      }`}
-      style={expert.active ? { borderColor: meta.hex } : { borderColor: "#e2e8f0" }}
+      className={`flex w-[224px] flex-col gap-1.5 rounded-lg border bg-white px-2.5 py-2 shadow-sm ring-1 ${meta.ring}`}
+      style={{ borderColor: meta.hex }}
     >
       {/* Agent (forge expert persona) */}
       <div className="flex items-center gap-2">
         <span className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
           <HiUserGroup className="h-4 w-4" />
-          {expert.active ? (
-            <span
-              className="fg-blink absolute -right-1 -top-1 h-2 w-2 rounded-full ring-2 ring-white"
-              style={{ backgroundColor: meta.hex }}
-            />
-          ) : null}
+          <span
+            className="fg-blink absolute -right-1 -top-1 h-2 w-2 rounded-full ring-2 ring-white"
+            style={{ backgroundColor: meta.hex }}
+          />
         </span>
         <div className="min-w-0">
-          <div className="text-xs font-semibold leading-snug text-slate-800">
-            {meta.agent}
-          </div>
+          <div className="text-xs font-semibold leading-snug text-slate-800">{expert.agentLabel}</div>
           <div className="text-[10px] uppercase tracking-wide text-slate-400">expert</div>
         </div>
       </div>
@@ -1961,22 +1979,14 @@ function ExpertGraphNode({ expert }: { expert: ExpertNode }) {
       {/* Connected tool (IQ plane) */}
       <div
         className="flex items-center gap-1.5 rounded-md border border-slate-100 bg-slate-50/70 px-1.5 py-1"
-        title={`Connected to ${meta.tool || meta.label}`}
+        title={`Connected to ${meta.tool || expert.planeLabel}`}
       >
         <IqLogo meta={meta} size="h-5 w-5" />
         <div className="min-w-0 leading-tight">
-          <div className={`text-[11px] font-semibold ${expert.active ? meta.text : "text-slate-500"}`}>
-            {meta.label}
-          </div>
+          <div className={`text-[11px] font-semibold ${meta.text}`}>{expert.planeLabel}</div>
           <div className="truncate text-[10px] text-slate-400">
-            {expert.active ? (
-              <>
-                {expert.claims} {expert.claims === 1 ? "citation" : "citations"}
-                {expert.confidence !== null ? ` · ${Math.round(expert.confidence * 100)}%` : ""}
-              </>
-            ) : (
-              "no evidence"
-            )}
+            {expert.claims} {expert.claims === 1 ? "citation" : "citations"}
+            {expert.confidence !== null ? ` · ${Math.round(expert.confidence * 100)}%` : ""}
           </div>
         </div>
       </div>
@@ -1985,7 +1995,7 @@ function ExpertGraphNode({ expert }: { expert: ExpertNode }) {
 }
 
 function ExpertLane({ lane }: { lane: FanoutLane }) {
-  const evidence = Array.isArray(lane.evidence) ? lane.evidence : [];
+  const evidence = citedEvidence(lane);
   const meta = IQ_META[iqKeyForLane(lane)];
   return (
     <li className="rounded-md border border-slate-200 bg-white p-2.5">
