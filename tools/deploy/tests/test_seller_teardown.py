@@ -225,9 +225,9 @@ class SellerTeardownTests(unittest.TestCase):
         self.assertIn("rg-state", state["groups"])
         self.assertIn("seller-test", state["azd"])
 
-    def test_environment_deletion_timeout_preserves_state_and_azd(self) -> None:
+    def test_app_group_deletion_timeout_preserves_state_and_azd(self) -> None:
         state = base_state()
-        state["stuck_environment"] = "starter-env"
+        state["stuck_group"] = "rg-app"
         result, state = self.run_case(
             state,
             "--apply",
@@ -325,8 +325,7 @@ elif args[:4] == ["containerapp", "env", "dotnet-component", "delete"]:
 elif args[:3] == ["containerapp", "env", "delete"]:
     group = state["groups"][args[args.index("--resource-group") + 1]]
     name = args[args.index("--name") + 1]
-    if state.get("stuck_environment") != name:
-        group["resources"] = [item for item in group["resources"] if item["name"] != name]
+    group["resources"] = [item for item in group["resources"] if item["name"] != name]
 elif args[:3] == ["containerapp", "env", "show"]:
     group = state["groups"].get(args[args.index("--resource-group") + 1], {})
     name = args[args.index("--name") + 1]
@@ -351,6 +350,8 @@ elif args[:2] == ["group", "delete"]:
     if state.get("fail_group") == name:
         code = 1
         print("simulated failure", file=sys.stderr)
+    elif state.get("stuck_group") == name:
+        pass
     else:
         group = state["groups"].pop(name, None)
         for resource in (group or {}).get("resources", []):

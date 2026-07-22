@@ -275,23 +275,6 @@ def delete_app_dependencies(resource_group: str, resources: list[dict[str, str]]
                 "--no-wait",
             ]
         )
-        wait_for_cli_absence(
-            f"Container Apps environment {environment_name}",
-            [
-                [
-                    "az",
-                    "containerapp",
-                    "env",
-                    "show",
-                    "--resource-group",
-                    resource_group,
-                    "--name",
-                    environment_name,
-                    "--output",
-                    "none",
-                ]
-            ],
-        )
 
 
 def delete_group(name: str) -> None:
