@@ -211,12 +211,13 @@ def _hosted_agent_env_summary(project_endpoint: str, agent_name: str) -> dict[st
 
 
 def _az_access_token(scope: str) -> str:
+    resource = scope.removesuffix(".default")
     result = _run_az(
         [
             "account",
             "get-access-token",
-            "--scope",
-            scope,
+            "--resource",
+            resource,
             "--query",
             "accessToken",
             "-o",

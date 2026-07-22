@@ -239,13 +239,14 @@ def _az_executable() -> str:
 
 
 def _az_access_token(scope: str) -> str:
+    resource = scope.removesuffix(".default")
     completed = subprocess.run(
         [
             _az_executable(),
             "account",
             "get-access-token",
-            "--scope",
-            scope,
+            "--resource",
+            resource,
             "--query",
             "accessToken",
             "-o",
