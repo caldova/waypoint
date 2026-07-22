@@ -32,16 +32,31 @@ def test_invalid_lineage_status_rejected() -> None:
         evaluate_gates(operation="rft_submit", lineage_status="not-a-real-status")
 
 
-@pytest.mark.parametrize("status", ["current", "reference_only"])
-def test_lineage_fresh_passes_for_current_or_reference_only(status: str) -> None:
-    result = evaluate_gates(operation="rft_submit", lineage_status=status)
+def test_lineage_fresh_passes_only_for_current() -> None:
+    result = evaluate_gates(operation="rft_submit", lineage_status="current")
     assert result["gates"]["lineage_fresh"]["ok"] is True
 
 
-@pytest.mark.parametrize("status", ["stale", "unverifiable"])
-def test_lineage_fresh_fails_for_stale_or_unverifiable(status: str) -> None:
+@pytest.mark.parametrize("status", ["reference_only", "stale", "unverifiable"])
+def test_lineage_fresh_fails_for_unqualified_status(status: str) -> None:
     result = evaluate_gates(operation="rft_submit", lineage_status=status)
     assert result["gates"]["lineage_fresh"]["ok"] is False
+
+
+def test_reference_only_evidence_cannot_authorize_rft_submit() -> None:
+    result = evaluate_gates(
+        operation="rft_submit",
+        review_approved=True,
+        lineage_status="reference_only",
+        model_ready=True,
+        quota_ready=True,
+        spend_confirmed=True,
+        required_approver_role="eng-lead",
+        approvals=[{"approver": "alice", "role": "eng-lead"}],
+    )
+
+    assert result["allowed"] is False
+    assert result["blocking_reasons"] == ["lineage_fresh"]
 
 
 def test_all_gates_open_allows_operation() -> None:

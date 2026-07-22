@@ -16,10 +16,10 @@ from __future__ import annotations
 
 from typing import Any
 
-#: Lineage verification statuses that are acceptable for gating purposes.
-#: `stale` and `unverifiable` are deliberately excluded: a gate must not pass
-#: on lineage evidence that cannot be proven fresh.
-ACCEPTABLE_LINEAGE_STATUSES = {"current", "reference_only"}
+#: Only re-verifiable current lineage can authorize a governed mutation.
+#: Reference-only evidence remains useful for historical comparison, but its
+#: source assets cannot qualify an optimizer apply, RFT submit, or promotion.
+ACCEPTABLE_LINEAGE_STATUSES = {"current"}
 
 GATE_NAMES = (
     "review_approved",
@@ -83,7 +83,7 @@ def evaluate_gates(
             lineage_ok,
             f"Lineage status is '{lineage_status}'."
             if lineage_ok
-            else f"Lineage status '{lineage_status}' is not current or reference_only.",
+            else f"Lineage status '{lineage_status}' is not current.",
         ),
         "model_ready": _gate(
             "model_ready",

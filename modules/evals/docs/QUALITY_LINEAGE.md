@@ -107,7 +107,7 @@ allowed):
 | Gate | Passes when |
 | --- | --- |
 | `review_approved` | `--review-approved` is passed. |
-| `lineage_fresh` | `--lineage-status` is `current` or `reference_only` (from a prior `caliber lineage verify` run). `stale` and `unverifiable` always fail this gate. |
+| `lineage_fresh` | `--lineage-status` is `current` (from a prior `caliber lineage verify` run). `reference_only`, `stale`, and `unverifiable` always fail this gate. Historical reference evidence is for comparison only and cannot authorize a governed mutation. |
 | `model_ready` | `--model-ready` is passed. |
 | `quota_ready` | `--quota-ready` is passed. |
 | `spend_confirmed` | `--spend-confirmed` is passed. |
