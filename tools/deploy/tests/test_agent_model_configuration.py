@@ -163,6 +163,20 @@ class AgentModelConfigurationTests(unittest.TestCase):
             "both ACR endpoint and resource ID for hosted-agent image pull authorization",
             workflow,
         )
+        bootstrap = (
+            ROOT / "modules/agents/infra/core/ai/bootstrap-account.bicep"
+        ).read_text()
+        project = (
+            ROOT / "modules/agents/infra/core/ai/ai-project.bicep"
+        ).read_text()
+        bootstrap_script = (
+            ROOT / "modules/agents/scripts/bootstrap_foundry_account.sh"
+        ).read_text()
+        for template in (bootstrap, project):
+            self.assertIn("eadc314b-1a2d-4efa-be10-5d325db5065e", template)
+            self.assertNotIn("e47c6f54-e4a2-4754-9501-8e0985b135e1", template)
+        self.assertIn("Foundry publishing preflight failed", bootstrap_script)
+        self.assertIn("foundry_project_manager_role_id", bootstrap_script)
 
     def test_agent_deploy_uses_key_vault_keys_without_bearer_precedence(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()

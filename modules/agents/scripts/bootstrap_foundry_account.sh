@@ -116,6 +116,20 @@ az deployment group create \
     tags="{\"azd-env-name\":\"${environment_name}\"}" \
   --output none
 
+account_id="/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.CognitiveServices/accounts/${account_name}"
+foundry_project_manager_role_id="eadc314b-1a2d-4efa-be10-5d325db5065e"
+publishing_assignment_count="$(
+  az role assignment list \
+    --assignee-object-id "$principal_id" \
+    --scope "$account_id" \
+    --query "[?ends_with(roleDefinitionId, '${foundry_project_manager_role_id}')].roleDefinitionId | length(@)" \
+    --output tsv
+)"
+if [[ "$publishing_assignment_count" != "1" ]]; then
+  echo "Foundry publishing preflight failed: deployment principal lacks Foundry Project Manager on ${account_id}." >&2
+  exit 1
+fi
+
 sleep 30
 
 project_url="https://management.azure.com/subscriptions/${subscription_id}/resourceGroups/${resource_group}/providers/Microsoft.CognitiveServices/accounts/${account_name}/projects/${project_name}?api-version=2026-03-01"

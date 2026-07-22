@@ -13,7 +13,7 @@ param principalId string
 param tags object = {}
 
 var foundryUserRoleId = '53ca6127-db72-4b80-b1b0-d745d6d5456d'
-var azureAIAccountOwnerRoleId = 'e47c6f54-e4a2-4754-9501-8e0985b135e1'
+var foundryProjectManagerRoleId = 'eadc314b-1a2d-4efa-be10-5d325db5065e'
 
 resource account 'Microsoft.CognitiveServices/accounts@2025-09-01' = {
   name: accountName
@@ -52,15 +52,15 @@ resource deploymentPrincipalFoundryUser 'Microsoft.Authorization/roleAssignments
   }
 }
 
-resource deploymentPrincipalAccountOwner 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource deploymentPrincipalProjectManager 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: account
-  name: guid(account.id, principalId, azureAIAccountOwnerRoleId)
+  name: guid(account.id, principalId, foundryProjectManagerRoleId)
   properties: {
     principalId: principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      azureAIAccountOwnerRoleId
+      foundryProjectManagerRoleId
     )
   }
 }

@@ -135,7 +135,7 @@ without editing Bicep.
 | Role | Role definition ID |
 | --- | --- |
 | `Foundry User` | `53ca6127-db72-4b80-b1b0-d745d6d5456d` |
-| `Azure AI Account Owner` | `e47c6f54-e4a2-4754-9501-8e0985b135e1` |
+| `Foundry Project Manager` | `eadc314b-1a2d-4efa-be10-5d325db5065e` |
 | `Cognitive Services User` | `a97b65f3-24c7-4388-baec-2e87135dc908` |
 
 The project managed identity already receives `Cognitive Services User` on the

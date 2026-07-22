@@ -185,11 +185,10 @@ module aiConnections './connection.bicep' = [
 // `projects/storage/*`. The fix is to grant both:
 //   - Foundry User                            (project scope, data actions
 //                                              for agent + storage reads)
-//   - Azure AI Account Owner                  (account scope, full data +
-//                                              role management on this
-//                                              Foundry account)
-// at the ACCOUNT scope. This matches the assignments the portal makes when
-// you create a Foundry account through the UI as Subscription Owner.
+//   - Foundry Project Manager                 (account scope, publish hosted
+//                                              agents + limited role management)
+// at the ACCOUNT scope. Foundry Account Owner is not sufficient for publishing
+// hosted agents because it lacks the required project data actions.
 //
 // `additionalAdmins` repeats the same two grants for peer admins so you do
 // not have to bootstrap each teammate by hand. Each entry must be
@@ -197,7 +196,7 @@ module aiConnections './connection.bicep' = [
 // ---------------------------------------------------------------------------
 
 var foundryUserRoleId = '53ca6127-db72-4b80-b1b0-d745d6d5456d' // Foundry User
-var azureAIAccountOwnerRoleId = 'e47c6f54-e4a2-4754-9501-8e0985b135e1' // Azure AI Account Owner
+var foundryProjectManagerRoleId = 'eadc314b-1a2d-4efa-be10-5d325db5065e' // Foundry Project Manager
 var cognitiveServicesUserRoleId = 'a97b65f3-24c7-4388-baec-2e87135dc908' // Cognitive Services User (data-plane: Content Safety, OpenAI, etc.)
 
 resource localUserFoundryUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
@@ -210,13 +209,13 @@ resource localUserFoundryUserAssignment 'Microsoft.Authorization/roleAssignments
   }
 }
 
-resource localUserAccountOwnerAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource localUserProjectManagerAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: aiAccount
-  name: guid(aiAccount.id, principalId, azureAIAccountOwnerRoleId)
+  name: guid(aiAccount.id, principalId, foundryProjectManagerRoleId)
   properties: {
     principalId: principalId
     principalType: principalType
-    roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', azureAIAccountOwnerRoleId)
+    roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', foundryProjectManagerRoleId)
   }
 }
 
@@ -232,14 +231,14 @@ resource additionalAdminFoundryUserAssignments 'Microsoft.Authorization/roleAssi
   }
 ]
 
-resource additionalAdminAccountOwnerAssignments 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+resource additionalAdminProjectManagerAssignments 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
   for admin in additionalAdmins: {
     scope: aiAccount
-    name: guid(aiAccount.id, admin.principalId, azureAIAccountOwnerRoleId)
+    name: guid(aiAccount.id, admin.principalId, foundryProjectManagerRoleId)
     properties: {
       principalId: admin.principalId
       principalType: admin.principalType
-      roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', azureAIAccountOwnerRoleId)
+      roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', foundryProjectManagerRoleId)
     }
   }
 ]
