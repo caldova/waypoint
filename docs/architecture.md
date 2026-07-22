@@ -34,8 +34,10 @@ flowchart LR
     Orchestrator --> Quality[Run → inspect → measure<br/>improve → approve release]
 ```
 
-WorkIQ, WebIQ, and FabricIQ experts are optional. They are deployed and wired
-only when their lane input is enabled.
+The one-click launch architecture has one evidence plane: FoundryIQ through
+`contract-policy-expert` and `contracts-kb`. WorkIQ, WebIQ, FabricIQ, and
+Fabric/OneLake source modules remain available for future development, but the
+launch workflow does not deploy or wire them.
 
 ## Governance invariants
 
@@ -44,14 +46,13 @@ only when their lane input is enabled.
 3. `assurance-orchestrator` owns deterministic lifecycle and synthesis.
 4. `waypoint-recorder` is the only agent that writes governed results.
 5. Runs are invoice-scoped, bounded, correlated, and terminally finalized.
-6. Optional evidence must be reported as unavailable rather than fabricated.
+6. Missing evidence must be reported as unavailable rather than fabricated.
 7. Secrets live outside source control.
 
 ## Deployment and quality
 
-The default deployment includes the app, corpus, Foundry resources, the four
-default agents, seed import, assurance wiring, and live acceptance.
-Fabric/OneLake storage is provisioned only when the FabricIQ path is selected.
+The launch deployment includes the app, corpus, Foundry resources, the four
+launch agents, seed import, assurance wiring, and live acceptance.
 
 Agent quality follows Foundry-native evaluation and Agent Optimizer plus Caliber
 datasets, deterministic graders, calibration, telemetry harvesting, and RFT/RLE

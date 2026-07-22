@@ -122,8 +122,9 @@ The default path deploys:
 - an acceptance artifact proving endpoint health, hosted-agent inventory, and
   a completed orchestrator-to-recorder run.
 
-Fabric/OneLake storage, WorkIQ, WebIQ, and FabricIQ remain opt-in. The default
-review experience requires only FoundryIQ and its `contracts-kb`.
+The launch package is FoundryIQ-only. Fabric/OneLake, WorkIQ, WebIQ, and
+FabricIQ modules remain in the repository for future development but are not
+inputs, stages, resources, or agents in the one-click deployment.
 
 The full default deployment has been validated end to end, including an
 unchanged rerun that reused stable resources and skipped unchanged hosted-agent
@@ -171,7 +172,7 @@ The Aster Ridge story is live:
 
 | Capability | What it shows |
 | --- | --- |
-| Application | A production-style Waypoint app with API, web UI, auth, telemetry, persistence, and Fabric/OneLake integration. |
+| Application | A production-style Waypoint app with API, web UI, auth, telemetry, and PostgreSQL persistence. |
 | Corpus | A realistic synthetic domain corpus: suppliers, contracts, policies, invoice facts, scenarios, seed data, and generated documents. |
 | Agents | A multi-agent invoice assurance workflow with orchestration, read-only evidence experts, analyst surfaces, and one write-boundary agent. |
 | Evaluations | Foundry-native evaluations plus Caliber datasets, graders, golden cases, calibration, and quality gates. |
@@ -245,7 +246,7 @@ checks without requiring the presenter canvas.
 | --- | --- |
 | [Project status](docs/status.md) | Validated paths, current caveats, and work still in progress. |
 | [Getting started](docs/getting-started.md) | Local developer prerequisites and validation commands. |
-| [Azure deployment](docs/deployment.md) | Deployment variables, stages, optional lanes, parallel environments, and troubleshooting. |
+| [Azure deployment](docs/deployment.md) | Deployment variables, FoundryIQ-only stages, parallel environments, and troubleshooting. |
 | [Foundry demo](docs/foundry-demo.md) | Live Pharmashield presenter workflow and fidelity contract. |
 | [Architecture](docs/architecture.md) | Application, corpus, agents, evaluations, optimization, and deployment layers. |
 | [Agent quality operations](docs/quality-operations.md) | Full batch assurance and the five-step run, inspect, measure, improve, and release workflow. |

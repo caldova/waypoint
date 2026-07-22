@@ -12,10 +12,9 @@ synthetic demo data.
 - The default runtime fleet is `invoice-analyst`,
   `assurance-orchestrator`, `contract-policy-expert`, and
   `waypoint-recorder`.
-- Only FoundryIQ evidence is enabled by default. WorkIQ, WebIQ, and FabricIQ are
-  explicit opt-ins.
-- Fabric/OneLake capacity and storage are also opt-in and are not required for
-  the default `contract-policy-expert` knowledge-base path.
+- The one-click launch package deploys only FoundryIQ evidence. WorkIQ, WebIQ,
+  FabricIQ, and Fabric/OneLake are excluded from its inputs, stages, and
+  resources.
 - Deployment acceptance selects a live invoice from Waypoint, invokes the hosted
   orchestrator, and verifies a newly finalized, correlated run written through
   `waypoint-recorder`.
@@ -42,11 +41,8 @@ results remain reference-only and cannot satisfy mutation gates.
 
 ## Still in progress
 
-- WorkIQ needs tenant-specific Microsoft 365 access and a known-positive
-  evidence case before it should be enabled.
-- WebIQ remains optional while its connection and deployment path are completed.
-- FabricIQ remains optional until it is backed by a real Fabric Data Agent
-  evidence source.
+- WorkIQ, WebIQ, FabricIQ, and Fabric/OneLake source modules remain in the
+  repository for future development, outside the initial launch package.
 - The agent quality workflow cannot be manually dispatched from this branch
   until its workflow file exists on the default branch.
 - Microsoft 365 and Teams publishing remains manual and admin-gated.

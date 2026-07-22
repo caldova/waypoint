@@ -17,19 +17,16 @@ hosted-agent versions whose deploy inputs were unchanged.
 | --- | --- | --- |
 | Waypoint app/API | On | Aspire deploys the web app, API, PostgreSQL, auth, and telemetry. |
 | Corpus seed | On | The corpus module generates and imports `waypoint-seed.json`. |
-| Fabric/OneLake storage | Off | Opt in only when exercising the FabricIQ lane. |
 | `invoice-analyst` | On | Read-only hosted analyst surface. |
 | `assurance-orchestrator` | On | Coordinates one invoice-assurance run. |
-| `contract-policy-expert` | On | The only evidence expert enabled by default; uses FoundryIQ and `contracts-kb`. |
+| `contract-policy-expert` | On | The launch evidence expert; uses FoundryIQ and `contracts-kb`. |
 | `waypoint-recorder` | On | The sole agent authorized to write governed results to Waypoint. |
-| WorkIQ / `collaboration-evidence-expert` | Off | Opt in after tenant-specific Microsoft 365 access is configured. |
-| WebIQ / `market-evidence-expert` | Off | Opt in after its connection and deployment path is ready. |
-| FabricIQ / `operations-data-expert` | Off | Opt in after a real Fabric Data Agent path is ready. |
 
-The default hosted fleet is exactly `invoice-analyst`,
+The launch hosted fleet is exactly `invoice-analyst`,
 `assurance-orchestrator`, `contract-policy-expert`, and
-`waypoint-recorder`. Enabling an optional IQ input adds its expert to both the
-deployment matrix and orchestrator fan-out.
+`waypoint-recorder`. FoundryIQ is the only launch evidence plane. WorkIQ,
+WebIQ, FabricIQ, and Fabric/OneLake modules remain in the repository, but are
+not workflow inputs, deployment stages, or launch resources.
 
 ## One-time OIDC bootstrap
 
@@ -83,20 +80,13 @@ runs; generated secrets do not need to be copied into GitHub.
 | `AZURE_AI_PROJECT_ENDPOINT` / `AZURE_AI_PROJECT_ID` | Reuse an existing Foundry project. |
 | `AZURE_AI_ACCOUNT_NAME` / `AZURE_AI_PROJECT_NAME` | Reuse Foundry resources by name. |
 | Model and embedding variables | Override the default `gpt-5.5` and `text-embedding-3-large` deployments. |
-| `workiq_enabled` | Add the WorkIQ expert and lane. |
-| `webiq_enabled` | Add the WebIQ expert and lane. |
-| `foundryiq_enabled` | Enable FoundryIQ; defaults to `true`. |
-| `fabriciq_enabled` | Add the FabricIQ expert and lane. |
 
 ## Run the deployment
 
 1. Open **Actions -> Deploy Azure -> Run workflow**.
 2. Keep `deploy_app`, `deploy_agents`, `provision_agents`, and `seed_data`
    enabled for a first run.
-3. Leave `fabric_provision_enabled` disabled for the default FoundryIQ path.
-4. Leave WorkIQ, WebIQ, and FabricIQ disabled unless their external dependencies
-   are configured.
-5. Follow the **Acceptance and evidence** job through completion.
+3. Follow the **Acceptance and evidence** job through completion.
 
 The workflow is safe to rerun. It reconciles named resources, reuses Key Vault
 secrets, updates the existing MSAL registration, and compares hosted-agent
@@ -107,11 +97,12 @@ assurance feature.
 Clean Entra registration creates both the application object and its service
 principal, then verifies the delegated `user_impersonation` scope persisted
 before deploying the SPA. Identifier-URI creation uses the same bounded Graph
-propagation retry as subsequent app updates. Split-region Foundry bootstrap reuses the app resource
-group at its existing location while creating Foundry resources in
-`azure_location`. The Foundry Bicep root receives that resource-group location
-separately, so its subscription-scope deployment does not attempt to relocate
-the group.
+propagation retry as subsequent app updates. Teardown ownership is tagged before
+those operations, so an interrupted create remains safely discoverable.
+Split-region Foundry bootstrap reuses the app resource group at its existing
+location while creating Foundry resources in `azure_location`. The Foundry
+Bicep root receives that resource-group location separately, so its
+subscription-scope deployment does not attempt to relocate the group.
 
 Downstream jobs distinguish a deliberately skipped unchanged app stage from an
 app stage skipped after a prerequisite failure. A failed MSAL or app stage
@@ -150,18 +141,16 @@ fail-fast.
 3. **msal** creates or reconciles the single-tenant Waypoint application.
 4. **corpus-seed** generates `waypoint-seed.json`.
 5. **deploy-app** deploys the Aspire app and PostgreSQL configuration.
-6. **fabric-provision** creates or reconciles the OneLake storage path when
-   enabled.
-7. **provision-agents** reconciles the Foundry project, models, search, and
+6. **provision-agents** reconciles the Foundry project, models, search, and
    shared infrastructure.
-8. **deploy-agents** deploys the four default agents plus selected optional
-   experts, skipping unchanged active versions.
-9. **wire-app-operations** connects the Waypoint API assurance operation to the
+7. **deploy-agents** deploys the four launch agents, skipping unchanged active
+   versions.
+8. **wire-app-operations** connects the Waypoint API assurance operation to the
    deployed orchestrator.
-10. **onelake-upload** and **contracts-kb-upload** publish the corpus to the
-    enabled grounding stores.
-11. **seed-import** imports the generated Waypoint seed.
-12. **acceptance** probes the app, inventories live hosted agents, selects one
+9. **contracts-kb-upload** publishes contract and policy content to the
+   FoundryIQ grounding store.
+10. **seed-import** imports the generated Waypoint seed.
+11. **acceptance** probes the app, inventories live hosted agents, selects one
     invoice from the deployed work queue, invokes the hosted orchestrator, and
     verifies that the recorder finalized a correlated terminal run.
 
@@ -181,18 +170,17 @@ submission command.
 ## Parallel environments
 
 For a non-default `azd_env_name`, provide explicit isolated values for the app
-resource group, state resource group, MSAL display name, PostgreSQL server, and,
-when Fabric is enabled, capacity, workspace, and lakehouse names. The workflow
-rejects partial custom-environment configuration so it cannot accidentally
-mutate the default environment.
+resource group, state resource group, MSAL display name, and PostgreSQL server.
+The workflow rejects partial custom-environment configuration so it cannot
+accidentally mutate the default environment.
 
 Each `azd_env_name` has its own workflow concurrency slot and derived Key Vault
 name.
 
 Foundry and the application can use different Azure regions. `azure_location`
 controls the Foundry project, hosted agents, and model deployments;
-`app_location` controls only the Aspire web/API, PostgreSQL, and Fabric
-resources. When `app_location` is empty it inherits `WAYPOINT_APP_LOCATION`,
+`app_location` controls only the Aspire web/API and PostgreSQL resources. When
+`app_location` is empty it inherits `WAYPOINT_APP_LOCATION`,
 then `azure_location`, preserving the single-region default. For example, use
 `azure_location=swedencentral` with `app_location=northeurope` when Foundry
 requires Sweden Central but Container Apps capacity is unavailable there.
@@ -200,7 +188,7 @@ requires Sweden Central but Container Apps capacity is unavailable there.
 ## Acceptance evidence
 
 `tools/deploy/deployment.manifest.json` declares the canonical source roots,
-default lane flags, expected default fleet, and HTTP probes. The workflow runs
+FoundryIQ launch plane, expected fleet, and HTTP probes. The workflow runs
 those probes automatically and uploads a sanitized
 `deployment-evidence-<sha>` artifact.
 
@@ -223,6 +211,3 @@ python tools/deploy/scripts/verify_deployment.py \
 - Foundry model quota must be available in the selected region.
 - FoundryIQ requires the provisioned Azure AI Search knowledge-base MCP
   connection.
-- WorkIQ, WebIQ, and FabricIQ require their own opt-in connections and evidence
-  sources.
-- Microsoft 365 and Teams publishing remains tenant-admin gated.

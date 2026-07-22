@@ -71,7 +71,6 @@ class DeploymentPlannerTests(unittest.TestCase):
         )
 
         self.assertTrue(plan["stages"]["contracts_kb"]["run"])
-        self.assertTrue(plan["stages"]["onelake_upload"]["run"])
         self.assertFalse(plan["stages"]["corpus_seed"]["run"])
         self.assertFalse(plan["stages"]["seed_import"]["run"])
 
@@ -82,7 +81,6 @@ class DeploymentPlannerTests(unittest.TestCase):
 
         self.assertTrue(plan["stages"]["corpus_seed"]["run"])
         self.assertTrue(plan["stages"]["seed_import"]["run"])
-        self.assertTrue(plan["stages"]["onelake_upload"]["run"])
         self.assertFalse(plan["stages"]["contracts_kb"]["run"])
 
     def test_unknown_path_uses_conservative_full_deployment(self) -> None:

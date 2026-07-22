@@ -81,6 +81,28 @@ if [[ "$mode" == "ensure" ]]; then
   resolve_app
   log "app '$display_name' appId=$APP_ID objId=$OBJ_ID"
 
+  # Establish teardown ownership before any later create-time operation can
+  # fail, so an interrupted clean start never leaves an unowned orphan.
+  ownership_app="$(
+    az rest \
+      --method GET \
+      --uri "${graph}/applications/${OBJ_ID}" \
+      --query '{tags:tags}' \
+      --output json 2>/dev/null || echo '{}'
+  )"
+  managed_tags="$(AZD_ENV="${AZD_ENV_NAME:-waypoint-agents}" REPO="${GITHUB_REPOSITORY:-}" python3 - "$ownership_app" <<'PY'
+import json, os, sys
+app = json.loads(sys.argv[1] or "{}")
+tags = set(app.get("tags") or [])
+tags.update({"waypoint-managed", f"waypoint-environment={os.environ['AZD_ENV']}"})
+if os.environ["REPO"]:
+    tags.add(f"waypoint-repository={os.environ['REPO']}")
+print(json.dumps({"tags": sorted(tags)}))
+PY
+)"
+  log "ensuring teardown ownership tags for ${AZD_ENV_NAME:-waypoint-agents}"
+  graph_patch "${graph}/applications/${OBJ_ID}" "$managed_tags"
+
   # `az ad app create` creates only the application object. A clean tenant also
   # needs its service principal before the SPA can authenticate.
   if ! az ad sp show --id "$APP_ID" -o none 2>/dev/null; then
@@ -214,21 +236,6 @@ PY
   added="$(echo "$merged_roles" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["appRoles"]))')"
   log "ensuring app roles ($writer_role/$reader_role/$admin_role); total roles now=$added"
   graph_patch "${graph}/applications/${OBJ_ID}" "$merged_roles"
-
-  # Mark only the runtime MSAL app as teardown-eligible. Teardown still requires
-  # deploy-principal ownership and never selects an app by display name.
-  managed_tags="$(AZD_ENV="${AZD_ENV_NAME:-waypoint-agents}" REPO="${GITHUB_REPOSITORY:-}" python3 - "$existing_app" <<'PY'
-import json, os, sys
-app = json.loads(sys.argv[1] or "{}")
-tags = set(app.get("tags") or [])
-tags.update({"waypoint-managed", f"waypoint-environment={os.environ['AZD_ENV']}"})
-if os.environ["REPO"]:
-    tags.add(f"waypoint-repository={os.environ['REPO']}")
-print(json.dumps({"tags": sorted(tags)}))
-PY
-)"
-  log "ensuring teardown ownership tags for ${AZD_ENV_NAME:-waypoint-agents}"
-  graph_patch "${graph}/applications/${OBJ_ID}" "$managed_tags"
 
   emit msal_tenant_id "$AZURE_TENANT_ID"
   emit msal_client_id "$APP_ID"

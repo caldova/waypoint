@@ -9,7 +9,7 @@ on:
         type: boolean
         default: true
       deploy_agents:
-        description: Deploy the full hosted agent suite.
+        description: Deploy the four-agent FoundryIQ launch fleet.
         required: false
         type: boolean
         default: true
@@ -36,41 +36,6 @@ on:
         required: false
         type: boolean
         default: true
-      fabric_provision_enabled:
-        description: >-
-          Provision Fabric/OneLake capacity, workspace, and lakehouse for the Waypoint data path.
-          Opt in when exercising FabricIQ; not required for the default FoundryIQ path.
-        required: false
-        type: boolean
-        default: false
-      workiq_enabled:
-        description: >-
-          Opt in to the WorkIQ expert. Disabled by default while its tenant-specific
-          Microsoft 365 deployment path is completed.
-        required: false
-        type: boolean
-        default: false
-      webiq_enabled:
-        description: >-
-          Opt in to the WebIQ expert. Disabled by default while its connection and
-          deployment path is completed.
-        required: false
-        type: boolean
-        default: false
-      foundryiq_enabled:
-        description: >-
-          Enable the FoundryIQ fan-out lane in Assurance Orchestrator. Requires the
-          contracts-kb knowledge-base MCP connection to be present in the Foundry project.
-        required: false
-        type: boolean
-        default: true
-      fabriciq_enabled:
-        description: >-
-          Opt in to the FabricIQ expert. Disabled by default while its Fabric Data
-          Agent connection and deployment path is completed.
-        required: false
-        type: boolean
-        default: false
       azd_env_name:
         description: >-
           azd environment name for the Foundry agents. Also scopes the Key Vault name so
@@ -90,7 +55,7 @@ on:
         default: ''
       app_location:
         description: >-
-          Aspire web/API/PostgreSQL/Fabric region. Falls back to WAYPOINT_APP_LOCATION, then
+          Aspire web/API/PostgreSQL region. Falls back to WAYPOINT_APP_LOCATION, then
           azure_location. This can differ from Foundry when Container Apps capacity is constrained.
         required: false
         type: string
@@ -134,29 +99,6 @@ on:
         required: false
         type: string
         default: ''
-      fabric_capacity_name:
-        description: >-
-          Fabric capacity name override. Falls back to WAYPOINT_FABRIC_CAPACITY_NAME repo
-          var or the Aspire default 'waypointcorpus'. Supply a unique name for parallel
-          Fabric environments.
-        required: false
-        type: string
-        default: ''
-      fabric_workspace_name:
-        description: >-
-          Fabric workspace name override. Falls back to WAYPOINT_FABRIC_WORKSPACE_NAME
-          repo var or 'waypoint-corpus'.
-        required: false
-        type: string
-        default: ''
-      fabric_lakehouse_name:
-        description: >-
-          Fabric lakehouse name override. Falls back to WAYPOINT_FABRIC_LAKEHOUSE_NAME
-          repo var or 'corpus'.
-        required: false
-        type: string
-        default: ''
-
 permissions:
   contents: read
   id-token: write
@@ -183,8 +125,6 @@ jobs:
       app: ${{ steps.plan.outputs.app }}
       corpus_seed: ${{ steps.plan.outputs.corpus_seed }}
       seed_import: ${{ steps.plan.outputs.seed_import }}
-      fabric_infrastructure: ${{ steps.plan.outputs.fabric_infrastructure }}
-      onelake_upload: ${{ steps.plan.outputs.onelake_upload }}
       contracts_kb: ${{ steps.plan.outputs.contracts_kb }}
       foundry_infrastructure: ${{ steps.plan.outputs.foundry_infrastructure }}
       deploy_agents: ${{ steps.plan.outputs.deploy_agents }}
@@ -213,16 +153,10 @@ jobs:
         id: state
         env:
           BASE_OVERRIDE: ${{ inputs.deployment_base_sha }}
-          FABRIC_CAPACITY_NAME: ${{ inputs.fabric_capacity_name || vars.WAYPOINT_FABRIC_CAPACITY_NAME || 'waypointcorpus' }}
-          WORKIQ_ENABLED: ${{ inputs.workiq_enabled }}
-          WEBIQ_ENABLED: ${{ inputs.webiq_enabled }}
-          FOUNDRYIQ_ENABLED: ${{ inputs.foundryiq_enabled }}
-          FABRICIQ_ENABLED: ${{ inputs.fabriciq_enabled }}
           DEPLOY_APP: ${{ inputs.deploy_app }}
           DEPLOY_AGENTS: ${{ inputs.deploy_agents }}
           PROVISION_AGENTS: ${{ inputs.provision_agents }}
           SEED_DATA: ${{ inputs.seed_data }}
-          FABRIC_PROVISION_ENABLED: ${{ inputs.fabric_provision_enabled }}
         run: |
           set -euo pipefail
           tags="$(az group show --name "$STATE_RESOURCE_GROUP" --query tags -o json 2>/dev/null || echo '{}')"
@@ -234,11 +168,7 @@ jobs:
               "deploy_agents=${DEPLOY_AGENTS}" \
               "provision_agents=${PROVISION_AGENTS}" \
               "seed_data=${SEED_DATA}" \
-              "fabric_provision_enabled=${FABRIC_PROVISION_ENABLED}" \
-              "workiq=${WORKIQ_ENABLED}" \
-              "webiq=${WEBIQ_ENABLED}" \
-              "foundryiq=${FOUNDRYIQ_ENABLED}" \
-              "fabriciq=${FABRICIQ_ENABLED}" \
+              "foundryiq=true" \
               | sha256sum | cut -d' ' -f1
           )"
           recorded_controls="$(jq -r '.waypoint_deployment_controls_hash // empty' <<<"$tags")"
@@ -270,15 +200,6 @@ jobs:
             jq '.stages.app = {drifted: true}' live-drift.json > live-drift.tmp
             mv live-drift.tmp live-drift.json
           fi
-          if [ "${{ inputs.fabric_provision_enabled }}" = "true" ] \
-            && ! az resource show \
-              --resource-group "$AZURE_RESOURCE_GROUP" \
-              --resource-type Microsoft.Fabric/capacities \
-              --name "$FABRIC_CAPACITY_NAME" -o none 2>/dev/null; then
-            jq '.stages.fabric_infrastructure = {drifted: true}' live-drift.json > live-drift.tmp
-            mv live-drift.tmp live-drift.json
-          fi
-
           deployment="$(
             az deployment sub list \
               --query "[?properties.provisioningState=='Succeeded'].name" -o tsv 2>/dev/null \
@@ -319,8 +240,7 @@ jobs:
             echo "| deploy_app | ${{ inputs.deploy_app }} | Upper bound for app, seed import, wiring, and acceptance |"
             echo "| deploy_agents | ${{ inputs.deploy_agents }} | Upper bound for Foundry, agents, contracts KB, and wiring |"
             echo "| provision_agents | ${{ inputs.provision_agents }} | Upper bound for Foundry infrastructure reconciliation |"
-            echo "| seed_data | ${{ inputs.seed_data }} | Upper bound for corpus seed, OneLake upload, and seed import |"
-            echo "| fabric_provision_enabled | ${{ inputs.fabric_provision_enabled }} | Upper bound for Fabric and OneLake |"
+            echo "| seed_data | ${{ inputs.seed_data }} | Upper bound for corpus seed and seed import |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload sanitized deployment plan
@@ -348,19 +268,10 @@ jobs:
           AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           MSAL_DISPLAY_NAME: ${{ inputs.msal_display_name || vars.WAYPOINT_MSAL_DISPLAY_NAME || 'waypoint' }}
           POSTGRES_SERVER_NAME: ${{ inputs.postgres_server_name || vars.WAYPOINT_POSTGRES_SERVER_NAME }}
-          FABRIC_CAPACITY_NAME: ${{ inputs.fabric_capacity_name || vars.WAYPOINT_FABRIC_CAPACITY_NAME || 'waypointcorpus' }}
-          FABRIC_WORKSPACE_NAME: ${{ inputs.fabric_workspace_name || vars.WAYPOINT_FABRIC_WORKSPACE_NAME || 'waypoint-corpus' }}
-          FABRIC_LAKEHOUSE_NAME: ${{ inputs.fabric_lakehouse_name || vars.WAYPOINT_FABRIC_LAKEHOUSE_NAME || 'corpus' }}
           INPUT_APP_RESOURCE_GROUP: ${{ inputs.app_resource_group }}
           INPUT_STATE_RESOURCE_GROUP: ${{ inputs.state_resource_group }}
           INPUT_MSAL_DISPLAY_NAME: ${{ inputs.msal_display_name }}
           INPUT_POSTGRES_SERVER_NAME: ${{ inputs.postgres_server_name }}
-          INPUT_FABRIC_CAPACITY_NAME: ${{ inputs.fabric_capacity_name }}
-          INPUT_FABRIC_WORKSPACE_NAME: ${{ inputs.fabric_workspace_name }}
-          INPUT_FABRIC_LAKEHOUSE_NAME: ${{ inputs.fabric_lakehouse_name }}
-          WORKIQ_ENABLED: ${{ inputs.workiq_enabled }}
-          WEBIQ_ENABLED: ${{ inputs.webiq_enabled }}
-          FABRICIQ_ENABLED: ${{ inputs.fabriciq_enabled }}
           PLANNED_AGENTS: ${{ needs.plan.outputs.selected_agents }}
         run: |
           set -euo pipefail
@@ -384,11 +295,6 @@ jobs:
             [ -z "$INPUT_STATE_RESOURCE_GROUP" ] && missing_overrides+=("state_resource_group")
             [ -z "$INPUT_MSAL_DISPLAY_NAME" ] && missing_overrides+=("msal_display_name")
             [ -z "$INPUT_POSTGRES_SERVER_NAME" ] && missing_overrides+=("postgres_server_name")
-            if [ "${{ inputs.fabric_provision_enabled }}" = "true" ]; then
-              [ -z "$INPUT_FABRIC_CAPACITY_NAME" ] && missing_overrides+=("fabric_capacity_name")
-              [ -z "$INPUT_FABRIC_WORKSPACE_NAME" ] && missing_overrides+=("fabric_workspace_name")
-              [ -z "$INPUT_FABRIC_LAKEHOUSE_NAME" ] && missing_overrides+=("fabric_lakehouse_name")
-            fi
             if [ "${#missing_overrides[@]}" -gt 0 ]; then
               echo "::error::Custom azd environments require explicit isolated inputs for: ${missing_overrides[*]}"
               exit 1
@@ -399,15 +305,6 @@ jobs:
             echo "azure_tenant_id=$AZURE_TENANT_ID"
             echo "azure_subscription_id=$AZURE_SUBSCRIPTION_ID"
             enabled_agents='["invoice-analyst","assurance-orchestrator","contract-policy-expert","waypoint-recorder"]'
-            if [ "$WORKIQ_ENABLED" = "true" ]; then
-              enabled_agents="$(jq -c '. + ["collaboration-evidence-expert"]' <<<"$enabled_agents")"
-            fi
-            if [ "$WEBIQ_ENABLED" = "true" ]; then
-              enabled_agents="$(jq -c '. + ["market-evidence-expert"]' <<<"$enabled_agents")"
-            fi
-            if [ "$FABRICIQ_ENABLED" = "true" ]; then
-              enabled_agents="$(jq -c '. + ["operations-data-expert"]' <<<"$enabled_agents")"
-            fi
             agents="$(
               jq -cn \
                 --argjson planned "$PLANNED_AGENTS" \
@@ -603,24 +500,10 @@ jobs:
           Waypoint__Postgres__ProvisionEnabled: true
           Waypoint__Postgres__ServerName: ${{ inputs.postgres_server_name || vars.WAYPOINT_POSTGRES_SERVER_NAME }}
           Waypoint__Postgres__FirewallRulesJson: ${{ vars.WAYPOINT_POSTGRES_FIREWALL_RULES_JSON || '[{"name":"AllowAllAzureServicesAndResourcesWithinAzureIps","startIpAddress":"0.0.0.0","endIpAddress":"0.0.0.0"}]' }}
-          Waypoint__Fabric__ProvisionEnabled: ${{ inputs.fabric_provision_enabled }}
-          Waypoint__Fabric__SkuName: ${{ vars.WAYPOINT_FABRIC_SKU_NAME || 'F2' }}
-          Waypoint__Fabric__AdministratorMembersJson: ${{ vars.WAYPOINT_FABRIC_ADMIN_MEMBERS_JSON || '[]' }}
-          Waypoint__Fabric__CapacityName: ${{ inputs.fabric_capacity_name || vars.WAYPOINT_FABRIC_CAPACITY_NAME }}
-          Waypoint__Fabric__WorkspaceName: ${{ inputs.fabric_workspace_name || vars.WAYPOINT_FABRIC_WORKSPACE_NAME || 'waypoint-corpus' }}
-          Waypoint__Fabric__LakehouseName: ${{ inputs.fabric_lakehouse_name || vars.WAYPOINT_FABRIC_LAKEHOUSE_NAME || 'corpus' }}
-          # Fabric storage remains independently deployable. The FabricIQ semantic
-          # layer is enabled only when its expert is explicitly selected.
-          Waypoint__Fabric__IqEnabled: ${{ inputs.fabriciq_enabled }}
+          Waypoint__Fabric__ProvisionEnabled: false
+          Waypoint__Fabric__IqEnabled: false
         run: |
           set -euo pipefail
-          if [ "${{ inputs.fabric_provision_enabled }}" = "true" ] \
-            && [ "$Waypoint__Fabric__AdministratorMembersJson" = "[]" ]; then
-            deploy_sp_object_id="$(az ad sp show \
-              --id "${{ needs.validate.outputs.azure_client_id }}" \
-              --query id -o tsv)"
-            export Waypoint__Fabric__AdministratorMembersJson="[\"${deploy_sp_object_id}\"]"
-          fi
           # Foundry wiring is applied after the first full deployment. Preserve it on later
           # app-only deployments so Aspire does not replace the live endpoint with an empty
           # configuration value when the agent stages are intentionally disabled.
@@ -695,100 +578,6 @@ jobs:
             echo "- Web: https://$web_fqdn"
             echo "- Database bootstrap: API startup bootstrap remains enabled because Aspire provisions PostgreSQL and injects its bootstrap connection during this same deploy; pre-deploy database access cannot be proven on a first deployment."
           } >> "$GITHUB_STEP_SUMMARY"
-
-  # ── fabric-provision ─────────────────────────────────────────────────────────
-  # Explicitly reconcile the Fabric workspace and lakehouse after the app is
-  # available. The app deploy may be skipped when an existing runtime is reused.
-  fabric-provision:
-    name: Provision Fabric workspace and lakehouse
-    runs-on: ubuntu-latest
-    if: |
-      always() &&
-      inputs.fabric_provision_enabled &&
-      (needs.plan.outputs.fabric_infrastructure == 'true' ||
-       needs.plan.outputs.onelake_upload == 'true') &&
-      needs.validate.result == 'success' &&
-      needs.keyvault.result == 'success' &&
-      needs.msal.result == 'success' &&
-      (needs['deploy-app'].result == 'success' ||
-       (needs.plan.outputs.app != 'true' && needs['deploy-app'].result == 'skipped'))
-    needs: [plan, validate, keyvault, msal, deploy-app]
-    outputs:
-      onelake_workspace: ${{ steps.fabric.outputs.onelake_workspace }}
-      onelake_lakehouse: ${{ steps.fabric.outputs.onelake_lakehouse }}
-      onelake_corpus_prefix: ${{ steps.fabric.outputs.onelake_corpus_prefix }}
-    steps:
-      - uses: actions/checkout@v7.0.0
-
-      - name: Azure login
-        uses: azure/login@v3.0.0
-        with:
-          client-id: ${{ needs.validate.outputs.azure_client_id }}
-          tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
-          subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
-
-      - name: Provision Fabric workspace and lakehouse
-        id: fabric
-        env:
-          WAYPOINT_FABRIC_PROVISION_ENABLED: 'true'
-          AZURE_SUBSCRIPTION_ID: ${{ needs.validate.outputs.azure_subscription_id }}
-          WAYPOINT_FABRIC_WORKSPACE_NAME: ${{ inputs.fabric_workspace_name || vars.WAYPOINT_FABRIC_WORKSPACE_NAME || 'waypoint-corpus' }}
-          WAYPOINT_FABRIC_LAKEHOUSE_NAME: ${{ inputs.fabric_lakehouse_name || vars.WAYPOINT_FABRIC_LAKEHOUSE_NAME || 'corpus' }}
-        run: |
-          set -euo pipefail
-          # Resolve capacity name and derive the ARM resource ID expected by provision-fabric.sh.
-          cap_name="${{ inputs.fabric_capacity_name || vars.WAYPOINT_FABRIC_CAPACITY_NAME }}"
-          if [ -z "$cap_name" ]; then
-            # Match the Aspire apphost default. Parallel deployments must provide
-            # an explicit capacity name so both stages remain isolated.
-            cap_name="waypointcorpus"
-          fi
-          export WAYPOINT_FABRIC_CAPACITY_ID="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.Fabric/capacities/${cap_name}"
-          # Aspire assigns a user-assigned identity to the container app. Support either identity
-          # shape so runtime OneLake access is never silently omitted.
-          app_identity="$(az containerapp show --name api --resource-group "$AZURE_RESOURCE_GROUP" \
-            --query identity -o json)"
-          app_mi="$(jq -r \
-            '.principalId // ((.userAssignedIdentities // {}) | to_entries[0].value.principalId) // empty' \
-            <<<"$app_identity")"
-          app_mi_client_id="$(jq -r \
-            '((.userAssignedIdentities // {}) | to_entries[0].value.clientId) // empty' \
-            <<<"$app_identity")"
-          if [ -z "$app_mi" ]; then
-            echo "::error::The Waypoint API container app has no resolvable managed identity."
-            exit 1
-          fi
-          export WAYPOINT_FABRIC_MI_PRINCIPAL_ID="$app_mi"
-          # Grant the deploy SP (corpus uploads) a workspace Member role.
-          deploy_sp="$(az ad sp show --id "${{ needs.validate.outputs.azure_client_id }}" \
-            --query id -o tsv 2>/dev/null || true)"
-          export WAYPOINT_FABRIC_DEPLOY_PRINCIPAL_ID="${deploy_sp:-}"
-          bash apps/waypoint/infra/scripts/provision-fabric.sh
-          echo "app_mi_client_id=$app_mi_client_id" >> "$GITHUB_OUTPUT"
-
-      - name: Update API container app with OneLake coordinates
-        env:
-          ONELAKE_WORKSPACE: ${{ steps.fabric.outputs.onelake_workspace }}
-          ONELAKE_LAKEHOUSE: ${{ steps.fabric.outputs.onelake_lakehouse }}
-        run: |
-          set -euo pipefail
-          if [ -z "${ONELAKE_WORKSPACE:-}" ]; then
-            echo "::warning::Fabric workspace id is empty; skipping APP_ONELAKE_* update."
-            exit 0
-          fi
-          onelake_env=(
-            "APP_ONELAKE_WORKSPACE=${ONELAKE_WORKSPACE}"
-            "APP_ONELAKE_LAKEHOUSE=${ONELAKE_LAKEHOUSE}"
-          )
-          if [ -n "${{ steps.fabric.outputs.app_mi_client_id }}" ]; then
-            onelake_env+=("AZURE_CLIENT_ID=${{ steps.fabric.outputs.app_mi_client_id }}")
-          fi
-          az containerapp update \
-            --name api \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --set-env-vars "${onelake_env[@]}" \
-            --output none
-          echo "Updated api with APP_ONELAKE_WORKSPACE=${ONELAKE_WORKSPACE} APP_ONELAKE_LAKEHOUSE=${ONELAKE_LAKEHOUSE}"
 
   # ── provision-agents ─────────────────────────────────────────────────────────
   # Run azd provision ONCE. Deploy-agent matrix jobs hydrate all outputs from
@@ -877,11 +666,11 @@ jobs:
           azd env set EMBEDDING_MODEL_VERSION "${{ vars.EMBEDDING_MODEL_VERSION || '1' }}"
           azd env set EMBEDDING_MODEL_SKU_NAME "${{ vars.EMBEDDING_MODEL_SKU_NAME || 'Standard' }}"
           azd env set EMBEDDING_MODEL_CAPACITY "${{ vars.EMBEDDING_MODEL_CAPACITY || '50' }}"
-          azd env set ENABLE_WORKIQ_CONNECTIONS "${{ inputs.workiq_enabled }}"
-          azd env set ASSURANCE_ORCHESTRATOR_WORKIQ_ENABLED "${{ inputs.workiq_enabled }}"
-          azd env set ASSURANCE_ORCHESTRATOR_WEBIQ_ENABLED "${{ inputs.webiq_enabled }}"
-          azd env set ASSURANCE_ORCHESTRATOR_FOUNDRYIQ_ENABLED "${{ inputs.foundryiq_enabled }}"
-          azd env set ASSURANCE_ORCHESTRATOR_FABRICIQ_ENABLED "${{ inputs.fabriciq_enabled }}"
+          azd env set ENABLE_WORKIQ_CONNECTIONS false
+          azd env set ASSURANCE_ORCHESTRATOR_WORKIQ_ENABLED false
+          azd env set ASSURANCE_ORCHESTRATOR_WEBIQ_ENABLED false
+          azd env set ASSURANCE_ORCHESTRATOR_FOUNDRYIQ_ENABLED true
+          azd env set ASSURANCE_ORCHESTRATOR_FABRICIQ_ENABLED false
           # Repo-level Foundry outputs belong to the default environment. A custom
           # azd environment must provision and hydrate its own project.
           if [ "$AZD_ENV_NAME" = "waypoint-agents" ] && [ -n "${AZURE_AI_PROJECT_ENDPOINT:-}" ]; then
@@ -1026,7 +815,6 @@ jobs:
         timeout-minutes: 2
 
       - name: Initialize contracts knowledge base
-        if: ${{ inputs.foundryiq_enabled }}
         run: |
           set -euo pipefail
           get() { azd env get-value "$1" 2>/dev/null | grep -v 'not found' || true; }
@@ -1198,25 +986,10 @@ jobs:
           # Key Vault. Clear a stale scope so clients select x-api-key instead of an
           # un-granted hosted-agent managed-identity token.
           azd env set WAYPOINT_API_SCOPE ""
-          azd env set ASSURANCE_ORCHESTRATOR_WORKIQ_ENABLED    "${{ inputs.workiq_enabled }}"
-          azd env set ASSURANCE_ORCHESTRATOR_WEBIQ_ENABLED     "${{ inputs.webiq_enabled }}"
-          azd env set ASSURANCE_ORCHESTRATOR_FOUNDRYIQ_ENABLED "${{ inputs.foundryiq_enabled }}"
-          azd env set ASSURANCE_ORCHESTRATOR_FABRICIQ_ENABLED  "${{ inputs.fabriciq_enabled }}"
-          if [ "${{ inputs.workiq_enabled }}" = "true" ]; then
-            azd env set WORKIQ_EMAIL_MCP_SERVER_URL "${{ vars.WORKIQ_EMAIL_MCP_SERVER_URL }}"
-            azd env set WORKIQ_TEAMS_MCP_SERVER_URL "${{ vars.WORKIQ_TEAMS_MCP_SERVER_URL }}"
-            azd env set WORKIQ_SHAREPOINT_MCP_SERVER_URL "${{ vars.WORKIQ_SHAREPOINT_MCP_SERVER_URL || vars.WORKIQ_MCP_SERVER_URL }}"
-            azd env set WORKIQ_MCP_SERVER_URL "${{ vars.WORKIQ_MCP_SERVER_URL }}"
-            if [ -n "${{ vars.WORKIQ_MCP_SCOPE }}" ]; then
-              azd env set WORKIQ_MCP_SCOPE "${{ vars.WORKIQ_MCP_SCOPE }}"
-            fi
-          fi
-          if [ "${{ inputs.fabriciq_enabled }}" = "true" ]; then
-            azd env set FABRIC_DATA_AGENT_CONNECTION_NAME "${{ vars.FABRIC_DATA_AGENT_CONNECTION_NAME || 'waypoint-data-agent-connection' }}"
-            azd env set FABRIC_MIRRORED_SQL_ENDPOINT "${{ vars.FABRIC_MIRRORED_SQL_ENDPOINT }}"
-            azd env set FABRIC_MIRRORED_DATABASE "${{ vars.FABRIC_MIRRORED_DATABASE }}"
-            azd env set FABRIC_MIRRORED_SCHEMA "${{ vars.FABRIC_MIRRORED_SCHEMA || '_public' }}"
-          fi
+          azd env set ASSURANCE_ORCHESTRATOR_WORKIQ_ENABLED false
+          azd env set ASSURANCE_ORCHESTRATOR_WEBIQ_ENABLED false
+          azd env set ASSURANCE_ORCHESTRATOR_FOUNDRYIQ_ENABLED true
+          azd env set ASSURANCE_ORCHESTRATOR_FABRICIQ_ENABLED false
           # Content understanding
           azd env set CONTENT_UNDERSTANDING_API_VERSION "2025-11-01"
           azd env set CONTENT_UNDERSTANDING_ANALYZER_ID "prebuilt-invoice"
@@ -1245,21 +1018,9 @@ jobs:
           fi
           set_ep() { local url="${base}/agents/${2}"; azd env set "$1" "$url"; echo "  $1=$url"; }
           echo "Wiring assurance-orchestrator fan-out endpoints from ${base}:"
-          if [ "${{ inputs.workiq_enabled }}" = "true" ]; then
-            set_ep WORKIQ_EXPERT_ENDPOINT collaboration-evidence-expert
-          else
-            azd env set WORKIQ_EXPERT_ENDPOINT ""
-          fi
-          if [ "${{ inputs.webiq_enabled }}" = "true" ]; then
-            set_ep WEBIQ_EXPERT_ENDPOINT market-evidence-expert
-          else
-            azd env set WEBIQ_EXPERT_ENDPOINT ""
-          fi
-          if [ "${{ inputs.fabriciq_enabled }}" = "true" ]; then
-            set_ep FABRICIQ_EXPERT_ENDPOINT operations-data-expert
-          else
-            azd env set FABRICIQ_EXPERT_ENDPOINT ""
-          fi
+          azd env set WORKIQ_EXPERT_ENDPOINT ""
+          azd env set WEBIQ_EXPERT_ENDPOINT ""
+          azd env set FABRICIQ_EXPERT_ENDPOINT ""
           set_ep FOUNDRYIQ_EXPERT_ENDPOINT      contract-policy-expert
           set_ep WAYPOINT_RECORDER_ENDPOINT     waypoint-recorder
           azd env set ASSURANCE_ORCHESTRATOR_EXPERT_INVOCATION_MODE responses
@@ -1269,9 +1030,6 @@ jobs:
 
       - name: Create / update Foundry toolbox for ${{ matrix.agent }}
         id: toolbox
-        # WebIQ uses Foundry-native web search; FabricIQ binds its data agent in code.
-        if: ${{ matrix.agent != 'market-evidence-expert' && matrix.agent != 'operations-data-expert' }}
-        continue-on-error: ${{ matrix.agent != 'collaboration-evidence-expert' && matrix.agent != 'contract-policy-expert' && matrix.agent != 'invoice-analyst' }}
         env:
           PROJECT_ENDPOINT: ${{ steps.endpoint.outputs.endpoint }}
         run: |
@@ -1281,10 +1039,6 @@ jobs:
           RC_KB_MCP_CONN_NAME="${{ vars.RELEASE_CAPTAIN_KB_MCP_CONNECTION_NAME }}"
           case "$KB_MCP_CONN_NAME" in *"not found"*|"") KB_MCP_CONN_NAME="" ;; esac
           case "$AI_SEARCH_CONN_NAME" in *"not found"*|"") AI_SEARCH_CONN_NAME="" ;; esac
-          TOOLBOX_NAME_ARG=()
-          if [ "${{ matrix.agent }}" = "collaboration-evidence-expert" ]; then
-            TOOLBOX_NAME_ARG=(--toolbox-name collaboration-evidence-tools)
-          fi
           FOUNDRY_PROJECT_ENDPOINT="$PROJECT_ENDPOINT" \
           GH_MCP_CONNECTION_ID="${{ vars.GH_MCP_CONNECTION_ID }}" \
           GH_MCP_PAT="${{ secrets.GH_MCP_PAT }}" \
@@ -1293,7 +1047,7 @@ jobs:
           AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME="$KB_MCP_CONN_NAME" \
           RELEASE_CAPTAIN_KB_MCP_CONNECTION_NAME="$RC_KB_MCP_CONN_NAME" \
           AZURE_AI_SEARCH_CONNECTION_NAME="$AI_SEARCH_CONN_NAME" \
-            python scripts/create_toolbox.py --agent "${{ matrix.agent }}" "${TOOLBOX_NAME_ARG[@]}" \
+            python scripts/create_toolbox.py --agent "${{ matrix.agent }}" \
             | tee toolbox.log
           ENDPOINT=$(grep '^TOOLBOX_MCP_ENDPOINT=' toolbox.log | cut -d= -f2-)
           if [ -z "$ENDPOINT" ]; then
@@ -1486,7 +1240,7 @@ jobs:
             echo "- Project endpoint: \`${FOUNDRY_ENDPOINT:-<unavailable>}\`"
             echo "- Deployment required: \`${{ steps.agent-state.outputs.needs_deploy }}\`"
             if [ "${{ matrix.agent }}" = "assurance-orchestrator" ]; then
-              echo "- Fan-out lanes: WorkIQ=${{ inputs.workiq_enabled }}, WebIQ=${{ inputs.webiq_enabled }}, FoundryIQ=${{ inputs.foundryiq_enabled }}, FabricIQ=${{ inputs.fabriciq_enabled }}"
+              echo "- Evidence lane: FoundryIQ"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -1571,58 +1325,14 @@ jobs:
             exit 1
           fi
 
-  # ── onelake-upload ────────────────────────────────────────────────────────────
-  # Idempotent upload of the ledgerfield corpus (Files + Delta tables) to the
-  # provisioned Fabric OneLake lakehouse. Gated on successful Fabric provisioning.
-  onelake-upload:
-    name: Upload corpus to OneLake
-    runs-on: ubuntu-latest
-    if: |
-      always() &&
-      inputs.fabric_provision_enabled &&
-      inputs.seed_data &&
-      needs.plan.outputs.onelake_upload == 'true' &&
-      needs['fabric-provision'].result == 'success' &&
-      (needs['corpus-seed'].result == 'success' || needs['corpus-seed'].result == 'skipped')
-    needs: [plan, validate, fabric-provision, corpus-seed]
-    steps:
-      - uses: actions/checkout@v7.0.0
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
-
-      - name: Azure login
-        uses: azure/login@v3.0.0
-        with:
-          client-id: ${{ needs.validate.outputs.azure_client_id }}
-          tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
-          subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
-
-      - name: Upload corpus to OneLake
-        working-directory: modules/corpus
-        env:
-          ONELAKE_WORKSPACE: ${{ needs['fabric-provision'].outputs.onelake_workspace }}
-          ONELAKE_LAKEHOUSE: ${{ needs['fabric-provision'].outputs.onelake_lakehouse }}
-          ONELAKE_CORPUS_PREFIX: ${{ needs['fabric-provision'].outputs.onelake_corpus_prefix }}
-        run: |
-          set -euo pipefail
-          uv sync
-          uv run playwright install --with-deps chromium
-          uv run ledgerfield upload-onelake \
-            --workspace "$ONELAKE_WORKSPACE" \
-            --lakehouse "$ONELAKE_LAKEHOUSE" \
-            --corpus-prefix "${ONELAKE_CORPUS_PREFIX:-Files/corpus}"
-
   # ── contracts-kb-upload ───────────────────────────────────────────────────────
   # Idempotent blob sync of supplier contracts into the contracts-kb Search
-  # knowledge source, followed by an immediate reindex. Gated on FoundryIQ and
-  # resolved storage coordinates from provision-agents.
+  # knowledge source, followed by an immediate reindex.
   contracts-kb-upload:
     name: Upload contracts to knowledge base
     runs-on: ubuntu-latest
     if: |
       always() &&
-      inputs.foundryiq_enabled &&
       inputs.deploy_agents &&
       needs.plan.outputs.contracts_kb == 'true' &&
       needs['provision-agents'].result == 'success' &&
@@ -1658,9 +1368,7 @@ jobs:
             --indexer "${CONTRACTS_KB_INDEXER:-contracts-ks-indexer}"
 
   # ── seed-import ───────────────────────────────────────────────────────────────
-  # Wait for OneLake upload when Fabric is enabled so the seed references data
-  # that is already in the lake. When Fabric is disabled, onelake-upload is
-  # skipped and the 'skipped' result satisfies the gate below.
+  # Import the generated corpus after the app is available.
   seed-import:
     name: Import Waypoint seed
     runs-on: ubuntu-latest
@@ -1673,9 +1381,8 @@ jobs:
       (needs['deploy-app'].result == 'success' ||
        (needs.plan.outputs.app != 'true' && needs['deploy-app'].result == 'skipped')) &&
       needs['corpus-seed'].result == 'success' &&
-      needs.keyvault.result == 'success' &&
-      (needs['onelake-upload'].result == 'success' || needs['onelake-upload'].result == 'skipped')
-    needs: [plan, validate, keyvault, msal, corpus-seed, deploy-app, onelake-upload]
+      needs.keyvault.result == 'success'
+    needs: [plan, validate, keyvault, msal, corpus-seed, deploy-app]
     steps:
       - uses: actions/checkout@v7.0.0
 
@@ -1711,8 +1418,6 @@ jobs:
   # ── acceptance ────────────────────────────────────────────────────────────────
   # Final gate: HTTP probes via verify_deployment.py + Container App inventory.
   # Reader key is read from KV and masked immediately; never printed or uploaded.
-  # WorkIQ is user-scoped and excluded from required health checks. Disabled lanes
-  # are reported explicitly in the evidence rather than pretending they passed.
   acceptance:
     name: Acceptance and evidence
     runs-on: ubuntu-latest
@@ -1724,18 +1429,29 @@ jobs:
       needs.msal.result == 'success' &&
       (needs['deploy-app'].result == 'success' ||
        (needs.plan.outputs.app != 'true' && needs['deploy-app'].result == 'skipped')) &&
-      needs.keyvault.result == 'success'
+      needs.keyvault.result == 'success' &&
+      (!inputs.deploy_agents || needs['provision-agents'].result == 'success') &&
+      (!inputs.deploy_agents ||
+       needs.plan.outputs.deploy_agents != 'true' ||
+       needs['deploy-agents'].result == 'success') &&
+      (!(inputs.deploy_app && inputs.deploy_agents) ||
+       needs.plan.outputs.wiring != 'true' ||
+       needs['wire-app-operations'].result == 'success') &&
+      (!inputs.deploy_agents ||
+       needs.plan.outputs.contracts_kb != 'true' ||
+       needs['contracts-kb-upload'].result == 'success') &&
+      (!inputs.seed_data ||
+       needs.plan.outputs.seed_import != 'true' ||
+       needs['seed-import'].result == 'success')
     needs:
       - plan
       - validate
       - keyvault
       - msal
       - deploy-app
-      - fabric-provision
       - provision-agents
       - deploy-agents
       - wire-app-operations
-      - onelake-upload
       - contracts-kb-upload
       - seed-import
     steps:
@@ -1756,16 +1472,12 @@ jobs:
           WEB_BASE_URL: ${{ needs['deploy-app'].outputs.web_base_url }}
           PROJECT_ENDPOINT: ${{ needs['provision-agents'].outputs.project_endpoint }}
           SELECTED_AGENTS: ${{ needs.validate.outputs.agent_matrix }}
-          FABRIC_PROVISION_RESULT: ${{ needs['fabric-provision'].result }}
           AGENT_DEPLOY_RESULT: ${{ needs['deploy-agents'].result }}
           APP_OPERATIONS_WIRING_RESULT: ${{ needs['wire-app-operations'].result }}
-          ONELAKE_UPLOAD_RESULT: ${{ needs['onelake-upload'].result }}
           CONTRACTS_KB_UPLOAD_RESULT: ${{ needs['contracts-kb-upload'].result }}
           SEED_IMPORT_RESULT: ${{ needs['seed-import'].result }}
           AGENT_DEPLOY_PLANNED: ${{ needs.plan.outputs.deploy_agents }}
           WIRING_PLANNED: ${{ needs.plan.outputs.wiring }}
-          FABRIC_INFRASTRUCTURE_PLANNED: ${{ needs.plan.outputs.fabric_infrastructure }}
-          ONELAKE_UPLOAD_PLANNED: ${{ needs.plan.outputs.onelake_upload }}
           CONTRACTS_KB_PLANNED: ${{ needs.plan.outputs.contracts_kb }}
           SEED_IMPORT_PLANNED: ${{ needs.plan.outputs.seed_import }}
           COMMIT_SHA: ${{ github.sha }}
@@ -1963,8 +1675,6 @@ jobs:
             fi
           fi
 
-          lane_json='{"workiq":${{ inputs.workiq_enabled }},"webiq":${{ inputs.webiq_enabled }},"foundryiq":${{ inputs.foundryiq_enabled }},"fabriciq":${{ inputs.fabriciq_enabled }}}'
-
           # Write evidence builder inline (no /tmp — workspace root is fine).
           cat > evidence_builder.py << 'PYEOF'
           import json, sys, os, datetime
@@ -1977,10 +1687,7 @@ jobs:
           live_agent_names = [
               agent.get("name") for agent in live_agents if isinstance(agent, dict)
           ]
-          lane_status = json.loads(os.environ["LANE_JSON"])
-          manifest = json.load(open("tools/deploy/deployment.manifest.json"))
           declared_agents = json.loads(os.environ["SELECTED_AGENTS"])
-          disabled_lanes = [k for k, v in lane_status.items() if not v]
           evidence = {
               "schema_version": probes.get("schema_version", "1.0"),
               "commit_sha": sha,
@@ -1993,17 +1700,14 @@ jobs:
               "declared_agents": declared_agents,
               "live_agents": live_agents,
               "stages": {
-                  "fabric_provision": os.environ["FABRIC_PROVISION_RESULT"],
                   "agent_deploy": os.environ["AGENT_DEPLOY_RESULT"],
                   "app_operations_wiring": os.environ["APP_OPERATIONS_WIRING_RESULT"],
                   "agent_inventory": os.environ["AGENT_INVENTORY_RESULT"],
-                  "onelake_upload": os.environ["ONELAKE_UPLOAD_RESULT"],
                   "contracts_kb_upload": os.environ["CONTRACTS_KB_UPLOAD_RESULT"],
                   "seed_import": os.environ["SEED_IMPORT_RESULT"],
                   "end_to_end_run": os.environ["E2E_RESULT"],
               },
-              "lane_status": lane_status,
-              "disabled_lanes": disabled_lanes,
+              "evidence_lane": "foundryiq",
               "passed": False,
           }
           issues = []
@@ -2051,28 +1755,8 @@ jobs:
                       + os.environ["APP_OPERATIONS_WIRING_RESULT"]
                   )
           if (
-              os.environ["FABRIC_INFRASTRUCTURE_PLANNED"] == "true"
-              and os.environ["FABRIC_PROVISION_ENABLED"] == "true"
-              and os.environ["FABRIC_PROVISION_RESULT"] != "success"
-          ):
-              issues.append(
-                  "Fabric provisioning did not succeed: "
-                  + os.environ["FABRIC_PROVISION_RESULT"]
-              )
-          if (
-              os.environ["ONELAKE_UPLOAD_PLANNED"] == "true"
-              and os.environ["FABRIC_PROVISION_ENABLED"] == "true"
-              and os.environ["SEED_DATA_ENABLED"] == "true"
-              and os.environ["ONELAKE_UPLOAD_RESULT"] != "success"
-          ):
-              issues.append(
-                  "OneLake upload did not succeed: "
-                  + os.environ["ONELAKE_UPLOAD_RESULT"]
-              )
-          if (
               os.environ["CONTRACTS_KB_PLANNED"] == "true"
               and os.environ["DEPLOY_AGENTS_ENABLED"] == "true"
-              and os.environ["FOUNDRYIQ_ENABLED"] == "true"
               and os.environ["CONTRACTS_KB_UPLOAD_RESULT"] != "success"
           ):
               issues.append(
@@ -2097,13 +1781,9 @@ jobs:
                   + os.environ["E2E_RESULT"]
               )
           evidence["passed"] = not issues
-          evidence["outcome"] = (
-              "failed" if issues else "partial" if disabled_lanes else "passed"
-          )
+          evidence["outcome"] = "failed" if issues else "passed"
           evidence["issues"] = issues
           json.dump(evidence, open("deployment-evidence.json", "w"), indent=2, sort_keys=True)
-          if disabled_lanes:
-              print("::notice::Disabled lanes (expected — not a failure): " + str(disabled_lanes), flush=True)
           if issues:
               for issue in issues:
                   print("::error::" + issue, flush=True)
@@ -2114,15 +1794,10 @@ jobs:
           live_agents="$(cat live-agents.json)"
           CONTAINER_APPS="$container_apps" \
           LIVE_AGENTS="$live_agents" \
-          LANE_JSON="$lane_json" \
           DEPLOY_AGENTS_ENABLED="${{ inputs.deploy_agents }}" \
           AGENT_DEPLOY_PLANNED="${{ needs.plan.outputs.deploy_agents }}" \
           WIRING_PLANNED="${{ needs.plan.outputs.wiring }}" \
           AGENT_INVENTORY_RESULT="$inventory_result" \
-          FABRIC_PROVISION_ENABLED="${{ inputs.fabric_provision_enabled }}" \
-          FABRIC_INFRASTRUCTURE_PLANNED="${{ needs.plan.outputs.fabric_infrastructure }}" \
-          ONELAKE_UPLOAD_PLANNED="${{ needs.plan.outputs.onelake_upload }}" \
-          FOUNDRYIQ_ENABLED="${{ inputs.foundryiq_enabled }}" \
           CONTRACTS_KB_PLANNED="${{ needs.plan.outputs.contracts_kb }}" \
           SEED_DATA_ENABLED="${{ inputs.seed_data }}" \
           SEED_IMPORT_PLANNED="${{ needs.plan.outputs.seed_import }}" \
@@ -2152,8 +1827,7 @@ jobs:
             if [ -f deployment-evidence.json ]; then
               outcome="$(python3 -c "import json; e=json.load(open('deployment-evidence.json')); print(e.get('outcome', 'unknown'))" 2>/dev/null || echo 'unknown')"
               echo "- Outcome: $outcome"
-              disabled="$(python3 -c "import json; e=json.load(open('deployment-evidence.json')); print(', '.join(e.get('disabled_lanes', [])) or 'none')" 2>/dev/null || echo '')"
-              echo "- Disabled lanes: $disabled"
+              echo "- Evidence lane: FoundryIQ"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -2172,11 +1846,9 @@ jobs:
       - msal
       - corpus-seed
       - deploy-app
-      - fabric-provision
       - provision-agents
       - deploy-agents
       - wire-app-operations
-      - onelake-upload
       - contracts-kb-upload
       - seed-import
       - acceptance
@@ -2199,14 +1871,8 @@ jobs:
           SEED_IMPORT_PLANNED: ${{ needs.plan.outputs.seed_import }}
           SEED_IMPORT_ENABLED: ${{ inputs.seed_data && inputs.deploy_app }}
           SEED_IMPORT_RESULT: ${{ needs['seed-import'].result }}
-          FABRIC_PLANNED: ${{ needs.plan.outputs.fabric_infrastructure }}
-          FABRIC_ENABLED: ${{ inputs.fabric_provision_enabled }}
-          FABRIC_RESULT: ${{ needs['fabric-provision'].result }}
-          ONELAKE_PLANNED: ${{ needs.plan.outputs.onelake_upload }}
-          ONELAKE_ENABLED: ${{ inputs.fabric_provision_enabled && inputs.seed_data }}
-          ONELAKE_RESULT: ${{ needs['onelake-upload'].result }}
           CONTRACTS_KB_PLANNED: ${{ needs.plan.outputs.contracts_kb }}
-          CONTRACTS_KB_ENABLED: ${{ inputs.deploy_agents && inputs.foundryiq_enabled }}
+          CONTRACTS_KB_ENABLED: ${{ inputs.deploy_agents }}
           CONTRACTS_KB_RESULT: ${{ needs['contracts-kb-upload'].result }}
           FOUNDRY_PLANNED: ${{ needs.plan.outputs.foundry_infrastructure }}
           FOUNDRY_ENABLED: ${{ inputs.deploy_agents && inputs.provision_agents }}
@@ -2239,8 +1905,6 @@ jobs:
           check_stage app "$APP_PLANNED" "$APP_ENABLED" "$APP_RESULT"
           check_stage corpus_seed "$CORPUS_SEED_PLANNED" "$CORPUS_SEED_ENABLED" "$CORPUS_SEED_RESULT"
           check_stage seed_import "$SEED_IMPORT_PLANNED" "$SEED_IMPORT_ENABLED" "$SEED_IMPORT_RESULT"
-          check_stage fabric_infrastructure "$FABRIC_PLANNED" "$FABRIC_ENABLED" "$FABRIC_RESULT"
-          check_stage onelake_upload "$ONELAKE_PLANNED" "$ONELAKE_ENABLED" "$ONELAKE_RESULT"
           check_stage contracts_kb "$CONTRACTS_KB_PLANNED" "$CONTRACTS_KB_ENABLED" "$CONTRACTS_KB_RESULT"
           check_stage foundry_infrastructure "$FOUNDRY_PLANNED" "$FOUNDRY_ENABLED" "$FOUNDRY_RESULT"
           check_stage deploy_agents "$AGENTS_PLANNED" "$AGENTS_ENABLED" "$AGENTS_RESULT"

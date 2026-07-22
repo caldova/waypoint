@@ -41,6 +41,7 @@ OIDC_SCRIPT = REPO_ROOT / "tools" / "deploy" / "scripts" / "oidc.sh"
 DEPLOY_WORKFLOW = "deploy.yml"
 DEFAULT_REF = "main"
 DEFAULT_OIDC_APP_NAME = "forge-gha-oidc"
+DEFAULT_APP_LOCATION = "northeurope"
 
 
 @dataclass(frozen=True)
@@ -123,14 +124,21 @@ def _sanitize(
     return cleaned[:max_len]
 
 
-def derive_names(subscription_id: str, region: str, target_repo: str) -> dict:
+def derive_names(
+    subscription_id: str,
+    region: str,
+    target_repo: str,
+    app_region: str = DEFAULT_APP_LOCATION,
+) -> dict:
     """Pure, deterministic derivation of every resource/environment name the
     deploy workflow accepts as a parallel-environment override. Same inputs
     always produce the same outputs — no randomness, no clock, no I/O — so two
     operators deriving names for the same subscription+region+repo land on the
     identical, collision-safe environment."""
-    if not subscription_id or not region or not target_repo:
-        raise ValueError("subscription_id, region, and target_repo are all required")
+    if not subscription_id or not region or not target_repo or not app_region:
+        raise ValueError(
+            "subscription_id, region, target_repo, and app_region are all required"
+        )
 
     owner, _, name = target_repo.partition("/")
     repo_slug = _sanitize(name or target_repo, max_len=20)
@@ -141,22 +149,18 @@ def derive_names(subscription_id: str, region: str, target_repo: str) -> dict:
     state_rg = _sanitize(f"rg-{env_name}-state", allow_hyphen=True, max_len=64)
     # Key Vault names: 3-24 chars, alphanumeric + hyphen, must start with a letter.
     kv_name = _sanitize(f"kv-{repo_slug}-{sub_hash}", allow_hyphen=True, max_len=24)
-    # Fabric capacity names: lowercase alphanumeric only (no hyphens), <= 63 chars.
-    fabric_capacity = _sanitize(f"waypointcorpus{sub_hash}", allow_hyphen=False, max_len=63)
     # Postgres flexible server names: lowercase alphanumeric + hyphen, 3-63 chars.
     postgres_name = _sanitize(f"pg-{repo_slug}-{sub_hash}", allow_hyphen=True, max_len=63)
 
     return {
         "azure_location": region,
+        "app_location": app_region,
         "azd_env_name": env_name,
         "app_resource_group": app_rg,
         "state_resource_group": state_rg,
         "key_vault_name": kv_name,
         "msal_display_name": _sanitize(f"waypoint-{repo_slug}", max_len=40),
         "postgres_server_name": postgres_name,
-        "fabric_capacity_name": fabric_capacity,
-        "fabric_workspace_name": _sanitize(f"waypoint-corpus-{repo_slug}", max_len=63),
-        "fabric_lakehouse_name": "corpus",
         "owner": owner or target_repo,
         "repo": name or target_repo,
     }
@@ -241,15 +245,13 @@ def build_dispatch_args(
     ]
     field_map = {
         "azure_location": names.get("azure_location", ""),
+        "app_location": names.get("app_location", ""),
         "azd_env_name": names.get("azd_env_name", ""),
         "app_resource_group": names.get("app_resource_group", ""),
         "state_resource_group": names.get("state_resource_group", ""),
         "key_vault_name": names.get("key_vault_name", ""),
         "msal_display_name": names.get("msal_display_name", ""),
         "postgres_server_name": names.get("postgres_server_name", ""),
-        "fabric_capacity_name": names.get("fabric_capacity_name", ""),
-        "fabric_workspace_name": names.get("fabric_workspace_name", ""),
-        "fabric_lakehouse_name": names.get("fabric_lakehouse_name", ""),
     }
     for key, value in field_map.items():
         if value:
@@ -425,6 +427,7 @@ def _arguments() -> argparse.Namespace:
     derive = sub.add_parser("derive-names", help="Print deterministic resource/env names")
     derive.add_argument("--subscription-id", required=True)
     derive.add_argument("--region", required=True)
+    derive.add_argument("--app-region", default=DEFAULT_APP_LOCATION)
     derive.add_argument("--target-repo", required=True, help="owner/name")
 
     bootstrap = sub.add_parser("bootstrap", help="Run oidc.sh (mutating; requires --confirm)")
@@ -452,7 +455,12 @@ def _arguments() -> argparse.Namespace:
 def main() -> int:
     args = _arguments()
     if args.command == "derive-names":
-        names = derive_names(args.subscription_id, args.region, args.target_repo)
+        names = derive_names(
+            args.subscription_id,
+            args.region,
+            args.target_repo,
+            args.app_region,
+        )
         print(json.dumps(names, indent=2, sort_keys=True))
         return 0
     if args.command == "bootstrap":

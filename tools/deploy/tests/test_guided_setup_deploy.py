@@ -27,6 +27,8 @@ class DeriveNamesTests(unittest.TestCase):
         a = guided_setup_deploy.derive_names("sub-1", "swedencentral", "caldova/waypoint")
         b = guided_setup_deploy.derive_names("sub-1", "swedencentral", "caldova/waypoint")
         self.assertEqual(a, b)
+        self.assertEqual(a["azure_location"], "swedencentral")
+        self.assertEqual(a["app_location"], "northeurope")
 
     def test_differs_when_subscription_differs(self):
         a = guided_setup_deploy.derive_names("sub-1", "swedencentral", "caldova/waypoint")
@@ -48,11 +50,6 @@ class DeriveNamesTests(unittest.TestCase):
         self.assertTrue(kv_name[0].isalpha())
         self.assertRegex(kv_name, r"^[a-z0-9-]+$")
 
-    def test_fabric_capacity_name_has_no_hyphens(self):
-        names = guided_setup_deploy.derive_names("sub-1", "swedencentral", "caldova/waypoint")
-        self.assertNotIn("-", names["fabric_capacity_name"])
-        self.assertLessEqual(len(names["fabric_capacity_name"]), 63)
-
     def test_rejects_missing_inputs(self):
         with self.assertRaises(ValueError):
             guided_setup_deploy.derive_names("", "swedencentral", "caldova/waypoint")
@@ -60,6 +57,10 @@ class DeriveNamesTests(unittest.TestCase):
             guided_setup_deploy.derive_names("sub-1", "", "caldova/waypoint")
         with self.assertRaises(ValueError):
             guided_setup_deploy.derive_names("sub-1", "swedencentral", "")
+        with self.assertRaises(ValueError):
+            guided_setup_deploy.derive_names(
+                "sub-1", "swedencentral", "caldova/waypoint", ""
+            )
 
     def test_owner_and_repo_split_out(self):
         names = guided_setup_deploy.derive_names("sub-1", "swedencentral", "caldova/waypoint")
@@ -68,7 +69,7 @@ class DeriveNamesTests(unittest.TestCase):
 
     def test_sanitizes_hostile_repo_name(self):
         names = guided_setup_deploy.derive_names("sub-1", "swedencentral", "caldova/../../etc; rm -rf")
-        for key in ("azd_env_name", "app_resource_group", "key_vault_name", "fabric_capacity_name"):
+        for key in ("azd_env_name", "app_resource_group", "key_vault_name"):
             self.assertRegex(names[key], r"^[a-z0-9-]+$")
 
 
@@ -88,6 +89,7 @@ class CommandConstructionTests(unittest.TestCase):
         args = guided_setup_deploy.build_dispatch_args(owner="caldova", repo="waypoint", names=names, ref="main")
         self.assertEqual(args[:4], ["gh", "workflow", "run", guided_setup_deploy.DEPLOY_WORKFLOW])
         self.assertIn("--ref", args)
+        self.assertIn("app_location=northeurope", args)
         self.assertIn("main", args)
         self.assertIn("--repo", args)
         self.assertIn("caldova/waypoint", args)

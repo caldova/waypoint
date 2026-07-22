@@ -23,7 +23,10 @@
       "tools/deploy/tests/**",
       "**/README.md",
       "**/AGENTS.md",
-      "**/.github/copilot-instructions.md"
+      "**/.github/copilot-instructions.md",
+      "modules/agents/agents/collaboration-evidence-expert/**",
+      "modules/agents/agents/market-evidence-expert/**",
+      "modules/agents/agents/operations-data-expert/**"
     ],
     "stages": {
       "app": {
@@ -42,19 +45,6 @@
       },
       "seed_import": {
         "label": "Waypoint seed import",
-        "propagates_to": [
-          "acceptance"
-        ]
-      },
-      "fabric_infrastructure": {
-        "label": "Fabric and OneLake infrastructure",
-        "propagates_to": [
-          "onelake_upload",
-          "acceptance"
-        ]
-      },
-      "onelake_upload": {
-        "label": "OneLake corpus upload",
         "propagates_to": [
           "acceptance"
         ]
@@ -105,10 +95,7 @@
       "invoice-analyst",
       "assurance-orchestrator",
       "contract-policy-expert",
-      "waypoint-recorder",
-      "collaboration-evidence-expert",
-      "market-evidence-expert",
-      "operations-data-expert"
+      "waypoint-recorder"
     ],
     "agent_sources": {
       "root": "modules/agents/agents",
@@ -133,15 +120,6 @@
         ]
       },
       {
-        "name": "fabric-provisioning",
-        "paths": [
-          "apps/waypoint/infra/scripts/provision-fabric.sh"
-        ],
-        "stages": [
-          "fabric_infrastructure"
-        ]
-      },
-      {
         "name": "corpus-business-data",
         "paths": [
           "modules/corpus/data/invoices/**",
@@ -150,8 +128,7 @@
           "modules/corpus/data/waypoint/invoice-decisions.json"
         ],
         "stages": [
-          "corpus_seed",
-          "onelake_upload"
+          "corpus_seed"
         ],
         "exclusive": true
       },
@@ -162,7 +139,6 @@
           "modules/corpus/data/policies/source-markdown/**"
         ],
         "stages": [
-          "onelake_upload",
           "contracts_kb"
         ],
         "exclusive": true
@@ -174,16 +150,6 @@
         ],
         "stages": [
           "corpus_seed"
-        ],
-        "exclusive": true
-      },
-      {
-        "name": "onelake-upload-code",
-        "paths": [
-          "modules/corpus/src/ledgerfield/onelake_upload.py"
-        ],
-        "stages": [
-          "onelake_upload"
         ],
         "exclusive": true
       },
@@ -206,7 +172,6 @@
         ],
         "stages": [
           "corpus_seed",
-          "onelake_upload",
           "contracts_kb"
         ]
       },
@@ -283,36 +248,25 @@
       "state_resource_group": "rg-waypoint-state",
       "key_vault_name": "derived as kv-waypoint-<env+sub-hash>",
       "azd_environment": "waypoint-agents",
-      "msal_display_name": "waypoint",
-      "fabric_workspace_name": "waypoint-corpus",
-      "fabric_lakehouse_name": "corpus",
-      "fabric_capacity_name": "waypointcorpus"
+      "msal_display_name": "waypoint"
     },
-    "feature_lanes": {
-      "workiq": false,
-      "webiq": false,
-      "foundryiq": true,
-      "fabriciq": false
-    },
+    "evidence_plane": "foundryiq",
     "workflow_inputs": {
       "description": "All inputs are workflow_dispatch overrides. Omit any to use the repo-var or built-in default. Supply all parallel-env overrides together for a fully independent non-destructive parallel environment.",
       "parallel_env_overrides": [
         "azure_location",
+        "app_location",
         "app_resource_group",
         "state_resource_group",
         "key_vault_name",
         "msal_display_name",
         "postgres_server_name",
-        "fabric_capacity_name",
-        "fabric_workspace_name",
-        "fabric_lakehouse_name",
         "azd_env_name"
       ],
       "notes": [
         "Key Vault is always created in state_resource_group, never the app_resource_group.",
         "KV name includes azd_env_name in its hash so parallel environments in one subscription never share a vault.",
-        "The default simplified hosted-agent deployment includes only FoundryIQ.",
-        "WorkIQ, WebIQ, and FabricIQ remain opt-in workflow lanes while their product and deployment gaps are addressed."
+        "The launch hosted-agent deployment includes only FoundryIQ."
       ]
     }
   },
@@ -330,16 +284,6 @@
       "assurance-orchestrator",
       "contract-policy-expert",
       "waypoint-recorder"
-    ],
-    "optional_agents": [
-      "collaboration-evidence-expert",
-      "market-evidence-expert",
-      "operations-data-expert"
-    ],
-    "optional": [
-      "fabric-capacity",
-      "onelake-workspace",
-      "onelake-lakehouse"
     ]
   },
   "probes": [
