@@ -608,6 +608,25 @@ jobs:
               --query id -o tsv)"
             export Waypoint__Fabric__AdministratorMembersJson="[\"${deploy_sp_object_id}\"]"
           fi
+          # Foundry wiring is applied after the first full deployment. Preserve it on later
+          # app-only deployments so Aspire does not replace the live endpoint with an empty
+          # configuration value when the agent stages are intentionally disabled.
+          existing_foundry_endpoint="$(az containerapp show \
+            --name api \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query "properties.template.containers[0].env[?name=='APP_FOUNDRY_ENDPOINT'].value | [0]" \
+            -o tsv 2>/dev/null || true)"
+          existing_foundry_project_url="$(az containerapp show \
+            --name api \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query "properties.template.containers[0].env[?name=='APP_FOUNDRY_PROJECT_URL'].value | [0]" \
+            -o tsv 2>/dev/null || true)"
+          if [ -n "$existing_foundry_endpoint" ]; then
+            export Waypoint__Foundry__Endpoint="$existing_foundry_endpoint"
+          fi
+          if [ -n "$existing_foundry_project_url" ]; then
+            export Waypoint__Foundry__ProjectUrl="$existing_foundry_project_url"
+          fi
           existing_web_fqdn="$(az containerapp show \
             --name web \
             --resource-group "$AZURE_RESOURCE_GROUP" \

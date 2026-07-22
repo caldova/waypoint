@@ -232,6 +232,23 @@ class AgentModelConfigurationTests(unittest.TestCase):
             msal_auth,
         )
 
+    def test_app_only_redeploy_preserves_foundry_assurance_wiring(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        deploy_app = workflow.split("  deploy-app:", 1)[1].split(
+            "  # ── provision-agents", 1
+        )[0]
+
+        self.assertIn("existing_foundry_endpoint=", deploy_app)
+        self.assertIn("existing_foundry_project_url=", deploy_app)
+        self.assertIn(
+            'export Waypoint__Foundry__Endpoint="$existing_foundry_endpoint"',
+            deploy_app,
+        )
+        self.assertIn(
+            'export Waypoint__Foundry__ProjectUrl="$existing_foundry_project_url"',
+            deploy_app,
+        )
+
     def test_app_deploy_retains_safe_startup_database_bootstrap(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
         deploy_app = workflow.split("\n  deploy-app:\n", 1)[1].split(
