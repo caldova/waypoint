@@ -104,7 +104,9 @@ deployment inputs with active versions before deploying a new version. This
 skip-on-unchanged behavior is agent-level selectivity; it is not a batch
 assurance feature.
 
-Aspire deployment attempts are bounded to 15 minutes. If Azure reports
+The Aspire app job is bounded to 30 minutes with at most two 12-minute
+deployment attempts. Unknown failures stop immediately; a recognized transient
+gets one recovery attempt. Capacity cleanup is bounded to five minutes. If Azure reports
 `ManagedEnvironmentCapacityHeavyUsageError` or `AKSCapacityHeavyUsage`, the
 workflow cancels the stalled ARM deployment and removes the partial Container
 Apps environment only when it contains no Container Apps. The next bounded

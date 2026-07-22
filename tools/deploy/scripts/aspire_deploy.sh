@@ -2,8 +2,8 @@
 set -uo pipefail
 
 resource_group="${AZURE_RESOURCE_GROUP:?AZURE_RESOURCE_GROUP is required}"
-max_attempts="${ASPIRE_DEPLOY_MAX_ATTEMPTS:-3}"
-attempt_timeout="${ASPIRE_DEPLOY_ATTEMPT_TIMEOUT:-15m}"
+max_attempts="${ASPIRE_DEPLOY_MAX_ATTEMPTS:-2}"
+attempt_timeout="${ASPIRE_DEPLOY_ATTEMPT_TIMEOUT:-12m}"
 retry_delay_seconds="${ASPIRE_DEPLOY_RETRY_DELAY_SECONDS:-20}"
 capacity_pattern='ManagedEnvironmentCapacityHeavyUsageError|AKSCapacityHeavyUsage'
 managed_identity_pull_pattern='unable to pull image using Managed identity'
@@ -151,7 +151,7 @@ remove_capacity_failed_environment() {
     return 1
   fi
 
-  for check in $(seq 1 80); do
+  for check in $(seq 1 20); do
     if ! az containerapp env show \
       --resource-group "$resource_group" \
       --name "$environment_name" \
@@ -159,7 +159,7 @@ remove_capacity_failed_environment() {
       echo "Capacity-failed environment ${environment_name} was removed."
       return 0
     fi
-    echo "Waiting for ${environment_name} deletion (${check}/80)."
+    echo "Waiting for ${environment_name} deletion (${check}/20)."
     sleep 15
   done
 

@@ -223,11 +223,13 @@ class AgentModelConfigurationTests(unittest.TestCase):
         aspire_deploy = (
             ROOT / "tools/deploy/scripts/aspire_deploy.sh"
         ).read_text()
-        self.assertIn("ASPIRE_DEPLOY_MAX_ATTEMPTS:-3", aspire_deploy)
+        self.assertIn("ASPIRE_DEPLOY_MAX_ATTEMPTS:-2", aspire_deploy)
         self.assertIn("aspire deploy --non-interactive", aspire_deploy)
         self.assertIn("connect: connection refused", aspire_deploy)
         self.assertIn("Transient Azure/registry failure", aspire_deploy)
-        self.assertIn("ASPIRE_DEPLOY_ATTEMPT_TIMEOUT:-15m", aspire_deploy)
+        self.assertIn("ASPIRE_DEPLOY_ATTEMPT_TIMEOUT:-12m", aspire_deploy)
+        self.assertIn("for check in $(seq 1 20)", aspire_deploy)
+        self.assertIn("timeout-minutes: 30", deploy_app)
         self.assertIn("properties.deploymentErrors", aspire_deploy)
         self.assertIn("AKSCapacityHeavyUsage", aspire_deploy)
         self.assertIn("az deployment group cancel", aspire_deploy)
