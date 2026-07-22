@@ -40,7 +40,7 @@ enabled. FoundryIQ is the sole default evidence lane.
 
 ## Run lifecycle
 
-1. The seller or acceptance path submits one invoice.
+1. The reviewer or acceptance path submits one invoice.
 2. Waypoint returns an accepted operation and invokes the hosted orchestrator.
 3. The orchestrator opens or reuses the invoice-scoped active run.
 4. Deterministic checks and enabled evidence lanes execute within the configured
@@ -77,8 +77,13 @@ Experts must return unknown or no-evidence states rather than guessing.
 
 ## Current scope
 
-The validated seller and deployment-acceptance path processes one invoice per
-invocation. Batch assurance is not an active runtime surface.
+Deployment acceptance processes one invoice per invocation. The Waypoint app
+also exposes a batch envelope over the same invoice-scoped lifecycle: at most 25
+unique invoices, four concurrent starts, active-run reuse, ordered outcomes, and
+failure isolation. The orchestrator itself remains single-invoice; the app owns
+batch coordination.
 
 Agent quality uses Foundry-native evaluations and Agent Optimizer with Caliber
-datasets, graders, calibration, telemetry, and RFT/RLE planning.
+datasets, graders, calibration, telemetry, and RFT/RLE planning. The controlled
+operator sequence is run, inspect, measure, improve, and release with approval;
+see `docs/quality-operations.md`.

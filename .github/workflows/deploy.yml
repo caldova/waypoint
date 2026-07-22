@@ -1436,7 +1436,7 @@ jobs:
   # exposing Foundry credentials to the browser. The API uses its existing
   # user-assigned identity and receives only the Foundry User role.
   wire-app-operations:
-    name: Wire Waypoint seller operations
+    name: Wire Waypoint assurance operations
     runs-on: ubuntu-latest
     if: |
       always() &&
@@ -1490,7 +1490,7 @@ jobs:
           fi
           echo "app_client_id=$app_client_id" >> "$GITHUB_ENV"
 
-      - name: Configure API seller-operation endpoint
+      - name: Configure API assurance endpoint
         env:
           PROJECT_ENDPOINT: ${{ needs['provision-agents'].outputs.project_endpoint }}
         run: |
@@ -1982,7 +1982,7 @@ jobs:
                   and os.environ["APP_OPERATIONS_WIRING_RESULT"] != "success"
               ):
                   issues.append(
-                      "Waypoint seller-operation wiring did not succeed: "
+                      "Waypoint assurance-operation wiring did not succeed: "
                       + os.environ["APP_OPERATIONS_WIRING_RESULT"]
                   )
           if (

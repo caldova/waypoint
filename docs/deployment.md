@@ -118,7 +118,7 @@ assurance feature.
    shared infrastructure.
 8. **deploy-agents** deploys the four default agents plus selected optional
    experts, skipping unchanged active versions.
-9. **wire-app-operations** connects the Waypoint API seller operation to the
+9. **wire-app-operations** connects the Waypoint API assurance operation to the
    deployed orchestrator.
 10. **onelake-upload** and **contracts-kb-upload** publish the corpus to the
     enabled grounding stores.
@@ -127,10 +127,18 @@ assurance feature.
     invoice from the deployed work queue, invokes the hosted orchestrator, and
     verifies that the recorder finalized a correlated terminal run.
 
-The app exposes a live seller-operated, single-invoice assurance trigger. Batch
-or quality-operation triggers are not part of this validated deployment path.
-Agent quality work uses Foundry-native evaluation and optimization surfaces with
-Caliber datasets, graders, calibration, and RFT planning.
+Deployment acceptance deliberately exercises one invoice. The deployed app also
+supports a batch envelope for up to 25 unique invoices with four concurrent
+starts, active-run reuse, ordered outcomes, and failure isolation. It uses the
+same orchestrator and recorder lifecycle as the single-invoice trigger.
+
+Agent quality work is operated separately through
+`.github/workflows/agent-quality-operations.yml`. The workflow exposes
+controlled invoice, trace, evaluation, readiness, optimizer, and RFT operations
+with sanitized artifacts. It never auto-applies, promotes, or deploys a
+candidate. Live RFT submission remains protected by environment approval,
+explicit spend acknowledgement, current lineage, and a reviewed first-class
+submission command.
 
 ## Parallel environments
 

@@ -255,7 +255,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("AZURE_CLIENT_ID=", fabric)
         self.assertIn("has no resolvable managed identity", fabric)
 
-    def test_seller_operations_use_api_identity_and_foundry_account_scope(self) -> None:
+    def test_assurance_operations_use_api_identity_and_foundry_account_scope(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
         provision = workflow.split("  provision-agents:", 1)[1].split(
             "  # ── deploy-agents", 1
@@ -278,7 +278,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
         )
         self.assertIn("AZURE_CLIENT_ID=${app_client_id}", wiring)
 
-    def test_acceptance_requires_seller_operation_wiring(self) -> None:
+    def test_acceptance_requires_assurance_operation_wiring(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
         acceptance = workflow.split("\n  acceptance:\n", 1)[1]
 
@@ -291,7 +291,30 @@ class AgentModelConfigurationTests(unittest.TestCase):
             'os.environ["WIRING_PLANNED"] == "true"',
             acceptance,
         )
-        self.assertIn("Waypoint seller-operation wiring did not succeed", acceptance)
+        self.assertIn("Waypoint assurance-operation wiring did not succeed", acceptance)
+
+    def test_agent_quality_workflow_name_is_consistent_across_operator_surfaces(
+        self,
+    ) -> None:
+        workflow_path = ROOT / ".github/workflows/agent-quality-operations.yml"
+        workflow = workflow_path.read_text()
+        root_loader = (ROOT / "apps/waypoint/web/app/root.loader.ts").read_text()
+        manifest = json.loads(
+            (
+                ROOT
+                / "apps/waypoint/web/public/quality/evidence-manifest.v1.json"
+            ).read_text()
+        )
+
+        self.assertTrue(workflow_path.is_file())
+        self.assertFalse((ROOT / ".github/workflows/seller-operations.yml").exists())
+        self.assertIn("name: Agent quality operations", workflow)
+        self.assertNotIn("seller-operation", workflow.lower())
+        self.assertIn('"agent-quality-operations.yml"', root_loader)
+        self.assertEqual(
+            manifest["source"]["workflow"],
+            ".github/workflows/agent-quality-operations.yml",
+        )
 
     def test_selective_agent_matrix_guard_uses_filtered_matrix(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()

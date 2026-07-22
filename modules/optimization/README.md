@@ -5,11 +5,17 @@ agents.
 
 The supported quality path is:
 
-1. Foundry-native rubric generation and baseline evaluation.
-2. Caliber datasets, deterministic graders, and calibration.
-3. Foundry Agent Optimizer for reviewed accuracy improvements.
-4. Caliber RFT/RLE planning for cost-quality experiments.
-5. Before/after evaluation and explicit promotion metadata.
+1. **Run** governed invoice assurance.
+2. **Inspect** correlated, sanitized trace evidence.
+3. **Measure** with Foundry-native evaluation plus Caliber datasets, graders,
+   and calibration.
+4. **Improve** with Foundry Agent Optimizer and reviewed RFT/RLE preparation.
+5. **Release with approval** only after current lineage and every protected gate
+   passes.
+
+The operator surface for this loop is documented in
+[`../../docs/quality-operations.md`](../../docs/quality-operations.md) and
+implemented by `.github/workflows/agent-quality-operations.yml`.
 
 The current target is `contract-policy-expert`. Historical
 `assurance-analyst` artifacts remain only as calibration provenance.

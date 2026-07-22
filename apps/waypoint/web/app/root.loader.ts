@@ -43,7 +43,7 @@ export function loader() {
       repositoryUrl:
         process.env.WAYPOINT_GITHUB_REPOSITORY_URL || `https://github.com/${repository}`,
       workflowFile:
-        process.env.WAYPOINT_QUALITY_WORKFLOW_FILE || "seller-operations.yml",
+        process.env.WAYPOINT_QUALITY_WORKFLOW_FILE || "agent-quality-operations.yml",
       rftEnvironment:
         process.env.WAYPOINT_RFT_APPROVAL_ENVIRONMENT || "quality-rft-submit",
     },

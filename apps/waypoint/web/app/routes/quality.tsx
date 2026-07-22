@@ -31,6 +31,7 @@ export const meta: MetaFunction = () => [
 
 type EvidenceState = "current" | "reference-only" | "stale";
 type OperationAvailability = "available" | "guarded" | "blocked";
+type OperationStage = "run" | "inspect" | "measure" | "improve" | "release";
 
 interface StateDefinition {
   state: EvidenceState;
@@ -47,6 +48,8 @@ interface EvidenceCheck {
 interface Operation {
   id: string;
   label: string;
+  stage: OperationStage;
+  purpose: string;
   availability: OperationAvailability;
   execution: "bounded" | "no-wait" | "protected";
   prerequisites: string[];
@@ -117,6 +120,50 @@ interface QualityOutletContext {
 }
 
 const MANIFEST_URL = "/quality/evidence-manifest.v1.json";
+
+const OPERATION_STAGES: Array<{
+  id: OperationStage;
+  step: number;
+  title: string;
+  detail: string;
+  icon: IconType;
+}> = [
+  {
+    id: "run",
+    step: 1,
+    title: "Run assurance",
+    detail: "Generate live, governed evidence from an invoice.",
+    icon: HiOutlineBolt,
+  },
+  {
+    id: "inspect",
+    step: 2,
+    title: "Inspect the run",
+    detail: "Correlate the result with sanitized operational traces.",
+    icon: HiOutlineCodeBracketSquare,
+  },
+  {
+    id: "measure",
+    step: 3,
+    title: "Measure quality",
+    detail: "Evaluate the current agent and verify its quality assets.",
+    icon: HiOutlineBeaker,
+  },
+  {
+    id: "improve",
+    step: 4,
+    title: "Improve the agent",
+    detail: "Search and prepare candidates without applying them.",
+    icon: HiOutlineArrowTrendingUp,
+  },
+  {
+    id: "release",
+    step: 5,
+    title: "Release with approval",
+    detail: "Keep live training behind review, spend, and command gates.",
+    icon: HiOutlineLockClosed,
+  },
+];
 
 function safeHttpsUrl(value: string): string | null {
   try {
@@ -200,12 +247,10 @@ export default function Quality() {
                 foundryUrl={foundryUrl}
               />
               <GovernanceStrip environment={qualityOperations.rftEnvironment} />
+              <OperationsPanel operations={manifest.operations} workflowUrl={workflowUrl} />
               <MetricGrid manifest={manifest} />
               <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-                <div className="space-y-6">
-                  <LineagePanel manifest={manifest} />
-                  <OperationsPanel operations={manifest.operations} workflowUrl={workflowUrl} />
-                </div>
+                <LineagePanel manifest={manifest} />
                 <aside className="space-y-6">
                   <EvidencePanel manifest={manifest} />
                   <LaunchPolicy
@@ -250,14 +295,14 @@ function Hero({
             Quality &amp; optimization
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
-            Review measured agent lineage, freshness, and launch prerequisites. Long-running
-            work is owned by GitHub Actions and Foundry; this browser never stores control-plane
-            credentials or claims that a job started locally.
+            Follow one controlled loop: generate invoice evidence, inspect its trace, measure the
+            agent, improve it, and require approval before release. GitHub Actions and Foundry own
+            the work; this browser only explains the path and links to it.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <ExternalAction href={workflowUrl} icon={HiOutlineBolt} primary>
-            Open operations workflow
+            Open agent quality workflow
           </ExternalAction>
           <ExternalAction href={foundryUrl} icon={HiOutlineArrowTopRightOnSquare}>
             Open Foundry project
@@ -278,10 +323,10 @@ function GovernanceStrip({ environment }: { environment: string }) {
         <HiOutlineShieldCheck className="h-5 w-5" aria-hidden="true" />
       </span>
       <div>
-        <h2 className="text-sm font-semibold text-blue-950">Observer, not credential broker</h2>
+        <h2 className="text-sm font-semibold text-blue-950">Why these operations are guarded</h2>
         <p className="mt-1 text-sm leading-6 text-blue-800">
-          Launches open the repository workflow. OIDC is minted inside GitHub Actions, and
-          live RFT stays behind the protected environment and explicit spend gate.
+          Every cloud action runs in GitHub Actions so inputs, credentials, evidence, and
+          approvals stay auditable. This page never runs cloud commands in your browser.
         </p>
       </div>
       <code className="w-fit rounded-md border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-800">
@@ -295,7 +340,7 @@ function MetricGrid({ manifest }: { manifest: QualityManifest }) {
   const optimizerLift =
     manifest.lineage.optimizer.acceptedScore - manifest.lineage.optimizer.baselineScore;
   return (
-    <section className="mt-6 grid gap-4 md:grid-cols-3" aria-label="Quality highlights">
+    <section className="mt-6 grid gap-4 md:grid-cols-3" aria-label="Reference quality outcomes">
       <MetricCard
         icon={HiOutlineArrowTrendingUp}
         label="Estimated inference reduction"
@@ -439,63 +484,122 @@ function OperationsPanel({
   workflowUrl: string | null;
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
+    <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
       <PanelHeader
-        eyebrow="Run registry"
-        title="Guarded operations"
-        detail="Every action resolves to a reviewed GitHub workflow path; none execute in the browser."
+        eyebrow="Controlled quality loop"
+        title="From invoice evidence to a safe release"
+        detail="Use the steps in order for a new quality cycle, or open the operation you need for an existing run."
         flush
       />
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
-        {operations.map((operation) => (
-          <article
-            key={operation.id}
-            className="rounded-lg border border-slate-200 p-4 transition-colors hover:border-slate-300"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-slate-950">{operation.label}</h3>
-                <code className="mt-1 block text-xs text-slate-500">{operation.id}</code>
-              </div>
-              <AvailabilityBadge availability={operation.availability} />
-            </div>
-            <div className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-600">
-              {operation.execution === "no-wait" ? (
-                <HiOutlineQueueList className="h-4 w-4 text-blue-600" />
-              ) : operation.execution === "protected" ? (
-                <HiOutlineLockClosed className="h-4 w-4 text-blue-600" />
-              ) : (
-                <HiOutlineClock className="h-4 w-4 text-blue-600" />
-              )}
-              {operation.execution}
-            </div>
-            <ul className="mt-3 space-y-2 text-xs leading-5 text-slate-600">
-              {operation.prerequisites.map((prerequisite) => (
-                <li key={prerequisite} className="flex gap-2">
-                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-400" />
-                  {prerequisite}
-                </li>
-              ))}
-            </ul>
-            <a
-              href={workflowUrl ?? undefined}
-              aria-disabled={!workflowUrl}
-              className={[
-                "mt-4 inline-flex min-h-11 items-center gap-2 text-sm font-semibold",
-                workflowUrl
-                  ? "text-blue-700 hover:text-blue-900"
-                  : "cursor-not-allowed text-slate-400",
-              ].join(" ")}
-              target={workflowUrl ? "_blank" : undefined}
-              rel={workflowUrl ? "noreferrer" : undefined}
+      <ol className="mt-6 space-y-4">
+        {OPERATION_STAGES.map((stage) => {
+          const stageOperations = operations.filter((operation) => operation.stage === stage.id);
+          const StageIcon = stage.icon;
+          return (
+            <li
+              key={stage.id}
+              className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-[48px_minmax(0,1fr)] md:p-5"
             >
-              Configure in Actions
-              <HiOutlineArrowTopRightOnSquare className="h-4 w-4" aria-hidden="true" />
-            </a>
-          </article>
-        ))}
-      </div>
+              <div
+                className="flex h-12 w-12 items-center justify-center rounded-full border border-blue-200 bg-white text-blue-700 shadow-sm"
+                aria-hidden="true"
+              >
+                <span className="text-sm font-bold">{stage.step}</span>
+              </div>
+              <div>
+                <div className="flex items-start gap-3">
+                  <StageIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-950">{stage.title}</h3>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">{stage.detail}</p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  {stageOperations.map((operation) => (
+                    <OperationCard
+                      key={operation.id}
+                      operation={operation}
+                      workflowUrl={workflowUrl}
+                    />
+                  ))}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </section>
+  );
+}
+
+function OperationCard({
+  operation,
+  workflowUrl,
+}: {
+  operation: Operation;
+  workflowUrl: string | null;
+}) {
+  const execution = {
+    bounded: {
+      label: "Completes in Actions",
+      icon: HiOutlineClock,
+    },
+    "no-wait": {
+      label: "Starts an asynchronous job",
+      icon: HiOutlineQueueList,
+    },
+    protected: {
+      label: "Requires protected approval",
+      icon: HiOutlineLockClosed,
+    },
+  }[operation.execution];
+  const ExecutionIcon = execution.icon;
+
+  return (
+    <article className="flex h-full flex-col rounded-lg border border-slate-200 bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-semibold text-slate-950">{operation.label}</h4>
+          <p className="mt-1 text-xs leading-5 text-slate-600">{operation.purpose}</p>
+        </div>
+        <AvailabilityBadge availability={operation.availability} />
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-600">
+        <ExecutionIcon className="h-4 w-4 text-blue-600" aria-hidden="true" />
+        {execution.label}
+      </div>
+      <details className="mt-3 text-xs text-slate-600">
+        <summary className="min-h-11 cursor-pointer rounded-md py-3 font-semibold text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500">
+          View prerequisites
+        </summary>
+        <ul className="space-y-2 pb-2 leading-5">
+          {operation.prerequisites.map((prerequisite) => (
+            <li key={prerequisite} className="flex gap-2">
+              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-400" />
+              {prerequisite}
+            </li>
+          ))}
+        </ul>
+      </details>
+      <div className="mt-auto border-t border-slate-100 pt-3">
+        <code className="block text-[11px] text-slate-500">Workflow option: {operation.id}</code>
+        <a
+          href={workflowUrl ?? undefined}
+          aria-disabled={!workflowUrl}
+          className={[
+            "mt-2 inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500",
+            workflowUrl
+              ? "text-blue-700 hover:text-blue-900"
+              : "cursor-not-allowed text-slate-400",
+          ].join(" ")}
+          target={workflowUrl ? "_blank" : undefined}
+          rel={workflowUrl ? "noreferrer" : undefined}
+        >
+          Open in GitHub Actions
+          <HiOutlineArrowTopRightOnSquare className="h-4 w-4" aria-hidden="true" />
+        </a>
+      </div>
+    </article>
   );
 }
 
@@ -550,26 +654,30 @@ function LaunchPolicy({
   foundryUrl: string | null;
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">
-      <HiOutlineLockClosed className="h-6 w-6 text-blue-300" aria-hidden="true" />
-      <h2 className="mt-4 text-lg font-semibold">Launch policy</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-300">
-        OIDC credentials exist only inside Actions. Eval and optimizer starts are no-wait;
-        invoice and trace work is bounded; no operation auto-applies, promotes, or deploys.
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+        <HiOutlineLockClosed className="h-5 w-5" aria-hidden="true" />
+      </span>
+      <h2 className="mt-4 text-lg font-semibold text-slate-950">Safety boundary</h2>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        The workflow can run, inspect, measure, and prepare. It never auto-applies an optimizer
+        candidate, promotes a model, or deploys an agent.
       </p>
-      <div className="mt-5 rounded-lg border border-slate-700 bg-slate-900 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
           Live RFT gate
         </p>
-        <code className="mt-2 block break-all text-xs text-blue-200">{environment}</code>
-        <p className="mt-2 text-xs leading-5 text-slate-400">
+        <code className="mt-2 block break-all text-xs font-semibold text-blue-900">
+          {environment}
+        </code>
+        <p className="mt-2 text-xs leading-5 text-blue-900">
           Required reviewers and explicit spend acknowledgement are prerequisites. Submission
           remains blocked until a committed first-class command exists.
         </p>
       </div>
       <div className="mt-5 grid gap-2">
-        <DarkLink href={workflowUrl}>Review workflow controls</DarkLink>
-        <DarkLink href={foundryUrl}>Inspect current Foundry status</DarkLink>
+        <PolicyLink href={workflowUrl}>Review workflow controls</PolicyLink>
+        <PolicyLink href={foundryUrl}>Inspect current Foundry status</PolicyLink>
       </div>
     </section>
   );
@@ -606,7 +714,7 @@ function ExternalAction({
   );
 }
 
-function DarkLink({ href, children }: { href: string | null; children: ReactNode }) {
+function PolicyLink({ href, children }: { href: string | null; children: ReactNode }) {
   return (
     <a
       href={href ?? undefined}
@@ -614,10 +722,10 @@ function DarkLink({ href, children }: { href: string | null; children: ReactNode
       target={href ? "_blank" : undefined}
       rel={href ? "noreferrer" : undefined}
       className={[
-        "flex min-h-11 items-center justify-between rounded-lg border border-slate-700 px-3 text-sm font-semibold transition",
+        "flex min-h-11 items-center justify-between rounded-lg border border-slate-200 px-3 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500",
         href
-          ? "text-slate-200 hover:border-slate-500 hover:bg-slate-900"
-          : "cursor-not-allowed text-slate-600",
+          ? "text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+          : "cursor-not-allowed text-slate-400",
       ].join(" ")}
     >
       {children}

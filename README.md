@@ -61,7 +61,7 @@ workflows, evaluation, optimization, and deployment automation.
 
 ## Deploy once, present the story
 
-The complete seller path has two parts: deploy the shared Azure environment,
+The complete demo path has two parts: deploy the shared Azure environment,
 then open the live presenter experience. If your team already has a working
 Waypoint environment with `contract-policy-expert`, skip directly to
 [Present the demo](#2-present-the-demo).
@@ -123,14 +123,19 @@ The default path deploys:
   a completed orchestrator-to-recorder run.
 
 WorkIQ, WebIQ, and FabricIQ remain available as opt-in lanes. The default
-seller experience starts with FoundryIQ only.
+review experience starts with FoundryIQ only.
 
 The full default deployment has been validated end to end, including an
 unchanged rerun that reused stable resources and skipped unchanged hosted-agent
-versions. In the app, a seller can trigger assurance for one invoice from the
-invoice queue; that operation invokes `assurance-orchestrator` and persists the
-result only through `waypoint-recorder`. Batch assurance is not part of the
-validated seller path.
+versions. In the app, a reviewer can run assurance for one invoice or select up
+to 25 visible invoices and start a batch. The batch starts at most four new
+orchestrations concurrently, reuses active invoice runs, and reports independent
+accepted, reused, not-found, or start-failed outcomes. Every run invokes
+`assurance-orchestrator` and persists its result only through
+`waypoint-recorder`.
+
+For the exact batch steps and the controlled evaluation-to-release flow, see
+[Agent quality operations](docs/quality-operations.md).
 
 ### 2. Present the demo
 
@@ -243,6 +248,7 @@ checks without requiring the presenter canvas.
 | [Azure deployment](docs/deployment.md) | Deployment variables, stages, optional lanes, parallel environments, and troubleshooting. |
 | [Foundry demo](docs/foundry-demo.md) | Live Pharmashield presenter workflow and fidelity contract. |
 | [Architecture](docs/architecture.md) | Application, corpus, agents, evaluations, optimization, and deployment layers. |
+| [Agent quality operations](docs/quality-operations.md) | Full batch assurance and the five-step run, inspect, measure, improve, and release workflow. |
 | [Data disclaimer](docs/data-disclaimer.md) | Scope and handling of the synthetic Caldova data set. |
 | [Compatibility](docs/compatibility.md) | Compatibility names retained while the consolidated repository stabilizes. |
 | [Repository settings](docs/repository-settings.md) | Recommended settings for publishing and operating the repository. |

@@ -6,7 +6,7 @@
   "staleAfter": "2026-08-20T23:00:00Z",
   "source": {
     "repository": "caldova/waypoint",
-    "workflow": ".github/workflows/seller-operations.yml",
+    "workflow": ".github/workflows/agent-quality-operations.yml",
     "kind": "versioned-static-evidence"
   },
   "stateDefinitions": [
@@ -87,6 +87,8 @@
     {
       "id": "invoice-run",
       "label": "Invoice assurance",
+      "stage": "run",
+      "purpose": "Generate a governed assurance run for one invoice.",
       "availability": "available",
       "execution": "bounded",
       "prerequisites": [
@@ -98,6 +100,8 @@
     {
       "id": "trace-export",
       "label": "Trace metadata export",
+      "stage": "inspect",
+      "purpose": "Export sanitized trace metadata for a completed or active run.",
       "availability": "available",
       "execution": "bounded",
       "prerequisites": [
@@ -109,6 +113,8 @@
     {
       "id": "eval-run",
       "label": "Foundry evaluation",
+      "stage": "measure",
+      "purpose": "Start a reviewed evaluation and capture its Foundry run identity.",
       "availability": "available",
       "execution": "no-wait",
       "prerequisites": [
@@ -120,6 +126,8 @@
     {
       "id": "quality-status",
       "label": "Quality readiness",
+      "stage": "measure",
+      "purpose": "Check datasets, grader, lineage, and readiness before improvement work.",
       "availability": "available",
       "execution": "bounded",
       "prerequisites": [
@@ -129,6 +137,8 @@
     {
       "id": "optimizer-start",
       "label": "Agent Optimizer",
+      "stage": "improve",
+      "purpose": "Start a bounded candidate search without applying or deploying a result.",
       "availability": "guarded",
       "execution": "no-wait",
       "prerequisites": [
@@ -140,6 +150,8 @@
     {
       "id": "rft-prepare",
       "label": "RFT preparation",
+      "stage": "improve",
+      "purpose": "Validate the reviewed RFT package against accepted optimizer lineage.",
       "availability": "available",
       "execution": "bounded",
       "prerequisites": [
@@ -151,6 +163,8 @@
     {
       "id": "rft-submit",
       "label": "Live RFT submission",
+      "stage": "release",
+      "purpose": "Submit live training only after review, spend acknowledgement, and an approved command.",
       "availability": "blocked",
       "execution": "protected",
       "prerequisites": [

@@ -50,7 +50,7 @@ enabled.
 7. Provision the Foundry account, project, models, Search, storage, and
    knowledge-base connection.
 8. Deploy the default agents plus selected optional experts.
-9. Wire the app's seller operation and orchestrator endpoints.
+9. Wire the app's assurance operation and orchestrator endpoints.
 10. Upload OneLake and contracts knowledge-base content.
 11. Import the Waypoint seed.
 12. Probe the deployment, inventory active agents, drive one invoice through the

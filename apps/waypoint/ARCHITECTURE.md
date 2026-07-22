@@ -41,10 +41,13 @@ instead of failing the app.
 
 ## Assurance run lifecycle
 
-The seller operation accepts one invoice and starts the hosted orchestrator
-without holding the browser request open. The orchestrator opens or reuses the
-invoice-scoped active run, executes within a bounded runtime, and always reaches
-a terminal state through recorder finalization or failure handling.
+The assurance operation accepts one invoice and starts the hosted orchestrator
+without holding the browser request open. The batch endpoint applies that same
+invoice-scoped operation to at most 25 unique invoices with four concurrent
+starts, ordered outcomes, active-run reuse, and failure isolation. The
+orchestrator opens or reuses each invoice-scoped active run, executes within a
+bounded runtime, and always reaches a terminal state through recorder
+finalization or failure handling.
 
 Waypoint also runs a stale-run reaper as a process-death backstop. Its timeout
 must remain longer than the orchestrator's maximum runtime plus safety margin.
@@ -73,3 +76,8 @@ The root `.github/workflows/deploy.yml` is the canonical cloud path. It deploys
 the app, data, default hosted agents, and grounding resources, then verifies a
 real orchestrator-to-recorder run. See
 [docs/deployment.md](../../docs/deployment.md).
+
+Agent quality operations remain outside the governed write path. The `/quality`
+page explains the run, inspect, measure, improve, and approved-release loop;
+`.github/workflows/agent-quality-operations.yml` owns cloud credentials,
+sanitized artifacts, and protected approvals.

@@ -1,4 +1,4 @@
-name: Seller operations
+name: Agent quality operations
 
 run-name: ${{ inputs.operation }} · ${{ inputs.agent }}
 
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Bounded seller quality operation to run.
+        description: Controlled agent quality operation to run.
         required: true
         type: choice
         options:
@@ -116,7 +116,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: seller-operations-${{ inputs.operation }}-${{ inputs.agent }}
+  group: agent-quality-operations-${{ inputs.operation }}-${{ inputs.agent }}
   cancel-in-progress: false
 
 jobs:
@@ -596,21 +596,21 @@ jobs:
         run: |
           if [ -f artifacts/operation.json ]; then
             {
-              echo "## Seller operation"
+              echo "## Agent quality operation"
               echo
               echo '```json'
               jq . artifacts/operation.json
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "## Seller operation failed before sanitized evidence was produced" >> "$GITHUB_STEP_SUMMARY"
+            echo "## Agent quality operation failed before sanitized evidence was produced" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload sanitized evidence
         if: always() && hashFiles('artifacts/operation.json') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: seller-operation-${{ inputs.operation }}-${{ github.run_id }}
+          name: agent-quality-operation-${{ inputs.operation }}-${{ github.run_id }}
           path: artifacts/operation.json
           if-no-files-found: error
           retention-days: 30
@@ -700,7 +700,7 @@ jobs:
         if: always() && hashFiles('artifacts/operation.json') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: seller-operation-rft-submit-${{ github.run_id }}
+          name: agent-quality-operation-rft-submit-${{ github.run_id }}
           path: artifacts/operation.json
           if-no-files-found: error
           retention-days: 30

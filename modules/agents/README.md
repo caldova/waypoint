@@ -63,7 +63,7 @@ Run agent-local tests from the changed agent directory.
 
 The canonical deployment is the root workflow documented in
 [docs/deployment.md](../../docs/deployment.md). It provisions shared Foundry
-resources, deploys the selected agent matrix, wires the orchestrator and seller
+resources, deploys the selected agent matrix, wires the orchestrator and assurance
 operation, and runs live acceptance.
 
 `azd provision` and `azd deploy <agent>` remain useful for isolated agent

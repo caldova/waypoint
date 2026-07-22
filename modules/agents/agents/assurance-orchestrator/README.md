@@ -72,4 +72,7 @@ The canonical full deployment is the root
 deployed Waypoint work queue, invokes this hosted agent, and verifies that
 `waypoint-recorder` produced a newly finalized correlated run.
 
-Batch assurance is not part of the current validated runtime.
+The Waypoint app also provides a batch envelope over this single-invoice agent
+contract. It accepts up to 25 unique invoice IDs, starts at most four new
+orchestrations concurrently, reuses active invoice runs, preserves result order,
+and isolates per-invoice failures.

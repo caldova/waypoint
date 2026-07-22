@@ -2,7 +2,7 @@
 
 > [!WARNING]
 > Historical planning artifact retained for provenance. The implemented
-> monorepo architecture, recorder-only write boundary, seller operation, and
+> monorepo architecture, recorder-only write boundary, assurance operations, and
 > deployment path are documented in the root `docs/architecture.md`,
 > `docs/deployment.md`, and `modules/agents/docs/AGENT_PIPELINE.md`.
 

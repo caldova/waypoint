@@ -10,6 +10,12 @@ None of these commands apply an optimizer candidate, deploy a model
 checkpoint, promote a model, or mutate production state. They only compute,
 verify, report, and gate. Every gate defaults to blocked.
 
+The repository-level operator flow is documented in
+[`../../../docs/quality-operations.md`](../../../docs/quality-operations.md).
+The authenticated Waypoint quality page and
+`.github/workflows/agent-quality-operations.yml` present the same sequence:
+run, inspect, measure, improve, and release with approval.
+
 ## Why this exists
 
 Agent Optimizer and RFT runs produce metrics (baseline score, candidate score,

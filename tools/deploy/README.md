@@ -23,7 +23,7 @@ agents:
 FoundryIQ is the only evidence lane enabled by default. WorkIQ, WebIQ, and
 FabricIQ are optional and add their expert only when selected.
 
-`waypoint-recorder` is the sole agent writer. The app's seller operation and
+`waypoint-recorder` is the sole agent writer. The app's assurance operation and
 deployment acceptance both run one invoice through `assurance-orchestrator`,
 then verify that the recorder finalized the governed Waypoint run.
 
