@@ -252,8 +252,13 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("cognitiveservices account purge", foundry_bootstrap)
         self.assertIn("Timed out waiting for the soft-deleted", foundry_bootstrap)
         self.assertIn("azd provision --no-state --no-prompt", workflow)
-        self.assertIn("azd env set ENABLE_CAPABILITY_HOST true", workflow)
-        self.assertIn('ENABLE_CAPABILITY_HOST: "true"', workflow)
+        parameters = json.loads(
+            (ROOT / "modules/agents/infra/main.parameters.json").read_text()
+        )
+        self.assertIs(
+            parameters["parameters"]["enableCapabilityHost"]["value"],
+            True,
+        )
         self.assertIn("Verify hosted-agent capability host", workflow)
         self.assertIn("/capabilityHosts/agents", workflow)
         self.assertIn(

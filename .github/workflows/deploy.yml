@@ -869,7 +869,6 @@ jobs:
           azd env set AZURE_CLIENT_ID "$AZURE_CLIENT_ID"
           azd env set AZURE_LOCATION "$AZURE_LOCATION"
           azd env set ENABLE_HOSTED_AGENTS true
-          azd env set ENABLE_CAPABILITY_HOST true
           azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "${{ vars.AZURE_AI_MODEL_DEPLOYMENT_NAME || 'gpt-5.5' }}"
           azd env set MODEL_NAME "${{ vars.MODEL_NAME || vars.AZURE_AI_MODEL_DEPLOYMENT_NAME || 'gpt-5.5' }}"
           azd env set MODEL_VERSION "${{ vars.MODEL_VERSION || '2026-04-24' }}"
@@ -911,8 +910,6 @@ jobs:
 
       - name: Run azd provision
         if: ${{ inputs.provision_agents && needs.plan.outputs.foundry_infrastructure == 'true' }}
-        env:
-          ENABLE_CAPABILITY_HOST: "true"
         # This job is selected for source changes or live-resource drift. Ignore
         # azd's template-hash cache so deleted resources are reconciled.
         run: azd provision --no-state --no-prompt
