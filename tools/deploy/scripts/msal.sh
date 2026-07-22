@@ -41,7 +41,18 @@ resolve_app() {
     fi
   fi
   APP_ID="$app_id"
-  OBJ_ID="$(az ad app show --id "$app_id" --query id -o tsv)"
+  OBJ_ID=""
+  for attempt in {1..12}; do
+    OBJ_ID="$(az ad app show --id "$app_id" --query id -o tsv 2>/dev/null || true)"
+    if [[ -n "$OBJ_ID" && "$OBJ_ID" != "None" ]]; then
+      break
+    fi
+    if [[ "$attempt" -eq 12 ]]; then
+      echo "::error::MSAL app '$display_name' did not become readable after creation" >&2
+      exit 1
+    fi
+    sleep 5
+  done
 }
 
 if [[ "$mode" == "ensure" ]]; then

@@ -232,6 +232,26 @@ class AgentModelConfigurationTests(unittest.TestCase):
             msal_auth,
         )
 
+    def test_clean_deploy_handles_resource_creation_races_and_soft_delete(self) -> None:
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        msal = (ROOT / "tools/deploy/scripts/msal.sh").read_text()
+        foundry_bootstrap = (
+            ROOT / "modules/agents/scripts/bootstrap_foundry_account.sh"
+        ).read_text()
+        keyvault = workflow.split("\n  keyvault:\n", 1)[1].split(
+            "\n  msal:\n", 1
+        )[0]
+
+        self.assertIn(
+            'az group create --name "$AZURE_RESOURCE_GROUP"',
+            keyvault,
+        )
+        self.assertIn("for attempt in {1..12}", msal)
+        self.assertIn("did not become readable after creation", msal)
+        self.assertIn("cognitiveservices account list-deleted", foundry_bootstrap)
+        self.assertIn("cognitiveservices account purge", foundry_bootstrap)
+        self.assertIn("Timed out waiting for the soft-deleted", foundry_bootstrap)
+
     def test_app_only_redeploy_preserves_foundry_assurance_wiring(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
         deploy_app = workflow.split("  deploy-app:", 1)[1].split(

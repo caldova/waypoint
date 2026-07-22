@@ -424,9 +424,12 @@ jobs:
           tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
           subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
 
-      - name: Ensure state resource group
-        # Key Vault is created in the dedicated state RG, never the app RG.
-        run: az group create --name "$STATE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
+      - name: Ensure deployment resource groups
+        # Key Vault is created in the dedicated state RG. The app RG must exist before
+        # independent Foundry and Fabric jobs begin on a first deployment.
+        run: |
+          az group create --name "$STATE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
+          az group create --name "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
 
       - name: Generate-once deployment secrets
         id: kv

@@ -66,6 +66,35 @@ az group create \
   --name "$resource_group" \
   --location "$location" \
   --output none
+
+deleted_account="$(
+  az cognitiveservices account list-deleted \
+    --query "[?name=='${account_name}'] | [0].name" \
+    --output tsv 2>/dev/null || true
+)"
+if [[ "$deleted_account" == "$account_name" ]]; then
+  echo "Purging soft-deleted Foundry account before clean recreation: ${account_name}"
+  az cognitiveservices account purge \
+    --name "$account_name" \
+    --resource-group "$resource_group" \
+    --location "$location"
+  for _ in {1..30}; do
+    deleted_account="$(
+      az cognitiveservices account list-deleted \
+        --query "[?name=='${account_name}'] | [0].name" \
+        --output tsv 2>/dev/null || true
+    )"
+    if [[ -z "$deleted_account" || "$deleted_account" == "None" ]]; then
+      break
+    fi
+    sleep 10
+  done
+  if [[ -n "$deleted_account" && "$deleted_account" != "None" ]]; then
+    echo "Timed out waiting for the soft-deleted Foundry account to purge." >&2
+    exit 1
+  fi
+fi
+
 az deployment group create \
   --name "foundry-account-bootstrap" \
   --resource-group "$resource_group" \
