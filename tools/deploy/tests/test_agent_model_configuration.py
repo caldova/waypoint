@@ -1,4 +1,8 @@
 import json
+import os
+import subprocess
+import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -195,13 +199,23 @@ class AgentModelConfigurationTests(unittest.TestCase):
             "  # ── provision-agents", 1
         )[0]
 
-        self.assertIn("max_attempts=3", deploy_app)
         self.assertIn(
-            "aspire deploy --non-interactive 2>&1 | tee aspire-deploy.log",
+            "bash ../../tools/deploy/scripts/aspire_deploy.sh",
             deploy_app,
         )
-        self.assertIn("connect: connection refused", deploy_app)
-        self.assertIn("Transient Azure/registry failure", deploy_app)
+        aspire_deploy = (
+            ROOT / "tools/deploy/scripts/aspire_deploy.sh"
+        ).read_text()
+        self.assertIn("ASPIRE_DEPLOY_MAX_ATTEMPTS:-3", aspire_deploy)
+        self.assertIn("aspire deploy --non-interactive", aspire_deploy)
+        self.assertIn("connect: connection refused", aspire_deploy)
+        self.assertIn("Transient Azure/registry failure", aspire_deploy)
+        self.assertIn("ASPIRE_DEPLOY_ATTEMPT_TIMEOUT:-15m", aspire_deploy)
+        self.assertIn("properties.deploymentErrors", aspire_deploy)
+        self.assertIn("AKSCapacityHeavyUsage", aspire_deploy)
+        self.assertIn("az deployment group cancel", aspire_deploy)
+        self.assertIn("az containerapp env delete", aspire_deploy)
+        self.assertIn("Refusing to delete capacity-failed environment", aspire_deploy)
 
     def test_apphost_preserves_container_environment_deployment_identity(self) -> None:
         apphost = (ROOT / "apps/waypoint/apphost.cs").read_text()
@@ -214,6 +228,82 @@ class AgentModelConfigurationTests(unittest.TestCase):
             'AddAzureContainerAppEnvironment("waypoint-env")',
             apphost,
         )
+
+    def test_app_deploy_retries_after_silent_capacity_timeout(self) -> None:
+        script = ROOT / "tools/deploy/scripts/aspire_deploy.sh"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            bin_dir = temp / "bin"
+            bin_dir.mkdir()
+            state_dir = temp / "state"
+            state_dir.mkdir()
+
+            (bin_dir / "timeout").write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    count_file="$TEST_STATE/attempts"
+                    count=0
+                    [ -f "$count_file" ] && count="$(cat "$count_file")"
+                    count=$((count + 1))
+                    echo "$count" > "$count_file"
+                    if [ "$count" -eq 1 ]; then
+                      touch "$TEST_STATE/capacity"
+                      exit 124
+                    fi
+                    exit 0
+                    """
+                )
+            )
+            (bin_dir / "az").write_text(
+                textwrap.dedent(
+                    """\
+                    #!/usr/bin/env bash
+                    args="$*"
+                    if [[ "$args" == *"containerapp env list"* ]]; then
+                      [ -f "$TEST_STATE/capacity" ] && echo "failed-env"
+                      exit 0
+                    elif [[ "$args" == *"containerapp list"* ]]; then
+                      echo "0"
+                    elif [[ "$args" == *"deployment group list"* ]]; then
+                      echo "starter-env-test"
+                    elif [[ "$args" == *"deployment operation group list"* ]]; then
+                      echo "1"
+                    elif [[ "$args" == *"containerapp env delete"* ]]; then
+                      rm "$TEST_STATE/capacity"
+                      touch "$TEST_STATE/deleted"
+                    elif [[ "$args" == *"containerapp env show"* ]]; then
+                      [ -f "$TEST_STATE/capacity" ] && exit 0
+                      exit 1
+                    fi
+                    exit 0
+                    """
+                )
+            )
+            for executable in ("timeout", "az"):
+                (bin_dir / executable).chmod(0o755)
+
+            environment = os.environ.copy()
+            environment.update(
+                {
+                    "AZURE_RESOURCE_GROUP": "rg-test",
+                    "ASPIRE_DEPLOY_RETRY_DELAY_SECONDS": "0",
+                    "PATH": f"{bin_dir}:{environment['PATH']}",
+                    "TEST_STATE": str(state_dir),
+                }
+            )
+            completed = subprocess.run(
+                ["bash", str(script)],
+                cwd=temp,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual((state_dir / "attempts").read_text().strip(), "2")
+            self.assertTrue((state_dir / "deleted").exists())
 
     def test_app_redeploy_preserves_msal_redirect_without_invalid_revision(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
@@ -250,7 +340,6 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("did not become readable after creation", msal)
         self.assertIn("Graph application is not yet writable", msal)
         self.assertIn("Request_ResourceNotFound", msal)
-        self.assertIn("AKSCapacityHeavyUsage", workflow)
         self.assertIn("cognitiveservices account list-deleted", foundry_bootstrap)
         self.assertIn("cognitiveservices account purge", foundry_bootstrap)
         self.assertIn("Timed out waiting for the soft-deleted", foundry_bootstrap)

@@ -104,6 +104,14 @@ deployment inputs with active versions before deploying a new version. This
 skip-on-unchanged behavior is agent-level selectivity; it is not a batch
 assurance feature.
 
+Aspire deployment attempts are bounded to 15 minutes. If Azure reports
+`ManagedEnvironmentCapacityHeavyUsageError` or `AKSCapacityHeavyUsage`, the
+workflow cancels the stalled ARM deployment and removes the partial Container
+Apps environment only when it contains no Container Apps. The next bounded
+attempt then recreates the environment cleanly instead of updating a poisoned
+partial resource indefinitely. Capacity failures on environments containing
+applications fail closed and require operator review.
+
 ## Deployment stages
 
 1. **validate** checks required configuration and builds the selected agent
