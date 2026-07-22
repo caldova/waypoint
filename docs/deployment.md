@@ -104,6 +104,12 @@ deployment inputs with active versions before deploying a new version. This
 skip-on-unchanged behavior is agent-level selectivity; it is not a batch
 assurance feature.
 
+Clean Entra registration creates both the application object and its service
+principal, then verifies the delegated `user_impersonation` scope persisted
+before deploying the SPA. Split-region Foundry bootstrap reuses the app resource
+group at its existing location while creating Foundry resources in
+`azure_location`.
+
 The Aspire app job is bounded to 30 minutes with at most two 12-minute
 deployment attempts. Unknown failures stop immediately; a recognized transient
 gets one recovery attempt. Capacity cleanup is bounded to five minutes. If Azure reports

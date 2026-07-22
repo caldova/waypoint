@@ -25,6 +25,7 @@ class MsalScriptTests(unittest.TestCase):
                         "identifierUris": [],
                         "api": {"oauth2PermissionScopes": []},
                         "appRoles": [],
+                        "servicePrincipal": False,
                         "tags": [],
                     }
                 ),
@@ -51,6 +52,7 @@ class MsalScriptTests(unittest.TestCase):
             self.assertEqual(second, first)
             self.assertEqual(first["identifierUris"], [f"api://{first['appId']}"])
             self.assertEqual(first["api"]["requestedAccessTokenVersion"], 2)
+            self.assertTrue(first["servicePrincipal"])
             self.assertEqual(
                 {scope["value"] for scope in first["api"]["oauth2PermissionScopes"]},
                 {"user_impersonation"},
@@ -91,12 +93,21 @@ elif args[:3] == ["ad", "app", "show"]:
 elif args[:3] == ["ad", "app", "update"]:
     uri = args[args.index("--identifier-uris") + 1]
     state["identifierUris"] = [uri]
+elif args[:3] == ["ad", "sp", "show"]:
+    if not state["servicePrincipal"]:
+        raise SystemExit(3)
+elif args[:3] == ["ad", "sp", "create"]:
+    state["servicePrincipal"] = True
 elif args[0] == "rest" and args[args.index("--method") + 1] == "GET":
-    print(json.dumps({
-        "appRoles": state["appRoles"],
-        "scopes": state["api"]["oauth2PermissionScopes"],
-        "tags": state["tags"],
-    }))
+    query = args[args.index("--query") + 1] if "--query" in args else ""
+    if query == "length(api.oauth2PermissionScopes[?value == 'user_impersonation'])":
+        print(sum(scope.get("value") == "user_impersonation" for scope in state["api"]["oauth2PermissionScopes"]))
+    else:
+        print(json.dumps({
+            "appRoles": state["appRoles"],
+            "scopes": state["api"]["oauth2PermissionScopes"],
+            "tags": state["tags"],
+        }))
 elif args[0] == "rest" and args[args.index("--method") + 1] == "PATCH":
     body = json.loads(args[args.index("--body") + 1])
     if "api" in body:

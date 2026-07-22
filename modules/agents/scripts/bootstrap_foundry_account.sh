@@ -65,10 +65,15 @@ if [[ -z "$project_name" ]]; then
 fi
 
 echo "Bootstrapping Foundry parent account: ${resource_group}/${account_name}"
-az group create \
-  --name "$resource_group" \
-  --location "$location" \
-  --output none
+if [[ "$(az group exists --name "$resource_group")" == "true" ]]; then
+  group_location="$(az group show --name "$resource_group" --query location --output tsv)"
+  echo "Reusing resource group ${resource_group} in ${group_location}; Foundry resources remain in ${location}."
+else
+  az group create \
+    --name "$resource_group" \
+    --location "$location" \
+    --output none
+fi
 
 deleted_account="$(
   az cognitiveservices account list-deleted \

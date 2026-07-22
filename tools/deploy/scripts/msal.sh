@@ -78,6 +78,28 @@ if [[ "$mode" == "ensure" ]]; then
   resolve_app
   log "app '$display_name' appId=$APP_ID objId=$OBJ_ID"
 
+  # `az ad app create` creates only the application object. A clean tenant also
+  # needs its service principal before the SPA can authenticate.
+  if ! az ad sp show --id "$APP_ID" -o none 2>/dev/null; then
+    service_principal_ready=false
+    for attempt in {1..12}; do
+      if output="$(az ad sp create --id "$APP_ID" -o none 2>&1)"; then
+        service_principal_ready=true
+        break
+      fi
+      if [[ "$output" != *"Request_ResourceNotFound"* || "$attempt" -eq 12 ]]; then
+        echo "$output" >&2
+        exit 1
+      fi
+      log "Graph application is not yet ready for service-principal creation (attempt $attempt/12); retrying"
+      sleep 5
+    done
+    if [[ "$service_principal_ready" != "true" ]]; then
+      echo "::error::MSAL service principal did not become creatable after app registration" >&2
+      exit 1
+    fi
+  fi
+
   # Ensure the identifier uri api://<appId>.
   id_uri="api://${APP_ID}"
   current_uris="$(az ad app show --id "$APP_ID" --query "identifierUris" -o json 2>/dev/null || echo '[]')"
@@ -128,6 +150,25 @@ PY
 )"
   log "ensuring delegated scope (user_impersonation)"
   graph_patch "${graph}/applications/${OBJ_ID}" "$merged_scopes"
+  scope_ready=false
+  for attempt in {1..12}; do
+    scope_count="$(
+      az rest \
+        --method GET \
+        --uri "${graph}/applications/${OBJ_ID}" \
+        --query "length(api.oauth2PermissionScopes[?value == 'user_impersonation'])" \
+        --output tsv 2>/dev/null || true
+    )"
+    if [[ "$scope_count" == "1" ]]; then
+      scope_ready=true
+      break
+    fi
+    [[ "$attempt" -lt 12 ]] && sleep 5
+  done
+  if [[ "$scope_ready" != "true" ]]; then
+    echo "::error::MSAL delegated scope user_impersonation did not persist after Graph update" >&2
+    exit 1
+  fi
 
   # Ensure the three app roles (merge: keep existing by value, append any missing).
   writer_role="${MSAL_WRITER_APP_ROLE:-Waypoint.Write}"
