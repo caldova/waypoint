@@ -7,7 +7,8 @@ attempt_timeout="${ASPIRE_DEPLOY_ATTEMPT_TIMEOUT:-12m}"
 retry_delay_seconds="${ASPIRE_DEPLOY_RETRY_DELAY_SECONDS:-20}"
 capacity_pattern='ManagedEnvironmentCapacityHeavyUsageError|AKSCapacityHeavyUsage'
 managed_identity_pull_pattern='unable to pull image using Managed identity'
-transient_pattern="connect: connection refused|connection reset by peer|TLS handshake timeout|unexpected EOF|i/o timeout|temporarily unavailable|status code (429|5[0-9]{2})|${capacity_pattern}|${managed_identity_pull_pattern}"
+registry_dns_pattern="failed to resolve registry .*no such host"
+transient_pattern="connect: connection refused|connection reset by peer|TLS handshake timeout|unexpected EOF|i/o timeout|temporarily unavailable|status code (429|5[0-9]{2})|${capacity_pattern}|${managed_identity_pull_pattern}|${registry_dns_pattern}"
 
 ensure_acr_pull_assignment() {
   local registries

@@ -121,6 +121,11 @@ image-pull failure, reconciles `AcrPull` for the sole Aspire identity and
 registry, waits for propagation, and retries. Ambiguous identity or registry
 inventory fails closed.
 
+Azure DNS can briefly return `no such host` for a newly created ACR while the
+Container Apps deployment is resolving its image. That exact registry-resolution
+failure receives the same single bounded retry; broader DNS failures remain
+fail-fast.
+
 ## Deployment stages
 
 1. **validate** checks required configuration and builds the selected agent

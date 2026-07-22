@@ -236,6 +236,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("az containerapp env delete", aspire_deploy)
         self.assertIn("Refusing to delete capacity-failed environment", aspire_deploy)
         self.assertIn("unable to pull image using Managed identity", aspire_deploy)
+        self.assertIn("failed to resolve registry .*no such host", aspire_deploy)
         self.assertIn("ensure_acr_pull_assignment", aspire_deploy)
         self.assertIn("--assignee-principal-type ServicePrincipal", aspire_deploy)
         self.assertIn("--role AcrPull", aspire_deploy)
