@@ -26,6 +26,24 @@ graph="https://graph.microsoft.com/v1.0"
 log() { echo "msal: $*" >&2; }
 emit() { log "$1=$2"; [[ -n "${GITHUB_OUTPUT:-}" ]] && echo "$1=$2" >> "$GITHUB_OUTPUT"; return 0; }
 
+graph_patch() {
+  local uri="$1"
+  local body="$2"
+  local output=""
+  for attempt in {1..12}; do
+    if output="$(az rest --method PATCH --uri "$uri" \
+      --headers "Content-Type=application/json" --body "$body" -o none 2>&1)"; then
+      return 0
+    fi
+    if [[ "$output" != *"Request_ResourceNotFound"* || "$attempt" -eq 12 ]]; then
+      echo "$output" >&2
+      return 1
+    fi
+    log "Graph application is not yet writable (attempt $attempt/12); retrying"
+    sleep 5
+  done
+}
+
 # Resolve the app's appId (client id) + objectId, creating the app if absent (ensure mode).
 resolve_app() {
   local app_id="${MSAL_CLIENT_ID:-}"
@@ -109,8 +127,7 @@ print(json.dumps({
 PY
 )"
   log "ensuring delegated scope (user_impersonation)"
-  az rest --method PATCH --uri "${graph}/applications/${OBJ_ID}" \
-    --headers "Content-Type=application/json" --body "$merged_scopes" -o none
+  graph_patch "${graph}/applications/${OBJ_ID}" "$merged_scopes"
 
   # Ensure the three app roles (merge: keep existing by value, append any missing).
   writer_role="${MSAL_WRITER_APP_ROLE:-Waypoint.Write}"
@@ -147,8 +164,7 @@ PY
 )"
   added="$(echo "$merged_roles" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)["appRoles"]))')"
   log "ensuring app roles ($writer_role/$reader_role/$admin_role); total roles now=$added"
-  az rest --method PATCH --uri "${graph}/applications/${OBJ_ID}" \
-    --headers "Content-Type=application/json" --body "$merged_roles" -o none
+  graph_patch "${graph}/applications/${OBJ_ID}" "$merged_roles"
 
   # Mark only the runtime MSAL app as teardown-eligible. Teardown still requires
   # deploy-principal ownership and never selects an app by display name.
@@ -163,8 +179,7 @@ print(json.dumps({"tags": sorted(tags)}))
 PY
 )"
   log "ensuring teardown ownership tags for ${AZD_ENV_NAME:-waypoint-agents}"
-  az rest --method PATCH --uri "${graph}/applications/${OBJ_ID}" \
-    --headers "Content-Type=application/json" --body "$managed_tags" -o none
+  graph_patch "${graph}/applications/${OBJ_ID}" "$managed_tags"
 
   emit msal_tenant_id "$AZURE_TENANT_ID"
   emit msal_client_id "$APP_ID"
@@ -194,8 +209,7 @@ PY
   patch="$(echo "$body" | python3 -c 'import json,sys;d=json.load(sys.stdin);d.pop("_changed",None);print(json.dumps(d))')"
   if [[ "$changed" == "True" ]]; then
     log "adding SPA redirect URIs for web FQDN $WEB_FQDN"
-    az rest --method PATCH --uri "${graph}/applications/${OBJ_ID}" \
-      --headers "Content-Type=application/json" --body "$patch" -o none
+    graph_patch "${graph}/applications/${OBJ_ID}" "$patch"
   else
     log "SPA redirect URIs already include $WEB_FQDN (no-op)"
   fi

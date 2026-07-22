@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from urllib.parse import urlparse
@@ -240,23 +241,28 @@ def _az_executable() -> str:
 
 def _az_access_token(scope: str) -> str:
     resource = scope.removesuffix(".default")
-    completed = subprocess.run(
-        [
-            _az_executable(),
-            "account",
-            "get-access-token",
-            "--resource",
-            resource,
-            "--query",
-            "accessToken",
-            "-o",
-            "tsv",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
+    command = [
+        _az_executable(),
+        "account",
+        "get-access-token",
+        "--resource",
+        resource,
+        "--query",
+        "accessToken",
+        "-o",
+        "tsv",
+    ]
+    for attempt in range(1, 13):
+        completed = subprocess.run(command, capture_output=True, text=True)
+        token = completed.stdout.strip()
+        if completed.returncode == 0 and token:
+            return token
+        if attempt < 12:
+            time.sleep(5)
+    detail = completed.stderr.strip() or completed.stdout.strip() or "no token returned"
+    raise RuntimeError(
+        f"Azure CLI could not acquire a token for {resource} after 12 attempts: {detail}"
     )
-    return completed.stdout.strip()
 
 
 if __name__ == "__main__":

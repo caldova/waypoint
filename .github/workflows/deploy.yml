@@ -716,8 +716,9 @@ jobs:
        needs.plan.outputs.onelake_upload == 'true') &&
       needs.validate.result == 'success' &&
       needs.keyvault.result == 'success' &&
+      needs.msal.result == 'success' &&
       (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped')
-    needs: [plan, validate, keyvault, deploy-app]
+    needs: [plan, validate, keyvault, msal, deploy-app]
     outputs:
       onelake_workspace: ${{ steps.fabric.outputs.onelake_workspace }}
       onelake_lakehouse: ${{ steps.fabric.outputs.onelake_lakehouse }}

@@ -248,6 +248,8 @@ class AgentModelConfigurationTests(unittest.TestCase):
         )
         self.assertIn("for attempt in {1..12}", msal)
         self.assertIn("did not become readable after creation", msal)
+        self.assertIn("Graph application is not yet writable", msal)
+        self.assertIn("Request_ResourceNotFound", msal)
         self.assertIn("cognitiveservices account list-deleted", foundry_bootstrap)
         self.assertIn("cognitiveservices account purge", foundry_bootstrap)
         self.assertIn("Timed out waiting for the soft-deleted", foundry_bootstrap)
@@ -281,13 +283,21 @@ class AgentModelConfigurationTests(unittest.TestCase):
             ROOT / "modules/agents/scripts/configure_content_understanding.py"
         ).read_text()
         self.assertIn(
-            '"get-access-token",\n            "--resource",',
+            '"get-access-token",\n        "--resource",',
             content_understanding,
         )
+        self.assertIn("for attempt in range(1, 13):", content_understanding)
+        self.assertIn("after 12 attempts", content_understanding)
         self.assertNotIn(
-            '"get-access-token",\n            "--scope",',
+            '"get-access-token",\n        "--scope",',
             content_understanding,
         )
+
+        fabric = workflow.split("\n  fabric-provision:\n", 1)[1].split(
+            "\n  # ── provision-agents", 1
+        )[0]
+        self.assertIn("needs.msal.result == 'success'", fabric)
+        self.assertIn("needs: [plan, validate, keyvault, msal, deploy-app]", fabric)
 
     def test_app_only_redeploy_preserves_foundry_assurance_wiring(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
