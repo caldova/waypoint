@@ -22,7 +22,13 @@ def run_teardown(tmp_path: Path, state: dict, *extra: str) -> tuple[subprocess.C
         executable = tmp_path / name
         executable.write_text(content, encoding="utf-8")
         executable.chmod(0o755)
-    env = {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}", "FAKE_STATE": str(state_path)}
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}:{os.environ['PATH']}",
+        "FAKE_STATE": str(state_path),
+        "WAYPOINT_TEARDOWN_POLL_ATTEMPTS": "2",
+        "WAYPOINT_TEARDOWN_POLL_SECONDS": "0",
+    }
     result = subprocess.run(
         [
             "python3",
@@ -55,7 +61,12 @@ def base_state() -> dict:
             "rg-app": {
                 "location": "eastus",
                 "tags": {},
-                "resources": [{"name": "api", "type": "Microsoft.App/containerApps"}],
+                "resources": [
+                    {"name": "api", "type": "Microsoft.App/containerApps"},
+                    {"name": "web", "type": "Microsoft.App/containerApps"},
+                    {"name": "starter-env", "type": "Microsoft.App/managedEnvironments"},
+                ],
+                "components": {"starter-env": ["aspire-dashboard"]},
             },
             "rg-state": {
                 "location": "eastus",
@@ -106,7 +117,10 @@ class SellerTeardownTests(unittest.TestCase):
         self.assertEqual(plan["mode"], "dry-run")
         self.assertNotIn(SUBSCRIPTION, result.stdout)
         self.assertNotIn(MSAL_CLIENT, result.stdout)
-        self.assertEqual([item["name"] for item in plan["app_resource_group"]["resources"]], ["api"])
+        self.assertEqual(
+            [item["name"] for item in plan["app_resource_group"]["resources"]],
+            ["api", "web", "starter-env"],
+        )
         self.assertFalse(any(call[:3] == ["group", "delete", "--name"] for call in state["calls"]))
         self.assertIn("rg-unrelated", state["groups"])
 
@@ -126,6 +140,27 @@ class SellerTeardownTests(unittest.TestCase):
         deletes = [call for call in state["calls"] if call[:2] == ["group", "delete"]]
         self.assertEqual(deletes[0][deletes[0].index("--name") + 1], "rg-app")
         self.assertEqual(deletes[1][deletes[1].index("--name") + 1], "rg-state")
+        ordered = []
+        for call in state["calls"]:
+            if call[:2] == ["containerapp", "delete"]:
+                ordered.append(f"app:{call[call.index('--name') + 1]}")
+            elif call[:4] == ["containerapp", "env", "dotnet-component", "delete"]:
+                ordered.append(f"component:{call[call.index('--name') + 1]}")
+            elif call[:3] == ["containerapp", "env", "delete"]:
+                ordered.append(f"environment:{call[call.index('--name') + 1]}")
+            elif call[:2] == ["group", "delete"]:
+                ordered.append(f"group:{call[call.index('--name') + 1]}")
+        self.assertEqual(
+            ordered,
+            [
+                "app:api",
+                "app:web",
+                "component:aspire-dashboard",
+                "environment:starter-env",
+                "group:rg-app",
+                "group:rg-state",
+            ],
+        )
         self.assertIn("rg-unrelated", state["groups"])
         self.assertEqual(len(state["apps"]), 2)
         self.assertNotIn("seller-test", state["azd"])
@@ -178,6 +213,21 @@ class SellerTeardownTests(unittest.TestCase):
             "seller-test",
         )
         self.assertEqual(result.returncode, 1)
+        self.assertIn("rg-state", state["groups"])
+        self.assertIn("seller-test", state["azd"])
+
+    def test_environment_deletion_timeout_preserves_state_and_azd(self) -> None:
+        state = base_state()
+        state["stuck_environment"] = "starter-env"
+        result, state = self.run_case(
+            state,
+            "--apply",
+            "--confirm-environment",
+            "seller-test",
+        )
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("timed out", result.stderr)
+        self.assertIn("rg-app", state["groups"])
         self.assertIn("rg-state", state["groups"])
         self.assertIn("seller-test", state["azd"])
 
@@ -243,6 +293,36 @@ elif args[:2] == ["group", "show"]:
     out = json.dumps({"location": group["location"], "tags": group["tags"]})
 elif args[:2] == ["resource", "list"]:
     out = json.dumps(state["groups"][args[args.index("--resource-group") + 1]]["resources"])
+elif args[:2] == ["containerapp", "delete"]:
+    group = state["groups"][args[args.index("--resource-group") + 1]]
+    name = args[args.index("--name") + 1]
+    group["resources"] = [item for item in group["resources"] if item["name"] != name]
+elif args[:2] == ["containerapp", "show"]:
+    group = state["groups"].get(args[args.index("--resource-group") + 1], {})
+    name = args[args.index("--name") + 1]
+    if not any(item["name"] == name for item in group.get("resources", [])):
+        code = 3
+elif args[:4] == ["containerapp", "env", "dotnet-component", "list"]:
+    group = state["groups"][args[args.index("--resource-group") + 1]]
+    environment = args[args.index("--environment") + 1]
+    out = json.dumps([{"name": name} for name in group.get("components", {}).get(environment, [])])
+elif args[:4] == ["containerapp", "env", "dotnet-component", "delete"]:
+    group = state["groups"][args[args.index("--resource-group") + 1]]
+    environment = args[args.index("--environment") + 1]
+    name = args[args.index("--name") + 1]
+    group["components"][environment] = [
+        item for item in group.get("components", {}).get(environment, []) if item != name
+    ]
+elif args[:3] == ["containerapp", "env", "delete"]:
+    group = state["groups"][args[args.index("--resource-group") + 1]]
+    name = args[args.index("--name") + 1]
+    if state.get("stuck_environment") != name:
+        group["resources"] = [item for item in group["resources"] if item["name"] != name]
+elif args[:3] == ["containerapp", "env", "show"]:
+    group = state["groups"].get(args[args.index("--resource-group") + 1], {})
+    name = args[args.index("--name") + 1]
+    if not any(item["name"] == name for item in group.get("resources", [])):
+        code = 3
 elif args[:3] == ["ad", "sp", "show"]:
     out = state["deploy_object_id"]
 elif args[:3] == ["ad", "app", "list"]:

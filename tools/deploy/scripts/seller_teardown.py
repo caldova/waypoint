@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -21,14 +23,33 @@ APP_STATE_KEYS = (
     "WAYPOINT_MSAL_CLIENT_ID",
     "MSAL_CLIENT_ID",
 )
+POLL_ATTEMPTS = int(os.environ.get("WAYPOINT_TEARDOWN_POLL_ATTEMPTS", "20"))
+POLL_SECONDS = int(os.environ.get("WAYPOINT_TEARDOWN_POLL_SECONDS", "15"))
+COMMAND_TIMEOUT_SECONDS = int(os.environ.get("WAYPOINT_TEARDOWN_COMMAND_TIMEOUT_SECONDS", "120"))
 
 
 class CommandError(RuntimeError):
     pass
 
 
-def command(args: list[str], *, allow_failure: bool = False) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(args, text=True, capture_output=True, check=False)
+def command(
+    args: list[str],
+    *,
+    allow_failure: bool = False,
+    timeout_seconds: int | None = None,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        result = subprocess.run(
+            args,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise CommandError(
+            f"{' '.join(args[:3])} exceeded the {timeout_seconds}-second command timeout"
+        ) from exc
     if result.returncode and not allow_failure:
         detail = result.stderr.strip() or result.stdout.strip() or f"exit {result.returncode}"
         raise CommandError(f"{' '.join(args[:3])} failed: {detail}")
@@ -78,6 +99,143 @@ def group_inventory(name: str) -> dict[str, Any]:
         ),
         "_tags": group.get("tags") or {},
     }
+
+
+def wait_for_cli_absence(label: str, probes: list[list[str]]) -> None:
+    for _ in range(POLL_ATTEMPTS):
+        if all(command(probe, allow_failure=True).returncode != 0 for probe in probes):
+            return
+        time.sleep(POLL_SECONDS)
+    raise CommandError(f"timed out after {POLL_ATTEMPTS * POLL_SECONDS} seconds waiting for {label} deletion")
+
+
+def delete_app_dependencies(resource_group: str, resources: list[dict[str, str]]) -> None:
+    app_names = [
+        item["name"]
+        for item in resources
+        if item["type"].lower() == "microsoft.app/containerapps"
+    ]
+    environment_names = [
+        item["name"]
+        for item in resources
+        if item["type"].lower() == "microsoft.app/managedenvironments"
+    ]
+
+    for app_name in app_names:
+        command(
+            [
+                "az",
+                "containerapp",
+                "delete",
+                "--resource-group",
+                resource_group,
+                "--name",
+                app_name,
+                "--yes",
+                "--no-wait",
+            ]
+        )
+    if app_names:
+        wait_for_cli_absence(
+            "Container App",
+            [
+                [
+                    "az",
+                    "containerapp",
+                    "show",
+                    "--resource-group",
+                    resource_group,
+                    "--name",
+                    app_name,
+                    "--output",
+                    "none",
+                ]
+                for app_name in app_names
+            ],
+        )
+
+    for environment_name in environment_names:
+        components = json_command(
+            [
+                "az",
+                "containerapp",
+                "env",
+                "dotnet-component",
+                "list",
+                "--resource-group",
+                resource_group,
+                "--environment",
+                environment_name,
+                "--output",
+                "json",
+            ],
+            default=[],
+        )
+        for component in components:
+            component_name = str(component.get("name") or "")
+            if not component_name:
+                raise CommandError(f"Container Apps environment {environment_name} returned an unnamed .NET component")
+            command(
+                [
+                    "az",
+                    "containerapp",
+                    "env",
+                    "dotnet-component",
+                    "delete",
+                    "--resource-group",
+                    resource_group,
+                    "--environment",
+                    environment_name,
+                    "--name",
+                    component_name,
+                    "--yes",
+                ],
+                timeout_seconds=COMMAND_TIMEOUT_SECONDS,
+            )
+        command(
+            [
+                "az",
+                "containerapp",
+                "env",
+                "delete",
+                "--resource-group",
+                resource_group,
+                "--name",
+                environment_name,
+                "--yes",
+                "--no-wait",
+            ]
+        )
+        wait_for_cli_absence(
+            f"Container Apps environment {environment_name}",
+            [
+                [
+                    "az",
+                    "containerapp",
+                    "env",
+                    "show",
+                    "--resource-group",
+                    resource_group,
+                    "--name",
+                    environment_name,
+                    "--output",
+                    "none",
+                ]
+            ],
+        )
+
+
+def delete_group(name: str) -> None:
+    exists = command(["az", "group", "exists", "--name", name]).stdout.strip().lower()
+    if exists == "false":
+        return
+    command(["az", "group", "delete", "--name", name, "--yes", "--no-wait"])
+    for _ in range(POLL_ATTEMPTS):
+        exists = command(["az", "group", "exists", "--name", name]).stdout.strip().lower()
+        if exists == "false":
+            return
+        time.sleep(POLL_SECONDS)
+    raise CommandError(f"timed out after {POLL_ATTEMPTS * POLL_SECONDS} seconds waiting for resource group deletion")
 
 
 def azd_values(environment: str) -> tuple[bool, dict[str, str]]:
@@ -217,7 +375,15 @@ def main() -> int:
             "azd_environment": {"name": args.azd_env, "exists": env_exists, "action": "remove local state"},
             "app_resource_group": app_group,
             "state_resource_group": state_group,
-            "order": ["app resource group", "eligible app registrations", "state resource group", "local azd state"],
+            "order": [
+                "Container Apps",
+                "Container Apps .NET components",
+                "Container Apps environment",
+                "app resource group",
+                "eligible app registrations",
+                "state resource group",
+                "local azd state",
+            ],
             "app_registrations": {
                 "deletion_enabled": args.delete_app_registrations,
                 "eligible": [
@@ -240,12 +406,13 @@ def main() -> int:
             return 0
 
         if app_group["exists"]:
-            command(["az", "group", "delete", "--name", args.app_resource_group, "--yes"])
+            delete_app_dependencies(args.app_resource_group, app_group["resources"])
+            delete_group(args.app_resource_group)
         if args.delete_app_registrations:
             for app in eligible:
                 command(["az", "ad", "app", "delete", "--id", app["app_id"]])
         if state_group["exists"]:
-            command(["az", "group", "delete", "--name", args.state_resource_group, "--yes"])
+            delete_group(args.state_resource_group)
         if env_exists:
             command(["azd", "env", "remove", args.azd_env, "--force"])
         return 0
