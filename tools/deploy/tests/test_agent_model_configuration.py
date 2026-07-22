@@ -251,6 +251,11 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("cognitiveservices account list-deleted", foundry_bootstrap)
         self.assertIn("cognitiveservices account purge", foundry_bootstrap)
         self.assertIn("Timed out waiting for the soft-deleted", foundry_bootstrap)
+        self.assertIn('account_name_generation="2"', foundry_bootstrap)
+        self.assertIn(
+            "${environment_name}${subscription_id}${account_name_generation}",
+            foundry_bootstrap,
+        )
         self.assertIn("azd provision --no-state --no-prompt", workflow)
         parameters = json.loads(
             (ROOT / "modules/agents/infra/main.parameters.json").read_text()

@@ -41,15 +41,18 @@ done
 
 account_name="$(azd_value AZURE_AI_ACCOUNT_NAME || true)"
 if [[ -z "$account_name" ]]; then
+  # Increment only when Azure retains poisoned backend state after a purged
+  # account name. Existing environments keep their recorded account name.
+  account_name_generation="2"
   safe_environment="$(printf '%s' "$environment_name" \
     | tr '[:upper:]_' '[:lower:]-' \
     | tr -cd '[:alnum:]-' \
     | sed -E 's/^-+//; s/-+$//' \
     | cut -c1-40)"
   if command -v sha256sum >/dev/null 2>&1; then
-    suffix="$(printf '%s' "${environment_name}${subscription_id}" | sha256sum | cut -c1-8)"
+    suffix="$(printf '%s' "${environment_name}${subscription_id}${account_name_generation}" | sha256sum | cut -c1-8)"
   else
-    suffix="$(printf '%s' "${environment_name}${subscription_id}" | shasum -a 256 | cut -c1-8)"
+    suffix="$(printf '%s' "${environment_name}${subscription_id}${account_name_generation}" | shasum -a 256 | cut -c1-8)"
   fi
   account_name="ai-${safe_environment}-${suffix}"
   azd env set AZURE_AI_ACCOUNT_NAME "$account_name"
