@@ -252,6 +252,10 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("cognitiveservices account purge", foundry_bootstrap)
         self.assertIn("Timed out waiting for the soft-deleted", foundry_bootstrap)
         self.assertIn("azd provision --no-state --no-prompt", workflow)
+        self.assertIn(
+            "Agent version provisioning failed. Please retry",
+            workflow,
+        )
         content_understanding = (
             ROOT / "modules/agents/scripts/configure_content_understanding.py"
         ).read_text()

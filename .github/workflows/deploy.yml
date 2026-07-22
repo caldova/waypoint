@@ -1385,6 +1385,12 @@ jobs:
               sleep $((10 * attempt))
               continue
             fi
+            if grep -q "Agent version provisioning failed. Please retry" azd-deploy.log; then
+              echo "::warning::Transient hosted-agent provisioning failure on attempt $attempt — retrying"
+              attempt=$((attempt + 1))
+              sleep $((10 * attempt))
+              continue
+            fi
             if grep -qE "(failed to get tenant ID for subscription|failed to resolve user .* access to subscription)" azd-deploy.log; then
               az account show -o none 2>/dev/null || true
               az account set --subscription "${{ needs.validate.outputs.azure_subscription_id }}" 2>/dev/null || true
