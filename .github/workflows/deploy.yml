@@ -962,6 +962,23 @@ jobs:
           echo "ai_account_id=$ai_account_id" >> "$GITHUB_OUTPUT"
         timeout-minutes: 5
 
+      - name: Verify hosted-agent capability host
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ needs.validate.outputs.azure_subscription_id }}
+        run: |
+          set -euo pipefail
+          account_name="$(azd env get-value AZURE_AI_ACCOUNT_NAME)"
+          capability_host_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.CognitiveServices/accounts/${account_name}/capabilityHosts/agents"
+          state="$(az resource show \
+            --ids "$capability_host_id" \
+            --api-version 2025-12-01 \
+            --query properties.provisioningState \
+            --output tsv)"
+          if [ "$state" != "Succeeded" ]; then
+            echo "::error::Hosted-agent capability host is not ready (state=$state)."
+            exit 1
+          fi
+
       - name: Configure Content Understanding model defaults
         run: |
           set -euo pipefail

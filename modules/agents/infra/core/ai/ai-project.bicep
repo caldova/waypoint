@@ -128,13 +128,10 @@ resource aiAccount 'Microsoft.CognitiveServices/accounts@2025-09-01' existing = 
     name: aiFoundryProjectName
   }
 
-  resource aiFoundryAccountCapabilityHost 'capabilityHosts@2025-10-01-preview' = if (enableHostedAgents && enableCapabilityHost) {
+  resource aiFoundryAccountCapabilityHost 'capabilityHosts@2025-12-01' = if (enableHostedAgents && enableCapabilityHost) {
     name: 'agents'
     properties: {
       capabilityHostKind: 'Agents'
-      // IMPORTANT: this is required to enable hosted agents deployment
-      // if no BYO Net is provided
-      enablePublicHostingEnvironment: true
     }
   }
 }

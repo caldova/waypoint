@@ -257,8 +257,15 @@ class AgentModelConfigurationTests(unittest.TestCase):
         )
         self.assertIs(
             parameters["parameters"]["enableCapabilityHost"]["value"],
-            False,
+            True,
         )
+        capability_host = (
+            ROOT / "modules/agents/infra/core/ai/ai-project.bicep"
+        ).read_text()
+        self.assertIn("capabilityHosts@2025-12-01", capability_host)
+        self.assertNotIn("enablePublicHostingEnvironment", capability_host)
+        self.assertIn("Verify hosted-agent capability host", workflow)
+        self.assertIn("--api-version 2025-12-01", workflow)
         self.assertIn("/agents/${{ matrix.agent }}/versions?api-version=v1", workflow)
         self.assertIn("{version, status, error}", workflow)
         self.assertIn(
