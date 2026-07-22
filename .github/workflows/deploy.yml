@@ -420,7 +420,7 @@ jobs:
   keyvault:
     name: Ensure deployment Key Vault
     runs-on: ubuntu-latest
-    needs: validate
+    needs: [validate, msal]
     outputs:
       key_vault_name: ${{ steps.kv.outputs.kv_name }}
     steps:
@@ -710,7 +710,8 @@ jobs:
       needs.validate.result == 'success' &&
       needs.keyvault.result == 'success' &&
       needs.msal.result == 'success' &&
-      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped')
+      (needs['deploy-app'].result == 'success' ||
+       (needs.plan.outputs.app != 'true' && needs['deploy-app'].result == 'skipped'))
     needs: [plan, validate, keyvault, msal, deploy-app]
     outputs:
       onelake_workspace: ${{ steps.fabric.outputs.onelake_workspace }}
@@ -805,8 +806,10 @@ jobs:
        needs.plan.outputs.acceptance == 'true') &&
       needs.validate.result == 'success' &&
       needs.keyvault.result == 'success' &&
-      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped')
-    needs: [plan, validate, keyvault, deploy-app]
+      needs.msal.result == 'success' &&
+      (needs['deploy-app'].result == 'success' ||
+       (needs.plan.outputs.app != 'true' && needs['deploy-app'].result == 'skipped'))
+    needs: [plan, validate, keyvault, msal, deploy-app]
     outputs:
       project_endpoint: ${{ steps.endpoint.outputs.endpoint }}
       ai_account_id: ${{ steps.endpoint.outputs.ai_account_id }}
@@ -1059,10 +1062,11 @@ jobs:
       needs.validate.result == 'success' &&
       needs.keyvault.result == 'success' &&
       needs['provision-agents'].result == 'success' &&
-      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped')
+      (needs['deploy-app'].result == 'success' ||
+       (needs.plan.outputs.app != 'true' && needs['deploy-app'].result == 'skipped'))
     needs: [plan, validate, keyvault, deploy-app, provision-agents]
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         agent: ${{ fromJSON(needs.validate.outputs.agent_matrix) }}
     defaults:
@@ -1498,7 +1502,8 @@ jobs:
       inputs.deploy_app &&
       inputs.deploy_agents &&
       needs.plan.outputs.wiring == 'true' &&
-      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped') &&
+      (needs['deploy-app'].result == 'success' ||
+       (needs.plan.outputs.app != 'true' && needs['deploy-app'].result == 'skipped')) &&
       needs['provision-agents'].result == 'success' &&
       (needs['deploy-agents'].result == 'success' || needs['deploy-agents'].result == 'skipped')
     needs: [plan, validate, deploy-app, provision-agents, deploy-agents]
@@ -1664,11 +1669,13 @@ jobs:
       inputs.seed_data &&
       inputs.deploy_app &&
       needs.plan.outputs.seed_import == 'true' &&
-      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped') &&
+      needs.msal.result == 'success' &&
+      (needs['deploy-app'].result == 'success' ||
+       (needs.plan.outputs.app != 'true' && needs['deploy-app'].result == 'skipped')) &&
       needs['corpus-seed'].result == 'success' &&
       needs.keyvault.result == 'success' &&
       (needs['onelake-upload'].result == 'success' || needs['onelake-upload'].result == 'skipped')
-    needs: [plan, validate, keyvault, corpus-seed, deploy-app, onelake-upload]
+    needs: [plan, validate, keyvault, msal, corpus-seed, deploy-app, onelake-upload]
     steps:
       - uses: actions/checkout@v7.0.0
 
@@ -1714,12 +1721,15 @@ jobs:
       always() &&
       inputs.deploy_app &&
       needs.plan.outputs.acceptance == 'true' &&
-      (needs['deploy-app'].result == 'success' || needs['deploy-app'].result == 'skipped') &&
+      needs.msal.result == 'success' &&
+      (needs['deploy-app'].result == 'success' ||
+       (needs.plan.outputs.app != 'true' && needs['deploy-app'].result == 'skipped')) &&
       needs.keyvault.result == 'success'
     needs:
       - plan
       - validate
       - keyvault
+      - msal
       - deploy-app
       - fabric-provision
       - provision-agents

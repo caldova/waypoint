@@ -373,6 +373,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("did not become readable after creation", msal)
         self.assertIn("Graph application is not yet writable", msal)
         self.assertIn("Request_ResourceNotFound", msal)
+        self.assertIn('graph_patch "${graph}/applications/${OBJ_ID}" "$identifier_body"', msal)
         self.assertIn('az ad sp create --id "$APP_ID"', msal)
         self.assertIn("user_impersonation did not persist", msal)
         self.assertIn('az group exists --name "$resource_group"', foundry_bootstrap)
@@ -399,6 +400,21 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("cognitiveservices account purge", foundry_bootstrap)
         self.assertIn("Timed out waiting for the soft-deleted", foundry_bootstrap)
         self.assertIn('account_name_generation="2"', foundry_bootstrap)
+        self.assertNotIn(
+            "(needs['deploy-app'].result == 'success' || "
+            "needs['deploy-app'].result == 'skipped')",
+            workflow,
+        )
+        self.assertIn(
+            "(needs.plan.outputs.app != 'true' && "
+            "needs['deploy-app'].result == 'skipped')",
+            workflow,
+        )
+        self.assertIn("fail-fast: true", workflow)
+        keyvault = workflow.split("\n  keyvault:\n", 1)[1].split(
+            "\n  msal:\n", 1
+        )[0]
+        self.assertIn("needs: [validate, msal]", keyvault)
         self.assertIn(
             "${environment_name}${subscription_id}${account_name_generation}",
             foundry_bootstrap,

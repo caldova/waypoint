@@ -22,6 +22,7 @@ set -euo pipefail
 mode="${1:?usage: msal.sh ensure|redirect}"
 display_name="${MSAL_DISPLAY_NAME:-waypoint}"
 graph="https://graph.microsoft.com/v1.0"
+retry_delay_seconds="${MSAL_GRAPH_RETRY_DELAY_SECONDS:-5}"
 
 log() { echo "msal: $*" >&2; }
 emit() { log "$1=$2"; [[ -n "${GITHUB_OUTPUT:-}" ]] && echo "$1=$2" >> "$GITHUB_OUTPUT"; return 0; }
@@ -35,12 +36,14 @@ graph_patch() {
       --headers "Content-Type=application/json" --body "$body" -o none 2>&1)"; then
       return 0
     fi
-    if [[ "$output" != *"Request_ResourceNotFound"* || "$attempt" -eq 12 ]]; then
+    if [[ "$output" != *"Request_ResourceNotFound"* \
+      && "$output" != *"does not exist or one of its queried reference-property objects are not present"* \
+      || "$attempt" -eq 12 ]]; then
       echo "$output" >&2
       return 1
     fi
     log "Graph application is not yet writable (attempt $attempt/12); retrying"
-    sleep 5
+    sleep "$retry_delay_seconds"
   done
 }
 
@@ -92,7 +95,7 @@ if [[ "$mode" == "ensure" ]]; then
         exit 1
       fi
       log "Graph application is not yet ready for service-principal creation (attempt $attempt/12); retrying"
-      sleep 5
+      sleep "$retry_delay_seconds"
     done
     if [[ "$service_principal_ready" != "true" ]]; then
       echo "::error::MSAL service principal did not become creatable after app registration" >&2
@@ -105,7 +108,12 @@ if [[ "$mode" == "ensure" ]]; then
   current_uris="$(az ad app show --id "$APP_ID" --query "identifierUris" -o json 2>/dev/null || echo '[]')"
   if ! echo "$current_uris" | grep -q "$id_uri"; then
     log "setting identifier uri $id_uri"
-    az ad app update --id "$APP_ID" --identifier-uris "$id_uri" -o none
+    identifier_body="$(python3 - "$id_uri" <<'PY'
+import json, sys
+print(json.dumps({"identifierUris": [sys.argv[1]]}))
+PY
+)"
+    graph_patch "${graph}/applications/${OBJ_ID}" "$identifier_body"
   fi
 
   # Ensure delegated API scopes before app roles. A newly created app has no
@@ -163,7 +171,7 @@ PY
       scope_ready=true
       break
     fi
-    [[ "$attempt" -lt 12 ]] && sleep 5
+    [[ "$attempt" -lt 12 ]] && sleep "$retry_delay_seconds"
   done
   if [[ "$scope_ready" != "true" ]]; then
     echo "::error::MSAL delegated scope user_impersonation did not persist after Graph update" >&2

@@ -23,6 +23,7 @@ class MsalScriptTests(unittest.TestCase):
                         "appId": "00000000-0000-0000-0000-000000000001",
                         "id": "00000000-0000-0000-0000-000000000002",
                         "identifierUris": [],
+                        "identifierPatchFailures": 1,
                         "api": {"oauth2PermissionScopes": []},
                         "appRoles": [],
                         "servicePrincipal": False,
@@ -43,6 +44,7 @@ class MsalScriptTests(unittest.TestCase):
                 "FAKE_AZ_STATE": str(state_path),
                 "AZD_ENV_NAME": "seller-test",
                 "GITHUB_REPOSITORY": "seller/waypoint-demo",
+                "MSAL_GRAPH_RETRY_DELAY_SECONDS": "0",
             }
             subprocess.run(["bash", str(SCRIPT), "ensure"], check=True, env=env)
             first = json.loads(state_path.read_text(encoding="utf-8"))
@@ -90,9 +92,6 @@ elif args[:3] == ["ad", "app", "show"]:
         print(state["id"])
     elif query == "identifierUris":
         print(json.dumps(state["identifierUris"]))
-elif args[:3] == ["ad", "app", "update"]:
-    uri = args[args.index("--identifier-uris") + 1]
-    state["identifierUris"] = [uri]
 elif args[:3] == ["ad", "sp", "show"]:
     if not state["servicePrincipal"]:
         raise SystemExit(3)
@@ -110,6 +109,14 @@ elif args[0] == "rest" and args[args.index("--method") + 1] == "GET":
         }))
 elif args[0] == "rest" and args[args.index("--method") + 1] == "PATCH":
     body = json.loads(args[args.index("--body") + 1])
+    if "identifierUris" in body and state["identifierPatchFailures"]:
+        state["identifierPatchFailures"] -= 1
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(state, handle, sort_keys=True)
+        print("Request_ResourceNotFound", file=sys.stderr)
+        raise SystemExit(1)
+    if "identifierUris" in body:
+        state["identifierUris"] = body["identifierUris"]
     if "api" in body:
         state["api"] = body["api"]
     if "appRoles" in body:
