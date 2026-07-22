@@ -17,7 +17,7 @@ hosted-agent versions whose deploy inputs were unchanged.
 | --- | --- | --- |
 | Waypoint app/API | On | Aspire deploys the web app, API, PostgreSQL, auth, and telemetry. |
 | Corpus seed | On | The corpus module generates and imports `waypoint-seed.json`. |
-| Fabric/OneLake storage | On | Independent of the FabricIQ expert lane. |
+| Fabric/OneLake storage | Off | Opt in only when exercising the FabricIQ lane. |
 | `invoice-analyst` | On | Read-only hosted analyst surface. |
 | `assurance-orchestrator` | On | Coordinates one invoice-assurance run. |
 | `contract-policy-expert` | On | The only evidence expert enabled by default; uses FoundryIQ and `contracts-kb`. |
@@ -93,7 +93,7 @@ runs; generated secrets do not need to be copied into GitHub.
 1. Open **Actions -> Deploy Azure -> Run workflow**.
 2. Keep `deploy_app`, `deploy_agents`, `provision_agents`, and `seed_data`
    enabled for a first run.
-3. Keep `fabric_provision_enabled` enabled for the full default environment.
+3. Leave `fabric_provision_enabled` disabled for the default FoundryIQ path.
 4. Leave WorkIQ, WebIQ, and FabricIQ disabled unless their external dependencies
    are configured.
 5. Follow the **Acceptance and evidence** job through completion.
@@ -111,6 +111,13 @@ Apps environment only when it contains no Container Apps. The next bounded
 attempt then recreates the environment cleanly instead of updating a poisoned
 partial resource indefinitely. Capacity failures on environments containing
 applications fail closed and require operator review.
+
+On a clean recreation, Azure RBAC can also report Aspire's deterministic
+`AcrPull` assignment as deployed before the recreated managed identity can pull
+from the registry. The bounded retry path detects that exact managed-identity
+image-pull failure, reconciles `AcrPull` for the sole Aspire identity and
+registry, waits for propagation, and retries. Ambiguous identity or registry
+inventory fails closed.
 
 ## Deployment stages
 

@@ -115,15 +115,15 @@ The default path deploys:
 
 - the Waypoint web application, API, PostgreSQL database, authentication, and
   telemetry;
-- the synthetic corpus, seed data, and Fabric/OneLake storage;
+- the synthetic corpus and Waypoint seed data;
 - the Foundry project, model deployments, search, and `contracts-kb`;
 - `invoice-analyst`, `assurance-orchestrator`, `contract-policy-expert`, and
   `waypoint-recorder`; and
 - an acceptance artifact proving endpoint health, hosted-agent inventory, and
   a completed orchestrator-to-recorder run.
 
-WorkIQ, WebIQ, and FabricIQ remain available as opt-in lanes. The default
-review experience starts with FoundryIQ only.
+Fabric/OneLake storage, WorkIQ, WebIQ, and FabricIQ remain opt-in. The default
+review experience requires only FoundryIQ and its `contracts-kb`.
 
 The full default deployment has been validated end to end, including an
 unchanged rerun that reused stable resources and skipped unchanged hosted-agent

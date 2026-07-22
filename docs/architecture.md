@@ -49,9 +49,9 @@ only when their lane input is enabled.
 
 ## Deployment and quality
 
-The validated default deployment includes the app, corpus, Fabric/OneLake
-storage, Foundry resources, the four default agents, seed import, assurance wiring,
-and live acceptance. An unchanged rerun has also been validated.
+The default deployment includes the app, corpus, Foundry resources, the four
+default agents, seed import, assurance wiring, and live acceptance.
+Fabric/OneLake storage is provisioned only when the FabricIQ path is selected.
 
 Agent quality follows Foundry-native evaluation and Agent Optimizer plus Caliber
 datasets, deterministic graders, calibration, telemetry harvesting, and RFT/RLE

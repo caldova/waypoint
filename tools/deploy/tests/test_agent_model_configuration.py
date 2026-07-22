@@ -31,6 +31,10 @@ class AgentModelConfigurationTests(unittest.TestCase):
             "APP_AZURE_LOCATION: ${{ inputs.app_location || vars.WAYPOINT_APP_LOCATION",
             workflow,
         )
+        fabric_input = workflow.split("      fabric_provision_enabled:", 1)[1].split(
+            "      workiq_enabled:", 1
+        )[0]
+        self.assertIn("default: false", fabric_input)
         deploy_app = workflow.split("  deploy-app:", 1)[1].split(
             "  # ── fabric-provision", 1
         )[0]
@@ -229,6 +233,14 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("az deployment group cancel", aspire_deploy)
         self.assertIn("az containerapp env delete", aspire_deploy)
         self.assertIn("Refusing to delete capacity-failed environment", aspire_deploy)
+        self.assertIn("unable to pull image using Managed identity", aspire_deploy)
+        self.assertIn("ensure_acr_pull_assignment", aspire_deploy)
+        self.assertIn("--assignee-principal-type ServicePrincipal", aspire_deploy)
+        self.assertIn("--role AcrPull", aspire_deploy)
+        self.assertIn('--name "$role_assignment_name"', aspire_deploy)
+        self.assertIn("Microsoft.Authorization/roleAssignments", aspire_deploy)
+        self.assertIn("--output none || return 1", aspire_deploy)
+        self.assertIn("Expected one Aspire registry and identity", aspire_deploy)
 
     def test_apphost_preserves_container_environment_deployment_identity(self) -> None:
         apphost = (ROOT / "apps/waypoint/apphost.cs").read_text()

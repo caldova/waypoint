@@ -14,6 +14,8 @@ synthetic demo data.
   `waypoint-recorder`.
 - Only FoundryIQ evidence is enabled by default. WorkIQ, WebIQ, and FabricIQ are
   explicit opt-ins.
+- Fabric/OneLake capacity and storage are also opt-in and are not required for
+  the default `contract-policy-expert` knowledge-base path.
 - Deployment acceptance selects a live invoice from Waypoint, invokes the hosted
   orchestrator, and verifies a newly finalized, correlated run written through
   `waypoint-recorder`.

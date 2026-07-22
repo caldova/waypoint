@@ -39,10 +39,10 @@ on:
       fabric_provision_enabled:
         description: >-
           Provision Fabric/OneLake capacity, workspace, and lakehouse for the Waypoint data path.
-          This is independent of the hosted-agent fleet.
+          Opt in when exercising FabricIQ; not required for the default FoundryIQ path.
         required: false
         type: boolean
-        default: true
+        default: false
       workiq_enabled:
         description: >-
           Opt in to the WorkIQ expert. Disabled by default while its tenant-specific

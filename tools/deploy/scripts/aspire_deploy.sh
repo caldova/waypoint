@@ -6,7 +6,75 @@ max_attempts="${ASPIRE_DEPLOY_MAX_ATTEMPTS:-3}"
 attempt_timeout="${ASPIRE_DEPLOY_ATTEMPT_TIMEOUT:-15m}"
 retry_delay_seconds="${ASPIRE_DEPLOY_RETRY_DELAY_SECONDS:-20}"
 capacity_pattern='ManagedEnvironmentCapacityHeavyUsageError|AKSCapacityHeavyUsage'
-transient_pattern="connect: connection refused|connection reset by peer|TLS handshake timeout|unexpected EOF|i/o timeout|temporarily unavailable|status code (429|5[0-9]{2})|${capacity_pattern}"
+managed_identity_pull_pattern='unable to pull image using Managed identity'
+transient_pattern="connect: connection refused|connection reset by peer|TLS handshake timeout|unexpected EOF|i/o timeout|temporarily unavailable|status code (429|5[0-9]{2})|${capacity_pattern}|${managed_identity_pull_pattern}"
+
+ensure_acr_pull_assignment() {
+  local registries
+  local identities
+  local registry_count
+  local identity_count
+  local registry_id
+  local principal_id
+  local environment_deployment
+  local role_assignment_names
+  local role_assignment_count
+  local role_assignment_name
+
+  registries="$(
+    az acr list \
+      --resource-group "$resource_group" \
+      --query "[?tags.\"aspire-resource-name\" == 'starter-env-acr'].id" \
+      --output tsv
+  )" || return 1
+  identities="$(
+    az identity list \
+      --resource-group "$resource_group" \
+      --query "[?starts_with(name, 'starter_env_mi-')].principalId" \
+      --output tsv
+  )" || return 1
+  registry_count="$(printf '%s\n' "$registries" | grep -c .)"
+  identity_count="$(printf '%s\n' "$identities" | grep -c .)"
+  if [ "$registry_count" != "1" ] || [ "$identity_count" != "1" ]; then
+    echo "::error::Expected one Aspire registry and identity; found ${registry_count} registries and ${identity_count} identities."
+    return 1
+  fi
+  registry_id="$registries"
+  principal_id="$identities"
+  environment_deployment="$(
+    az deployment group list \
+      --resource-group "$resource_group" \
+      --query "sort_by([?starts_with(name, 'starter-env-')], &properties.timestamp)[-1].name" \
+      --output tsv
+  )" || return 1
+  if [ -z "$environment_deployment" ]; then
+    echo "::error::Could not find the Aspire environment deployment that declared AcrPull."
+    return 1
+  fi
+  role_assignment_names="$(
+    az deployment operation group list \
+      --resource-group "$resource_group" \
+      --name "$environment_deployment" \
+      --query "[?properties.targetResource.resourceType == 'Microsoft.Authorization/roleAssignments'].properties.targetResource.resourceName" \
+      --output tsv
+  )" || return 1
+  role_assignment_count="$(printf '%s\n' "$role_assignment_names" | grep -c .)"
+  if [ "$role_assignment_count" != "1" ]; then
+    echo "::error::Expected one Aspire AcrPull assignment declaration; found ${role_assignment_count}."
+    return 1
+  fi
+  role_assignment_name="$role_assignment_names"
+
+  echo "::warning::Reconciling AcrPull after managed-identity image-pull propagation failure."
+  az role assignment create \
+    --name "$role_assignment_name" \
+    --assignee-object-id "$principal_id" \
+    --assignee-principal-type ServicePrincipal \
+    --role AcrPull \
+    --scope "$registry_id" \
+    --output none || return 1
+  sleep 30
+}
 
 capacity_failed_environment() {
   local environments
@@ -130,6 +198,9 @@ for attempt in $(seq 1 "$max_attempts"); do
 
   if [ "$attempt" -eq "$max_attempts" ]; then
     exit "$deploy_exit"
+  fi
+  if grep -Eqi "$managed_identity_pull_pattern" aspire-deploy.log; then
+    ensure_acr_pull_assignment || exit 1
   fi
   if [ "$recovered_capacity_failure" != "true" ] \
     && ! grep -Eqi "$transient_pattern" aspire-deploy.log; then
