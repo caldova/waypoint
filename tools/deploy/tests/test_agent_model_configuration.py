@@ -142,6 +142,15 @@ class AgentModelConfigurationTests(unittest.TestCase):
             "python scripts/initialize_contracts_kb.py --skip-upload",
             provision,
         )
+        self.assertIn("Refresh Azure login after provisioning", provision)
+        self.assertLess(
+            provision.index("Run azd provision"),
+            provision.index("Refresh Azure login after provisioning"),
+        )
+        self.assertLess(
+            provision.index("Refresh Azure login after provisioning"),
+            provision.index("Configure Content Understanding model defaults"),
+        )
         self.assertNotIn("inputs.foundryiq_enabled", provision)
         self.assertIn("needs: [plan, validate, provision-agents]", upload)
 

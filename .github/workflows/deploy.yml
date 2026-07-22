@@ -702,6 +702,13 @@ jobs:
         run: azd provision --no-state --no-prompt
         timeout-minutes: 45
 
+      - name: Refresh Azure login after provisioning
+        uses: azure/login@v3.0.0
+        with:
+          client-id: ${{ needs.validate.outputs.azure_client_id }}
+          tenant-id: ${{ needs.validate.outputs.azure_tenant_id }}
+          subscription-id: ${{ needs.validate.outputs.azure_subscription_id }}
+
       - name: Verify deployment outputs and resolve endpoint
         id: endpoint
         # ┌─────────────────────────────────────────────────────────────┐
