@@ -956,6 +956,12 @@ jobs:
             echo "::error::Deployment '$DEPLOYMENT' has no AZURE_AI_PROJECT_ENDPOINT output."
             exit 1
           fi
+          ACR_ENDPOINT="$(azd env get-value AZURE_CONTAINER_REGISTRY_ENDPOINT 2>/dev/null || true)"
+          ACR_RESOURCE_ID="$(azd env get-value AZURE_CONTAINER_REGISTRY_RESOURCE_ID 2>/dev/null || true)"
+          if [ -z "$ACR_ENDPOINT" ] || [ -z "$ACR_RESOURCE_ID" ]; then
+            echo "::error::Deployment '$DEPLOYMENT' must expose both ACR endpoint and resource ID for hosted-agent image pull authorization."
+            exit 1
+          fi
           # The azure.ai.agent extension reads FOUNDRY_PROJECT_ENDPOINT during azd deploy.
           azd env set FOUNDRY_PROJECT_ENDPOINT "$ENDPOINT"
           echo "endpoint=$ENDPOINT" >> "$GITHUB_OUTPUT"

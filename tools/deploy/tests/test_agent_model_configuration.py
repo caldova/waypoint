@@ -130,6 +130,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
 
     def test_foundry_provision_initializes_contracts_kb_before_upload(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        infra = (ROOT / "modules/agents/infra/main.bicep").read_text()
         provision = workflow.split("  provision-agents:", 1)[1].split(
             "  # ── deploy-agents", 1
         )[0]
@@ -153,6 +154,15 @@ class AgentModelConfigurationTests(unittest.TestCase):
         )
         self.assertNotIn("inputs.foundryiq_enabled", provision)
         self.assertIn("needs: [plan, validate, provision-agents]", upload)
+        self.assertIn("output AZURE_CONTAINER_REGISTRY_RESOURCE_ID string", infra)
+        self.assertIn(
+            "azd env get-value AZURE_CONTAINER_REGISTRY_RESOURCE_ID",
+            workflow,
+        )
+        self.assertIn(
+            "both ACR endpoint and resource ID for hosted-agent image pull authorization",
+            workflow,
+        )
 
     def test_agent_deploy_uses_key_vault_keys_without_bearer_precedence(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()

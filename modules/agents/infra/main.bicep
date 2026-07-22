@@ -403,6 +403,7 @@ module existingAiProject 'core/ai/existing-ai-project.bicep' = if (useExistingAi
     aiFoundryProjectName: aiFoundryProjectName
     existingAcrConnectionName: existingAcrConnectionName
     existingContainerRegistryEndpoint: existingContainerRegistryEndpoint
+    existingContainerRegistryResourceId: existingContainerRegistryResourceId
     existingApplicationInsightsConnectionString: existingApplicationInsightsConnectionString
     existingApplicationInsightsResourceId: existingApplicationInsightsResourceId
   }
@@ -490,6 +491,11 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = shouldCreateAcrForExistingProj
   : (useExistingAiProject
       ? existingAiProject.outputs.dependentResources.registry.loginServer
       : aiProject.outputs.dependentResources.registry.loginServer)
+output AZURE_CONTAINER_REGISTRY_RESOURCE_ID string = shouldCreateAcrForExistingProject
+  ? acrForExistingProject.outputs.containerRegistryResourceId
+  : (useExistingAiProject
+      ? existingAiProject.outputs.dependentResources.registry.resourceId
+      : aiProject.outputs.dependentResources.registry.resourceId)
 
 // Bing Search
 output BING_GROUNDING_CONNECTION_NAME string = useExistingAiProject

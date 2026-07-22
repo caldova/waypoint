@@ -12,6 +12,9 @@ param existingAcrConnectionName string = ''
 @description('Existing container registry endpoint (already set in the environment)')
 param existingContainerRegistryEndpoint string = ''
 
+@description('Existing container registry resource ID (already set in the environment)')
+param existingContainerRegistryResourceId string = ''
+
 @description('Existing Application Insights connection string (already set in the environment)')
 param existingApplicationInsightsConnectionString string = ''
 
@@ -47,6 +50,7 @@ output dependentResources object = {
   registry: {
     name: ''
     loginServer: existingContainerRegistryEndpoint
+    resourceId: existingContainerRegistryResourceId
     connectionName: existingAcrConnectionName
   }
   bing_grounding: {

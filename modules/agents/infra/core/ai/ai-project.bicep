@@ -410,6 +410,9 @@ output dependentResources object = {
     loginServer: hasAcrConnection
       ? acr!.outputs.containerRegistryLoginServer
       : ((hasExistingAcr || hasExistingAcrConnection) ? existingContainerRegistryEndpoint : '')
+    resourceId: hasAcrConnection
+      ? acr!.outputs.containerRegistryResourceId
+      : ((hasExistingAcr || hasExistingAcrConnection) ? existingContainerRegistryResourceId : '')
     connectionName: hasAcrConnection
       ? acr!.outputs.containerRegistryConnectionName
       : (hasExistingAcrConnection ? existingAcrConnectionName : (hasExistingAcr ? 'acr-${resourceToken}' : ''))
