@@ -257,10 +257,10 @@ class AgentModelConfigurationTests(unittest.TestCase):
         )
         self.assertIs(
             parameters["parameters"]["enableCapabilityHost"]["value"],
-            True,
+            False,
         )
-        self.assertIn("Verify hosted-agent capability host", workflow)
-        self.assertIn("/capabilityHosts/agents", workflow)
+        self.assertIn("/agents/${{ matrix.agent }}/versions?api-version=v1", workflow)
+        self.assertIn("{version, status, error}", workflow)
         self.assertIn(
             "Agent version provisioning failed. Please retry",
             workflow,

@@ -96,7 +96,7 @@
         "value": "${ENABLE_HOSTED_AGENTS=false}"
       },
       "enableCapabilityHost": {
-        "value": true
+        "value": false
       },
       "enableSearch": {
         "value": "${ENABLE_SEARCH=true}"

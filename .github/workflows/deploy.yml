@@ -962,18 +962,6 @@ jobs:
           echo "ai_account_id=$ai_account_id" >> "$GITHUB_OUTPUT"
         timeout-minutes: 5
 
-      - name: Verify hosted-agent capability host
-        env:
-          AZURE_SUBSCRIPTION_ID: ${{ needs.validate.outputs.azure_subscription_id }}
-        run: |
-          set -euo pipefail
-          account_name="$(azd env get-value AZURE_AI_ACCOUNT_NAME)"
-          capability_host_id="/subscriptions/${AZURE_SUBSCRIPTION_ID}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.CognitiveServices/accounts/${account_name}/capabilityHosts/agents"
-          az resource show \
-            --ids "$capability_host_id" \
-            --api-version 2025-10-01-preview \
-            --output none
-
       - name: Configure Content Understanding model defaults
         run: |
           set -euo pipefail
@@ -1390,6 +1378,19 @@ jobs:
             if [ $azd_exit -eq 0 ]; then
               echo "::notice::Deploy succeeded on attempt $attempt"
               exit 0
+            fi
+            token="$(az account get-access-token \
+              --resource https://ai.azure.com \
+              --query accessToken -o tsv 2>/dev/null || true)"
+            if [ -n "$token" ]; then
+              curl -fsS \
+                -H "Authorization: Bearer $token" \
+                "${{ steps.endpoint.outputs.endpoint }}/agents/${{ matrix.agent }}/versions?api-version=v1" \
+                | jq -c '{
+                    agent: "${{ matrix.agent }}",
+                    versions: [(.value // [])[] | {version, status, error}]
+                  }' \
+                || echo "::warning::Hosted-agent version diagnostics were unavailable."
             fi
             if grep -qE "(InvalidRange|streaming remote build logs \(HTTP 416\)|failed retrieving package result details)" azd-deploy.log; then
               echo "::warning::Transient ACR log-streaming flake on attempt $attempt — retrying"
