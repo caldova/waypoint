@@ -159,6 +159,14 @@ mutate the default environment.
 Each `azd_env_name` has its own workflow concurrency slot and derived Key Vault
 name.
 
+Foundry and the application can use different Azure regions. `azure_location`
+controls the Foundry project, hosted agents, and model deployments;
+`app_location` controls only the Aspire web/API, PostgreSQL, and Fabric
+resources. When `app_location` is empty it inherits `WAYPOINT_APP_LOCATION`,
+then `azure_location`, preserving the single-region default. For example, use
+`azure_location=swedencentral` with `app_location=northeurope` when Foundry
+requires Sweden Central but Container Apps capacity is unavailable there.
+
 ## Acceptance evidence
 
 `tools/deploy/deployment.manifest.json` declares the canonical source roots,

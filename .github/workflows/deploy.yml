@@ -83,7 +83,15 @@ on:
       # Omit all of them for the default standalone deployment (backwards compatible).
       azure_location:
         description: >-
-          Azure region override. Falls back to the AZURE_LOCATION repo var or swedencentral.
+          Foundry and model deployment region. Falls back to the AZURE_LOCATION repo var or
+          swedencentral.
+        required: false
+        type: string
+        default: ''
+      app_location:
+        description: >-
+          Aspire web/API/PostgreSQL/Fabric region. Falls back to WAYPOINT_APP_LOCATION, then
+          azure_location. This can differ from Foundry when Container Apps capacity is constrained.
         required: false
         type: string
         default: ''
@@ -161,6 +169,7 @@ concurrency:
 
 env:
   AZURE_LOCATION: ${{ inputs.azure_location || vars.AZURE_LOCATION || 'swedencentral' }}
+  APP_AZURE_LOCATION: ${{ inputs.app_location || vars.WAYPOINT_APP_LOCATION || inputs.azure_location || vars.AZURE_LOCATION || 'swedencentral' }}
   AZURE_RESOURCE_GROUP: ${{ inputs.app_resource_group || vars.AZURE_RESOURCE_GROUP || 'rg-waypoint' }}
   # Key Vault lives in a dedicated state RG, never the app RG.
   STATE_RESOURCE_GROUP: ${{ inputs.state_resource_group || vars.AZURE_STATE_RESOURCE_GROUP || 'rg-waypoint-state' }}
@@ -429,7 +438,7 @@ jobs:
         # independent Foundry and Fabric jobs begin on a first deployment.
         run: |
           az group create --name "$STATE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
-          az group create --name "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
+          az group create --name "$AZURE_RESOURCE_GROUP" --location "$APP_AZURE_LOCATION" --output none
 
       - name: Generate-once deployment secrets
         id: kv
@@ -580,7 +589,7 @@ jobs:
           Azure__ClientId: ${{ needs.validate.outputs.azure_client_id }}
           Azure__TenantId: ${{ needs.validate.outputs.azure_tenant_id }}
           Azure__SubscriptionId: ${{ needs.validate.outputs.azure_subscription_id }}
-          Azure__Location: ${{ env.AZURE_LOCATION }}
+          Azure__Location: ${{ env.APP_AZURE_LOCATION }}
           Azure__ResourceGroup: ${{ env.AZURE_RESOURCE_GROUP }}
           Azure__AllowResourceGroupCreation: true
           Waypoint__ApiKeyAuth__Enabled: true

@@ -27,6 +27,19 @@ class AgentModelConfigurationTests(unittest.TestCase):
                 "fabriciq": False,
             },
         )
+        self.assertIn(
+            "APP_AZURE_LOCATION: ${{ inputs.app_location || vars.WAYPOINT_APP_LOCATION",
+            workflow,
+        )
+        deploy_app = workflow.split("  deploy-app:", 1)[1].split(
+            "  # ── fabric-provision", 1
+        )[0]
+        provision_agents = workflow.split("  provision-agents:", 1)[1].split(
+            "  # ── deploy-agents", 1
+        )[0]
+        self.assertIn("Azure__Location: ${{ env.APP_AZURE_LOCATION }}", deploy_app)
+        self.assertIn('azd env set AZURE_LOCATION "$AZURE_LOCATION"', provision_agents)
+        self.assertNotIn("APP_AZURE_LOCATION", provision_agents)
         self.assertEqual(
             manifest["expected_components"]["agents"],
             [
