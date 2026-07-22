@@ -250,6 +250,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("did not become readable after creation", msal)
         self.assertIn("Graph application is not yet writable", msal)
         self.assertIn("Request_ResourceNotFound", msal)
+        self.assertIn("AKSCapacityHeavyUsage", workflow)
         self.assertIn("cognitiveservices account list-deleted", foundry_bootstrap)
         self.assertIn("cognitiveservices account purge", foundry_bootstrap)
         self.assertIn("Timed out waiting for the soft-deleted", foundry_bootstrap)

@@ -662,7 +662,7 @@ jobs:
               exit 0
             fi
             if [ "$attempt" -eq "$max_attempts" ] || ! grep -Eqi \
-              'connect: connection refused|connection reset by peer|TLS handshake timeout|unexpected EOF|i/o timeout|temporarily unavailable|status code (429|5[0-9]{2})' \
+              'connect: connection refused|connection reset by peer|TLS handshake timeout|unexpected EOF|i/o timeout|temporarily unavailable|status code (429|5[0-9]{2})|ManagedEnvironmentCapacityHeavyUsageError|AKSCapacityHeavyUsage' \
               aspire-deploy.log; then
               exit "$deploy_exit"
             fi
