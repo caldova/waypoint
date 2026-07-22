@@ -92,13 +92,82 @@ def group_inventory(name: str) -> dict[str, Any]:
         "location": group.get("location"),
         "resources": sorted(
             (
-                {"name": item.get("name", ""), "type": item.get("type", "")}
+                {
+                    "name": item.get("name", ""),
+                    "type": item.get("type", ""),
+                    "location": item.get("location") or group.get("location"),
+                }
                 for item in resources
             ),
             key=lambda item: (item["type"], item["name"]),
         ),
         "_tags": group.get("tags") or {},
     }
+
+
+def wait_for_deleted_inventory(
+    label: str,
+    list_command: list[str],
+    *,
+    present: bool,
+) -> None:
+    for _ in range(POLL_ATTEMPTS):
+        inventory = json_command(list_command, default=[])
+        if bool(inventory) == present:
+            return
+        time.sleep(POLL_SECONDS)
+    expected = "appear" if present else "purge"
+    raise CommandError(f"timed out after {POLL_ATTEMPTS * POLL_SECONDS} seconds waiting for {label} to {expected}")
+
+
+def purge_soft_deleted_resources(group: dict[str, Any]) -> None:
+    for resource in group["resources"]:
+        resource_type = resource["type"].lower()
+        name = resource["name"]
+        if resource_type == "microsoft.keyvault/vaults":
+            list_command = [
+                "az",
+                "keyvault",
+                "list-deleted",
+                "--query",
+                f"[?name=='{name}'].name",
+                "--output",
+                "json",
+            ]
+            wait_for_deleted_inventory(f"Key Vault {name}", list_command, present=True)
+            command(
+                ["az", "keyvault", "purge", "--name", name],
+                timeout_seconds=COMMAND_TIMEOUT_SECONDS,
+            )
+            wait_for_deleted_inventory(f"Key Vault {name}", list_command, present=False)
+        elif resource_type == "microsoft.cognitiveservices/accounts":
+            list_command = [
+                "az",
+                "cognitiveservices",
+                "account",
+                "list-deleted",
+                "--query",
+                f"[?name=='{name}'].name",
+                "--output",
+                "json",
+            ]
+            wait_for_deleted_inventory(f"AI Services account {name}", list_command, present=True)
+            command(
+                [
+                    "az",
+                    "cognitiveservices",
+                    "account",
+                    "purge",
+                    "--name",
+                    name,
+                    "--resource-group",
+                    group["name"],
+                    "--location",
+                    resource["location"],
+                ],
+                timeout_seconds=COMMAND_TIMEOUT_SECONDS,
+            )
+            wait_for_deleted_inventory(f"AI Services account {name}", list_command, present=False)
 
 
 def wait_for_cli_absence(label: str, probes: list[list[str]]) -> None:
@@ -380,8 +449,10 @@ def main() -> int:
                 "Container Apps .NET components",
                 "Container Apps environment",
                 "app resource group",
+                "owned soft-deleted app resources",
                 "eligible app registrations",
                 "state resource group",
+                "owned soft-deleted state resources",
                 "local azd state",
             ],
             "app_registrations": {
@@ -408,11 +479,13 @@ def main() -> int:
         if app_group["exists"]:
             delete_app_dependencies(args.app_resource_group, app_group["resources"])
             delete_group(args.app_resource_group)
+            purge_soft_deleted_resources(app_group)
         if args.delete_app_registrations:
             for app in eligible:
                 command(["az", "ad", "app", "delete", "--id", app["app_id"]])
         if state_group["exists"]:
             delete_group(args.state_resource_group)
+            purge_soft_deleted_resources(state_group)
         if env_exists:
             command(["azd", "env", "remove", args.azd_env, "--force"])
         return 0

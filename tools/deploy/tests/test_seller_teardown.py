@@ -65,6 +65,11 @@ def base_state() -> dict:
                     {"name": "api", "type": "Microsoft.App/containerApps"},
                     {"name": "web", "type": "Microsoft.App/containerApps"},
                     {"name": "starter-env", "type": "Microsoft.App/managedEnvironments"},
+                    {
+                        "name": "ai-seller",
+                        "type": "Microsoft.CognitiveServices/accounts",
+                        "location": "swedencentral",
+                    },
                 ],
                 "components": {"starter-env": ["aspire-dashboard"]},
             },
@@ -101,6 +106,8 @@ def base_state() -> dict:
                 "owners": ["deploy-object"],
             },
         ],
+        "deleted_cognitive": [],
+        "deleted_vaults": [],
         "calls": [],
     }
 
@@ -119,7 +126,7 @@ class SellerTeardownTests(unittest.TestCase):
         self.assertNotIn(MSAL_CLIENT, result.stdout)
         self.assertEqual(
             [item["name"] for item in plan["app_resource_group"]["resources"]],
-            ["api", "web", "starter-env"],
+            ["api", "web", "starter-env", "ai-seller"],
         )
         self.assertFalse(any(call[:3] == ["group", "delete", "--name"] for call in state["calls"]))
         self.assertIn("rg-unrelated", state["groups"])
@@ -164,6 +171,8 @@ class SellerTeardownTests(unittest.TestCase):
         self.assertIn("rg-unrelated", state["groups"])
         self.assertEqual(len(state["apps"]), 2)
         self.assertNotIn("seller-test", state["azd"])
+        self.assertEqual(state["deleted_cognitive"], [])
+        self.assertEqual(state["deleted_vaults"], [])
 
     def test_app_deletion_requires_state_or_tags_and_deploy_owner(self) -> None:
         state = base_state()
@@ -343,7 +352,24 @@ elif args[:2] == ["group", "delete"]:
         code = 1
         print("simulated failure", file=sys.stderr)
     else:
-        state["groups"].pop(name, None)
+        group = state["groups"].pop(name, None)
+        for resource in (group or {}).get("resources", []):
+            if resource["type"].lower() == "microsoft.keyvault/vaults":
+                state["deleted_vaults"].append(resource["name"])
+            elif resource["type"].lower() == "microsoft.cognitiveservices/accounts":
+                state["deleted_cognitive"].append(resource["name"])
+elif args[:2] == ["keyvault", "list-deleted"]:
+    name = args[args.index("--query") + 1].split("'")[1]
+    out = json.dumps([item for item in state["deleted_vaults"] if item == name])
+elif args[:2] == ["keyvault", "purge"]:
+    name = args[args.index("--name") + 1]
+    state["deleted_vaults"] = [item for item in state["deleted_vaults"] if item != name]
+elif args[:3] == ["cognitiveservices", "account", "list-deleted"]:
+    name = args[args.index("--query") + 1].split("'")[1]
+    out = json.dumps([item for item in state["deleted_cognitive"] if item == name])
+elif args[:3] == ["cognitiveservices", "account", "purge"]:
+    name = args[args.index("--name") + 1]
+    state["deleted_cognitive"] = [item for item in state["deleted_cognitive"] if item != name]
 else:
     code = 2
     print(f"unsupported az invocation: {args}", file=sys.stderr)
