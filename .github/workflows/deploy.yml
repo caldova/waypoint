@@ -910,7 +910,9 @@ jobs:
 
       - name: Run azd provision
         if: ${{ inputs.provision_agents && needs.plan.outputs.foundry_infrastructure == 'true' }}
-        run: azd provision --no-prompt
+        # This job is selected for source changes or live-resource drift. Ignore
+        # azd's template-hash cache so deleted resources are reconciled.
+        run: azd provision --no-state --no-prompt
         timeout-minutes: 45
 
       - name: Verify deployment outputs and resolve endpoint

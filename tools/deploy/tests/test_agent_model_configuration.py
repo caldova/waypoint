@@ -251,6 +251,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("cognitiveservices account list-deleted", foundry_bootstrap)
         self.assertIn("cognitiveservices account purge", foundry_bootstrap)
         self.assertIn("Timed out waiting for the soft-deleted", foundry_bootstrap)
+        self.assertIn("azd provision --no-state --no-prompt", workflow)
 
     def test_app_only_redeploy_preserves_foundry_assurance_wiring(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
