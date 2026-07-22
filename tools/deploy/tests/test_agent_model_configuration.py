@@ -43,7 +43,12 @@ class AgentModelConfigurationTests(unittest.TestCase):
         )[0]
         self.assertIn("Azure__Location: ${{ env.APP_AZURE_LOCATION }}", deploy_app)
         self.assertIn('azd env set AZURE_LOCATION "$AZURE_LOCATION"', provision_agents)
-        self.assertNotIn("APP_AZURE_LOCATION", provision_agents)
+        self.assertEqual(
+            provision_agents.count(
+                'azd env set AZURE_RESOURCE_GROUP_LOCATION "$APP_AZURE_LOCATION"'
+            ),
+            1,
+        )
         self.assertEqual(
             manifest["expected_components"]["agents"],
             [
@@ -372,6 +377,24 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("user_impersonation did not persist", msal)
         self.assertIn('az group exists --name "$resource_group"', foundry_bootstrap)
         self.assertIn("Reusing resource group", foundry_bootstrap)
+        self.assertIn(
+            'azd env set AZURE_RESOURCE_GROUP_LOCATION "$group_location"',
+            foundry_bootstrap,
+        )
+        self.assertIn(
+            'azd env set AZURE_RESOURCE_GROUP_LOCATION "$APP_AZURE_LOCATION"',
+            workflow,
+        )
+        self.assertIn("param resourceGroupLocation string = location", (
+            ROOT / "modules/agents/infra/main.bicep"
+        ).read_text())
+        self.assertEqual(
+            (
+                ROOT
+                / "modules/agents/infra/main.parameters.json"
+            ).read_text().count('"${AZURE_RESOURCE_GROUP_LOCATION}"'),
+            1,
+        )
         self.assertIn("cognitiveservices account list-deleted", foundry_bootstrap)
         self.assertIn("cognitiveservices account purge", foundry_bootstrap)
         self.assertIn("Timed out waiting for the soft-deleted", foundry_bootstrap)

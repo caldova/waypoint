@@ -11,6 +11,9 @@ param environmentName string
 @description('Name of the resource group to use or create')
 param resourceGroupName string = 'rg-${environmentName}'
 
+@description('Location of the resource group container. This may differ from the Foundry resource location.')
+param resourceGroupLocation string = location
+
 // Restricted locations to match list from
 // https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/responses?tabs=python-key#region-availability
 @minLength(1)
@@ -251,7 +254,7 @@ var tags = {
 // Check if resource group exists and create it if it doesn't
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: resourceGroupName
-  location: location
+  location: resourceGroupLocation
   tags: tags
 }
 

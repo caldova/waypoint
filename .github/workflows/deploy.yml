@@ -862,6 +862,7 @@ jobs:
           azd env set AZURE_SUBSCRIPTION_ID "$AZURE_SUBSCRIPTION_ID"
           azd env set AZURE_CLIENT_ID "$AZURE_CLIENT_ID"
           azd env set AZURE_LOCATION "$AZURE_LOCATION"
+          azd env set AZURE_RESOURCE_GROUP_LOCATION "$APP_AZURE_LOCATION"
           azd env set ENABLE_HOSTED_AGENTS true
           azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "${{ vars.AZURE_AI_MODEL_DEPLOYMENT_NAME || 'gpt-5.5' }}"
           azd env set MODEL_NAME "${{ vars.MODEL_NAME || vars.AZURE_AI_MODEL_DEPLOYMENT_NAME || 'gpt-5.5' }}"

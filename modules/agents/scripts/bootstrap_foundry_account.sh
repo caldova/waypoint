@@ -73,7 +73,9 @@ else
     --name "$resource_group" \
     --location "$location" \
     --output none
+  group_location="$location"
 fi
+azd env set AZURE_RESOURCE_GROUP_LOCATION "$group_location"
 
 deleted_account="$(
   az cognitiveservices account list-deleted \

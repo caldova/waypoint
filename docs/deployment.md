@@ -108,7 +108,9 @@ Clean Entra registration creates both the application object and its service
 principal, then verifies the delegated `user_impersonation` scope persisted
 before deploying the SPA. Split-region Foundry bootstrap reuses the app resource
 group at its existing location while creating Foundry resources in
-`azure_location`.
+`azure_location`. The Foundry Bicep root receives that resource-group location
+separately, so its subscription-scope deployment does not attempt to relocate
+the group.
 
 The Aspire app job is bounded to 30 minutes with at most two 12-minute
 deployment attempts. Unknown failures stop immediately; a recognized transient
