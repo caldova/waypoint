@@ -8,8 +8,9 @@
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Configure Azure Container App Environment for deployment
-var appContainer = builder.AddAzureContainerAppEnvironment("waypoint-env");
+// This logical name is deployment state: changing it replaces the Container Apps environment.
+// Preserve the original identity even though all user-facing branding is Waypoint.
+var appContainer = builder.AddAzureContainerAppEnvironment("starter-env");
 
 var msalEnabled = builder.Configuration["Waypoint:Msal:Enabled"]
     ?? (builder.ExecutionContext.IsRunMode ? "false" : "true");

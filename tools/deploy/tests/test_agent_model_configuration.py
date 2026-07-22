@@ -203,6 +203,18 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("connect: connection refused", deploy_app)
         self.assertIn("Transient Azure/registry failure", deploy_app)
 
+    def test_apphost_preserves_container_environment_deployment_identity(self) -> None:
+        apphost = (ROOT / "apps/waypoint/apphost.cs").read_text()
+
+        self.assertIn(
+            'AddAzureContainerAppEnvironment("starter-env")',
+            apphost,
+        )
+        self.assertNotIn(
+            'AddAzureContainerAppEnvironment("waypoint-env")',
+            apphost,
+        )
+
     def test_app_redeploy_preserves_msal_redirect_without_invalid_revision(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
         deploy_app = workflow.split("  deploy-app:", 1)[1].split(
