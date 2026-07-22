@@ -303,6 +303,7 @@ function decisionColor(decision: string): string {
     case "Review":
       return "#2563eb"; // blue — pending human adjudication
     case "Closed":
+    case "Not run":
       return "#64748b"; // slate
     default:
       return "#d97706"; // amber — in-flight/pending
@@ -790,14 +791,17 @@ export default function Invoices() {
     () => visible.filter((row) => row.decision === "Escalate").length,
     [visible],
   );
-  // In-flight rows (a run is working the invoice but no decision is recorded yet). Kept out of
-  // the Invoices / Escalations / Recoverable outcome tiles so the money numbers stay stable, and
-  // surfaced in their own "Pending" counter instead.
+  // Keep in-flight and unreviewed invoices out of decision metrics while retaining them in the
+  // complete selectable work queue.
   const pendingCount = useMemo(
     () => visible.filter((row) => row.has_active_run && !row.has_agent_decision).length,
     [visible],
   );
-  const decidedCount = visible.length - pendingCount;
+  const reviewedCount = useMemo(
+    () => visible.filter((row) => row.has_agent_decision).length,
+    [visible],
+  );
+  const unreviewedCount = visible.length - reviewedCount - pendingCount;
   const selectedRows = useMemo(
     () => decisions.filter((row) => selectedInvoiceIds.has(row.invoice_id)),
     [decisions, selectedInvoiceIds],
@@ -939,11 +943,11 @@ export default function Invoices() {
                       Supplier invoice register
                     </p>
                     <h1 className="mt-1 text-xl font-semibold tracking-tight">
-                      Invoices reviewed by Waypoint
+                      Supplier invoices
                     </h1>
                     <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
-                      Every supplier invoice we&apos;ve scanned, with its decision, basis, and
-                      recoverable overpayment. Filter the register to decide where to act.
+                      The complete invoice work queue. Select any unreviewed invoices to run
+                      assurance, then inspect recorded decisions, evidence, and recovery.
                     </p>
                   </div>
                   <div
@@ -951,7 +955,7 @@ export default function Invoices() {
                   >
                     <InfoTile
                       label={filtersActive ? "Shown" : "Invoices"}
-                      value={loading ? "..." : String(decidedCount)}
+                      value={loading ? "..." : String(visible.length)}
                     />
                     {pendingCount > 0 ? (
                       <InfoTile
@@ -987,13 +991,17 @@ export default function Invoices() {
                   <HiSparkles className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
                   {loading
                     ? "Loading supplier invoice decisions from the Waypoint API…"
-                    : `${formatMoney(totalOverpayment)} recoverable across ${decidedCount} invoice${
-                        decidedCount === 1 ? "" : "s"
+                    : `${formatMoney(totalOverpayment)} recoverable across ${reviewedCount} reviewed invoice${
+                        reviewedCount === 1 ? "" : "s"
                       } · ${escalationCount} escalation${
                         escalationCount === 1 ? "" : "s"
                       }${
                         pendingCount > 0
                           ? ` · ${pendingCount} pending`
+                          : ""
+                      }${
+                        unreviewedCount > 0
+                          ? ` · ${unreviewedCount} ready to run`
                           : ""
                       }. Human approvals and citations stay attached to every recommendation.`}
                 </p>
@@ -1061,7 +1069,7 @@ export default function Invoices() {
                   <p className="px-3 py-6 text-sm text-slate-500">Loading invoices…</p>
                 ) : decisions.length === 0 ? (
                   <p className="px-3 py-6 text-sm text-slate-500">
-                    No invoice decisions yet.
+                    No invoices are available.
                   </p>
                 ) : visible.length === 0 ? (
                   <NoMatches onReset={resetFilters} />
@@ -1216,7 +1224,7 @@ export default function Invoices() {
                             />
                           </td>
                           <td className="px-3 py-2.5 font-semibold text-emerald-700">
-                            {row.has_active_run && !row.has_agent_decision
+                            {!row.has_agent_decision
                               ? <span className="text-slate-400">—</span>
                               : row.overpayment_display}
                           </td>
@@ -1788,7 +1796,7 @@ function InsightsSidebar({
   const decisionMix = useMemo(() => {
     const counts = new Map<string, number>();
     for (const row of rows) {
-      if (row.decision === "Pending") {
+      if (row.decision === "Pending" || row.decision === "Not run") {
         continue;
       }
       counts.set(row.decision, (counts.get(row.decision) ?? 0) + 1);
@@ -1837,7 +1845,7 @@ function InsightsSidebar({
 
   const trend = useMemo(() => buildRecoveryTrend(rows), [rows]);
 
-  const total = rows.length;
+  const total = decisionMix.reduce((sum, item) => sum + item.count, 0);
   const recoverySupplierMax = recoveryBySupplier[0]?.amount ?? 0;
 
   return (
@@ -2063,7 +2071,7 @@ function DecisionDrawer({
     setSelectedCaseId(null);
   }, [decision.invoice_id]);
 
-  const finding = detail?.findings[0];
+  const finding = decision.has_agent_decision ? detail?.findings[0] : undefined;
   const entries = agentContext?.entries ?? [];
   const selectedEntry =
     entries.find((entry) => entry.case.id === selectedCaseId) ?? entries[0] ?? null;
@@ -2113,12 +2121,16 @@ function DecisionDrawer({
           </div>
           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
             <DecisionPill decision={headerDecision} />
-            <SummaryChip tone="emerald">{moneyAtRisk} at risk</SummaryChip>
-            {confidencePct !== null ? (
-              <SummaryChip tone="slate">{confidencePct}% confidence</SummaryChip>
+            {decision.has_agent_decision ? (
+              <>
+                <SummaryChip tone="emerald">{moneyAtRisk} at risk</SummaryChip>
+                {confidencePct !== null ? (
+                  <SummaryChip tone="slate">{confidencePct}% confidence</SummaryChip>
+                ) : null}
+                <SummaryChip tone="slate">{decision.category}</SummaryChip>
+                <SummaryChip tone="slate">{decision.evidence_count} evidence</SummaryChip>
+              </>
             ) : null}
-            <SummaryChip tone="slate">{decision.category}</SummaryChip>
-            <SummaryChip tone="slate">{decision.evidence_count} evidence</SummaryChip>
           </div>
           <div className="mt-3">
             <button
@@ -2147,25 +2159,37 @@ function DecisionDrawer({
         <div className="min-h-0 flex-1 overflow-auto">
           {tab === "decision" ? (
             <div className="space-y-5 p-4">
-              <AgentDecisionSummary
-                entries={entries}
-                selectedEntry={selectedEntry}
-                onSelectCase={setSelectedCaseId}
-                loading={agentLoading}
-              />
+              {decision.has_agent_decision ? (
+                <>
+                  <AgentDecisionSummary
+                    entries={entries}
+                    selectedEntry={selectedEntry}
+                    onSelectCase={setSelectedCaseId}
+                    loading={agentLoading}
+                  />
 
-              <section>
-                <h3 className="font-semibold">Finding</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-700">
-                  {finding?.summary ?? decision.reasoning}
-                </p>
-              </section>
+                  <section>
+                    <h3 className="font-semibold">Finding</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-700">
+                      {finding?.summary ?? decision.reasoning}
+                    </p>
+                  </section>
 
-              <BasisGlance
-                decision={decision}
-                finding={finding}
-                onViewDocuments={() => setTab("documents")}
-              />
+                  <BasisGlance
+                    decision={decision}
+                    finding={finding}
+                    onViewDocuments={() => setTab("documents")}
+                  />
+                </>
+              ) : (
+                <section className="rounded-md border border-blue-100 bg-blue-50/60 p-4">
+                  <h3 className="font-semibold text-slate-900">Ready for assurance</h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Run assurance to generate a governed decision, grounded evidence, and any
+                    recoverable amount for this invoice.
+                  </p>
+                </section>
+              )}
             </div>
           ) : null}
 
@@ -2200,7 +2224,7 @@ function DecisionDrawer({
                   <section>
                     <h3 className="font-semibold">Evidence references</h3>
                     <ol className="mt-2 space-y-2">
-                      {(detail?.evidence ?? []).map((item) => (
+                      {(decision.has_agent_decision ? detail?.evidence ?? [] : []).map((item) => (
                         <li
                           key={item.id}
                           className="rounded-md border border-slate-100 p-2 text-sm"
@@ -2995,6 +3019,14 @@ function DecisionPill({ decision }: { decision: string }) {
       </span>
     );
   }
+  if (decision === "Not run") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+        <span className="h-2 w-2 rounded-full bg-slate-400" aria-hidden="true" />
+        Not run
+      </span>
+    );
+  }
   const className =
     decision === "Escalate"
       ? "bg-rose-50 text-rose-800"
@@ -3440,6 +3472,18 @@ function MetadataPreview({ metadata }: { metadata: Record<string, unknown> }) {
 }
 
 function decisionTrail(decision: InvoiceDecision, detail: InvoiceDetail | null) {
+  if (!decision.has_agent_decision) {
+    return [
+      {
+        title: "Assurance",
+        detail: "No governed decision has been recorded for this invoice yet.",
+      },
+      {
+        title: "Ingest",
+        detail: `${detail?.lines.length ?? decision.metadata.line_count ?? 0} invoice lines imported through Waypoint.`,
+      },
+    ];
+  }
   return [
     {
       title: "Decision",

@@ -329,16 +329,51 @@ async def test_postgres_finding_validations_are_append_only():
 
 
 @pytest.mark.asyncio
-async def test_invoice_decision_feed_excludes_run_less_invoices(client: AsyncClient):
+async def test_invoice_decision_feed_includes_run_less_invoices_without_expected_outcomes(
+    client: AsyncClient,
+):
     override_settings(Settings(local_auth_enabled=True, default_seed_enabled=True))
 
     response = await client.get("/api/invoice-decisions")
 
     assert response.status_code == 200
     decisions = response.json()
-    # Fully-agentic feed: the default seed invoice has no agent case, so it is hidden entirely
-    # (no seed-placeholder rows). With 0 agent cases anywhere the feed is empty, not an error.
-    assert decisions == []
+    assert len(decisions) == 1
+    row = decisions[0]
+    assert row["invoice_id"] == "inv-2026-08034"
+    assert row["decision"] == "Not run"
+    assert row["reasoning"] == "Ready for assurance."
+    assert row["status"] == "not_started"
+    assert row["has_agent_decision"] is False
+    assert row["has_active_run"] is False
+    assert row["category"] == ""
+    assert row["severity"] == ""
+    assert row["overpayment_amount"] == "0"
+    assert row["evidence_count"] == 0
+    assert row["contract_document_ids"] == []
+    assert row["policy_ids"] == []
+
+    run_response = await client.post(
+        "/api/runs",
+        json={
+            "name": "assurance:INV-2026-08034",
+            "status": "running",
+            "metadata": {
+                "invoice_id": "inv-2026-08034",
+                "invoice_number": "INV-2026-08034",
+            },
+        },
+    )
+    assert run_response.status_code == 201
+
+    pending = (await client.get("/api/invoice-decisions")).json()[0]
+    assert pending["decision"] == "Pending"
+    assert pending["reasoning"] == "Assurance review is in progress."
+    assert pending["status"] == "pending"
+    assert pending["has_active_run"] is True
+    assert pending["category"] == ""
+    assert pending["overpayment_amount"] == "0"
+    assert pending["evidence_count"] == 0
 
 
 @pytest.mark.asyncio
@@ -614,8 +649,7 @@ async def test_configured_ledgerfield_seed_path_imports_on_startup(tmp_path):
     )
     invoices = await WaypointService(repository).list_invoices()
 
-    # The configured seed replaces the default seed on startup. The decision feed is now
-    # fully-agentic (run-gated), so verify the import via the raw invoice list instead.
+    # The configured seed replaces the default seed on startup.
     assert any(invoice.invoice_number == "INV-CONFIGURED" for invoice in invoices)
     assert not any(invoice.invoice_number == "INV-2026-08034" for invoice in invoices)
     reset_waypoint_repository_for_tests()
@@ -1450,9 +1484,7 @@ async def test_agent_run_finalize_preserves_concurrent_backfill():
         actor="finalize-test@example.com",
     )
 
-    finalized = await service.update_agent_run(
-        opened.id, AgentRunUpdate(status="completed")
-    )
+    finalized = await service.update_agent_run(opened.id, AgentRunUpdate(status="completed"))
 
     assert finalized is not None
     assert finalized.status == "completed"

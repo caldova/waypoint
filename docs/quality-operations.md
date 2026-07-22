@@ -13,7 +13,10 @@ cloud operation directly.
 
 ## Run the full invoice batch
 
-The seeded environment currently fits within the 25-invoice batch limit:
+The canonical seed contains 18 invoices, so the complete work queue fits within
+the 25-invoice batch limit. The register shows every imported invoice, including
+invoices that have not run assurance yet; unreviewed rows do not contribute to
+decision, severity, evidence, or recovery metrics.
 
 1. Open **Invoices**.
 2. Clear filters if the batch should include every invoice in the register.

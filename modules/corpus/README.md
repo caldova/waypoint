@@ -91,7 +91,12 @@ uv run ledgerfield generate-waypoint-seed
 
 The command writes `data/waypoint/waypoint-seed.json` from `data/waypoint/invoice-decisions.json` plus the canonical supplier, contract, policy, and scenario sources. The payload contains Waypoint's expected top-level arrays: `suppliers`, `contract_documents`, `policies`, `scenarios`, `invoices`, `findings`, and `evidence`. Each invoice also includes nested `lines`, `findings`, and `evidence`.
 
-The current seed includes 18 invoice decision cases for the invoice decisions UI. HTML/PDF fields use stable synthesized artifact URIs under `data/waypoint/invoices/html/` and `data/waypoint/invoices/pdf/`; Waypoint can store those URIs as references or map them to generated artifacts later.
+The current seed includes 18 invoices for the complete Waypoint invoice work
+queue. Before assurance runs, the UI presents them as unreviewed and withholds
+scenario outcomes from decision and recovery metrics. HTML/PDF fields use stable
+synthesized artifact URIs under `data/waypoint/invoices/html/` and
+`data/waypoint/invoices/pdf/`; Waypoint can store those URIs as references or map
+them to generated artifacts later.
 
 ### Seed contract
 
