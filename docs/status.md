@@ -43,14 +43,18 @@ results remain reference-only and cannot satisfy mutation gates.
 
 ## Still in progress
 
-- **Co-located contract-grounded KB retrieval is not yet proven end to end in a
-  single region.** East US 2 deploys green but lacks Azure AI Search `basic`
-  capacity, so the knowledge base runs cross-region and the contract expert falls
-  back (uncalibrated confidence). A co-located region (such as Sweden Central)
-  would fix grounding, but Sweden Central currently cannot provision hosted agents
-  on newly-created Foundry accounts — a Microsoft-side regional/stamp condition.
-  No single region has yet been green for **both** agent provisioning **and** real
-  KB grounding. See
+- **Co-located contract-grounded KB retrieval is not yet proven end to end from a
+  one-click deploy.** The grounded single-region outcome itself is proven out of
+  band: the keynote `rg-waypoint` environment runs it co-located in Sweden Central
+  with more agents and complexity than this launch package. The gap is specific to
+  the one-click, fresh-account path. East US 2 deploys green but lacks Azure AI
+  Search `basic` capacity, so the knowledge base runs cross-region and the contract
+  expert falls back (uncalibrated confidence). Sweden Central co-locates and grounds
+  correctly, but currently cannot provision hosted agents on newly-created Foundry
+  accounts — a Microsoft-side regional/stamp condition (the keynote account is
+  pre-existing and grandfathered). No single region has yet satisfied **both**
+  fresh-account agent provisioning **and** co-located KB grounding in one one-click
+  run. See
   [platform and environmental blockers](deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
   and the [end-to-end readiness assessment](e2e-readiness-assessment.md).
 - WorkIQ, WebIQ, FabricIQ, and Fabric/OneLake source modules remain in the
