@@ -40,7 +40,9 @@ log() { echo "keyvault: $*" >&2; }
 mask() { printf '%s' "$1" | sed -E 's/.{4}$/****/; s/^(.{4}).*/\1…/'; }
 
 # ---- ensure the resource group + vault (idempotent; recover if soft-deleted) ----
-az group create --name "$rg" --location "$loc" -o none 2>/dev/null || true
+if [[ "$(az group exists --name "$rg")" != "true" ]]; then
+  az group create --name "$rg" --location "$loc" -o none
+fi
 
 if az keyvault show --name "$kv" -o none 2>/dev/null; then
   log "vault $kv exists"

@@ -342,8 +342,12 @@ jobs:
         # Key Vault is created in the dedicated state RG. The app RG must exist before
         # independent Foundry and Fabric jobs begin on a first deployment.
         run: |
-          az group create --name "$STATE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
-          az group create --name "$AZURE_RESOURCE_GROUP" --location "$APP_AZURE_LOCATION" --output none
+          if [ "$(az group exists --name "$STATE_RESOURCE_GROUP")" != "true" ]; then
+            az group create --name "$STATE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
+          fi
+          if [ "$(az group exists --name "$AZURE_RESOURCE_GROUP")" != "true" ]; then
+            az group create --name "$AZURE_RESOURCE_GROUP" --location "$APP_AZURE_LOCATION" --output none
+          fi
 
       - name: Generate-once deployment secrets
         id: kv

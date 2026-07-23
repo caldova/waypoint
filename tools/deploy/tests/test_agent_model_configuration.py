@@ -214,6 +214,14 @@ class AgentModelConfigurationTests(unittest.TestCase):
             'azd env set AZURE_AI_SEARCH_LOCATION "${search_locations[0]}"',
             provision,
         )
+        self.assertIn(
+            'if [ "$(az group exists --name "$STATE_RESOURCE_GROUP")" != "true" ]',
+            workflow,
+        )
+        self.assertIn(
+            'if [ "$(az group exists --name "$AZURE_RESOURCE_GROUP")" != "true" ]',
+            workflow,
+        )
         self.assertNotIn("'francecentral'", infra)
         self.assertIn("'eastus2'", infra)
         azure_yaml = (ROOT / "modules/agents/azure.yaml").read_text()
