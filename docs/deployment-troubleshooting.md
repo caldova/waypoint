@@ -5,7 +5,7 @@ deployment end to end. It complements the canonical
 [Azure deployment guide](deployment.md) with observed symptoms, root causes,
 mitigations, and verification steps.
 
-The final validated environment used:
+The first validated environment used:
 
 | Resource plane | Region |
 | --- | --- |
@@ -16,13 +16,9 @@ The clean deployment, convergence rerun, and strict unchanged rerun all
 completed successfully. The unchanged rerun preserved all four hosted-agent
 versions.
 
-This validated environment proves the **deploy/idempotency** path, but its
-cross-region split (Foundry in East US 2, Search in North Europe) is the reason
-knowledge-base retrieval fell back rather than grounding — it is **not** the
-recommended co-located target. A production target must co-locate Search,
-Foundry, and the model in one region, which in turn depends on that region
-having both Search `basic` capacity and healthy hosted-agent provisioning. See
-[platform and environmental blockers](#platform-and-environmental-blockers-encountered).
+This environment proved the **deploy/idempotency** path, but its cross-region
+split (Foundry in East US 2, Search in North Europe) is not the recommended
+grounding topology.
 
 ## Validation record
 
@@ -32,11 +28,15 @@ having both Search `basic` capacity and healthy hosted-agent provisioning. See
 | Convergence rerun after state preservation | `29976423127` |
 | Strict unchanged idempotency rerun | `29977004582` |
 | Runtime evidence-presentation correction | `29979862681` |
+| UK South single-region one-click structural deployment | `29998293196` |
+| UK South strict unchanged rerun | `30000311095` |
 
-The validated environment is `waypoint-e2e-eus2`, with app resource group
-`rg-waypoint-e2e-eus2` and state resource group
-`rg-waypoint-e2e-eus2-state`. Failed Sweden and France validation environments
-were removed after the successful run was preserved.
+The current single-region structural proof is `waypoint-e2e-uks-07230306`,
+with app resource group `rg-waypoint-e2e-uks-07230306` and state resource group
+`rg-waypoint-e2e-uks-07230306-state`. It proved one-click deployment and
+unchanged idempotency with Search, Foundry, app, and agents all in UK South.
+Trace review then exposed the remaining KB answer-synthesis model mismatch
+documented below.
 
 ## Start with the failing stage
 
@@ -78,7 +78,7 @@ a monitoring transport error into a deployment failure.
 | Custom-environment validation failed before deployment | `postgres_server_name` was omitted | Every non-default environment must explicitly supply app RG, state RG, MSAL display name, and PostgreSQL server |
 | Teardown timed out while the managed environment was deleting | Container Apps remained `ScheduledForDelete` longer than the default 300-second wait | Teardown stops safely, preserves state, and can be resumed with a longer poll window |
 | Collaboration Evidence Expert appeared in the app although WorkIQ was disabled | A historical recorder payload mislabeled orchestrator checks as a WorkIQ lane | Recorder rejects noncanonical agent/plane pairs; UI excludes orchestrator and recorder control lanes |
-| Every invoice displayed 85% confidence | The FoundryIQ fallback assigned `0.85` to document/policy retrieval and the UI presented that evidence score as decision confidence | Scores retain provenance internally and are displayed as **Not calibrated** unless explicitly calibrated |
+| Every invoice displayed 85% confidence | The FoundryIQ fallback assigned `0.85` to document/policy retrieval and the UI presented that evidence score as decision confidence | Scores retain provenance; the UI displays numeric uncalibrated values only as **evidence score**, not calibrated confidence |
 
 ## Regional placement
 
@@ -98,11 +98,17 @@ Search capacity. When that happened the deploy fell back to provisioning Search
 in the app region (North Europe) while Foundry, models, ACR, storage,
 monitoring, and hosted-agent compute stayed together in East US 2.
 
-**This cross-region split is the root cause of "Fallback retrieval" and the
-uniform 0.85 confidence.** It does not break hosted-agent activation (image pull
+This cross-region split was the first root cause of "Fallback retrieval" and the
+uniform 0.85 confidence. It does not break hosted-agent activation (image pull
 is unaffected), but it does break the `contracts-kb` knowledge base. The KB's
-agentic retrieval performs an internal chat completion against the `gpt-5.5`
-deployment. When Search and `gpt-5.5` are in different regions that call fails:
+agentic retrieval performs an internal answer-synthesis chat completion and
+requires the Search service and answer-synthesis model to be co-located.
+
+UK South later proved that co-location alone is not sufficient when the KB is
+bound to the hosted-agent `gpt-5.5` deployment. Live traces showed
+`knowledge_base___knowledge_base_retrieve` was present and invoked, but Search's
+KB backend called `/v1/chat/completions` with `reasoning_effort` against
+`gpt-5.5`, which failed with:
 
 - consistently on Search API `2026-05-01-preview` with
   `Function tools with reasoning_effort are not supported for this model in
@@ -112,22 +118,22 @@ deployment. When Search and `gpt-5.5` are in different regions that call fails:
 
 When `knowledge_base_retrieve` fails, `contract-policy-expert` legitimately
 falls back to its local `gather_contract_policy_evidence` tool, whose evidence
-carries a hard-coded 0.85 score. In Sweden Central the original larger
-deployment was single-region (Search and `gpt-5.5` co-located), so agentic
-retrieval succeeded and confidence was grounded. The wiring itself is correct
-and identical to the pre-consolidation `forge` repo — the failure is topology,
-not configuration or model choice. **Do not change the model to work around
-this; co-locate Search + Foundry + `gpt-5.5` in one full-capacity region.**
+carries a hard-coded 0.85 score. The pre-consolidation live `forge`
+implementation used `gpt-5-mini` for `contracts-kb` answer synthesis while
+keeping hosted agents on `gpt-5.5`. The consolidated deploy now mirrors that
+shape: hosted agents use `gpt-5.5`; `contracts-kb` uses a separate
+`gpt-5-mini` deployment in the same region as Search and Foundry.
 
 ### Resolve region and capacity before provisioning (capacity preflight)
 
 Because Search exposes no quota API, the only reliable capacity signal is a real
 provisioning probe. `tools/deploy/scripts/region_capacity_preflight.py` scores
 every allowed Foundry region cheapest-first — capability allow-list, then
-`gpt-5.5` / `text-embedding-3-large` availability, then model-quota headroom (all
-read-only) — and only then probes Azure AI Search capacity (a non-destructive
-ARM PUT/DELETE of a `basic` service) in preference order until one region can
-host the whole co-located stack. It also soft-checks Postgres.
+`gpt-5.5` / `gpt-5-mini` / `text-embedding-3-large` availability, then
+model-quota headroom (all read-only) — and only then probes Azure AI Search
+capacity (a non-destructive ARM PUT/DELETE of a `basic` service) in preference
+order until one region can host the whole co-located stack. It also soft-checks
+Postgres.
 
 The `deploy.yml` `region-preflight` job runs this before any region-bound
 provisioning (it gates `deploy-app` and `provision-agents`). When Foundry
@@ -149,9 +155,11 @@ python3 tools/deploy/scripts/region_capacity_preflight.py \
 ```
 
 Set both `azure_location` and `app_location` to the selected region so Search,
-Foundry, and `gpt-5.5` stay co-located. As of this writing East US 2 is the only
-allowed Foundry region without Azure AI Search `basic` capacity; Sweden Central
-has full headroom for `gpt-5.5`, embeddings, Search, and Postgres.
+Foundry, the hosted-agent `gpt-5.5` deployment, and the KB `gpt-5-mini`
+deployment stay co-located. As of this writing East US 2 is the only allowed
+Foundry region without Azure AI Search `basic` capacity; Sweden Central has
+headroom for the model set, embeddings, Search, and Postgres, but fresh hosted
+agent provisioning there is blocked as described below.
 
 If Search still falls back despite the preflight:
 
@@ -462,31 +470,38 @@ fallback assigned `0.85` to each located contract or policy reference. Because
 FoundryIQ was the only enabled evidence lane, averaging those evidence scores
 also produced `0.85` for every run.
 
-The fallback itself was forced by the cross-region Search/`gpt-5.5` split
+The fallback was forced first by cross-region Search/model placement and then,
+in the co-located UK South proof, by binding `contracts-kb` answer synthesis to
+the hosted-agent `gpt-5.5` deployment instead of the Forge-compatible
+`gpt-5-mini` deployment. Both failures follow the same runtime pattern: when
+KB retrieval fails, the expert falls back and every claim carries the constant
+`0.85`.
+
+The original symptom was forced by the cross-region Search/`gpt-5.5` split
 described under [Search capacity exhaustion](#search-capacity-exhaustion-and-cross-region-kb-retrieval-failure):
-when KB retrieval fails, the expert falls back and every claim carries the
-constant `0.85`. A co-located deploy (via the capacity preflight) restores real
-`knowledge_base_retrieve` grounding, after which evidence scores vary and this
-symptom disappears.
+the current repository fix also provisions a separate `gpt-5-mini` deployment
+for KB answer synthesis.
 
 That number is not calibrated decision accuracy. Recorder metadata now preserves
 confidence provenance from the code-owned orchestration or quality layer. The
 current orchestrator explicitly marks its score as `expert_evidence_mean` and
 `confidence_calibrated: false`; the recorder will preserve
 `confidence_calibrated: true` only when the payload also carries reviewed
-calibration artifact/version provenance. The API does not expose an uncalibrated
-numeric score as decision confidence, and the UI shows **Not calibrated**.
+calibration artifact/version provenance. The API exposes the numeric raw score
+for continuity with the earlier Forge/Waypoint experience, but the UI labels
+uncalibrated values as **evidence score** with a tooltip that they are not
+calibrated decision accuracy.
 
 Do not generate artificial variation by decision, severity, or citation count.
-A numeric decision confidence should be displayed only after a reviewed
-calibration process sets `confidence_calibrated: true` with artifact/version
-provenance.
+A numeric value can be displayed as an evidence score; it becomes decision
+confidence only after a reviewed calibration process sets
+`confidence_calibrated: true` with artifact/version provenance.
 
 Running assurance again does not calibrate confidence. Assurance is an
 inference operation; calibration is a separate quality operation that compares
 scores with reviewed outcomes over a representative dataset and versions the
 resulting calibration artifact. A rerun using the same fallback evidence path
-will correctly remain **Not calibrated**.
+will correctly remain uncalibrated.
 
 The post-fix 18-invoice batch confirmed this contract:
 
@@ -519,12 +534,12 @@ own subscription, which changes the blast radius (noted per row).
 | First-model service gate (Azure case `715-123420`) | External (Azure fraud/abuse review) | The **first** `gpt-5.5` deployment on a brand-new AI Services account failed for every identity (parity OIDC, `forge` OIDC, a tenant user) at every capacity (200/50/10/1) | Azure applies an automated first-model risk/abuse gate to new accounts; not OIDC, Bicep, model version, or quota | None possible in-repo; resolved after review, later confirmed unblocked | High for a cold tenant/subscription: a brand-new seller subscription can hit the same gate on its first model deploy and needs Azure to clear it |
 | GitHub-hosted runner incident | External (GitHub Actions) | Three clean deploy attempts could not obtain hosted runners; workflow blocked before any Azure work | A confirmed GitHub-hosted runner allocation incident | Fail-fast classification separates a runner/transport incident from a deployment failure; retry after the incident | Medium: one-click depends on GitHub Actions availability |
 | Sweden Central hosted-agent provisioning (new accounts) | External (Foundry control plane / regional stamp) | Every hosted-agent version fails with generic `ProvisioningError` within ~10s; pre-existing projects in the same region keep working | Region/stamp-scoped Microsoft-managed provisioning failure for newly-created accounts; a fresh account in East US 2 provisions our exact image in ~40s (see the [region section](#regionstamp-scoped-hosted-agent-provisioning-failure-new-accounts)) | None possible in-repo; select a region whose fresh accounts provision, or wait/support-case | High **for the co-located goal**: the region must satisfy both Search `basic` capacity and new-account agent provisioning at the same time |
-| Regional capacity exhaustion | External (Azure capacity) | Azure AI Search `basic` create fails in East US 2; tight `gpt-5.5`/embedding quota in southcentralus, westeurope, westus; Container Apps capacity pressure | Regional service capacity varies by day | `region_capacity_preflight.py` runs capability, model-availability, quota, and a real Search PUT/DELETE probe **before** provisioning and picks a qualifying region | Medium: capacity shifts over time; preflight must run per deploy |
+| Regional capacity exhaustion | External (Azure capacity) | Azure AI Search `basic` create fails in East US 2; tight model/embedding quota in southcentralus, westeurope, westus; Container Apps capacity pressure | Regional service capacity varies by day | `region_capacity_preflight.py` runs capability, model-availability for `gpt-5.5`, `gpt-5-mini`, and embeddings, quota, and a real Search PUT/DELETE probe **before** provisioning and picks a qualifying region | Medium: capacity shifts over time; preflight must run per deploy |
 | Identity / permission propagation | Mixed (Azure RBAC timing + setup) | New Container Apps env cannot pull its image; `AcrPull`/managed-identity assignments race the new environment; agent creation needs Foundry Project Manager; project MI needs Foundry User + ACR pull | Eventual-consistency of role assignments plus first-time data-plane role setup | Bounded identity/registry reconciliation with one retry; deploy verifies project MI holds Foundry User + an ACR image-pull role and ACR ARM auth before deploying agents | Low–medium: mostly self-heals with bounded retries |
 | Soft-deleted resource recreation | Azure lifecycle | Re-deploying after a failed environment failed because a soft-deleted Foundry account / Key Vault still held the name | Cognitive Services accounts and Key Vaults soft-delete by default | Teardown is scoped and named so recreation can purge/reuse; failed environments were fully removed | Low: known and handled |
 | MSAL / workflow ordering | Repo (fixed) | `deploy-app == skipped` could mean healthy **or** blocked-by-failed-MSAL; app-only Aspire deploy once cleared the post-deploy Foundry endpoint | Ambiguous skip semantics and an app deploy that dropped Foundry wiring | Endpoint/project wiring is preserved across app-only deploys; skip vs. blocked is disambiguated | Low: fixed and re-validated |
 
-The first three rows are **not repository bugs** — they are Azure- or
+The first four rows are **not repository bugs** — they are Azure- or
 GitHub-side. The repository's job is to detect them early (preflight, fail-fast
 classification, verification gates) and avoid wasting a full deploy on a region
 or tenant that cannot currently succeed.
@@ -533,29 +548,28 @@ or tenant that cannot currently succeed.
 
 ### KB upload does not prove KB retrieval
 
-The deployment successfully created and populated `contracts-kb`, but observed
-app assurance summaries said `Fallback retrieval`. This means the hosted
-contract expert used `gather_contract_policy_evidence` rather than proving a
+The deployment can successfully create and populate `contracts-kb` while app
+assurance summaries still say `Fallback retrieval`. That means the hosted
+contract expert used `gather_contract_policy_evidence` rather than a successful
 clause-level `knowledge_base_retrieve` MCP call for those runs.
 
-The current acceptance test proves:
+Acceptance now proves:
 
 - application health;
 - expected hosted-agent inventory;
 - terminal orchestrator-to-recorder lifecycle;
 - governed evidence persistence; and
-- operation correlation.
+- operation correlation; and
+- a Log Analytics trace for the terminal run that contains
+  `knowledge_base_retrieve`, contains no fallback tool invocation, contains no
+  KB retrieval error marker, and whose recorded run metadata contains no
+  fallback summary.
 
-It does **not** yet fail when the contract expert falls back instead of using
-the KB MCP connection. Treat this as a fidelity gap, not a deployment outage.
-Before claiming clause-level FoundryIQ grounding in the app path, inspect the
-trace for `knowledge_base_retrieve` and returned clause citations.
-
-The primary cause of the fallback was the cross-region Search/`gpt-5.5` split.
-Deploying with the `region-preflight` gate (co-located Search + Foundry +
-`gpt-5.5` in one full-capacity region such as Sweden Central) is the structural
-fix; a fail-on-fallback acceptance assertion (Phase 6.1) will then keep the
-pipeline from silently regressing.
+The primary causes of observed fallback were the cross-region Search/model split
+and then the consolidated KB binding to `gpt-5.5` instead of the Forge-compatible
+KB chat deployment. The branch now provisions the KB chat model separately and
+fails closed on fallback; a fresh one-click rerun is required to turn this into a
+green acceptance artifact.
 
 ### Teardown can outlive the default timeout
 
@@ -582,9 +596,12 @@ A deployment is complete only when all of the following are true:
 - A governed assurance run reaches `completed` through `waypoint-recorder`
   (`partial` is no longer accepted by the terminal-run verifier).
 - The run has an App Insights operation ID.
+- The KB retrieval trace gate passes: `knowledge_base_retrieve` is present and
+  fallback retrieval is absent.
 - Optional WorkIQ, WebIQ, and FabricIQ experts are absent from launch
   participation.
-- Uncalibrated evidence scores are not displayed as decision confidence.
+- Uncalibrated evidence scores are labeled as evidence scores, not calibrated
+  decision confidence.
 - An unchanged rerun skips all unchanged agents and preserves their versions.
 - Failed test environments are fully removed without deleting the validated
   environment.

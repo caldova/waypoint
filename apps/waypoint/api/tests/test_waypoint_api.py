@@ -1195,7 +1195,7 @@ async def test_invoice_decision_feed_reflects_newest_agent_run(client: AsyncClie
 
     decisions = (await client.get("/api/invoice-decisions")).json()
     row = next(d for d in decisions if d["invoice_id"] == "inv-2026-08034")
-    assert row["confidence"] is None
+    assert row["confidence"] == "0.99"
     assert row["confidence_calibrated"] is False
 
 

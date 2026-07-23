@@ -267,8 +267,17 @@ def main() -> int:
     parser.add_argument("--knowledge-source-name", default=os.getenv("AZURE_AI_SEARCH_KNOWLEDGE_SOURCE_NAME", DEFAULT_KNOWLEDGE_SOURCE_NAME))
     parser.add_argument("--mcp-connection-name", default=os.getenv("AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME", DEFAULT_CONNECTION_NAME))
     parser.add_argument("--contracts-folder", default=os.getenv("AZURE_AI_SEARCH_CONTRACTS_FOLDER", DEFAULT_CONTRACTS_FOLDER))
-    parser.add_argument("--chat-deployment-name", default=os.getenv("AZURE_AI_MODEL_DEPLOYMENT_NAME"))
-    parser.add_argument("--chat-model-name", default=os.getenv("AZURE_AI_MODEL_NAME") or os.getenv("MODEL_NAME"))
+    parser.add_argument(
+        "--chat-deployment-name",
+        default=os.getenv("AZURE_AI_SEARCH_KB_CHAT_DEPLOYMENT_NAME")
+        or os.getenv("AZURE_AI_MODEL_DEPLOYMENT_NAME"),
+    )
+    parser.add_argument(
+        "--chat-model-name",
+        default=os.getenv("AZURE_AI_SEARCH_KB_CHAT_MODEL_NAME")
+        or os.getenv("AZURE_AI_MODEL_NAME")
+        or os.getenv("MODEL_NAME"),
+    )
     parser.add_argument("--embedding-deployment-name", default=os.getenv("AZURE_AI_EMBEDDING_DEPLOYMENT_NAME"))
     parser.add_argument(
         "--embedding-model-name",
@@ -277,6 +286,14 @@ def main() -> int:
         or "text-embedding-3-large",
     )
     parser.add_argument("--search-api-version", default=os.getenv("AZURE_SEARCH_KB_API_VERSION", DEFAULT_SEARCH_API_VERSION))
+    parser.add_argument(
+        "--retrieval-reasoning-effort",
+        default=os.getenv("AZURE_AI_SEARCH_KB_RETRIEVAL_REASONING_EFFORT", "low"),
+        help=(
+            "Knowledge-base answer synthesis reasoning effort. Set to 'none' to omit "
+            "retrievalReasoningEffort for model/API combinations that do not support it."
+        ),
+    )
     parser.add_argument("--force", action="store_true", help="Delete and recreate incompatible preview resources on update failure.")
     parser.add_argument(
         "--skip-upload",
@@ -612,7 +629,7 @@ def _knowledge_source_body(
 
 
 def _knowledge_base_body(*, args: argparse.Namespace, ai_endpoint: str) -> dict[str, Any]:
-    return {
+    body = {
         "name": args.knowledge_base_name,
         "description": "Ledgerfield supplier contracts for contract-manufacturing invoice assurance.",
         "retrievalInstructions": (
@@ -637,8 +654,11 @@ def _knowledge_base_body(*, args: argparse.Namespace, ai_endpoint: str) -> dict[
             }
         ],
         "encryptionKey": None,
-        "retrievalReasoningEffort": {"kind": "low"},
     }
+    effort = str(args.retrieval_reasoning_effort or "").strip()
+    if effort and effort.lower() not in {"0", "false", "no", "none", "off", "disabled"}:
+        body["retrievalReasoningEffort"] = {"kind": effort}
+    return body
 
 
 def _put_search_resource(

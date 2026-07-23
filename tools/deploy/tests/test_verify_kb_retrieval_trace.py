@@ -1,0 +1,106 @@
+import json
+import unittest
+import importlib.util
+from pathlib import Path
+
+MODULE_PATH = Path(__file__).parents[1] / "scripts" / "verify_kb_retrieval_trace.py"
+SPEC = importlib.util.spec_from_file_location("verify_kb_retrieval_trace", MODULE_PATH)
+assert SPEC is not None and SPEC.loader is not None
+verify = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(verify)
+
+
+class VerifyKbRetrievalTraceTests(unittest.TestCase):
+    def test_passes_when_kb_tool_called_without_fallback(self):
+        result = verify._evaluate(
+            {
+                "id": "run-1",
+                "app_insights_operation_id": "op-1",
+                "metadata": {
+                    "fanout": [
+                        {
+                            "summary": "Grounded contract evidence returned source refs.",
+                            "evidence": [{"source_ref": "Document; KB ref_id:3"}],
+                        }
+                    ]
+                },
+            },
+            [
+                {
+                    "message_text": "knowledge_base___knowledge_base_retrieve returned 5 records",
+                    "property_text": '{"tool":"knowledge_base_retrieve"}',
+                }
+            ],
+        )
+
+        self.assertTrue(result["passed"])
+        self.assertTrue(result["has_knowledge_base_retrieve"])
+        self.assertFalse(result["fallback_in_metadata"])
+
+    def test_fails_when_trace_uses_local_fallback(self):
+        result = verify._evaluate(
+            {
+                "id": "run-1",
+                "app_insights_operation_id": "op-1",
+                "metadata": {"fanout": [{"summary": "Grounded evidence returned."}]},
+            },
+            [
+                {"message_text": "knowledge_base___knowledge_base_retrieve failed"},
+                {"message_text": "gather_contract_policy_evidence returned fallback evidence"},
+            ],
+        )
+
+        self.assertFalse(result["passed"])
+        self.assertTrue(result["fallback_in_trace"])
+
+    def test_fails_when_recorded_metadata_contains_fallback(self):
+        result = verify._evaluate(
+            {
+                "id": "run-1",
+                "app_insights_operation_id": "op-1",
+                "metadata": {
+                    "fanout": [
+                        {
+                            "summary": (
+                                "Fallback retrieval identified one governing contract. "
+                                "Primary knowledge-base retrieval failed."
+                            )
+                        }
+                    ]
+                },
+            },
+            [{"message_text": "knowledge_base___knowledge_base_retrieve returned 5 records"}],
+        )
+
+        self.assertFalse(result["passed"])
+        self.assertTrue(result["fallback_in_metadata"])
+
+    def test_fails_when_no_kb_trace_is_found(self):
+        result = verify._evaluate(
+            {"id": "run-1", "app_insights_operation_id": "op-1", "metadata": {}},
+            [{"message_text": "assurance completed"}],
+        )
+
+        self.assertFalse(result["passed"])
+        self.assertIn("no knowledge_base_retrieve", result["detail"])
+
+    def test_parses_azure_cli_tables_output(self):
+        raw = json.dumps(
+            {
+                "tables": [
+                    {
+                        "columns": [{"name": "message_text"}, {"name": "property_text"}],
+                        "rows": [["knowledge_base_retrieve returned", "{}"]],
+                    }
+                ]
+            }
+        )
+
+        self.assertEqual(
+            verify._parse_log_query_output(raw),
+            [{"message_text": "knowledge_base_retrieve returned", "property_text": "{}"}],
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

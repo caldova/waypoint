@@ -285,14 +285,12 @@ interface InvoiceGroup {
   moneyAtRisk: number;
   findingCount: number;
   confidence: number | null;
+  confidenceCalibrated: boolean;
   iqKeys: IqKey[];
   lastRunAt: string;
 }
 
 function groupConfidence(latestMeta: RunMetadata, fanout: FanoutLane[]): number | null {
-  if (latestMeta.confidence_calibrated !== true) {
-    return null;
-  }
   if (typeof latestMeta.confidence === "number") {
     return latestMeta.confidence;
   }
@@ -355,6 +353,7 @@ function buildInvoiceGroups(runs: AgentRun[]): InvoiceGroup[] {
           ? latestMeta.finding_count
           : fanout.reduce((acc, lane) => acc + laneClaimCount(lane), 0),
       confidence: groupConfidence(latestMeta, fanout),
+      confidenceCalibrated: latestMeta.confidence_calibrated === true,
       iqKeys,
       lastRunAt: latestRun.created_at,
     });
@@ -1257,8 +1256,16 @@ function InvoiceCard({
               Ran {group.runCount}×
             </span>
             {group.confidence != null ? (
-              <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
-                {Math.round(group.confidence * 100)}% confidence
+              <span
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600"
+                title={
+                  group.confidenceCalibrated
+                    ? "Calibrated decision confidence."
+                    : "Uncalibrated evidence score; not calibrated decision accuracy."
+                }
+              >
+                {Math.round(group.confidence * 100)}%{" "}
+                {group.confidenceCalibrated ? "confidence" : "evidence score"}
               </span>
             ) : null}
           </div>

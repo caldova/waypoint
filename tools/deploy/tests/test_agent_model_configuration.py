@@ -154,6 +154,10 @@ class AgentModelConfigurationTests(unittest.TestCase):
             "python scripts/initialize_contracts_kb.py --skip-upload",
             provision,
         )
+        self.assertIn("AZURE_AI_SEARCH_KB_CHAT_DEPLOYMENT_NAME", provision)
+        self.assertIn("AZURE_AI_SEARCH_KB_CHAT_MODEL_NAME", provision)
+        self.assertIn("kbChatDeploymentName", infra)
+        self.assertIn("gpt-5-mini", infra)
         self.assertIn("Refresh Azure login after provisioning", provision)
         self.assertLess(
             provision.index("Run azd provision"),

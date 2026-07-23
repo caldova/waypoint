@@ -2094,9 +2094,9 @@ function DecisionDrawer({
   const moneyAtRisk = newestRecommendation
     ? formatAgentMoney(newestRecommendation.money_at_risk)
     : decision.overpayment_display;
-  const confidencePct = newestRecommendation?.metadata.confidence_calibrated === true
-    ? Math.round(Number(newestRecommendation.confidence) * 100)
-    : null;
+  const newestConfidence = parseConfidenceScore(newestRecommendation?.confidence);
+  const newestConfidenceCalibrated =
+    newestRecommendation?.metadata.confidence_calibrated === true;
   const headerDecision = newestRecommendation
     ? agentDecisionToLabel(newestRecommendation.decision)
     : decision.decision;
@@ -2133,10 +2133,15 @@ function DecisionDrawer({
             {decision.has_agent_decision ? (
               <>
                 <SummaryChip tone="emerald">{moneyAtRisk} at risk</SummaryChip>
-                {confidencePct !== null ? (
-                  <SummaryChip tone="slate">{confidencePct}% confidence</SummaryChip>
+                {newestConfidence !== null ? (
+                  <SummaryChip
+                    tone="slate"
+                    title={confidenceTitle(newestConfidenceCalibrated)}
+                  >
+                    {confidenceText(newestConfidence, newestConfidenceCalibrated)}
+                  </SummaryChip>
                 ) : (
-                  <SummaryChip tone="slate">Confidence not calibrated</SummaryChip>
+                  <SummaryChip tone="slate">Confidence not available</SummaryChip>
                 )}
                 <SummaryChip tone="slate">{decision.category}</SummaryChip>
                 <SummaryChip tone="slate">{decision.evidence_count} evidence</SummaryChip>
@@ -2338,9 +2343,11 @@ function DecisionDrawer({
 
 function SummaryChip({
   tone,
+  title,
   children,
 }: {
   tone: "emerald" | "slate";
+  title?: string;
   children: ReactNode;
 }) {
   const cls =
@@ -2348,7 +2355,10 @@ function SummaryChip({
       ? "bg-emerald-50 text-emerald-800 ring-emerald-100"
       : "bg-slate-50 text-slate-600 ring-slate-200";
   return (
-    <span className={`rounded-md px-2 py-0.5 text-xs font-medium ring-1 ${cls}`}>
+    <span
+      className={`rounded-md px-2 py-0.5 text-xs font-medium ring-1 ${cls}`}
+      title={title}
+    >
       {children}
     </span>
   );
@@ -2447,6 +2457,25 @@ function confidenceTone(score: number): string {
     return "bg-amber-50 text-amber-800 ring-amber-100";
   }
   return "bg-rose-50 text-rose-800 ring-rose-100";
+}
+
+function parseConfidenceScore(confidence: string | number | null | undefined): number | null {
+  if (confidence === null || confidence === undefined || confidence === "") {
+    return null;
+  }
+  const score = Number(confidence);
+  return Number.isFinite(score) ? score : null;
+}
+
+function confidenceTitle(calibrated: boolean): string {
+  return calibrated
+    ? "Calibrated decision confidence."
+    : "Uncalibrated evidence score; not calibrated decision accuracy.";
+}
+
+function confidenceText(score: number, calibrated: boolean): string {
+  const pct = `${Math.round(score * 100)}%`;
+  return calibrated ? `${pct} confidence` : `${pct} evidence score`;
 }
 
 function ExpertLane({
@@ -2687,6 +2716,9 @@ function AgentDecisionSummary({
   const drafts = selectedEntry?.drafts ?? [];
   const reviewerDraft =
     drafts.find((draft) => draft.draft_type === "approval_summary") ?? drafts[0] ?? null;
+  const recommendationConfidence = parseConfidenceScore(recommendation?.confidence);
+  const recommendationConfidenceCalibrated =
+    recommendation?.metadata.confidence_calibrated === true;
 
   return (
     <section className="rounded-md border border-blue-100 bg-blue-50/40 p-3">
@@ -2703,16 +2735,19 @@ function AgentDecisionSummary({
             <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-100">
               {formatAgentMoney(recommendation.money_at_risk)} at risk
             </span>
-            {recommendation.metadata.confidence_calibrated === true ? (
-              <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
-                {Math.round(Number(recommendation.confidence) * 100)}% confidence
-              </span>
-            ) : (
+            {recommendationConfidence !== null ? (
               <span
                 className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600"
-                title="The current score measures fallback evidence retrieval, not calibrated decision accuracy."
+                title={confidenceTitle(recommendationConfidenceCalibrated)}
               >
-                Confidence not calibrated
+                {confidenceText(
+                  recommendationConfidence,
+                  recommendationConfidenceCalibrated,
+                )}
+              </span>
+            ) : (
+              <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
+                Confidence not available
               </span>
             )}
           </>
@@ -3081,26 +3116,34 @@ function ConfidenceBadge({
   calibrated: boolean;
   hasDecision: boolean;
 }) {
-  if (hasDecision && !calibrated) {
+  const score = parseConfidenceScore(confidence);
+  if (score === null) {
+    if (hasDecision && !calibrated) {
+      return (
+        <span
+          className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
+          title={confidenceTitle(false)}
+        >
+          Not calibrated
+        </span>
+      );
+    }
+    return <span className="text-xs text-slate-400">—</span>;
+  }
+  if (!calibrated) {
     return (
       <span
         className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
-        title="The current score measures fallback evidence retrieval, not calibrated decision accuracy."
+        title={confidenceTitle(false)}
       >
-        Not calibrated
+        {Math.round(score * 100)}%
       </span>
     );
-  }
-  if (confidence === null || confidence === "") {
-    return <span className="text-xs text-slate-400">—</span>;
-  }
-  const score = Number(confidence);
-  if (!Number.isFinite(score)) {
-    return <span className="text-xs text-slate-400">—</span>;
   }
   return (
     <span
       className={`inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ${confidenceTone(score)}`}
+      title={confidenceTitle(true)}
     >
       {Math.round(score * 100)}%
     </span>

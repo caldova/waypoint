@@ -125,23 +125,26 @@ The default path deploys:
 - the Waypoint web application, API, PostgreSQL database, authentication, and
   telemetry;
 - the synthetic corpus and Waypoint seed data;
-- the Foundry project, model deployments, search, and `contracts-kb`;
+- the Foundry project, hosted-agent `gpt-5.5` deployment, KB `gpt-5-mini`
+  deployment, embedding deployment, search, and `contracts-kb`;
 - `invoice-analyst`, `assurance-orchestrator`, `contract-policy-expert`, and
   `waypoint-recorder`; and
-- an acceptance artifact proving endpoint health, hosted-agent inventory, and
-  a completed orchestrator-to-recorder run.
+- an acceptance artifact proving endpoint health, hosted-agent inventory, a
+  completed orchestrator-to-recorder run, and real KB retrieval with no fallback.
 
 The launch package is FoundryIQ-only. Fabric/OneLake, WorkIQ, WebIQ, and
 FabricIQ modules remain in the repository for future development but are not
 inputs, stages, resources, or agents in the one-click deployment.
 
-The full default deployment has been validated end to end in **East US 2**,
-including an unchanged rerun that reused stable resources and skipped unchanged
-hosted-agent versions. Region selection matters: the deployment must co-locate
-Azure AI Search, Foundry, and the model for real contract-grounded knowledge-base
-retrieval, and it depends on live Foundry hosted-agent provisioning in the chosen
-region. Both are subject to Azure capacity and regional platform health at deploy
-time — see
+The full default deployment has been validated structurally end to end in
+**UK South**, including an unchanged rerun that reused stable resources and
+skipped unchanged hosted-agent versions. The branch now also mirrors the prior
+Forge/Waypoint KB model split: hosted agents use `gpt-5.5`, while
+`contracts-kb` answer synthesis uses co-located `gpt-5-mini`, and acceptance
+fails if the run falls back instead of calling `knowledge_base_retrieve`. Region
+selection still matters because Azure AI Search, Foundry, both model
+deployments, and hosted-agent provisioning must all be healthy in the selected
+region — see
 [platform and environmental blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
 before choosing a region. In the app, a reviewer can run assurance for one
 invoice or select up to 25 visible invoices and start a batch. The batch starts

@@ -117,6 +117,7 @@ def _evaluate_payload(
         "run_id": run.get("id"),
         "status": status,
         "foundry_agent_name": run.get("foundry_agent_name"),
+        "app_insights_operation_id": run.get("app_insights_operation_id"),
         "has_operation_id": has_operation_id,
         "updated_at": updated_at_raw,
         "updated_after": updated_after.isoformat(),

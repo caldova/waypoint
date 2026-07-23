@@ -2,12 +2,13 @@
 """Intelligent region + capacity preflight for the one-click Waypoint deploy.
 
 The Waypoint stack co-locates Azure AI Search (the ``contracts-kb`` knowledge
-base) with the Foundry account and its ``gpt-5.5`` deployment. When the chosen
+base) with the Foundry account, its hosted-agent ``gpt-5.5`` deployment, and
+the KB answer-synthesis ``gpt-5-mini`` deployment. When the chosen
 Foundry region lacks *Azure AI Search* capacity, the deploy previously fell
 back to provisioning Search in the app region, producing a **cross-region**
 Search -> model topology in which the knowledge base's agentic retrieval call
-into ``gpt-5.5`` fails (``reasoning_effort``/``/v1/responses`` errors) and the
-expert silently falls back to ungrounded local evidence.
+into the answer-synthesis model fails and the expert silently falls back to
+ungrounded local evidence.
 
 For a one-click deploy meant to run for tens of thousands of sellers, region
 and capacity must be resolved **before** provisioning, not discovered by a
@@ -21,9 +22,11 @@ few top-ranked candidates):
   1. Foundry capability allow-list  (static: Hosted Agents + Content
      Understanding GA). Hard gate.
   2. Model availability             (``az cognitiveservices model list``):
-     ``gpt-5.5`` and ``text-embedding-3-large`` must be offered. Hard gate.
+     ``gpt-5.5``, ``gpt-5-mini``, and ``text-embedding-3-large`` must be offered.
+     Hard gate.
   3. Model quota headroom           (``az cognitiveservices usage list``):
-     enough GlobalStandard ``gpt-5.5`` and Standard embedding quota. Hard gate.
+     enough GlobalStandard ``gpt-5.5`` / ``gpt-5-mini`` and Standard embedding
+     quota. Hard gate.
   4. Azure AI Search capacity       (real, non-destructive ARM probe: PUT a
      ``basic`` search service, read provisioningState, DELETE it). This is the
      only reliable capacity signal Azure exposes for Search. Hard gate.
@@ -105,14 +108,15 @@ class ModelRequirement:
 @dataclass(frozen=True)
 class Requirements:
     gpt: ModelRequirement = ModelRequirement("gpt-5.5", "GlobalStandard", 200)
+    kb_chat: ModelRequirement = ModelRequirement("gpt-5-mini", "GlobalStandard", 200)
     embedding: ModelRequirement = ModelRequirement(
         "text-embedding-3-large", "Standard", 50
     )
     search_sku: str = "basic"
 
     @property
-    def models(self) -> tuple[ModelRequirement, ModelRequirement]:
-        return (self.gpt, self.embedding)
+    def models(self) -> tuple[ModelRequirement, ...]:
+        return (self.gpt, self.kb_chat, self.embedding)
 
 
 @dataclass
@@ -578,6 +582,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Comma-separated candidate regions (default: full Foundry allow-list).",
     )
     parser.add_argument("--gpt-capacity", type=int, default=200)
+    parser.add_argument("--kb-chat-capacity", type=int, default=200)
     parser.add_argument("--embedding-capacity", type=int, default=50)
     parser.add_argument(
         "--no-search-probe",
@@ -585,7 +590,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Skip the create/delete Search capacity probe (read-only dry run).",
     )
     parser.add_argument("--probe-resource-group", default=None)
-    parser.add_argument("--json", action="store_true", help="Emit the full JSON report to stdout.")
+    parser.add_argument(
+        "--json", action="store_true", help="Emit the full JSON report to stdout."
+    )
     parser.add_argument(
         "--github-output",
         action="store_true",
@@ -595,6 +602,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     requirements = Requirements(
         gpt=ModelRequirement("gpt-5.5", "GlobalStandard", args.gpt_capacity),
+        kb_chat=ModelRequirement(
+            "gpt-5-mini", "GlobalStandard", args.kb_chat_capacity
+        ),
         embedding=ModelRequirement(
             "text-embedding-3-large", "Standard", args.embedding_capacity
         ),

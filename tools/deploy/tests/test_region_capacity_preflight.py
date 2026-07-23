@@ -60,7 +60,7 @@ class ModelAvailabilityTests(unittest.TestCase):
     def test_all_present(self):
         req = rcp.Requirements().models
         status, _ = rcp.evaluate_model_availability(
-            _models(["gpt-5.5", "text-embedding-3-large", "gpt-4o"]), req
+            _models(["gpt-5.5", "gpt-5-mini", "text-embedding-3-large", "gpt-4o"]), req
         )
         self.assertEqual(status, rcp.STATUS_PASS)
 
@@ -77,6 +77,7 @@ class ModelQuotaTests(unittest.TestCase):
         usage = _usage(
             [
                 ("OpenAI.GlobalStandard.gpt-5.5", 30000, 25000),  # 5000 free / 200
+                ("OpenAI.GlobalStandard.gpt-5-mini", 30000, 25000),  # 5000 free / 200
                 ("OpenAI.Standard.text-embedding-3-large", 1000, 500),  # 500 free / 50
             ]
         )
@@ -89,6 +90,7 @@ class ModelQuotaTests(unittest.TestCase):
         usage = _usage(
             [
                 ("OpenAI.GlobalStandard.gpt-5.5", 30000, 29900),  # 100 free < 200
+                ("OpenAI.GlobalStandard.gpt-5-mini", 30000, 25000),
                 ("OpenAI.Standard.text-embedding-3-large", 1000, 0),
             ]
         )
@@ -128,12 +130,13 @@ class SelectRegionTests(unittest.TestCase):
             joined = " ".join(args)
             region = args[args.index("-l") + 1] if "-l" in args else None
             if "model" in args and "list" in args:
-                return proc(stdout=_models(["gpt-5.5", "text-embedding-3-large"]))
+                return proc(stdout=_models(["gpt-5.5", "gpt-5-mini", "text-embedding-3-large"]))
             if "usage" in args and "list" in args:
                 return proc(
                     stdout=_usage(
                         [
                             ("OpenAI.GlobalStandard.gpt-5.5", 30000, 25000),
+                            ("OpenAI.GlobalStandard.gpt-5-mini", 30000, 25000),
                             ("OpenAI.Standard.text-embedding-3-large", 1000, 0),
                         ]
                     )
@@ -173,12 +176,13 @@ class SelectRegionTests(unittest.TestCase):
         def runner(args):
             joined = " ".join(args)
             if "model" in args and "list" in args:
-                return proc(stdout=_models(["gpt-5.5", "text-embedding-3-large"]))
+                return proc(stdout=_models(["gpt-5.5", "gpt-5-mini", "text-embedding-3-large"]))
             if "usage" in args and "list" in args:
                 return proc(
                     stdout=_usage(
                         [
                             ("OpenAI.GlobalStandard.gpt-5.5", 30000, 25000),
+                            ("OpenAI.GlobalStandard.gpt-5-mini", 30000, 25000),
                             ("OpenAI.Standard.text-embedding-3-large", 1000, 0),
                         ]
                     )

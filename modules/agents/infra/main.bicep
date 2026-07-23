@@ -100,6 +100,24 @@ param modelSkuName string = 'GlobalStandard'
 @description('TPM capacity for the model deployment, in the SKUs native unit. Passed as a string for azd-param-file compatibility; coerced to int when used.')
 param modelCapacity string = '200'
 
+@description('Name of the KB answer-synthesis chat model deployment used by contracts-kb. Kept separate from hosted-agent gpt-5.5 because the Search KB MCP path uses chat completions semantics.')
+param kbChatDeploymentName string = 'gpt-5-mini'
+
+@description('Catalog name of the KB answer-synthesis chat model.')
+param kbChatModelName string = 'gpt-5-mini'
+
+@description('Model version for the KB answer-synthesis chat model.')
+param kbChatModelVersion string = '2025-08-07'
+
+@description('Model format for the KB answer-synthesis chat model.')
+param kbChatModelFormat string = 'OpenAI'
+
+@description('SKU name for the KB answer-synthesis chat model deployment.')
+param kbChatModelSkuName string = 'GlobalStandard'
+
+@description('TPM capacity for the KB answer-synthesis chat model deployment, in the SKUs native unit. Passed as a string for azd-param-file compatibility; coerced to int when used.')
+param kbChatModelCapacity string = '200'
+
 @description('Name of the embedding model deployment used by contracts-kb knowledge-base initialization.')
 param embeddingDeploymentName string = 'text-embedding-3-large'
 
@@ -164,7 +182,8 @@ param workiqAgent365Audience string = 'ea9ffc3e-8a23-4a7d-836d-234d7c7565c1'
 param enableWorkiqConnections bool = true
 
 var aiProjectDeploymentsOverride = json(aiProjectDeploymentsJson)
-var defaultDeployments = [
+var kbChatUsesPrimaryDeployment = kbChatDeploymentName == modelDeploymentName
+var defaultDeployments = concat([
   {
     name: modelDeploymentName
     model: {
@@ -189,7 +208,20 @@ var defaultDeployments = [
       capacity: int(embeddingModelCapacity)
     }
   }
-]
+], kbChatUsesPrimaryDeployment ? [] : [
+  {
+    name: kbChatDeploymentName
+    model: {
+      name: kbChatModelName
+      format: kbChatModelFormat
+      version: kbChatModelVersion
+    }
+    sku: {
+      name: kbChatModelSkuName
+      capacity: int(kbChatModelCapacity)
+    }
+  }
+])
 // When AI_PROJECT_DEPLOYMENTS is set (non-empty JSON array), honour it verbatim;
 // otherwise build chat + embedding deployments from the scalar defaults above.
 var aiProjectDeployments = empty(aiProjectDeploymentsOverride) ? defaultDeployments : aiProjectDeploymentsOverride
@@ -430,6 +462,8 @@ output AZURE_RESOURCE_GROUP string = resourceGroupName
 output AZURE_AI_MODEL_DEPLOYMENT_NAME string = aiProjectDeployments[0].name
 output AZURE_AI_EMBEDDING_DEPLOYMENT_NAME string = embeddingDeploymentName
 output AZURE_AI_EMBEDDING_MODEL_NAME string = embeddingModelName
+output AZURE_AI_SEARCH_KB_CHAT_DEPLOYMENT_NAME string = kbChatUsesPrimaryDeployment ? modelDeploymentName : kbChatDeploymentName
+output AZURE_AI_SEARCH_KB_CHAT_MODEL_NAME string = kbChatUsesPrimaryDeployment ? modelName : kbChatModelName
 output CONTENT_UNDERSTANDING_ENDPOINT string = 'https://${useExistingAiProject ? existingAiProject.outputs.aiServicesAccountName : aiProject.outputs.aiServicesAccountName}.services.ai.azure.com'
 output CONTENT_UNDERSTANDING_API_VERSION string = '2025-11-01'
 output CONTENT_UNDERSTANDING_ANALYZER_ID string = 'prebuilt-invoice'

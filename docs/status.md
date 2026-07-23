@@ -6,12 +6,10 @@ synthetic demo data.
 
 ## Validated paths
 
-- An earlier revision's full deployment completed successfully end to end in a
-  **split-region** topology (Foundry in **East US 2**, app/Search in **North
-  Europe**), with four active hosted agents, one analyst Bot Service, and a
-  terminal correlated assurance run. This proves the structural pipeline; it was a
-  prior revision and a different topology than the current co-located default, and
-  acceptance is a structural check that does not fail on KB fallback. See the
+- A full deployment completed successfully end to end in **UK South** with four
+  active hosted agents, one analyst Bot Service, a populated contracts KB, and a
+  terminal correlated assurance run. An unchanged rerun preserved stable
+  resources and skipped unchanged agent versions. See the
   [end-to-end readiness assessment](e2e-readiness-assessment.md).
 - An unchanged rerun completed successfully while reusing stable resources and
   skipping unchanged hosted-agent versions.
@@ -23,7 +21,8 @@ synthetic demo data.
   resources.
 - Deployment acceptance selects a live invoice from Waypoint, invokes the hosted
   orchestrator, and verifies a newly finalized, correlated run written through
-  `waypoint-recorder`.
+  `waypoint-recorder`. It now also fails closed when the run trace shows
+  FoundryIQ fallback instead of `knowledge_base_retrieve`.
 - The Waypoint invoice queue exposes single-invoice assurance and a batch
   envelope for up to 25 unique invoices with four concurrent starts.
 - Live batch validation proved independent accepted/not-found outcomes, active
@@ -47,20 +46,20 @@ results remain reference-only and cannot satisfy mutation gates.
 
 ## Still in progress
 
-- **Co-located contract-grounded KB retrieval is not yet proven end to end from a
-  one-click deploy.** The grounded single-region outcome itself is proven out of
-  band: the keynote `rg-waypoint` environment runs it co-located in Sweden Central
-  with more agents and complexity than this launch package. The gap is specific to
-  the one-click, fresh-account path. East US 2 deploys green but lacks Azure AI
-  Search `basic` capacity, so the knowledge base runs cross-region and the contract
-  expert falls back (uncalibrated confidence). Sweden Central co-locates and grounds
-  correctly, but currently cannot provision hosted agents on newly-created Foundry
-  accounts — a Microsoft-side regional/stamp condition (the keynote account is
-  pre-existing and grandfathered). No single region has yet satisfied **both**
-  fresh-account agent provisioning **and** co-located KB grounding in one one-click
-  run. See
+- **Contract-grounded KB retrieval needs one more green one-click proof.** UK
+  South proved single-region structural deployment, then live traces showed the
+  KB was wired and invoked but answer synthesis failed because the consolidated
+  KB was bound to hosted-agent `gpt-5.5`. The branch now mirrors the prior
+  Forge/Waypoint setup: hosted agents stay on `gpt-5.5`, while `contracts-kb`
+  answer synthesis uses a separate co-located `gpt-5-mini` deployment, and
+  acceptance fails on fallback. A fresh rerun must pass that new gate. Sweden
+  Central still cannot provision hosted agents on newly-created Foundry accounts,
+  so region choice remains subject to Azure platform health. See
   [platform and environmental blockers](deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
   and the [end-to-end readiness assessment](e2e-readiness-assessment.md).
+- Runtime confidence scores are visible again as uncalibrated evidence scores;
+  calibrated decision confidence remains future work that requires a reviewed
+  calibration artifact.
 - WorkIQ, WebIQ, FabricIQ, and Fabric/OneLake source modules remain in the
   repository for future development, outside the initial launch package.
 - The agent quality workflow cannot be manually dispatched from this branch

@@ -305,7 +305,7 @@ class WaypointService:
             has_agent_decision=True,
             decision_label=_agent_decision_label(latest.decision),
             money_at_risk=latest.money_at_risk,
-            confidence=latest.confidence if confidence_calibrated else None,
+            confidence=latest.confidence,
             confidence_calibrated=confidence_calibrated,
             title=newest.title,
             source_count=source_count,

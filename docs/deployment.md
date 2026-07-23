@@ -83,7 +83,7 @@ runs; generated secrets do not need to be copied into GitHub.
 | `WAYPOINT_MSAL_DISPLAY_NAME` | Override the app registration display name. |
 | `AZURE_AI_PROJECT_ENDPOINT` / `AZURE_AI_PROJECT_ID` | Reuse an existing Foundry project. |
 | `AZURE_AI_ACCOUNT_NAME` / `AZURE_AI_PROJECT_NAME` | Reuse Foundry resources by name. |
-| Model and embedding variables | Override the default `gpt-5.5` and `text-embedding-3-large` deployments. |
+| Model and embedding variables | Override the default hosted-agent `gpt-5.5`, KB chat `gpt-5-mini`, and `text-embedding-3-large` deployments. |
 
 ## Run the deployment
 
@@ -145,8 +145,8 @@ fail-fast.
 3. **msal** creates or reconciles the single-tenant Waypoint application.
 4. **corpus-seed** generates `waypoint-seed.json`.
 5. **deploy-app** deploys the Aspire app and PostgreSQL configuration.
-6. **provision-agents** reconciles the Foundry project, models, search, and
-   shared infrastructure.
+6. **provision-agents** reconciles the Foundry project, hosted-agent model,
+   KB chat model, embedding model, search, and shared infrastructure.
 7. **deploy-agents** deploys the four launch agents, skipping unchanged active
    versions.
 8. **wire-app-operations** connects the Waypoint API assurance operation to the
@@ -155,8 +155,9 @@ fail-fast.
    FoundryIQ grounding store.
 10. **seed-import** imports the generated Waypoint seed.
 11. **acceptance** probes the app, inventories live hosted agents, selects one
-    invoice from the deployed work queue, invokes the hosted orchestrator, and
-    verifies that the recorder finalized a correlated terminal run.
+    invoice from the deployed work queue, invokes the hosted orchestrator,
+    verifies that the recorder finalized a correlated terminal run, and checks
+    the trace for real `knowledge_base_retrieve` usage with no fallback.
 
 Deployment acceptance deliberately exercises one invoice. The deployed app also
 supports a batch envelope for up to 25 unique invoices with four concurrent
@@ -195,11 +196,13 @@ capability combination, model availability, model quota, and runs a real
 non-destructive Azure AI Search `basic` PUT/DELETE probe. Two region constraints
 are load-bearing and cannot both be worked around in the repository:
 
-- **Knowledge-base grounding needs co-location.** Azure AI Search, Foundry, and
-  the model must be in the **same** region, or the contract expert's
+- **Knowledge-base grounding needs co-location and the right KB chat model.**
+  Azure AI Search, Foundry, the hosted-agent `gpt-5.5` deployment, and the KB
+  `gpt-5-mini` answer-synthesis deployment must be in the **same** region, or
+  the contract expert's
   `knowledge_base_retrieve` call runs cross-region, fails, and silently falls
-  back (uncalibrated confidence). Do not split Search away from Foundry to chase
-  capacity.
+  back. Do not split Search away from Foundry to chase capacity, and do not bind
+  `contracts-kb` answer synthesis to the hosted-agent `gpt-5.5` deployment.
 - **Hosted agents need a healthy region for new accounts.** A freshly-created
   Foundry account must be able to provision hosted agents in the chosen region at
   deploy time. This has failed region-wide (Sweden Central) independent of this
@@ -213,8 +216,9 @@ external Azure/Foundry platform state, not on configuration. See
 
 `tools/deploy/deployment.manifest.json` declares the canonical source roots,
 FoundryIQ launch plane, expected fleet, and HTTP probes. The workflow runs
-those probes automatically and uploads a sanitized
-`deployment-evidence-<sha>` artifact.
+those probes, inventories hosted agents, drives one assurance run, verifies
+terminal recorder finalization, checks the KB retrieval trace, and uploads a
+sanitized `deployment-evidence-<sha>` artifact.
 
 To run the HTTP probes independently:
 

@@ -389,18 +389,18 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           if [ -z "$selected" ]; then
-            echo "::error::No allowed Foundry region currently has capacity for the co-located Waypoint stack (Azure AI Search + gpt-5.5 + text-embedding-3-large). Search capacity or model quota is exhausted across candidate regions. Retry later or raise Azure quota, then re-dispatch."
+            echo "::error::No allowed Foundry region currently has capacity for the co-located Waypoint stack (Azure AI Search + gpt-5.5 + gpt-5-mini + text-embedding-3-large). Search capacity or model quota is exhausted across candidate regions. Retry later or raise Azure quota, then re-dispatch."
             exit 1
           fi
           if [ "$selected" != "$REQUESTED_REGION" ]; then
-            echo "::error::Region '$REQUESTED_REGION' cannot host the co-located Waypoint stack (Azure AI Search capacity or model quota is unavailable there). Recommended region with full capacity: '$selected'. Re-dispatch with azure_location=$selected and app_location=$selected so Azure AI Search, Foundry, and gpt-5.5 stay co-located and KB retrieval works."
+            echo "::error::Region '$REQUESTED_REGION' cannot host the co-located Waypoint stack (Azure AI Search capacity or model quota is unavailable there). Recommended region with full capacity: '$selected'. Re-dispatch with azure_location=$selected and app_location=$selected so Azure AI Search, Foundry, gpt-5.5, and the KB gpt-5-mini deployment stay co-located and KB retrieval works."
             {
               echo ""
               echo "**Requested region \`$REQUESTED_REGION\` lacks capacity. Recommended: \`$selected\` (set both \`azure_location\` and \`app_location\`).**"
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          echo "Region '$REQUESTED_REGION' has full co-located capacity for Search + Foundry + gpt-5.5."
+          echo "Region '$REQUESTED_REGION' has full co-located capacity for Search + Foundry + gpt-5.5 + gpt-5-mini."
           echo "selected_region=$selected" >> "$GITHUB_OUTPUT"
 
   keyvault:
@@ -770,6 +770,12 @@ jobs:
           azd env set MODEL_VERSION "${{ vars.MODEL_VERSION || '2026-04-24' }}"
           azd env set MODEL_SKU_NAME "${{ vars.MODEL_SKU_NAME || 'GlobalStandard' }}"
           azd env set MODEL_CAPACITY "${{ vars.MODEL_CAPACITY || '200' }}"
+          azd env set AZURE_AI_SEARCH_KB_CHAT_DEPLOYMENT_NAME "${{ vars.AZURE_AI_SEARCH_KB_CHAT_DEPLOYMENT_NAME || 'gpt-5-mini' }}"
+          azd env set AZURE_AI_SEARCH_KB_CHAT_MODEL_NAME "${{ vars.AZURE_AI_SEARCH_KB_CHAT_MODEL_NAME || 'gpt-5-mini' }}"
+          azd env set AZURE_AI_SEARCH_KB_CHAT_MODEL_VERSION "${{ vars.AZURE_AI_SEARCH_KB_CHAT_MODEL_VERSION || '2025-08-07' }}"
+          azd env set AZURE_AI_SEARCH_KB_CHAT_MODEL_FORMAT "${{ vars.AZURE_AI_SEARCH_KB_CHAT_MODEL_FORMAT || 'OpenAI' }}"
+          azd env set AZURE_AI_SEARCH_KB_CHAT_MODEL_SKU_NAME "${{ vars.AZURE_AI_SEARCH_KB_CHAT_MODEL_SKU_NAME || 'GlobalStandard' }}"
+          azd env set AZURE_AI_SEARCH_KB_CHAT_MODEL_CAPACITY "${{ vars.AZURE_AI_SEARCH_KB_CHAT_MODEL_CAPACITY || '200' }}"
           azd env set AZURE_AI_EMBEDDING_DEPLOYMENT_NAME "${{ vars.AZURE_AI_EMBEDDING_DEPLOYMENT_NAME || 'text-embedding-3-large' }}"
           azd env set EMBEDDING_MODEL_NAME "${{ vars.EMBEDDING_MODEL_NAME || 'text-embedding-3-large' }}"
           azd env set EMBEDDING_MODEL_VERSION "${{ vars.EMBEDDING_MODEL_VERSION || '1' }}"
@@ -1018,6 +1024,8 @@ jobs:
           export AZURE_AI_SEARCH_KNOWLEDGE_SOURCE_NAME="$(get AZURE_AI_SEARCH_KNOWLEDGE_SOURCE_NAME)"
           export AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME="$(get AZURE_AI_SEARCH_KB_MCP_CONNECTION_NAME)"
           export AZURE_AI_MODEL_DEPLOYMENT_NAME="$(get AZURE_AI_MODEL_DEPLOYMENT_NAME)"
+          export AZURE_AI_SEARCH_KB_CHAT_DEPLOYMENT_NAME="$(get AZURE_AI_SEARCH_KB_CHAT_DEPLOYMENT_NAME)"
+          export AZURE_AI_SEARCH_KB_CHAT_MODEL_NAME="$(get AZURE_AI_SEARCH_KB_CHAT_MODEL_NAME)"
           export AZURE_AI_EMBEDDING_DEPLOYMENT_NAME="$(get AZURE_AI_EMBEDDING_DEPLOYMENT_NAME)"
 
           python scripts/initialize_contracts_kb.py --skip-upload
@@ -1735,6 +1743,10 @@ jobs:
             )"
             WEB_BASE_URL="https://${web_fqdn}"
           fi
+          log_analytics_workspace_id="$(
+            az monitor log-analytics workspace list --resource-group "$AZURE_RESOURCE_GROUP" \
+              --query "[0].customerId" -o tsv 2>/dev/null || true
+          )"
           reader_key="$(az keyvault secret show --vault-name "$KV_NAME" \
             --name waypoint-reader-key --query value -o tsv 2>/dev/null || true)"
           echo "::add-mask::$reader_key"
@@ -1853,6 +1865,8 @@ jobs:
           # recorder finalized the governed Waypoint run.
           e2e_result="skipped"
           printf '{"passed":false,"status":"skipped"}\n' > e2e-run.json
+          kb_retrieval_result="skipped"
+          printf '{"passed":false,"status":"skipped"}\n' > kb-retrieval.json
           if [ "${{ inputs.deploy_agents }}" = "true" ] \
             && [ "${{ inputs.seed_data }}" = "true" ] \
             && [ "$inventory_result" = "success" ]; then
@@ -1886,6 +1900,25 @@ jobs:
                 --output e2e-run.json || verify_exit=$?
               if [ "$verify_exit" -eq 0 ]; then
                 e2e_result="success"
+                if [ -z "$log_analytics_workspace_id" ]; then
+                  echo "::error::Log Analytics workspace id is unavailable for KB retrieval trace verification."
+                  kb_retrieval_result="failed"
+                  jq -n '{passed:false,status:"failed",detail:"Log Analytics workspace id is unavailable."}' \
+                    > kb-retrieval.json
+                else
+                  kb_exit=0
+                  python3 tools/deploy/scripts/verify_kb_retrieval_trace.py \
+                    --api-base-url "$API_BASE_URL" \
+                    --api-key "$reader_key" \
+                    --terminal-run-json e2e-run.json \
+                    --workspace-id "$log_analytics_workspace_id" \
+                    --output kb-retrieval.json || kb_exit=$?
+                  if [ "$kb_exit" -eq 0 ]; then
+                    kb_retrieval_result="success"
+                  else
+                    kb_retrieval_result="failed"
+                  fi
+                fi
               else
                 e2e_result="failed"
               fi
@@ -1920,6 +1953,7 @@ jobs:
           env_name = sys.argv[2]
           probes = json.load(open("probe-results.json"))
           e2e_run = json.load(open("e2e-run.json"))
+          kb_retrieval = json.load(open("kb-retrieval.json"))
           container_apps = json.loads(os.environ["CONTAINER_APPS"])
           live_agents = json.loads(os.environ["LIVE_AGENTS"])
           live_agent_names = [
@@ -1934,6 +1968,7 @@ jobs:
               "http_probes": probes.get("results", []),
               "http_probes_passed": probes.get("passed", False),
               "end_to_end_run": e2e_run,
+              "knowledge_base_retrieval": kb_retrieval,
               "container_apps_deployed": sorted(container_apps),
               "declared_agents": declared_agents,
               "live_agents": live_agents,
@@ -1944,6 +1979,7 @@ jobs:
                   "contracts_kb_upload": os.environ["CONTRACTS_KB_UPLOAD_RESULT"],
                   "seed_import": os.environ["SEED_IMPORT_RESULT"],
                   "end_to_end_run": os.environ["E2E_RESULT"],
+                  "knowledge_base_retrieval": os.environ["KB_RETRIEVAL_RESULT"],
               },
               "evidence_lane": "foundryiq",
               "passed": False,
@@ -2018,6 +2054,15 @@ jobs:
                   "End-to-end assurance run did not succeed: "
                   + os.environ["E2E_RESULT"]
               )
+          if (
+              os.environ["DEPLOY_AGENTS_ENABLED"] == "true"
+              and os.environ["SEED_DATA_ENABLED"] == "true"
+              and os.environ["KB_RETRIEVAL_RESULT"] != "success"
+          ):
+              issues.append(
+                  "Knowledge-base retrieval trace verification did not succeed: "
+                  + os.environ["KB_RETRIEVAL_RESULT"]
+              )
           evidence["passed"] = not issues
           evidence["outcome"] = "failed" if issues else "passed"
           evidence["issues"] = issues
@@ -2040,6 +2085,7 @@ jobs:
           SEED_DATA_ENABLED="${{ inputs.seed_data }}" \
           SEED_IMPORT_PLANNED="${{ needs.plan.outputs.seed_import }}" \
           E2E_RESULT="$e2e_result" \
+          KB_RETRIEVAL_RESULT="$kb_retrieval_result" \
           python3 evidence_builder.py "$COMMIT_SHA" "$AZD_ENV_NAME"
           rm -f evidence_builder.py
 

@@ -67,6 +67,7 @@ class VerifyTerminalRunTests(unittest.TestCase):
 
         self.assertTrue(result["passed"])
         self.assertTrue(result["has_operation_id"])
+        self.assertEqual(result["app_insights_operation_id"], "operation-1")
 
     def test_running_run_fails(self) -> None:
         response = MagicMock()
