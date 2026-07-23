@@ -548,7 +548,7 @@ confidence, the platform needs a reviewed calibration process that:
 2. evaluates it against human-reviewed outcomes;
 3. measures calibration error by decision and evidence shape;
 4. versions the dataset, grader, and calibration mapping; and
-5. sets `confidence_calibrated: true` only for runs using that approved mapping,
+5. sets `confidence_calibrated: true` only for runs using that versioned mapping,
    with the mapping artifact/version attached.
 
 ## Platform and environmental blockers encountered
