@@ -137,7 +137,7 @@ FabricIQ modules remain in the repository for future development but are not
 inputs, stages, resources, or agents in the one-click deployment.
 
 The full default deployment has been validated end to end in **UK South**,
-including a current-head run (`30034540034`) that passed acceptance with
+including run `30034540034` at commit `f9fc7bb` that passed acceptance with
 grounded KB runtime evidence and no fallback. An earlier unchanged rerun reused
 stable resources and skipped unchanged hosted-agent versions. The branch mirrors
 the prior Forge/Waypoint KB model split: hosted agents use `gpt-5.5`, while

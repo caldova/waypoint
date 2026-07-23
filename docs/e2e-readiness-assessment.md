@@ -6,8 +6,9 @@ review — corrected over-claims (see [Revision notes](#revision-notes-2026-07-2
 **Revised:** 2026-07-23 (10:02 PT, `2026-07-23T10:02-07:00`) after UK South
 one-click/idempotency proof and live KB trace comparison with the prior Forge
 deployment.
-**Revised:** 2026-07-23 (11:55 PT, `2026-07-23T11:55-07:00`) after current-head
-UK South one-click run `30034540034` passed with grounded KB runtime evidence.
+**Revised:** 2026-07-23 (11:55 PT, `2026-07-23T11:55-07:00`) after UK South
+one-click run `30034540034` passed at commit `f9fc7bb` with grounded KB runtime
+evidence.
 **Branch:** `jldeen-plan-waypoint-simplification`
 **Question answered:** *If hosted-agent provisioning were working, would this
 branch deploy end to end?*
@@ -25,8 +26,8 @@ gaps are:
 
 | Bar | What it means | Status |
 | --- | --- | --- |
-| **1. Deploy-green (structural)** | infra + app + agents + seed + acceptance all pass | **Proven at current head in UK South** on `30034540034`; earlier unchanged idempotency rerun `30000311095` preserved stable resources and agent versions |
-| **2. Grounded KB retrieval** | a real KB retrieval path with returned clause citations, not `Fallback retrieval` | **Proven at current head in UK South** on `30034540034` by recorder-preserved retrieval `ref_id` citations and no fallback markers after matching the prior Forge model split (`gpt-5.5` hosted agents, `gpt-5-mini` KB answer synthesis) |
+| **1. Deploy-green (structural)** | infra + app + agents + seed + acceptance all pass | **Proven in UK South** on `30034540034` at commit `f9fc7bb`; earlier unchanged idempotency rerun `30000311095` preserved stable resources and agent versions |
+| **2. Grounded KB retrieval** | a real KB retrieval path with returned clause citations, not `Fallback retrieval` | **Proven in UK South** on `30034540034` at commit `f9fc7bb` by recorder-preserved retrieval `ref_id` citations and no fallback markers after matching the prior Forge model split (`gpt-5.5` hosted agents, `gpt-5-mini` KB answer synthesis) |
 | **3. Calibrated confidence** | displayed decision confidence is a calibrated probability, not a raw evidence score | **Not implemented** — numeric raw scores are visible again as uncalibrated **evidence scores**; calibrated confidence still requires a reviewed calibration artifact |
 
 The earlier version of this document folded bars 2 and 3 together and called the
@@ -41,8 +42,8 @@ branch with the app, PostgreSQL, seed data, Search, Foundry infrastructure,
 contracts KB upload, four active hosted agents, and a terminal correlated
 orchestrator-to-recorder run. Run `30000311095` repeated the same environment
 unchanged and passed idempotency, preserving stable resources and agent versions.
-Current-head run `30034540034` then passed all jobs after the KB model split and
-acceptance-gate hardening:
+Run `30034540034` then passed all jobs at commit `f9fc7bb` after the KB model
+split and acceptance-gate hardening:
 
 - app, seed import, Foundry infrastructure, KB upload, all four hosted agents,
   app/agent wiring, acceptance, and baseline recording passed;
@@ -76,8 +77,8 @@ simplified fleet, acceptance assertions, idempotency, or calibration. Treat it a
 What was unproven was specific: **reaching that grounded single-region state from
 a one-click deploy of this repository on a freshly-created Foundry account.** UK
 South removed that doubt for a single region. The first green run exposed a
-repo-side KB configuration mismatch; current-head run `30034540034` proves the
-fix:
+repo-side KB configuration mismatch; run `30034540034` at commit `f9fc7bb`
+proves the fix:
 
 - **East US 2** provisions hosted agents, but lacks Azure AI Search `basic`
   capacity, so the knowledge base runs cross-region and the contract expert
@@ -93,8 +94,8 @@ fix:
 - **Prior Forge / `rg-waypoint`** uses `gpt-5-mini` for `contracts-kb` answer
   synthesis while keeping hosted agents on `gpt-5.5`. The consolidated branch now
   mirrors that simpler shape.
-- **Current-head UK South proof** (`30034540034`) passed acceptance with terminal
-  run `run-14af8323ab954397a14f8da4e20bf189`, operation
+- **UK South proof after the KB fix** (`30034540034` at commit `f9fc7bb`) passed
+  acceptance with terminal run `run-14af8323ab954397a14f8da4e20bf189`, operation
   `93a129706c5e366a82105d6dc3d33436`, retrieved `ref_id` citations in recorded
   runtime evidence, and no fallback or KB error markers.
 - **Sweden Central** co-locates Search + Foundry + model and grounds correctly
@@ -212,9 +213,9 @@ blocks a *single pilot* deploy; all of it blocks *20k unattended* deploys.
 ## What remains to prove
 
 - **Idempotency at the exact final head:** the branch already has a UK South
-  unchanged idempotency proof (`30000311095`) and current-head green one-click
-  proof (`30034540034`). A strict unchanged rerun at `f9fc7bb` would make the
-  final-head idempotency evidence symmetrical.
+  unchanged idempotency proof (`30000311095`) and green one-click proof after the
+  KB fix (`30034540034` at `f9fc7bb`). A strict unchanged rerun at or after the
+  docs-only update would make the final-tip idempotency evidence symmetrical.
 - **Bar 3 (calibration):** implement runtime confidence calibration and flip
   `confidence_calibrated` to `true` with evidence; this is repository work, not a
   deploy.
@@ -228,9 +229,9 @@ caught places where it claimed more than the evidence supported. Corrections:
   retrieval** (externally gated) and **calibrated confidence** (unbuilt code we
   own) — the earlier "the only unproven bar is external" was wrong.
 - Qualified Bar 1 before the final rerun: the earlier green runs were an earlier
-  revision and acceptance was initially only a structural smoke test. Current-head
-  run `30034540034` supersedes that caveat by proving the KB retrieval evidence
-  gate as well.
+  revision and acceptance was initially only a structural smoke test. Run
+  `30034540034` at commit `f9fc7bb` supersedes that caveat by proving the KB
+  retrieval evidence gate as well.
 - Reframed the Sweden root cause as a **strongly localized, well-evidenced
   hypothesis** (with the 2×2 that controls for creation flow) rather than a
   confirmed Microsoft-side defect; a support case is still needed to confirm the
@@ -246,6 +247,6 @@ caught places where it claimed more than the evidence supported. Corrections:
 - Added the UK South structural/idempotency proof, identified the KB-specific
   `gpt-5.5` answer-synthesis mismatch, and documented the fix to use
   Forge-compatible `gpt-5-mini` for `contracts-kb`.
-- Added the current-head UK South green proof (`30034540034`) and clarified that
-  customer-visible trace rows can be absent even when recorder-preserved runtime
-  evidence carries retrieved `ref_id` citations.
+- Added the UK South green proof (`30034540034` at commit `f9fc7bb`) and
+  clarified that customer-visible trace rows can be absent even when recorder-
+  preserved runtime evidence carries retrieved `ref_id` citations.

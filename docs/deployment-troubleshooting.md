@@ -30,13 +30,13 @@ grounding topology.
 | Runtime evidence-presentation correction | `29979862681` |
 | UK South single-region one-click structural deployment | `29998293196` |
 | UK South strict unchanged rerun | `30000311095` |
-| UK South KB-grounded current-head one-click deployment | `30034540034` |
+| UK South KB-grounded one-click deployment at commit `f9fc7bb` | `30034540034` |
 
 The current single-region proof is `waypoint-e2e-uks-07230306`, with app
 resource group `rg-waypoint-e2e-uks-07230306` and state resource group
 `rg-waypoint-e2e-uks-07230306-state`. It proved one-click deployment and
 unchanged idempotency with Search, Foundry, app, and agents all in UK South. Run
-`30034540034` then proved the current head after the KB model split: all deploy
+`30034540034` then proved commit `f9fc7bb` after the KB model split: all deploy
 stages passed, the terminal run completed, and acceptance found recorder-
 preserved retrieval citations with no fallback markers.
 
@@ -125,10 +125,10 @@ carries a hard-coded 0.85 score. The pre-consolidation live `forge`
 implementation used `gpt-5-mini` for `contracts-kb` answer synthesis while
 keeping hosted agents on `gpt-5.5`. The consolidated deploy now mirrors that
 shape: hosted agents use `gpt-5.5`; `contracts-kb` uses a separate
-`gpt-5-mini` deployment in the same region as Search and Foundry. Current-head
-UK South run `30034540034` proved that shape end to end: acceptance completed
-against run `run-14af8323ab954397a14f8da4e20bf189`, whose recorded evidence
-contains retrieved `ref_id` citations and no fallback markers.
+`gpt-5-mini` deployment in the same region as Search and Foundry. UK South run
+`30034540034` at commit `f9fc7bb` proved that shape end to end: acceptance
+completed against run `run-14af8323ab954397a14f8da4e20bf189`, whose recorded
+evidence contains retrieved `ref_id` citations and no fallback markers.
 
 ### Resolve region and capacity before provisioning (capacity preflight)
 
@@ -579,8 +579,8 @@ Acceptance now proves:
 The primary causes of observed fallback were the cross-region Search/model split
 and then the consolidated KB binding to `gpt-5.5` instead of the Forge-compatible
 KB chat deployment. The branch now provisions the KB chat model separately and
-fails closed on fallback. Current-head run `30034540034` is the green acceptance
-artifact for that behavior.
+fails closed on fallback. Run `30034540034` at commit `f9fc7bb` is the green
+acceptance artifact for that behavior.
 
 ### Teardown can outlive the default timeout
 

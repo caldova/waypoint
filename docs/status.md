@@ -8,9 +8,10 @@ synthetic demo data.
 
 - A full deployment completed successfully end to end in **UK South** with four
   active hosted agents, one analyst Bot Service, a populated contracts KB, and a
-  terminal correlated assurance run. Current-head run `30034540034` also proved
-  the KB model split and grounded runtime evidence gate; an earlier unchanged
-  rerun preserved stable resources and skipped unchanged agent versions. See the
+  terminal correlated assurance run. Run `30034540034` at commit `f9fc7bb` also
+  proved the KB model split and grounded runtime evidence gate; an earlier
+  unchanged rerun preserved stable resources and skipped unchanged agent
+  versions. See the
   [end-to-end readiness assessment](e2e-readiness-assessment.md).
 - An unchanged rerun completed successfully while reusing stable resources and
   skipping unchanged hosted-agent versions.
@@ -49,8 +50,8 @@ results remain reference-only and cannot satisfy mutation gates.
 ## Still in progress
 
 - **Regional availability remains the main deployment risk.** UK South now has a
-  current-head one-click proof with grounded KB runtime evidence. Sweden Central
-  still cannot provision hosted agents on newly-created Foundry accounts, so
+  one-click proof with grounded KB runtime evidence at commit `f9fc7bb`. Sweden
+  Central still cannot provision hosted agents on newly-created Foundry accounts, so
   region choice remains subject to Azure platform health. See
   [platform and environmental blockers](deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
   and the [end-to-end readiness assessment](e2e-readiness-assessment.md).
