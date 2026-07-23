@@ -6,9 +6,13 @@ synthetic demo data.
 
 ## Validated paths
 
-- The monorepo's full default Azure deployment completed successfully end to end
-  in **East US 2**, with four active hosted agents, one analyst Bot Service, and a
-  terminal correlated assurance run.
+- An earlier revision's full deployment completed successfully end to end in a
+  **split-region** topology (Foundry in **East US 2**, app/Search in **North
+  Europe**), with four active hosted agents, one analyst Bot Service, and a
+  terminal correlated assurance run. This proves the structural pipeline; it was a
+  prior revision and a different topology than the current co-located default, and
+  acceptance is a structural check that does not fail on KB fallback. See the
+  [end-to-end readiness assessment](e2e-readiness-assessment.md).
 - An unchanged rerun completed successfully while reusing stable resources and
   skipping unchanged hosted-agent versions.
 - The default runtime fleet is `invoice-analyst`,

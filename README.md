@@ -111,6 +111,15 @@ parallel environments, and troubleshooting.
 2. Keep the defaults for a first deployment.
 3. Start the workflow and follow the acceptance job through completion.
 
+> **Current status caveat.** A fresh one-click deployment depends on Azure-side
+> hosted-agent provisioning being healthy in the selected co-located region. As of
+> this writing that provisioning is failing for **newly-created** Foundry accounts
+> in the default co-located region, so a brand-new run may fail at the agent-deploy
+> stage for reasons outside this repository. Read the
+> [end-to-end readiness assessment](docs/e2e-readiness-assessment.md) and
+> [platform blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
+> before a first run.
+
 The default path deploys:
 
 - the Waypoint web application, API, PostgreSQL database, authentication, and
