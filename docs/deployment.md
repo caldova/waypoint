@@ -115,7 +115,7 @@ instead of producing cascading failures. The mutating core begins with MSAL;
 resource-group and Key Vault creation do not start until identity postconditions
 pass.
 
-The Aspire app job is bounded to 30 minutes with at most two 12-minute
+The Aspire app job is bounded to 45 minutes with at most two 20-minute
 deployment attempts. Unknown failures stop immediately; a recognized transient
 gets one recovery attempt. Capacity cleanup is bounded to five minutes. If Azure reports
 `ManagedEnvironmentCapacityHeavyUsageError` or `AKSCapacityHeavyUsage`, the
