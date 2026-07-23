@@ -243,10 +243,20 @@ resource additionalAdminProjectManagerAssignments 'Microsoft.Authorization/roleA
   }
 ]
 
-// Grant the AI project's system-assigned managed identity (which the hosted
-// agent runtime authenticates as) `Cognitive Services User` on the parent
-// account. This unlocks Content Safety data-plane actions used by the
-// LangChain `AzureContentModerationMiddleware`, plus OpenAI inference calls.
+// The hosted-agent platform uses the project managed identity while creating
+// agent runtime resources. Foundry User is required for that project data-plane
+// access; Cognitive Services User additionally enables direct Content Safety
+// and OpenAI calls from the runtime.
+resource projectMIFoundryUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: aiAccount
+  name: guid(aiAccount.id, aiAccount::project.id, foundryUserRoleId)
+  properties: {
+    principalId: aiAccount::project.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: resourceId('Microsoft.Authorization/roleDefinitions', foundryUserRoleId)
+  }
+}
+
 resource projectMICognitiveServicesUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: aiAccount
   name: guid(aiAccount.id, aiAccount::project.id, cognitiveServicesUserRoleId)

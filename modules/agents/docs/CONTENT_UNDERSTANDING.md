@@ -138,8 +138,9 @@ without editing Bicep.
 | `Foundry Project Manager` | `eadc314b-1a2d-4efa-be10-5d325db5065e` |
 | `Cognitive Services User` | `a97b65f3-24c7-4388-baec-2e87135dc908` |
 
-The project managed identity already receives `Cognitive Services User` on the
-AI Services account:
+The project managed identity receives both `Foundry User` (required for hosted
+agent runtime access) and `Cognitive Services User` (required for direct
+Content Understanding and model data-plane calls) on the AI Services account:
 
 ```bicep
 resource projectMICognitiveServicesUserAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {

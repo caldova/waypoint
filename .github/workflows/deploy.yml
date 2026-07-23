@@ -773,6 +773,57 @@ jobs:
             exit 1
           fi
 
+      - name: Verify hosted-agent runtime authorization
+        run: |
+          set -euo pipefail
+          account_id="${{ steps.endpoint.outputs.ai_account_id }}"
+          project_name="$(azd env get-value AZURE_AI_PROJECT_NAME)"
+          project_id="${account_id}/projects/${project_name}"
+          project_principal_id="$(az resource show \
+            --ids "$project_id" \
+            --api-version 2025-09-01 \
+            --query identity.principalId \
+            --output tsv)"
+          if [ -z "$project_principal_id" ]; then
+            echo "::error::Foundry project managed identity is unavailable."
+            exit 1
+          fi
+
+          foundry_user_role_id="53ca6127-db72-4b80-b1b0-d745d6d5456d"
+          foundry_user_count="$(az role assignment list \
+            --assignee-object-id "$project_principal_id" \
+            --scope "$account_id" \
+            --include-inherited \
+            --query "[?ends_with(roleDefinitionId, '${foundry_user_role_id}')].roleDefinitionId | length(@)" \
+            --output tsv)"
+          if [ "$foundry_user_count" -lt 1 ]; then
+            echo "::error::Foundry project identity lacks Foundry User on the parent account."
+            exit 1
+          fi
+
+          acr_id="$(azd env get-value AZURE_CONTAINER_REGISTRY_RESOURCE_ID)"
+          acr_reader_count="$(az role assignment list \
+            --assignee-object-id "$project_principal_id" \
+            --scope "$acr_id" \
+            --include-inherited \
+            --query "[?ends_with(roleDefinitionId, '7f951dda-4ed3-4680-a7ca-43fe172d538d') || ends_with(roleDefinitionId, 'b93aa761-3e63-49ed-ac28-beffa264f7ac')].roleDefinitionId | length(@)" \
+            --output tsv)"
+          if [ "$acr_reader_count" -lt 1 ]; then
+            echo "::error::Foundry project identity lacks an ACR image-pull role."
+            exit 1
+          fi
+
+          acr_name="${acr_id##*/}"
+          arm_auth_status="$(az acr config authentication-as-arm show \
+            --registry "$acr_name" \
+            --query status \
+            --output tsv)"
+          if [ "$arm_auth_status" != "enabled" ]; then
+            echo "::error::ACR ARM-audience authentication must be enabled for hosted agents."
+            exit 1
+          fi
+        timeout-minutes: 5
+
       - name: Configure Content Understanding model defaults
         run: |
           set -euo pipefail

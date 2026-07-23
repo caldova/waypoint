@@ -175,8 +175,22 @@ class AgentModelConfigurationTests(unittest.TestCase):
         for template in (bootstrap, project):
             self.assertIn("eadc314b-1a2d-4efa-be10-5d325db5065e", template)
             self.assertNotIn("e47c6f54-e4a2-4754-9501-8e0985b135e1", template)
+        self.assertIn("projectMIFoundryUserAssignment", project)
+        self.assertIn(
+            "principalId: aiAccount::project.identity.principalId",
+            project,
+        )
         self.assertIn("Foundry publishing preflight failed", bootstrap_script)
         self.assertIn("foundry_project_manager_role_id", bootstrap_script)
+        self.assertIn("Verify hosted-agent runtime authorization", workflow)
+        self.assertIn(
+            "Foundry project identity lacks Foundry User on the parent account",
+            workflow,
+        )
+        self.assertIn(
+            "ACR ARM-audience authentication must be enabled for hosted agents",
+            workflow,
+        )
 
     def test_agent_deploy_uses_key_vault_keys_without_bearer_precedence(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
