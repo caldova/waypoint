@@ -706,8 +706,29 @@ jobs:
       - name: Run azd provision
         if: ${{ inputs.provision_agents && needs.plan.outputs.foundry_infrastructure == 'true' }}
         # This job is selected for source changes or live-resource drift. Ignore
-        # azd's template-hash cache so deleted resources are reconciled.
-        run: azd provision --no-state --no-prompt
+        # azd's template-hash cache so deleted resources are reconciled. Azure AI
+        # Search capacity is independent from Foundry regional availability, so a
+        # capacity-only Search failure retries in the app region without moving
+        # the Foundry account, models, Content Understanding, or hosted agents.
+        run: |
+          set -euo pipefail
+          provision_log="$RUNNER_TEMP/azd-provision.log"
+          set +e
+          azd provision --no-state --no-prompt 2>&1 | tee "$provision_log"
+          provision_status="${PIPESTATUS[0]}"
+          set -e
+          if [ "$provision_status" -eq 0 ]; then
+            exit 0
+          fi
+          if grep -q "InsufficientResourcesAvailable" "$provision_log" &&
+             grep -q "Failed: Search service" "$provision_log" &&
+             [ "$APP_AZURE_LOCATION" != "$AZURE_LOCATION" ]; then
+            echo "::warning::Azure AI Search capacity is unavailable in $AZURE_LOCATION; retrying Search in $APP_AZURE_LOCATION."
+            azd env set AZURE_AI_SEARCH_LOCATION "$APP_AZURE_LOCATION"
+            azd provision --no-state --no-prompt
+            exit 0
+          fi
+          exit "$provision_status"
         timeout-minutes: 45
 
       - name: Refresh Azure login after provisioning

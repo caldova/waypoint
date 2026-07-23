@@ -6,6 +6,9 @@ param tags object = {}
 @description('Main location for the resources')
 param location string
 
+@description('Location for Azure AI Search. May differ from the Foundry account location.')
+param searchLocation string = location
+
 var resourceToken = uniqueString(subscription().id, resourceGroup().id, location)
 
 @description('Name of the project')
@@ -383,7 +386,7 @@ module azureAiSearch '../search/azure_ai_search.bicep' = if (hasSearchConnection
     aiProjectName: aiAccount::project.name
     principalId: principalId
     principalType: principalType
-    location: location
+    location: searchLocation
   }
 }
 

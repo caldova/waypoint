@@ -468,6 +468,16 @@ class AgentModelConfigurationTests(unittest.TestCase):
             foundry_bootstrap,
         )
         self.assertIn("azd provision --no-state --no-prompt", workflow)
+        self.assertIn("InsufficientResourcesAvailable", workflow)
+        self.assertIn("Failed: Search service", workflow)
+        self.assertIn(
+            'azd env set AZURE_AI_SEARCH_LOCATION "$APP_AZURE_LOCATION"',
+            workflow,
+        )
+        self.assertIn(
+            '"value": "${AZURE_AI_SEARCH_LOCATION=${AZURE_LOCATION}}"',
+            (ROOT / "modules/agents/infra/main.parameters.json").read_text(),
+        )
         parameters = json.loads(
             (ROOT / "modules/agents/infra/main.parameters.json").read_text()
         )

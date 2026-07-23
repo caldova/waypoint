@@ -23,6 +23,9 @@
       "aiDeploymentsLocation": {
         "value": "${AZURE_LOCATION}"
       },
+      "searchLocation": {
+        "value": "${AZURE_AI_SEARCH_LOCATION=${AZURE_LOCATION}}"
+      },
       "principalId": {
         "value": "${AZURE_PRINCIPAL_ID}"
       },

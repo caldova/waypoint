@@ -35,6 +35,9 @@ param location string
 
 param aiDeploymentsLocation string
 
+@description('Location for Azure AI Search. Defaults to the Foundry deployment location but may differ when regional Search capacity is unavailable.')
+param searchLocation string = aiDeploymentsLocation
+
 @description('Id of the user or app to assign application roles')
 param principalId string
 
@@ -359,6 +362,7 @@ module aiProject 'core/ai/ai-project.bicep' = if (!useExistingAiProject) {
   params: {
     tags: tags
     location: aiDeploymentsLocation
+    searchLocation: searchLocation
     aiFoundryProjectName: aiFoundryProjectName
     principalId: principalId
     principalType: principalType
