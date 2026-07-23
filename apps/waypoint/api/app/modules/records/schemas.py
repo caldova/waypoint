@@ -191,6 +191,7 @@ class InvoiceDecision(BaseModel):
     agent_run_at: datetime | None = None
     agent_case_id: str | None = None
     confidence: Decimal | None = None
+    confidence_calibrated: bool = False
     agent_title: str | None = None
     agent_source_count: int = 0
     agent_plane_count: int = 0

@@ -1005,6 +1005,7 @@ async def test_invoice_assurance_surfaces_agent_decision_and_draft(client: Async
                 "Review governing capacity contract for approval and credit provisions.",
             ],
             "metadata": {
+                "confidence_calibrated": True,
                 "expert_evidence": [
                     {
                         "agent": "webiq-expert",
@@ -1122,6 +1123,7 @@ async def test_invoice_decision_feed_reflects_newest_agent_run(client: AsyncClie
             "confidence": "0.86",
             "money_at_risk": "18750",
             "metadata": {
+                "confidence_calibrated": True,
                 "expert_evidence": [
                     {
                         "agent": "contract",
@@ -1162,6 +1164,7 @@ async def test_invoice_decision_feed_reflects_newest_agent_run(client: AsyncClie
     # the register must NOT echo that as reasoning — agent_title is None and the
     # register falls through to the descriptive finding summary.
     assert row["confidence"] == "0.86"
+    assert row["confidence_calibrated"] is True
     assert row["agent_title"] is None
     assert row["reasoning"] == (
         "Contamination investigation charge is billed although the deviation "
@@ -1169,6 +1172,31 @@ async def test_invoice_decision_feed_reflects_newest_agent_run(client: AsyncClie
     )
     assert row["agent_plane_count"] == 2
     assert row["agent_source_count"] == 3
+
+    uncalibrated_case = (
+        await client.post(
+            "/api/cases",
+            json={"invoice_id": "inv-2026-08034", "summary": "Newest uncalibrated run."},
+        )
+    ).json()
+    await client.post(
+        f"/api/cases/{uncalibrated_case['id']}/recommendations",
+        json={
+            "decision": "review",
+            "reasoning": "Fallback retrieval score is not calibrated decision confidence.",
+            "confidence": "0.99",
+            "money_at_risk": "0",
+            "metadata": {
+                "confidence_basis": "expert_evidence_mean",
+                "confidence_calibrated": False,
+            },
+        },
+    )
+
+    decisions = (await client.get("/api/invoice-decisions")).json()
+    row = next(d for d in decisions if d["invoice_id"] == "inv-2026-08034")
+    assert row["confidence"] is None
+    assert row["confidence_calibrated"] is False
 
 
 @pytest.mark.asyncio

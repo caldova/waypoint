@@ -57,6 +57,7 @@ interface InvoiceDecision {
   agent_run_at: string | null;
   agent_case_id: string | null;
   confidence: string | null;
+  confidence_calibrated: boolean;
   agent_title: string | null;
   agent_source_count: number;
   agent_plane_count: number;
@@ -151,7 +152,11 @@ interface CaseRecommendation {
   proposed_next_actions: string[];
   created_by: string;
   created_at: string;
-  metadata: { expert_evidence?: FanoutLane[]; waypoint_run_id?: string };
+  metadata: {
+    expert_evidence?: FanoutLane[];
+    waypoint_run_id?: string;
+    confidence_calibrated?: boolean;
+  };
 }
 
 interface CaseDraft {
@@ -1215,7 +1220,11 @@ export default function Invoices() {
                             <BasisPills basisTypes={row.basis_types} />
                           </td>
                           <td className="px-3 py-2.5">
-                            <ConfidenceBadge confidence={row.confidence} />
+                            <ConfidenceBadge
+                              confidence={row.confidence}
+                              calibrated={row.confidence_calibrated}
+                              hasDecision={row.has_agent_decision}
+                            />
                           </td>
                           <td className="px-3 py-2.5 text-slate-600">
                             <SourceCount
@@ -2085,7 +2094,7 @@ function DecisionDrawer({
   const moneyAtRisk = newestRecommendation
     ? formatAgentMoney(newestRecommendation.money_at_risk)
     : decision.overpayment_display;
-  const confidencePct = newestRecommendation
+  const confidencePct = newestRecommendation?.metadata.confidence_calibrated === true
     ? Math.round(Number(newestRecommendation.confidence) * 100)
     : null;
   const headerDecision = newestRecommendation
@@ -2126,7 +2135,9 @@ function DecisionDrawer({
                 <SummaryChip tone="emerald">{moneyAtRisk} at risk</SummaryChip>
                 {confidencePct !== null ? (
                   <SummaryChip tone="slate">{confidencePct}% confidence</SummaryChip>
-                ) : null}
+                ) : (
+                  <SummaryChip tone="slate">Confidence not calibrated</SummaryChip>
+                )}
                 <SummaryChip tone="slate">{decision.category}</SummaryChip>
                 <SummaryChip tone="slate">{decision.evidence_count} evidence</SummaryChip>
               </>
@@ -2692,9 +2703,18 @@ function AgentDecisionSummary({
             <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-100">
               {formatAgentMoney(recommendation.money_at_risk)} at risk
             </span>
-            <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
-              {Math.round(Number(recommendation.confidence) * 100)}% confidence
-            </span>
+            {recommendation.metadata.confidence_calibrated === true ? (
+              <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
+                {Math.round(Number(recommendation.confidence) * 100)}% confidence
+              </span>
+            ) : (
+              <span
+                className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600"
+                title="The current score measures fallback evidence retrieval, not calibrated decision accuracy."
+              >
+                Confidence not calibrated
+              </span>
+            )}
           </>
         ) : null}
       </div>
@@ -3052,7 +3072,25 @@ function DecisionPill({ decision }: { decision: string }) {
   );
 }
 
-function ConfidenceBadge({ confidence }: { confidence: string | null }) {
+function ConfidenceBadge({
+  confidence,
+  calibrated,
+  hasDecision,
+}: {
+  confidence: string | null;
+  calibrated: boolean;
+  hasDecision: boolean;
+}) {
+  if (hasDecision && !calibrated) {
+    return (
+      <span
+        className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
+        title="The current score measures fallback evidence retrieval, not calibrated decision accuracy."
+      >
+        Not calibrated
+      </span>
+    );
+  }
   if (confidence === null || confidence === "") {
     return <span className="text-xs text-slate-400">—</span>;
   }

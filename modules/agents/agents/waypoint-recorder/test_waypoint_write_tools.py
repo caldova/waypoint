@@ -743,6 +743,12 @@ def test_experts_consulted_excludes_ungrounded_web_lane() -> None:
     run_metadata = fake_writer.calls[1][1]["metadata"]
     assert len(run_metadata["fanout"]) == 2
     assert run_metadata["experts_consulted"] == ["contract-policy-expert"]
+    assert run_metadata["confidence_basis"] == "expert_evidence_mean"
+    assert run_metadata["confidence_calibrated"] is False
+    recommendation_metadata = next(
+        kwargs["metadata"] for name, kwargs in fake_writer.calls if name == "create_recommendation"
+    )
+    assert recommendation_metadata["confidence_calibrated"] is False
 
 
 

@@ -41,6 +41,7 @@ class _AgentAttribution:
     decision_label: str | None = None
     money_at_risk: Decimal | None = None
     confidence: Decimal | None = None
+    confidence_calibrated: bool = False
     title: str | None = None
     source_count: int = 0
     plane_count: int = 0
@@ -250,6 +251,7 @@ class WaypointService:
                     agent_run_at=attribution.run_at,
                     agent_case_id=attribution.case_id,
                     confidence=attribution.confidence,
+                    confidence_calibrated=attribution.confidence_calibrated,
                     agent_title=meaningful_title,
                     agent_source_count=attribution.source_count,
                     agent_plane_count=attribution.plane_count,
@@ -298,11 +300,13 @@ class WaypointService:
         if latest is None:
             return _AgentAttribution()
         plane_count, source_count = _expert_evidence_counts(latest.metadata)
+        confidence_calibrated = latest.metadata.get("confidence_calibrated") is True
         return _AgentAttribution(
             has_agent_decision=True,
             decision_label=_agent_decision_label(latest.decision),
             money_at_risk=latest.money_at_risk,
-            confidence=latest.confidence,
+            confidence=latest.confidence if confidence_calibrated else None,
+            confidence_calibrated=confidence_calibrated,
             title=newest.title,
             source_count=source_count,
             plane_count=plane_count,

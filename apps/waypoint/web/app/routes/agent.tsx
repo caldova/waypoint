@@ -50,6 +50,7 @@ interface RunMetadata {
   invoice_number?: string;
   decision?: string;
   confidence?: number;
+  confidence_calibrated?: boolean;
   money_at_risk?: number;
   finding_count?: number;
   experts_consulted?: string[];
@@ -289,6 +290,9 @@ interface InvoiceGroup {
 }
 
 function groupConfidence(latestMeta: RunMetadata, fanout: FanoutLane[]): number | null {
+  if (latestMeta.confidence_calibrated !== true) {
+    return null;
+  }
   if (typeof latestMeta.confidence === "number") {
     return latestMeta.confidence;
   }

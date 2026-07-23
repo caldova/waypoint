@@ -222,6 +222,8 @@ def _waypoint_record_assurance_inner(result_json: str) -> str:
         "invoice_number": invoice_number,
         "decision": decision,
         "confidence": confidence,
+        "confidence_basis": "expert_evidence_mean",
+        "confidence_calibrated": False,
         "money_at_risk": money_at_risk,
         "finding_count": grounding["finding_count"],
         "experts_consulted": experts,
@@ -280,6 +282,8 @@ def _waypoint_record_assurance_inner(result_json: str) -> str:
                 "expert_evidence": fanout,
                 "invoice_number": invoice_number,
                 "decision_governance": decision_governance,
+                "confidence_basis": "expert_evidence_mean",
+                "confidence_calibrated": False,
             },
         )
         correlation["waypoint_recommendation_id"] = _id(recommendation)
