@@ -145,6 +145,8 @@ def test_assurance_orchestrator_future_payload_normalizes_to_waypoint_recorder_c
                     "evidence_ids": ["evidence-001"],
                     "proposed_next_actions": ["request_supplier_credit"],
                     "metadata": {
+                        "confidence_basis": "expert_evidence_mean",
+                        "confidence_calibrated": False,
                         "expert_evidence": [
                             {
                                 "agent": "operations-data-expert",
@@ -177,6 +179,8 @@ def test_assurance_orchestrator_future_payload_normalizes_to_waypoint_recorder_c
     assert normalized["money_at_risk"] == "25.00"
     assert normalized["evidence_ids"] == ["evidence-001"]
     assert normalized["proposed_next_actions"] == ["request_supplier_credit"]
+    assert normalized["confidence_basis"] == "expert_evidence_mean"
+    assert normalized["confidence_calibrated"] is False
     assert normalized["fanout"][0]["plane"] == "fabriciq"
     assert normalized["fanout"][0]["output_quality"] == "valid"
 
@@ -743,12 +747,72 @@ def test_experts_consulted_excludes_ungrounded_web_lane() -> None:
     run_metadata = fake_writer.calls[1][1]["metadata"]
     assert len(run_metadata["fanout"]) == 2
     assert run_metadata["experts_consulted"] == ["contract-policy-expert"]
-    assert run_metadata["confidence_basis"] == "expert_evidence_mean"
+    assert run_metadata["confidence_basis"] == "not_provided"
     assert run_metadata["confidence_calibrated"] is False
     recommendation_metadata = next(
         kwargs["metadata"] for name, kwargs in fake_writer.calls if name == "create_recommendation"
     )
     assert recommendation_metadata["confidence_calibrated"] is False
+
+
+def test_confidence_calibration_requires_provenance() -> None:
+    fake_writer = FakeWaypointWriteClient()
+    payload = {
+        "invoice_id": "INV-2026-08034",
+        "decision": "review",
+        "reasoning": "Model claimed calibrated confidence without proof.",
+        "confidence": 0.93,
+        "confidence_calibrated": True,
+    }
+
+    with patch("waypoint_write_tools.is_waypoint_configured", return_value=True), patch(
+        "waypoint_write_tools.WaypointReadClient",
+        return_value=FakeWaypointReadClient(),
+    ), patch("waypoint_write_tools.WaypointWriteClient", return_value=fake_writer):
+        result = json.loads(_waypoint_record_assurance_inner(json.dumps(payload)))
+
+    assert result["ok"] is True
+    run_metadata = fake_writer.calls[1][1]["metadata"]
+    assert run_metadata["confidence_basis"] == "model_supplied"
+    assert run_metadata["confidence_calibrated"] is False
+    recommendation_metadata = next(
+        kwargs["metadata"] for name, kwargs in fake_writer.calls if name == "create_recommendation"
+    )
+    assert recommendation_metadata["confidence_calibrated"] is False
+
+
+def test_confidence_calibration_provenance_is_preserved() -> None:
+    fake_writer = FakeWaypointWriteClient()
+    payload = {
+        "invoice_id": "INV-2026-08034",
+        "decision": "review",
+        "reasoning": "Reviewed calibration artifact produced this probability.",
+        "confidence": 0.74,
+        "confidence_basis": "calibration_artifact",
+        "confidence_calibrated": True,
+        "confidence_calibration_id": "cal-2026-07-validated",
+        "confidence_calibration_version": "v3",
+    }
+
+    with patch("waypoint_write_tools.is_waypoint_configured", return_value=True), patch(
+        "waypoint_write_tools.WaypointReadClient",
+        return_value=FakeWaypointReadClient(),
+    ), patch("waypoint_write_tools.WaypointWriteClient", return_value=fake_writer):
+        result = json.loads(_waypoint_record_assurance_inner(json.dumps(payload)))
+
+    assert result["ok"] is True
+    run_metadata = fake_writer.calls[1][1]["metadata"]
+    assert run_metadata["confidence_basis"] == "calibration_artifact"
+    assert run_metadata["confidence_calibrated"] is True
+    assert run_metadata["confidence_calibration_id"] == "cal-2026-07-validated"
+    assert run_metadata["confidence_calibration_version"] == "v3"
+    recommendation_metadata = next(
+        kwargs["metadata"] for name, kwargs in fake_writer.calls if name == "create_recommendation"
+    )
+    assert recommendation_metadata["confidence_basis"] == "calibration_artifact"
+    assert recommendation_metadata["confidence_calibrated"] is True
+    assert recommendation_metadata["confidence_calibration_id"] == "cal-2026-07-validated"
+    assert recommendation_metadata["confidence_calibration_version"] == "v3"
 
 
 

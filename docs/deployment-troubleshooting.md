@@ -469,14 +469,18 @@ constant `0.85`. A co-located deploy (via the capacity preflight) restores real
 `knowledge_base_retrieve` grounding, after which evidence scores vary and this
 symptom disappears.
 
-That number is not calibrated decision accuracy. New recorder metadata marks
-its basis as `expert_evidence_mean` and `confidence_calibrated: false`. The API
-does not expose an uncalibrated numeric score as decision confidence, and the UI
-shows **Not calibrated**.
+That number is not calibrated decision accuracy. Recorder metadata now preserves
+confidence provenance from the code-owned orchestration or quality layer. The
+current orchestrator explicitly marks its score as `expert_evidence_mean` and
+`confidence_calibrated: false`; the recorder will preserve
+`confidence_calibrated: true` only when the payload also carries reviewed
+calibration artifact/version provenance. The API does not expose an uncalibrated
+numeric score as decision confidence, and the UI shows **Not calibrated**.
 
 Do not generate artificial variation by decision, severity, or citation count.
 A numeric decision confidence should be displayed only after a reviewed
-calibration process sets `confidence_calibrated: true`.
+calibration process sets `confidence_calibrated: true` with artifact/version
+provenance.
 
 Running assurance again does not calibrate confidence. Assurance is an
 inference operation; calibration is a separate quality operation that compares
@@ -498,7 +502,8 @@ calibration process that:
 2. evaluates it against human-reviewed outcomes;
 3. measures calibration error by decision and evidence shape;
 4. versions the dataset, grader, and calibration mapping; and
-5. sets `confidence_calibrated: true` only for runs using that approved mapping.
+5. sets `confidence_calibrated: true` only for runs using that approved mapping,
+   with the mapping artifact/version attached.
 
 ## Platform and environmental blockers encountered
 
@@ -574,8 +579,8 @@ A deployment is complete only when all of the following are true:
 - The expected corpus is present.
 - Exactly four launch agents are active.
 - Exactly one Bot Service exists and belongs to `invoice-analyst`.
-- A governed assurance run reaches a terminal state through
-  `waypoint-recorder`.
+- A governed assurance run reaches `completed` through `waypoint-recorder`
+  (`partial` is no longer accepted by the terminal-run verifier).
 - The run has an App Insights operation ID.
 - Optional WorkIQ, WebIQ, and FabricIQ experts are absent from launch
   participation.

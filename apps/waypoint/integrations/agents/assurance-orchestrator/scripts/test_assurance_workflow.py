@@ -627,6 +627,9 @@ class AssuranceOrchestratorWorkflowTests(unittest.TestCase):
             True,
         )
         expert_evidence = result["write_plan"]["future_payloads"][0]["recommendation"]["metadata"]["expert_evidence"]
+        metadata = result["write_plan"]["future_payloads"][0]["recommendation"]["metadata"]
+        self.assertEqual(metadata["confidence_basis"], "expert_evidence_mean")
+        self.assertIs(metadata["confidence_calibrated"], False)
         self.assertEqual(
             {lane["plane"] for lane in expert_evidence},
             {"webiq", "fabriciq", "workiq", "foundryiq"},

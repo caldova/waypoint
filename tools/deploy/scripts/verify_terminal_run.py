@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-SUCCESSFUL_TERMINAL_STATUSES = {"completed", "partial"}
+SUCCESSFUL_TERMINAL_STATUS = "completed"
 
 
 def _arguments() -> argparse.Namespace:
@@ -111,7 +111,7 @@ def _evaluate_payload(
     has_operation_id = bool(run.get("app_insights_operation_id"))
     result = {
         "passed": (
-            status in SUCCESSFUL_TERMINAL_STATUSES and is_current and has_operation_id
+            status == SUCCESSFUL_TERMINAL_STATUS and is_current and has_operation_id
         ),
         "invoice_id": invoice_id,
         "run_id": run.get("id"),
@@ -123,9 +123,9 @@ def _evaluate_payload(
     }
     if not result["passed"]:
         failures = []
-        if status not in SUCCESSFUL_TERMINAL_STATUSES:
+        if status != SUCCESSFUL_TERMINAL_STATUS:
             failures.append(
-                f"status '{status}' is not one of {sorted(SUCCESSFUL_TERMINAL_STATUSES)}"
+                f"status '{status}' is not '{SUCCESSFUL_TERMINAL_STATUS}'"
             )
         if not is_current:
             failures.append("run was not updated after the hosted invocation started")

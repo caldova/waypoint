@@ -20,9 +20,9 @@ gaps are:
 
 | Bar | What it means | Status |
 | --- | --- | --- |
-| **1. Deploy-green (structural)** | infra + app + agents + seed + acceptance all pass | **Proven on an earlier revision** in the East US 2 / North Europe split-region topology; **not** re-validated on current HEAD, and acceptance passes on `partial`/fallback (it is a runtime smoke test, not a grounding test) |
+| **1. Deploy-green (structural)** | infra + app + agents + seed + acceptance all pass | **Proven on an earlier revision** in the East US 2 / North Europe split-region topology; **not** re-validated on current HEAD. Acceptance now requires `completed` (not `partial`), but it still does not fail on KB fallback, so it remains a runtime smoke test rather than a grounding test |
 | **2. Grounded KB retrieval** | a real `knowledge_base_retrieve` call with returned clause citations, not `Fallback retrieval` | **Proven out of band** (keynote `rg-waypoint`, pre-existing co-located account); **unproven from a one-click deploy** on a fresh account; gated on **external** region health |
-| **3. Calibrated confidence** | displayed decision confidence is a calibrated probability, not a raw evidence score | **Not implemented** — the recorder writes `confidence_calibrated: false` today; this is **repository work remaining (Phase 6)**, not an external blocker |
+| **3. Calibrated confidence** | displayed decision confidence is a calibrated probability, not a raw evidence score | **Not implemented** — the recorder now preserves reviewed calibration provenance when supplied, but the current orchestrator score is still an uncalibrated evidence mean; this is **repository work remaining (Phase 6)**, not an external blocker |
 
 The earlier version of this document folded bars 2 and 3 together and called the
 whole thing "external." That was wrong: **grounded retrieval** is externally
@@ -46,8 +46,8 @@ Two honest qualifiers keep this from being read as more than it is:
   single co-located region (see Point 2), so the exact behavior that was proven is
   not the behavior the branch would exhibit today.
 - **"Deploy-green" is a structural smoke test, not a grounding test.** Acceptance
-  treats a `partial` terminal run as success and does **not** fail when the
-  contract expert falls back instead of calling the KB
+  now requires the run to reach `completed` (not `partial`), but it still does
+  **not** fail when the contract expert falls back instead of calling the KB
   ([KB upload does not prove KB retrieval](deployment-troubleshooting.md#kb-upload-does-not-prove-kb-retrieval)).
   So a green Bar 1 proves the infra/app/agent/seed/lifecycle plumbing works end to
   end; it does **not** prove contract-grounded retrieval or calibrated confidence.
@@ -148,13 +148,17 @@ into the currently-failing region.
 
 This is the correction the previous version got wrong by bundling it into "Point
 2, external." Displayed decision confidence is **not** a calibrated probability
-today: the recorder writes `confidence_calibrated: false`
-(`modules/agents/agents/waypoint-recorder/waypoint_write_tools.py`), and the
-product deliberately labels these scores as uncalibrated rather than presenting
-them as decision confidence. Turning raw evidence scores into a calibrated
-probability is **Phase 6 repository work that does not exist yet** — it is not
-gated on any Azure region. Any "grounded *and* calibrated demo" bar therefore
-cannot be met by simply fixing provisioning; it also needs this code written.
+today. The recorder no longer hardcodes calibration status: it preserves
+`confidence_basis`, `confidence_calibrated`, and calibration artifact/version
+provenance from the code-owned orchestration or quality layer, and it refuses to
+mark confidence calibrated when a payload merely claims `confidence_calibrated:
+true` without that provenance. The current orchestrator's score is explicitly
+labeled `expert_evidence_mean` and uncalibrated, so the product deliberately
+labels it as uncalibrated rather than presenting it as decision confidence.
+Turning raw evidence scores into a calibrated probability is **Phase 6 repository
+work that does not exist yet** — it is not gated on any Azure region. Any
+"grounded *and* calibrated demo" bar therefore cannot be met by simply fixing
+provisioning; it also needs a reviewed calibration artifact/mapping.
 
 ## Residual risks
 
@@ -224,8 +228,8 @@ caught places where it claimed more than the evidence supported. Corrections:
   retrieval** (externally gated) and **calibrated confidence** (unbuilt code we
   own) — the earlier "the only unproven bar is external" was wrong.
 - Qualified Bar 1: the green runs were an **earlier revision** in the split-region
-  topology, and acceptance is a **structural smoke test** that passes on
-  `partial`/fallback — not proof of grounding.
+  topology, and acceptance is a **structural smoke test** — it now rejects
+  `partial`, but still does not prove KB grounding or reject fallback.
 - Reframed the Sweden root cause as a **strongly localized, well-evidenced
   hypothesis** (with the 2×2 that controls for creation flow) rather than a
   confirmed Microsoft-side defect; a support case is still needed to confirm the

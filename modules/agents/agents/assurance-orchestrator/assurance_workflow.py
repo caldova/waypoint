@@ -1237,6 +1237,8 @@ async def prepare_waypoint_write_plan(
                     "metadata": {
                         "assurance_orchestrator_run_id": run.run_id,
                         "read_only_preview": True,
+                        "confidence_basis": "expert_evidence_mean",
+                        "confidence_calibrated": False,
                         "expert_evidence": expert_evidence,
                     },
                 },

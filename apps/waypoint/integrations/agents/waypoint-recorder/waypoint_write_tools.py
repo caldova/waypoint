@@ -47,6 +47,9 @@ _RESULT_SHAPE = """{
   "decision": "approve|recover|escalate|review",
   "reasoning": "Why this decision, citing the fused evidence.",
   "confidence": 0.0,
+  "confidence_basis": "model_supplied|expert_evidence_mean|calibration_artifact",
+  "confidence_calibrated": false,
+  "confidence_calibration_id": "optional reviewed calibration artifact id",
   "money_at_risk": 0.0,
   "finding_id": "optional finding id",
   "title": "optional case title",
@@ -193,6 +196,7 @@ def _waypoint_record_assurance_inner(result_json: str) -> str:
     experts = [name for name in experts if name]
 
     confidence = _float(result.get("confidence"))
+    confidence_attribution = _confidence_attribution(result)
     classification = str(result.get("classification") or "standard")
     summary = str(result.get("summary") or "").strip()
 
@@ -222,8 +226,7 @@ def _waypoint_record_assurance_inner(result_json: str) -> str:
         "invoice_number": invoice_number,
         "decision": decision,
         "confidence": confidence,
-        "confidence_basis": "expert_evidence_mean",
-        "confidence_calibrated": False,
+        **confidence_attribution,
         "money_at_risk": money_at_risk,
         "finding_count": grounding["finding_count"],
         "experts_consulted": experts,
@@ -282,8 +285,7 @@ def _waypoint_record_assurance_inner(result_json: str) -> str:
                 "expert_evidence": fanout,
                 "invoice_number": invoice_number,
                 "decision_governance": decision_governance,
-                "confidence_basis": "expert_evidence_mean",
-                "confidence_calibrated": False,
+                **confidence_attribution,
             },
         )
         correlation["waypoint_recommendation_id"] = _id(recommendation)
@@ -801,6 +803,9 @@ def _normalize_result_contract(result: dict[str, Any]) -> dict[str, Any]:
         return result
 
     metadata = recommendation.get("metadata") if isinstance(recommendation.get("metadata"), dict) else {}
+    confidence_calibrated = recommendation.get("confidence_calibrated")
+    if confidence_calibrated is None:
+        confidence_calibrated = metadata.get("confidence_calibrated")
     normalized = {
         "invoice_id": result.get("invoice_id"),
         "invoice_number": result.get("invoice_number"),
@@ -808,6 +813,18 @@ def _normalize_result_contract(result: dict[str, Any]) -> dict[str, Any]:
         "decision": recommendation.get("decision"),
         "reasoning": recommendation.get("reasoning"),
         "confidence": recommendation.get("confidence"),
+        "confidence_basis": recommendation.get("confidence_basis") or metadata.get("confidence_basis"),
+        "confidence_calibrated": confidence_calibrated,
+        "confidence_calibration_id": (
+            recommendation.get("confidence_calibration_id")
+            or metadata.get("confidence_calibration_id")
+            or metadata.get("calibration_artifact_id")
+        ),
+        "confidence_calibration_version": (
+            recommendation.get("confidence_calibration_version")
+            or metadata.get("confidence_calibration_version")
+            or metadata.get("calibration_version")
+        ),
         "money_at_risk": recommendation.get("money_at_risk"),
         "finding_id": result.get("finding_id"),
         "title": result.get("title"),
@@ -855,6 +872,52 @@ def _float(value: Any) -> float:
         return float(value)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _confidence_attribution(result: dict[str, Any]) -> dict[str, Any]:
+    """Preserve confidence provenance without letting model text self-calibrate."""
+    metadata = result.get("metadata") if isinstance(result.get("metadata"), dict) else {}
+    basis = _opt(result.get("confidence_basis")) or _opt(metadata.get("confidence_basis"))
+    if not basis:
+        basis = "model_supplied" if "confidence" in result else "not_provided"
+
+    calibration_id = (
+        _opt(result.get("confidence_calibration_id"))
+        or _opt(metadata.get("confidence_calibration_id"))
+        or _opt(result.get("calibration_artifact_id"))
+        or _opt(metadata.get("calibration_artifact_id"))
+    )
+    calibration_version = (
+        _opt(result.get("confidence_calibration_version"))
+        or _opt(metadata.get("confidence_calibration_version"))
+        or _opt(result.get("calibration_version"))
+        or _opt(metadata.get("calibration_version"))
+    )
+    calibrated_value = result.get("confidence_calibrated")
+    if calibrated_value is None:
+        calibrated_value = metadata.get("confidence_calibrated")
+    calibrated = _bool(calibrated_value)
+    if calibrated and not (calibration_id or calibration_version):
+        logger.warning("ignoring calibrated confidence without calibration artifact provenance")
+        calibrated = False
+
+    attribution: dict[str, Any] = {
+        "confidence_basis": basis,
+        "confidence_calibrated": calibrated,
+    }
+    if calibration_id:
+        attribution["confidence_calibration_id"] = calibration_id
+    if calibration_version:
+        attribution["confidence_calibration_version"] = calibration_version
+    return attribution
+
+
+def _bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y"}
+    return False
 
 
 def _str_list(value: Any) -> list[str]:

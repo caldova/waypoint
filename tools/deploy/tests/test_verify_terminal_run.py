@@ -93,6 +93,34 @@ class VerifyTerminalRunTests(unittest.TestCase):
 
         self.assertFalse(result["passed"])
 
+    def test_partial_run_fails(self) -> None:
+        response = MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = json.dumps(
+            [
+                {
+                    "id": "run-1",
+                    "name": "assurance:INV-1",
+                    "status": "partial",
+                    "foundry_agent_name": "assurance-orchestrator",
+                    "app_insights_operation_id": "operation-1",
+                    "updated_at": "2026-01-02T00:00:00Z",
+                }
+            ]
+        ).encode()
+
+        with patch.object(verify_terminal_run.urllib.request, "urlopen", return_value=response):
+            result = verify_terminal_run._verify(
+                api_base_url="https://api.example",
+                api_key="reader",
+                invoice_id="INV-1",
+                updated_after=datetime(2026, 1, 1, tzinfo=UTC),
+                timeout_seconds=1,
+            )
+
+        self.assertFalse(result["passed"])
+        self.assertIn("status 'partial' is not 'completed'", result["detail"])
+
     def test_old_completed_run_fails(self) -> None:
         response = MagicMock()
         response.__enter__.return_value = response
