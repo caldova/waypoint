@@ -191,6 +191,12 @@ class AgentModelConfigurationTests(unittest.TestCase):
             "ACR ARM-audience authentication must be enabled for hosted agents",
             workflow,
         )
+        self.assertIn(
+            "must support both Hosted Agents and Content Understanding GA",
+            workflow,
+        )
+        self.assertNotIn("'francecentral'", infra)
+        self.assertIn("'eastus2'", infra)
         azure_yaml = (ROOT / "modules/agents/azure.yaml").read_text()
         self.assertNotIn('cpu: "0.25"', azure_yaml)
         self.assertNotIn("memory: 0.5Gi", azure_yaml)

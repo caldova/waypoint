@@ -275,6 +275,14 @@ jobs:
           PLANNED_AGENTS: ${{ needs.plan.outputs.selected_agents }}
         run: |
           set -euo pipefail
+          case "$AZURE_LOCATION" in
+            australiaeast|eastus|eastus2|japaneast|southcentralus|southeastasia|swedencentral|uksouth|westeurope|westus|westus3)
+              ;;
+            *)
+              echo "::error::Foundry region '$AZURE_LOCATION' must support both Hosted Agents and Content Understanding GA."
+              exit 1
+              ;;
+          esac
           missing=()
           for var in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID; do
             if [ -z "${!var:-}" ]; then

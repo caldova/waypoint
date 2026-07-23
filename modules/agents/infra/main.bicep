@@ -14,36 +14,21 @@ param resourceGroupName string = 'rg-${environmentName}'
 @description('Location of the resource group container. This may differ from the Foundry resource location.')
 param resourceGroupLocation string = location
 
-// Restricted locations to match list from
-// https://learn.microsoft.com/en-us/azure/ai-foundry/openai/how-to/responses?tabs=python-key#region-availability
+// This launch requires both Hosted Agents and Content Understanding GA.
+// Keep this list to the documented intersection of their supported regions.
 @minLength(1)
 @description('Primary location for all resources')
 @allowed([
   'australiaeast'
-  'brazilsouth'
-  'canadacentral'
-  'canadaeast'
   'eastus'
   'eastus2'
-  'francecentral'
-  'germanywestcentral'
-  'italynorth'
   'japaneast'
-  'koreacentral'
-  'northcentralus'
-  'norwayeast'
-  'polandcentral'
-  'southafricanorth'
   'southcentralus'
   'southeastasia'
-  'southindia'
-  'spaincentral'
   'swedencentral'
-  'switzerlandnorth'
-  'uaenorth'
   'uksouth'
+  'westeurope'
   'westus'
-  'westus2'
   'westus3'
 ])
 param location string
