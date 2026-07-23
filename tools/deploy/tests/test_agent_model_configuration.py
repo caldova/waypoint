@@ -237,6 +237,8 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("Microsoft.BotService/botServices", deploy_agents)
         self.assertIn("waypoint_agent_hash", deploy_agents)
         self.assertIn("waypoint_agent_version", deploy_agents)
+        self.assertIn('state_resource_id="$(azd env get-value AZURE_AI_ACCOUNT_ID)"', deploy_agents)
+        self.assertIn('tag_prefix="waypoint_${AGENT_NAME//-/_}"', deploy_agents)
         self.assertIn("agent_exists=true", deploy_agents)
         self.assertIn("--max-time 30", deploy_agents)
         self.assertIn(

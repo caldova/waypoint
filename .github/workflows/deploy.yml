@@ -1200,17 +1200,25 @@ jobs:
             exit 1
           fi
           state_resource_id="${bot_ids[0]:-}"
+          hash_tag="waypoint_agent_hash"
+          version_tag="waypoint_agent_version"
+          if [ -z "$state_resource_id" ]; then
+            state_resource_id="$(azd env get-value AZURE_AI_ACCOUNT_ID)"
+            tag_prefix="waypoint_${AGENT_NAME//-/_}"
+            hash_tag="${tag_prefix}_hash"
+            version_tag="${tag_prefix}_version"
+          fi
           recorded_hash=""
           recorded_version=""
           if [ -n "$state_resource_id" ]; then
             recorded_hash="$(az tag list \
               --resource-id "$state_resource_id" \
-              --query properties.tags.waypoint_agent_hash \
-              -o tsv 2>/dev/null || true)"
+              --output json 2>/dev/null \
+              | jq -r --arg key "$hash_tag" '.properties.tags[$key] // empty' || true)"
             recorded_version="$(az tag list \
               --resource-id "$state_resource_id" \
-              --query properties.tags.waypoint_agent_version \
-              -o tsv 2>/dev/null || true)"
+              --output json 2>/dev/null \
+              | jq -r --arg key "$version_tag" '.properties.tags[$key] // empty' || true)"
           fi
 
           needs_deploy=true
@@ -1311,15 +1319,25 @@ jobs:
               -o tsv
           )
           if [ "${#bot_ids[@]}" -ne 1 ]; then
-            echo "::error::Expected one Bot Service resource for ${AGENT_NAME}; found ${#bot_ids[@]}."
-            exit 1
+            if [ "${#bot_ids[@]}" -gt 1 ]; then
+              echo "::error::Multiple Bot Service resources found for ${AGENT_NAME}; reconcile drift before recording state."
+              exit 1
+            fi
+            state_resource_id="$(azd env get-value AZURE_AI_ACCOUNT_ID)"
+            tag_prefix="waypoint_${AGENT_NAME//-/_}"
+            hash_tag="${tag_prefix}_hash"
+            version_tag="${tag_prefix}_version"
+          else
+            state_resource_id="${bot_ids[0]}"
+            hash_tag="waypoint_agent_hash"
+            version_tag="waypoint_agent_version"
           fi
           az tag update \
-            --resource-id "${bot_ids[0]}" \
+            --resource-id "$state_resource_id" \
             --operation Merge \
             --tags \
-              "waypoint_agent_hash=${DESIRED_HASH}" \
-              "waypoint_agent_version=${live_version}" \
+              "${hash_tag}=${DESIRED_HASH}" \
+              "${version_tag}=${live_version}" \
             --output none
 
       - name: Deployment summary
