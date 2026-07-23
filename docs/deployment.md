@@ -11,6 +11,10 @@ unchanged rerun have both been validated. The rerun reused generated secrets,
 the MSAL application, data services, and Foundry infrastructure, and skipped
 hosted-agent versions whose deploy inputs were unchanged.
 
+For symptoms, root causes, recovery commands, and remaining gaps observed
+during that validation, see
+[Deployment findings and troubleshooting](deployment-troubleshooting.md).
+
 ## Default deployment
 
 | Component | Default | Notes |
@@ -211,3 +215,9 @@ python tools/deploy/scripts/verify_deployment.py \
 - Foundry model quota must be available in the selected region.
 - FoundryIQ requires the provisioned Azure AI Search knowledge-base MCP
   connection.
+
+## Troubleshooting
+
+See [Deployment findings and troubleshooting](deployment-troubleshooting.md)
+for the validated regional, capacity, hosted-agent, idempotency, teardown, and
+runtime evidence findings.

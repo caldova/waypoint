@@ -12,16 +12,16 @@ workflow assets used by Waypoint's monorepo deployment.
 ## Current deployment shape
 
 The validated default deployment provisions the Waypoint app, corpus seed,
-Fabric/OneLake storage, Foundry project and knowledge base, and four hosted
-agents:
+Foundry project and knowledge base, and four hosted agents:
 
 - `invoice-analyst`
 - `assurance-orchestrator`
 - `contract-policy-expert`
 - `waypoint-recorder`
 
-FoundryIQ is the only evidence lane enabled by default. WorkIQ, WebIQ, and
-FabricIQ are optional and add their expert only when selected.
+FoundryIQ is the only launch evidence lane. WorkIQ, WebIQ, FabricIQ, and
+Fabric/OneLake modules remain in the repository for future development but are
+not inputs, stages, resources, or agents in the one-click launch deployment.
 
 `waypoint-recorder` is the sole agent writer. The app's assurance operation and
 deployment acceptance both run one invoice through `assurance-orchestrator`,
@@ -67,6 +67,10 @@ contract, safety boundaries, and parity-environment commands.
 
 Deployment confidence comes from the root workflow's acceptance job and uploaded
 evidence artifact.
+
+See [Deployment findings and troubleshooting](../../docs/deployment-troubleshooting.md)
+for the failures observed during the validated E2E, safe recovery procedures,
+and the remaining KB-retrieval fidelity gap.
 
 ## Rerun behavior
 

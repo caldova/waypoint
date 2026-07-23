@@ -247,6 +247,7 @@ checks without requiring the presenter canvas.
 | [Project status](docs/status.md) | Validated paths, current caveats, and work still in progress. |
 | [Getting started](docs/getting-started.md) | Local developer prerequisites and validation commands. |
 | [Azure deployment](docs/deployment.md) | Deployment variables, FoundryIQ-only stages, parallel environments, and troubleshooting. |
+| [Deployment troubleshooting](docs/deployment-troubleshooting.md) | Observed E2E failures, root causes, recovery steps, and remaining limitations. |
 | [Foundry demo](docs/foundry-demo.md) | Live Pharmashield presenter workflow and fidelity contract. |
 | [Architecture](docs/architecture.md) | Application, corpus, agents, evaluations, optimization, and deployment layers. |
 | [Agent quality operations](docs/quality-operations.md) | Full batch assurance and the five-step run, inspect, measure, improve, and release workflow. |
