@@ -322,6 +322,87 @@ jobs:
             echo "agent_matrix=$agents"
           } >> "$GITHUB_OUTPUT"
 
+  region-preflight:
+    name: Preflight region capacity
+    runs-on: ubuntu-latest
+    needs: [plan, validate]
+    outputs:
+      selected_region: ${{ steps.capacity.outputs.selected_region }}
+    steps:
+      - uses: actions/checkout@v7.0.0
+
+      - name: Azure login
+        uses: azure/login@v3.0.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # The Waypoint stack co-locates Azure AI Search (the contracts-kb knowledge
+      # base) with the Foundry account and its gpt-5.5 deployment. When the chosen
+      # Foundry region lacks Azure AI Search capacity, the deploy used to fall back
+      # to provisioning Search in the app region, producing a cross-region
+      # Search -> gpt-5.5 topology in which agentic KB retrieval fails and the
+      # contract-policy-expert silently drops to ungrounded local evidence
+      # (uniform 0.85 confidence). This gate resolves capacity *before* any
+      # region-bound provisioning and fails fast with the recommended region.
+      - name: Resolve and validate region capacity
+        id: capacity
+        env:
+          SUB: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          REQUESTED_REGION: ${{ env.AZURE_LOCATION }}
+          PLAN_FOUNDRY: ${{ needs.plan.outputs.foundry_infrastructure }}
+          PLAN_KB: ${{ needs.plan.outputs.contracts_kb }}
+        run: |
+          set -euo pipefail
+          echo "Requested Foundry region: $REQUESTED_REGION"
+          # The Search capacity probe only matters when Foundry infrastructure or
+          # the contracts KB is (re)provisioned. On selective app/eval reruns skip
+          # the probe so this gate stays a cheap no-op and never breaks the needs
+          # chain for downstream provisioning jobs.
+          if [ "$PLAN_FOUNDRY" != "true" ] && [ "$PLAN_KB" != "true" ]; then
+            echo "Foundry infrastructure and contracts KB are unchanged for this run; skipping Search capacity probe."
+            {
+              echo "### Region capacity preflight"
+              echo "Skipped Search capacity probe (Foundry/KB unchanged). Using region \`$REQUESTED_REGION\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "selected_region=$REQUESTED_REGION" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          report="$(
+            python3 tools/deploy/scripts/region_capacity_preflight.py \
+              --subscription-id "$SUB" \
+              --prefer "$REQUESTED_REGION" \
+              --json 2>/tmp/capacity-human.log || true
+          )"
+          cat /tmp/capacity-human.log || true
+          printf '%s' "$report" > /tmp/capacity-report.json
+          selected="$(
+            python3 -c "import json;print((json.load(open('/tmp/capacity-report.json')) or {}).get('selected') or '')" \
+              2>/dev/null || true
+          )"
+          {
+            echo "### Region capacity preflight"
+            echo ""
+            echo '```'
+            cat /tmp/capacity-human.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$selected" ]; then
+            echo "::error::No allowed Foundry region currently has capacity for the co-located Waypoint stack (Azure AI Search + gpt-5.5 + text-embedding-3-large). Search capacity or model quota is exhausted across candidate regions. Retry later or raise Azure quota, then re-dispatch."
+            exit 1
+          fi
+          if [ "$selected" != "$REQUESTED_REGION" ]; then
+            echo "::error::Region '$REQUESTED_REGION' cannot host the co-located Waypoint stack (Azure AI Search capacity or model quota is unavailable there). Recommended region with full capacity: '$selected'. Re-dispatch with azure_location=$selected and app_location=$selected so Azure AI Search, Foundry, and gpt-5.5 stay co-located and KB retrieval works."
+            {
+              echo ""
+              echo "**Requested region \`$REQUESTED_REGION\` lacks capacity. Recommended: \`$selected\` (set both \`azure_location\` and \`app_location\`).**"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "Region '$REQUESTED_REGION' has full co-located capacity for Search + Foundry + gpt-5.5."
+          echo "selected_region=$selected" >> "$GITHUB_OUTPUT"
+
   keyvault:
     name: Ensure deployment Key Vault
     runs-on: ubuntu-latest
@@ -452,9 +533,10 @@ jobs:
       inputs.deploy_app &&
       needs.plan.outputs.app == 'true' &&
       needs.validate.result == 'success' &&
+      needs['region-preflight'].result == 'success' &&
       needs.keyvault.result == 'success' &&
       needs.msal.result == 'success'
-    needs: [plan, validate, keyvault, msal]
+    needs: [plan, validate, region-preflight, keyvault, msal]
     outputs:
       api_fqdn: ${{ steps.outputs.outputs.api_fqdn }}
       web_fqdn: ${{ steps.outputs.outputs.web_fqdn }}
@@ -606,11 +688,12 @@ jobs:
        needs.plan.outputs.wiring == 'true' ||
        needs.plan.outputs.acceptance == 'true') &&
       needs.validate.result == 'success' &&
+      needs['region-preflight'].result == 'success' &&
       needs.keyvault.result == 'success' &&
       needs.msal.result == 'success' &&
       (needs['deploy-app'].result == 'success' ||
        (needs.plan.outputs.app != 'true' && needs['deploy-app'].result == 'skipped'))
-    needs: [plan, validate, keyvault, msal, deploy-app]
+    needs: [plan, validate, region-preflight, keyvault, msal, deploy-app]
     outputs:
       project_endpoint: ${{ steps.endpoint.outputs.endpoint }}
       ai_account_id: ${{ steps.endpoint.outputs.ai_account_id }}

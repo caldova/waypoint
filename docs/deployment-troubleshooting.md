@@ -83,17 +83,69 @@ Understanding even though other Foundry resources were available.
 Use a region accepted by workflow preflight. Do not bypass the allowlist to get
 past validation; it exists to prevent a later partial deployment.
 
-### Search capacity exhaustion
+### Search capacity exhaustion and cross-region KB retrieval failure
 
 East US 2 had the required Foundry capabilities but could not allocate Azure AI
-Search capacity. Search was placed in North Europe while Foundry, models, ACR,
-storage, monitoring, and hosted-agent compute remained together in East US 2.
+Search capacity. When that happened the deploy fell back to provisioning Search
+in the app region (North Europe) while Foundry, models, ACR, storage,
+monitoring, and hosted-agent compute stayed together in East US 2.
 
-This split did not cause hosted-agent activation failures. Search is consumed
-through the knowledge-base connection at runtime and is not involved in pulling
-or activating hosted-agent images.
+**This cross-region split is the root cause of "Fallback retrieval" and the
+uniform 0.85 confidence.** It does not break hosted-agent activation (image pull
+is unaffected), but it does break the `contracts-kb` knowledge base. The KB's
+agentic retrieval performs an internal chat completion against the `gpt-5.5`
+deployment. When Search and `gpt-5.5` are in different regions that call fails:
 
-If Search falls back:
+- consistently on Search API `2026-05-01-preview` with
+  `Function tools with reasoning_effort are not supported for this model in
+  /v1/chat/completions. Please use /v1/responses instead`; and
+- intermittently on `2025-11-01-preview` with
+  `reasoning_effort does not support 'minimal'`.
+
+When `knowledge_base_retrieve` fails, `contract-policy-expert` legitimately
+falls back to its local `gather_contract_policy_evidence` tool, whose evidence
+carries a hard-coded 0.85 score. In Sweden Central the original larger
+deployment was single-region (Search and `gpt-5.5` co-located), so agentic
+retrieval succeeded and confidence was grounded. The wiring itself is correct
+and identical to the pre-consolidation `forge` repo — the failure is topology,
+not configuration or model choice. **Do not change the model to work around
+this; co-locate Search + Foundry + `gpt-5.5` in one full-capacity region.**
+
+### Resolve region and capacity before provisioning (capacity preflight)
+
+Because Search exposes no quota API, the only reliable capacity signal is a real
+provisioning probe. `tools/deploy/scripts/region_capacity_preflight.py` scores
+every allowed Foundry region cheapest-first — capability allow-list, then
+`gpt-5.5` / `text-embedding-3-large` availability, then model-quota headroom (all
+read-only) — and only then probes Azure AI Search capacity (a non-destructive
+ARM PUT/DELETE of a `basic` service) in preference order until one region can
+host the whole co-located stack. It also soft-checks Postgres.
+
+The `deploy.yml` `region-preflight` job runs this before any region-bound
+provisioning (it gates `deploy-app` and `provision-agents`). When Foundry
+infrastructure or the contracts KB is being provisioned it validates the
+requested region and **fails fast** if that region lacks Search capacity or model
+quota, naming the recommended region:
+
+```
+Region 'eastus2' cannot host the co-located Waypoint stack ... Recommended
+region with full capacity: 'swedencentral'. Re-dispatch with
+azure_location=swedencentral and app_location=swedencentral ...
+```
+
+Run it directly to choose a region up front (e.g. for a fleet deploy):
+
+```bash
+python3 tools/deploy/scripts/region_capacity_preflight.py \
+  --subscription-id "$SUB" --prefer swedencentral --json
+```
+
+Set both `azure_location` and `app_location` to the selected region so Search,
+Foundry, and `gpt-5.5` stay co-located. As of this writing East US 2 is the only
+allowed Foundry region without Azure AI Search `basic` capacity; Sweden Central
+has full headroom for `gpt-5.5`, embeddings, Search, and Postgres.
+
+If Search still falls back despite the preflight:
 
 - keep Foundry and hosted-agent compute in the selected Foundry region;
 - verify the existing Search resource location before a rerun;
@@ -254,6 +306,13 @@ fallback assigned `0.85` to each located contract or policy reference. Because
 FoundryIQ was the only enabled evidence lane, averaging those evidence scores
 also produced `0.85` for every run.
 
+The fallback itself was forced by the cross-region Search/`gpt-5.5` split
+described under [Search capacity exhaustion](#search-capacity-exhaustion-and-cross-region-kb-retrieval-failure):
+when KB retrieval fails, the expert falls back and every claim carries the
+constant `0.85`. A co-located deploy (via the capacity preflight) restores real
+`knowledge_base_retrieve` grounding, after which evidence scores vary and this
+symptom disappears.
+
 That number is not calibrated decision accuracy. New recorder metadata marks
 its basis as `expert_evidence_mean` and `confidence_calibrated: false`. The API
 does not expose an uncalibrated numeric score as decision confidence, and the UI
@@ -306,6 +365,12 @@ It does **not** yet fail when the contract expert falls back instead of using
 the KB MCP connection. Treat this as a fidelity gap, not a deployment outage.
 Before claiming clause-level FoundryIQ grounding in the app path, inspect the
 trace for `knowledge_base_retrieve` and returned clause citations.
+
+The primary cause of the fallback was the cross-region Search/`gpt-5.5` split.
+Deploying with the `region-preflight` gate (co-located Search + Foundry +
+`gpt-5.5` in one full-capacity region such as Sweden Central) is the structural
+fix; a fail-on-fallback acceptance assertion (Phase 6.1) will then keep the
+pipeline from silently regressing.
 
 ### Teardown can outlive the default timeout
 
