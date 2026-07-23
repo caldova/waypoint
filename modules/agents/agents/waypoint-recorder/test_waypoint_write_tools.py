@@ -17,9 +17,9 @@ from waypoint_write_tools import (
     _derive_decision,
     _govern_decision,
     _lane_is_grounded,
+    _normalize_fanout,
     _normalize_result_contract,
     _recover_invoice_ref,
-    _synthesize_fanout,
     _waypoint_fail_run_inner,
     _waypoint_open_run_inner,
     _waypoint_record_assurance_inner,
@@ -501,28 +501,40 @@ def test_final_write_reuses_bundle_operation_id_for_shared_keys() -> None:
     assert calls["open_run"]["idempotency_key"] == "assurance:INV-2026-08034:op-xyz"
 
 
-def test_synthesized_fabriciq_lane_is_explicitly_stubbed() -> None:
-    fanout = _synthesize_fanout(
-        {
-            "findings": [
-                {
-                    "id": "finding-inv-2026-08034",
-                    "category": "surge_capacity",
-                    "summary": "Unauthorized surge capacity premium.",
-                    "overpayment_amount": "25000.00",
-                    "contract_document_ids": ["contract-001"],
-                    "policy_ids": ["policy-001"],
-                }
-            ],
-            "evidence": [],
-        }
+def test_missing_fanout_does_not_synthesize_expert_participation() -> None:
+    grounding = {
+        "findings": [{"contract_document_ids": ["contract-001"], "policy_ids": ["policy-001"]}],
+        "evidence": [{"id": "email-001", "evidence_type": "email"}],
+    }
+
+    assert _normalize_fanout(None, grounding) == []
+
+
+def test_normalize_fanout_rejects_pipeline_agent_masquerading_as_expert() -> None:
+    fanout = _normalize_fanout(
+        [
+            {
+                "agent": "contract-policy-expert",
+                "plane": "foundryiq",
+                "summary": "Contract clause governs the charge.",
+                "evidence": [{"claim": "Clause 4.2 applies", "source_ref": "contract-001"}],
+            },
+            {
+                "agent": "assurance-orchestrator",
+                "plane": "workiq",
+                "summary": "Deterministic line-math checks.",
+                "evidence": [
+                    {
+                        "claim": "Line math matched.",
+                        "source_ref": "deterministic_checks:INV-2026-08411:line_math",
+                    }
+                ],
+            },
+        ],
+        {},
     )
 
-    lanes = {lane["plane"]: lane for lane in fanout}
-    assert lanes["fabriciq"]["agent"] == "operations-data-expert"
-    assert "temporarily stubbed" in lanes["fabriciq"]["summary"]
-    assert lanes["fabriciq"]["evidence"] == []
-    assert lanes["foundryiq"]["evidence"]
+    assert [lane["agent"] for lane in fanout] == ["contract-policy-expert"]
 
 
 # ── deterministic policy-check (decision governance) ─────────────────────────
@@ -757,7 +769,8 @@ def test_experts_consulted_excludes_ungrounded_web_lane() -> None:
     test_open_assurance_run_falls_back_to_env_operation_id()
     test_enroll_batch_opens_each_invoice_pending()
     test_final_write_reuses_bundle_operation_id_for_shared_keys()
-    test_synthesized_fabriciq_lane_is_explicitly_stubbed()
+    test_missing_fanout_does_not_synthesize_expert_participation()
+    test_normalize_fanout_rejects_pipeline_agent_masquerading_as_expert()
     test_derive_decision_high_severity_escalates()
     test_derive_decision_overpayment_recovers()
     test_derive_decision_review_status_holds_over_recover()

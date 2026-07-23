@@ -236,6 +236,11 @@ function isAnalystLane(lane: FanoutLane): boolean {
   });
 }
 
+function isPipelineControlLane(lane: FanoutLane): boolean {
+  const agent = (lane.agent ?? "").trim().toLowerCase().replace(/[\s_]+/g, "-");
+  return agent === "assurance-orchestrator" || agent === "waypoint-recorder";
+}
+
 function citedEvidence(lane: FanoutLane): FanoutEvidence[] {
   return Array.isArray(lane.evidence)
     ? lane.evidence.filter(
@@ -245,7 +250,7 @@ function citedEvidence(lane: FanoutLane): FanoutEvidence[] {
 }
 
 function isEvidenceLane(lane: FanoutLane): boolean {
-  return !isAnalystLane(lane) && citedEvidence(lane).length > 0;
+  return !isAnalystLane(lane) && !isPipelineControlLane(lane) && citedEvidence(lane).length > 0;
 }
 
 function evidenceFanout(metadata: RunMetadata): FanoutLane[] {

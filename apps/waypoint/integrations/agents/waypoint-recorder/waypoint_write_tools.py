@@ -35,7 +35,12 @@ from telemetry import rft_reference_attributes, operation_id, set_span_attribute
 
 logger = logging.getLogger("waypoint_recorder.waypoint_write_tools")
 
-_PLANES = ("workiq", "webiq", "foundryiq", "fabriciq")
+_EXPERT_AGENT_BY_PLANE = {
+    "workiq": "collaboration-evidence-expert",
+    "webiq": "market-evidence-expert",
+    "foundryiq": "contract-policy-expert",
+    "fabriciq": "operations-data-expert",
+}
 
 _RESULT_SHAPE = """{
   "invoice_id": "INV-2026-08034",
@@ -183,7 +188,7 @@ def _waypoint_record_assurance_inner(result_json: str) -> str:
     experts = [
         str(lane.get("agent") or lane.get("plane") or "")
         for lane in fanout
-        if lane and _lane_is_grounded(lane)
+        if lane and _lane_is_expert(lane) and _lane_is_grounded(lane)
     ]
     experts = [name for name in experts if name]
 
@@ -688,19 +693,35 @@ def _lane_is_grounded(lane: dict[str, Any]) -> bool:
     )
 
 
+def _lane_is_expert(lane: dict[str, Any]) -> bool:
+    plane = str(lane.get("plane") or "").strip().lower()
+    agent = str(lane.get("agent") or "").strip().lower()
+    return _EXPERT_AGENT_BY_PLANE.get(plane) == agent
+
+
 def _normalize_fanout(raw: Any, grounding: dict[str, Any]) -> list[dict[str, Any]]:
-    """Use the model-provided fan-out when present; otherwise synthesize one from the
-    grounded corpus so the run always carries a per-plane evidence trail."""
+    """Keep only canonical expert lanes from the orchestrator's runtime fan-out.
+
+    Grounded invoice context is not proof that an optional expert ran, so missing or
+    malformed fan-out must not be synthesized into expert participation.
+    """
+    del grounding
     lanes = _as_list(raw)
     cleaned: list[dict[str, Any]] = []
     for lane in lanes:
         if not isinstance(lane, dict):
             continue
+        plane = str(lane.get("plane") or "").strip().lower()
+        agent = str(lane.get("agent") or "").strip().lower()
+        expected_agent = _EXPERT_AGENT_BY_PLANE.get(plane)
+        if expected_agent != agent:
+            logger.warning("discarding non-expert fan-out lane agent=%r plane=%r", agent, plane)
+            continue
         evidence = [_clean_claim(c) for c in _as_list(lane.get("evidence")) if isinstance(c, dict)]
         cleaned.append(
             {
-                "agent": str(lane.get("agent") or lane.get("plane") or "").strip(),
-                "plane": str(lane.get("plane") or "").strip(),
+                "agent": expected_agent,
+                "plane": plane,
                 "summary": str(lane.get("summary") or "").strip(),
                 "output_quality": str(lane.get("output_quality") or "").strip(),
                 "unsupported": _str_list(lane.get("unsupported")),
@@ -708,68 +729,7 @@ def _normalize_fanout(raw: Any, grounding: dict[str, Any]) -> list[dict[str, Any
             }
         )
     cleaned = [lane for lane in cleaned if lane["evidence"] or lane["summary"]]
-    if cleaned:
-        return cleaned
-    return _synthesize_fanout(grounding)
-
-
-def _synthesize_fanout(grounding: dict[str, Any]) -> list[dict[str, Any]]:
-    findings = grounding.get("findings") or []
-    evidence = grounding.get("evidence") or []
-    foundry_claims = []
-    for finding in findings:
-        overpay = _float(finding.get("overpayment_amount"))
-        supports = "recover" if overpay > 0 else "review"
-        for doc_id in _str_list(finding.get("contract_document_ids")):
-            foundry_claims.append(
-                {
-                    "claim": f"Governing contract document {doc_id} applies to this charge.",
-                    "supports": supports,
-                    "source_ref": doc_id,
-                    "classification": "confidential",
-                    "confidence": 0.8,
-                }
-            )
-        for policy_id in _str_list(finding.get("policy_ids")):
-            foundry_claims.append(
-                {
-                    "claim": f"Policy {policy_id} governs billability for this finding.",
-                    "supports": supports,
-                    "source_ref": policy_id,
-                    "classification": "standard",
-                    "confidence": 0.8,
-                }
-            )
-    workiq_claims = [
-        {
-            "claim": str(ev.get("excerpt") or ev.get("title") or "Supporting evidence reference"),
-            "supports": "review",
-            "source_ref": str(ev.get("uri") or ev.get("id") or ""),
-            "classification": "standard",
-            "confidence": 0.6,
-        }
-        for ev in evidence
-    ]
-    lanes = {
-        "fabriciq": ("operations-data-expert", "FabricIQ is temporarily stubbed; no Fabric, OneLake, warehouse, or semantic-model source was queried.", []),
-        "foundryiq": ("contract-policy-expert", "Contract clauses and governing policies.", foundry_claims),
-        "workiq": ("collaboration-evidence-expert", "Workplace correspondence and evidence references.", workiq_claims),
-        "webiq": ("market-evidence-expert", "External corroboration; no contradicting public signal found.", []),
-    }
-    out: list[dict[str, Any]] = []
-    for plane in _PLANES:
-        agent, plane_summary, claims = lanes[plane]
-        out.append(
-            {
-                "agent": agent,
-                "plane": plane,
-                "summary": plane_summary,
-                "output_quality": "unknown",
-                "unsupported": [],
-                "evidence": claims,
-            }
-        )
-    return out
+    return cleaned
 
 
 def _clean_claim(claim: dict[str, Any]) -> dict[str, Any]:
