@@ -157,7 +157,8 @@ fail-fast.
 11. **acceptance** probes the app, inventories live hosted agents, selects one
     invoice from the deployed work queue, invokes the hosted orchestrator,
     verifies that the recorder finalized a correlated terminal run, and checks
-    the trace for real `knowledge_base_retrieve` usage with no fallback.
+    trace telemetry or recorder-preserved runtime evidence for real KB retrieval
+    citations with no fallback.
 
 Deployment acceptance deliberately exercises one invoice. The deployed app also
 supports a batch envelope for up to 25 unique invoices with four concurrent
@@ -217,8 +218,10 @@ external Azure/Foundry platform state, not on configuration. See
 `tools/deploy/deployment.manifest.json` declares the canonical source roots,
 FoundryIQ launch plane, expected fleet, and HTTP probes. The workflow runs
 those probes, inventories hosted agents, drives one assurance run, verifies
-terminal recorder finalization, checks the KB retrieval trace, and uploads a
-sanitized `deployment-evidence-<sha>` artifact.
+terminal recorder finalization, checks the KB retrieval gate, and uploads a
+sanitized `deployment-evidence-<sha>` artifact. The KB gate accepts either
+customer-visible trace telemetry or recorder-preserved retrieval `ref_id`
+citations, and fails closed on fallback or KB error markers.
 
 To run the HTTP probes independently:
 

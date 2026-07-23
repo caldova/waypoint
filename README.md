@@ -136,15 +136,15 @@ The launch package is FoundryIQ-only. Fabric/OneLake, WorkIQ, WebIQ, and
 FabricIQ modules remain in the repository for future development but are not
 inputs, stages, resources, or agents in the one-click deployment.
 
-The full default deployment has been validated structurally end to end in
-**UK South**, including an unchanged rerun that reused stable resources and
-skipped unchanged hosted-agent versions. The branch now also mirrors the prior
-Forge/Waypoint KB model split: hosted agents use `gpt-5.5`, while
+The full default deployment has been validated end to end in **UK South**,
+including a current-head run (`30034540034`) that passed acceptance with
+grounded KB runtime evidence and no fallback. An earlier unchanged rerun reused
+stable resources and skipped unchanged hosted-agent versions. The branch mirrors
+the prior Forge/Waypoint KB model split: hosted agents use `gpt-5.5`, while
 `contracts-kb` answer synthesis uses co-located `gpt-5-mini`, and acceptance
-fails if the run falls back instead of calling `knowledge_base_retrieve`. Region
-selection still matters because Azure AI Search, Foundry, both model
-deployments, and hosted-agent provisioning must all be healthy in the selected
-region — see
+fails if the run falls back. Region selection still matters because Azure AI
+Search, Foundry, both model deployments, and hosted-agent provisioning must all
+be healthy in the selected region — see
 [platform and environmental blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
 before choosing a region. In the app, a reviewer can run assurance for one
 invoice or select up to 25 visible invoices and start a batch. The batch starts

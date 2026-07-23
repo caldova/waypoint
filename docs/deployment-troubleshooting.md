@@ -30,13 +30,15 @@ grounding topology.
 | Runtime evidence-presentation correction | `29979862681` |
 | UK South single-region one-click structural deployment | `29998293196` |
 | UK South strict unchanged rerun | `30000311095` |
+| UK South KB-grounded current-head one-click deployment | `30034540034` |
 
-The current single-region structural proof is `waypoint-e2e-uks-07230306`,
-with app resource group `rg-waypoint-e2e-uks-07230306` and state resource group
+The current single-region proof is `waypoint-e2e-uks-07230306`, with app
+resource group `rg-waypoint-e2e-uks-07230306` and state resource group
 `rg-waypoint-e2e-uks-07230306-state`. It proved one-click deployment and
-unchanged idempotency with Search, Foundry, app, and agents all in UK South.
-Trace review then exposed the remaining KB answer-synthesis model mismatch
-documented below.
+unchanged idempotency with Search, Foundry, app, and agents all in UK South. Run
+`30034540034` then proved the current head after the KB model split: all deploy
+stages passed, the terminal run completed, and acceptance found recorder-
+preserved retrieval citations with no fallback markers.
 
 ## Start with the failing stage
 
@@ -79,6 +81,7 @@ a monitoring transport error into a deployment failure.
 | Teardown timed out while the managed environment was deleting | Container Apps remained `ScheduledForDelete` longer than the default 300-second wait | Teardown stops safely, preserves state, and can be resumed with a longer poll window |
 | Collaboration Evidence Expert appeared in the app although WorkIQ was disabled | A historical recorder payload mislabeled orchestrator checks as a WorkIQ lane | Recorder rejects noncanonical agent/plane pairs; UI excludes orchestrator and recorder control lanes |
 | Every invoice displayed 85% confidence | The FoundryIQ fallback assigned `0.85` to document/policy retrieval and the UI presented that evidence score as decision confidence | Scores retain provenance; the UI displays numeric uncalibrated values only as **evidence score**, not calibrated confidence |
+| KB retrieval trace rows were absent even when runtime evidence was grounded | Hosted-agent/tool-call telemetry was not present in the customer Log Analytics query for the terminal operation | Acceptance accepts either customer-visible trace telemetry or recorder-preserved retrieval `ref_id` citations, and still fails closed on fallback or KB error markers |
 
 ## Regional placement
 
@@ -122,7 +125,10 @@ carries a hard-coded 0.85 score. The pre-consolidation live `forge`
 implementation used `gpt-5-mini` for `contracts-kb` answer synthesis while
 keeping hosted agents on `gpt-5.5`. The consolidated deploy now mirrors that
 shape: hosted agents use `gpt-5.5`; `contracts-kb` uses a separate
-`gpt-5-mini` deployment in the same region as Search and Foundry.
+`gpt-5-mini` deployment in the same region as Search and Foundry. Current-head
+UK South run `30034540034` proved that shape end to end: acceptance completed
+against run `run-14af8323ab954397a14f8da4e20bf189`, whose recorded evidence
+contains retrieved `ref_id` citations and no fallback markers.
 
 ### Resolve region and capacity before provisioning (capacity preflight)
 
@@ -497,21 +503,26 @@ A numeric value can be displayed as an evidence score; it becomes decision
 confidence only after a reviewed calibration process sets
 `confidence_calibrated: true` with artifact/version provenance.
 
-Running assurance again does not calibrate confidence. Assurance is an
-inference operation; calibration is a separate quality operation that compares
-scores with reviewed outcomes over a representative dataset and versions the
-resulting calibration artifact. A rerun using the same fallback evidence path
-will correctly remain uncalibrated.
+Running assurance again does not calibrate confidence. Assurance is an inference
+operation; calibration is a separate quality operation that compares scores with
+reviewed outcomes over a representative dataset and versions the resulting
+calibration artifact. A rerun with grounded KB evidence should remove fallback
+summaries and may produce non-uniform raw evidence scores, but it still
+correctly remains `confidence_calibrated: false` until an approved calibrator
+produces the number.
 
-The post-fix 18-invoice batch confirmed this contract:
+The earlier 18-invoice fallback batch confirmed the labeling contract:
 
 - all 18 runs recorded `confidence_basis: expert_evidence_mean`;
 - all 18 recorded `confidence_calibrated: false`;
 - all 18 retained the raw `0.85` evidence score for audit; and
 - 16 run summaries explicitly identified fallback retrieval.
 
-Before displaying a numeric value again, the platform needs a reviewed
-calibration process that:
+The current UK South green run confirms the same contract after KB grounding:
+the score is no longer the fallback constant (`0.84` for
+`run-14af8323ab954397a14f8da4e20bf189`), but it remains an uncalibrated
+evidence score. Before labeling any numeric value as calibrated decision
+confidence, the platform needs a reviewed calibration process that:
 
 1. defines what the score predicts;
 2. evaluates it against human-reviewed outcomes;
@@ -560,16 +571,16 @@ Acceptance now proves:
 - terminal orchestrator-to-recorder lifecycle;
 - governed evidence persistence; and
 - operation correlation; and
-- a Log Analytics trace for the terminal run that contains
-  `knowledge_base_retrieve`, contains no fallback tool invocation, contains no
-  KB retrieval error marker, and whose recorded run metadata contains no
-  fallback summary.
+- real KB retrieval evidence from either customer-visible trace telemetry
+  (`knowledge_base_retrieve`) or recorder-preserved runtime evidence citations
+  (`ref_id` source references), with no fallback tool invocation, no fallback
+  summary, and no KB retrieval error marker in the trace or recorded metadata.
 
 The primary causes of observed fallback were the cross-region Search/model split
 and then the consolidated KB binding to `gpt-5.5` instead of the Forge-compatible
 KB chat deployment. The branch now provisions the KB chat model separately and
-fails closed on fallback; a fresh one-click rerun is required to turn this into a
-green acceptance artifact.
+fails closed on fallback. Current-head run `30034540034` is the green acceptance
+artifact for that behavior.
 
 ### Teardown can outlive the default timeout
 
@@ -596,8 +607,9 @@ A deployment is complete only when all of the following are true:
 - A governed assurance run reaches `completed` through `waypoint-recorder`
   (`partial` is no longer accepted by the terminal-run verifier).
 - The run has an App Insights operation ID.
-- The KB retrieval trace gate passes: `knowledge_base_retrieve` is present and
-  fallback retrieval is absent.
+- The KB retrieval gate passes: trace telemetry or recorder-preserved runtime
+  evidence contains retrieval `ref_id` citations, and fallback retrieval is
+  absent.
 - Optional WorkIQ, WebIQ, and FabricIQ experts are absent from launch
   participation.
 - Uncalibrated evidence scores are labeled as evidence scores, not calibrated

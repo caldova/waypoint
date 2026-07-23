@@ -8,8 +8,9 @@ synthetic demo data.
 
 - A full deployment completed successfully end to end in **UK South** with four
   active hosted agents, one analyst Bot Service, a populated contracts KB, and a
-  terminal correlated assurance run. An unchanged rerun preserved stable
-  resources and skipped unchanged agent versions. See the
+  terminal correlated assurance run. Current-head run `30034540034` also proved
+  the KB model split and grounded runtime evidence gate; an earlier unchanged
+  rerun preserved stable resources and skipped unchanged agent versions. See the
   [end-to-end readiness assessment](e2e-readiness-assessment.md).
 - An unchanged rerun completed successfully while reusing stable resources and
   skipping unchanged hosted-agent versions.
@@ -21,8 +22,9 @@ synthetic demo data.
   resources.
 - Deployment acceptance selects a live invoice from Waypoint, invokes the hosted
   orchestrator, and verifies a newly finalized, correlated run written through
-  `waypoint-recorder`. It now also fails closed when the run trace shows
-  FoundryIQ fallback instead of `knowledge_base_retrieve`.
+  `waypoint-recorder`. It now also fails closed when trace telemetry or recorded
+  runtime evidence lacks KB retrieval citations, or when the run shows FoundryIQ
+  fallback.
 - The Waypoint invoice queue exposes single-invoice assurance and a batch
   envelope for up to 25 unique invoices with four concurrent starts.
 - Live batch validation proved independent accepted/not-found outcomes, active
@@ -46,15 +48,10 @@ results remain reference-only and cannot satisfy mutation gates.
 
 ## Still in progress
 
-- **Contract-grounded KB retrieval needs one more green one-click proof.** UK
-  South proved single-region structural deployment, then live traces showed the
-  KB was wired and invoked but answer synthesis failed because the consolidated
-  KB was bound to hosted-agent `gpt-5.5`. The branch now mirrors the prior
-  Forge/Waypoint setup: hosted agents stay on `gpt-5.5`, while `contracts-kb`
-  answer synthesis uses a separate co-located `gpt-5-mini` deployment, and
-  acceptance fails on fallback. A fresh rerun must pass that new gate. Sweden
-  Central still cannot provision hosted agents on newly-created Foundry accounts,
-  so region choice remains subject to Azure platform health. See
+- **Regional availability remains the main deployment risk.** UK South now has a
+  current-head one-click proof with grounded KB runtime evidence. Sweden Central
+  still cannot provision hosted agents on newly-created Foundry accounts, so
+  region choice remains subject to Azure platform health. See
   [platform and environmental blockers](deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
   and the [end-to-end readiness assessment](e2e-readiness-assessment.md).
 - Runtime confidence scores are visible again as uncalibrated evidence scores;

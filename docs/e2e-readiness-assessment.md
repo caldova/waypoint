@@ -6,6 +6,8 @@ review — corrected over-claims (see [Revision notes](#revision-notes-2026-07-2
 **Revised:** 2026-07-23 (10:02 PT, `2026-07-23T10:02-07:00`) after UK South
 one-click/idempotency proof and live KB trace comparison with the prior Forge
 deployment.
+**Revised:** 2026-07-23 (11:55 PT, `2026-07-23T11:55-07:00`) after current-head
+UK South one-click run `30034540034` passed with grounded KB runtime evidence.
 **Branch:** `jldeen-plan-waypoint-simplification`
 **Question answered:** *If hosted-agent provisioning were working, would this
 branch deploy end to end?*
@@ -23,8 +25,8 @@ gaps are:
 
 | Bar | What it means | Status |
 | --- | --- | --- |
-| **1. Deploy-green (structural)** | infra + app + agents + seed + acceptance all pass | **Proven in UK South** on `29998293196`, with unchanged idempotency rerun `30000311095`; current follow-up code still needs its own green rerun |
-| **2. Grounded KB retrieval** | a real `knowledge_base_retrieve` call with returned clause citations, not `Fallback retrieval` | **Root cause identified and fixed in code** by matching the prior Forge model split (`gpt-5.5` hosted agents, `gpt-5-mini` KB answer synthesis) and adding a fail-on-fallback trace gate; still awaiting a green one-click rerun |
+| **1. Deploy-green (structural)** | infra + app + agents + seed + acceptance all pass | **Proven at current head in UK South** on `30034540034`; earlier unchanged idempotency rerun `30000311095` preserved stable resources and agent versions |
+| **2. Grounded KB retrieval** | a real KB retrieval path with returned clause citations, not `Fallback retrieval` | **Proven at current head in UK South** on `30034540034` by recorder-preserved retrieval `ref_id` citations and no fallback markers after matching the prior Forge model split (`gpt-5.5` hosted agents, `gpt-5-mini` KB answer synthesis) |
 | **3. Calibrated confidence** | displayed decision confidence is a calibrated probability, not a raw evidence score | **Not implemented** — numeric raw scores are visible again as uncalibrated **evidence scores**; calibrated confidence still requires a reviewed calibration artifact |
 
 The earlier version of this document folded bars 2 and 3 together and called the
@@ -39,31 +41,24 @@ branch with the app, PostgreSQL, seed data, Search, Foundry infrastructure,
 contracts KB upload, four active hosted agents, and a terminal correlated
 orchestrator-to-recorder run. Run `30000311095` repeated the same environment
 unchanged and passed idempotency, preserving stable resources and agent versions.
+Current-head run `30034540034` then passed all jobs after the KB model split and
+acceptance-gate hardening:
 
-Two honest qualifiers keep this from being read as more than it is:
-
-- **The newest code has not yet had a green rerun.** The current branch adds a
-  separate KB `gpt-5-mini` deployment and a fail-on-fallback acceptance gate after
-  the UK South proof. Those changes still need one full one-click rerun.
-- **The UK South green run was structural, not grounded.** It reached `completed`,
-  but live trace inspection found the KB tool call failed and the expert fell
-  back. The new acceptance gate closes that gap for future runs.
+- app, seed import, Foundry infrastructure, KB upload, all four hosted agents,
+  app/agent wiring, acceptance, and baseline recording passed;
+- terminal run `run-14af8323ab954397a14f8da4e20bf189` completed through
+  `waypoint-recorder`; and
+- acceptance passed the KB retrieval evidence gate.
 
 - **Why we believe the plumbing:** see
   [Validation record](deployment-troubleshooting.md#validation-record) for the
   exact GitHub Actions run IDs and the validated environment.
-- **Change delta since those runs:** the region+capacity preflight and the
-  Aspire cold-deploy timeout increase. These are additive to the agent/infra/
-  acceptance **contracts**, but the preflight materially changes **region
-  selection**, which is exactly the Point 2 problem — so "low-risk" applies to the
-  contracts, not to whether a one-click run reaches green today.
 
 **Conclusion:** if the selected region can provision hosted agents and required
 resources, this branch's structural one-click path is proven to deploy E2E in a
-single region. The remaining proof is grounded retrieval, not basic deployment
-plumbing.
+single region.
 
-## Point 2 — Grounded KB retrieval: root cause fixed in code, awaiting rerun
+## Point 2 — Grounded KB retrieval: proven in UK South
 
 **The grounded single-region *capability* is real, not hypothetical.** The
 keynote `rg-waypoint` environment runs the platform co-located in one region
@@ -79,9 +74,10 @@ simplified fleet, acceptance assertions, idempotency, or calibration. Treat it a
 "the destination exists," not "this branch arrives there automatically."
 
 What was unproven was specific: **reaching that grounded single-region state from
-a one-click deploy of this repository on a freshly-created Foundry account.** The
-UK South run removed the basic single-region deployment doubt, then exposed a
-repo-side KB configuration mismatch:
+a one-click deploy of this repository on a freshly-created Foundry account.** UK
+South removed that doubt for a single region. The first green run exposed a
+repo-side KB configuration mismatch; current-head run `30034540034` proves the
+fix:
 
 - **East US 2** provisions hosted agents, but lacks Azure AI Search `basic`
   capacity, so the knowledge base runs cross-region and the contract expert
@@ -89,7 +85,7 @@ repo-side KB configuration mismatch:
   [Search capacity exhaustion and cross-region KB retrieval failure](deployment-troubleshooting.md#search-capacity-exhaustion-and-cross-region-kb-retrieval-failure)
   and
   [KB upload does not prove KB retrieval](deployment-troubleshooting.md#kb-upload-does-not-prove-kb-retrieval).
-- **UK South** co-locates Search + Foundry + hosted agents and deployed
+- **UK South** co-locates Search + Foundry + hosted agents. It first deployed
   structurally, but the consolidated KB was bound to the hosted-agent
   `gpt-5.5` deployment. Live traces proved `knowledge_base_retrieve` was invoked
   and then failed because Search's KB backend used chat completions with
@@ -97,6 +93,10 @@ repo-side KB configuration mismatch:
 - **Prior Forge / `rg-waypoint`** uses `gpt-5-mini` for `contracts-kb` answer
   synthesis while keeping hosted agents on `gpt-5.5`. The consolidated branch now
   mirrors that simpler shape.
+- **Current-head UK South proof** (`30034540034`) passed acceptance with terminal
+  run `run-14af8323ab954397a14f8da4e20bf189`, operation
+  `93a129706c5e366a82105d6dc3d33436`, retrieved `ref_id` citations in recorded
+  runtime evidence, and no fallback or KB error markers.
 - **Sweden Central** co-locates Search + Foundry + model and grounds correctly
   (the keynote proves the capability) — but currently cannot provision hosted
   agents on **newly-created** Foundry accounts. Differential:
@@ -143,9 +143,9 @@ actually blocking us, so its "Sweden Central selected" output should not be read
 as "Sweden Central will succeed."
 
 **Conclusion:** absent external provisioning faults, the co-located grounded path
-should work. The branch now has the right KB model split and a gate that will
-fail closed if it falls back. The next proof is one one-click rerun in a region
-that can both provision hosted agents and allocate Search/model capacity.
+works in a single region. The branch now has the right KB model split and a gate
+that fails closed if it falls back. The remaining risk is regional availability,
+not grounded-retrieval wiring.
 
 ## Point 3 — Calibrated confidence: not yet implemented (our code)
 
@@ -171,8 +171,8 @@ readiness — note that not all are external:
 
 - **Region must satisfy all constraints at once (external)** — Search `basic`
   capacity, `gpt-5.5`, `gpt-5-mini`, embeddings, Postgres, and healthy
-  new-account hosted-agent provisioning. UK South satisfied the structural
-  deployment constraints; Sweden Central currently fails fresh hosted-agent
+  new-account hosted-agent provisioning. UK South satisfied those constraints
+  for the current proof; Sweden Central currently fails fresh hosted-agent
   provisioning.
 - **Preflight steers into the blocked region (our code, by omission)** — the
   region selector optimizes for co-located Search and is blind to fresh-account
@@ -209,14 +209,12 @@ least two** co-located regions, a fresh-account provisioning SLO, staged rollout
 with canaries, automatic resume, and a support-escalation path. None of this
 blocks a *single pilot* deploy; all of it blocks *20k unattended* deploys.
 
-## What would move each bar to "proven"
+## What remains to prove
 
-- **Bar 1 (structural), current HEAD:** re-run the clean + unchanged pipeline to
-  green after the KB split/fallback-gate commit.
-- **Bar 2 (grounded retrieval):** one clean **one-click** run in a co-located,
-  provisioning-healthy region that reaches acceptance and passes the new
-  `verify_kb_retrieval_trace.py` gate (`knowledge_base_retrieve` present,
-  fallback absent).
+- **Idempotency at the exact final head:** the branch already has a UK South
+  unchanged idempotency proof (`30000311095`) and current-head green one-click
+  proof (`30034540034`). A strict unchanged rerun at `f9fc7bb` would make the
+  final-head idempotency evidence symmetrical.
 - **Bar 3 (calibration):** implement runtime confidence calibration and flip
   `confidence_calibrated` to `true` with evidence; this is repository work, not a
   deploy.
@@ -229,9 +227,10 @@ caught places where it claimed more than the evidence supported. Corrections:
 - Split the single "grounded + calibrated, external" bar into **grounded
   retrieval** (externally gated) and **calibrated confidence** (unbuilt code we
   own) — the earlier "the only unproven bar is external" was wrong.
-- Qualified Bar 1: the green runs were an **earlier revision** in the split-region
-  topology, and acceptance is a **structural smoke test** — it now rejects
-  `partial`, but still does not prove KB grounding or reject fallback.
+- Qualified Bar 1 before the final rerun: the earlier green runs were an earlier
+  revision and acceptance was initially only a structural smoke test. Current-head
+  run `30034540034` supersedes that caveat by proving the KB retrieval evidence
+  gate as well.
 - Reframed the Sweden root cause as a **strongly localized, well-evidenced
   hypothesis** (with the 2×2 that controls for creation flow) rather than a
   confirmed Microsoft-side defect; a support case is still needed to confirm the
@@ -247,3 +246,6 @@ caught places where it claimed more than the evidence supported. Corrections:
 - Added the UK South structural/idempotency proof, identified the KB-specific
   `gpt-5.5` answer-synthesis mismatch, and documented the fix to use
   Forge-compatible `gpt-5-mini` for `contracts-kb`.
+- Added the current-head UK South green proof (`30034540034`) and clarified that
+  customer-visible trace rows can be absent even when recorder-preserved runtime
+  evidence carries retrieved `ref_id` citations.
