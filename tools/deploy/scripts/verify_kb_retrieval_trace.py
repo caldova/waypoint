@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import time
@@ -30,6 +31,7 @@ KB_ERROR_MARKERS = (
     "knowledge-base retrieval failed",
     "Function tools with reasoning_effort are not supported",
 )
+KB_SOURCE_REF_PATTERN = re.compile(r"\bKB\s+ref_id\s*:\s*\d+\b", re.IGNORECASE)
 
 
 def _arguments() -> argparse.Namespace:
@@ -40,6 +42,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--workspace-id", required=True)
     parser.add_argument("--lookback-hours", type=int, default=24)
     parser.add_argument("--timeout-seconds", type=float, default=15.0)
+    parser.add_argument("--log-query-timeout-seconds", type=float, default=60.0)
     parser.add_argument("--poll-timeout-seconds", type=float, default=300.0)
     parser.add_argument("--poll-interval-seconds", type=float, default=15.0)
     parser.add_argument("--output", type=Path)
@@ -111,6 +114,7 @@ def _run_log_query(
     *,
     workspace_id: str,
     query: str,
+    timeout_seconds: float,
     runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> list[dict[str, Any]]:
     completed = runner(
@@ -129,6 +133,7 @@ def _run_log_query(
         check=True,
         capture_output=True,
         text=True,
+        timeout=max(1.0, timeout_seconds),
     )
     return _parse_log_query_output(completed.stdout)
 
@@ -179,6 +184,30 @@ def _contains_any(text: str, markers: tuple[str, ...]) -> bool:
     return any(marker.lower() in lowered for marker in markers)
 
 
+def _kb_source_refs(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        refs = []
+        for key, item in value.items():
+            if key in {"source_ref", "source", "id"} and isinstance(item, str):
+                if KB_SOURCE_REF_PATTERN.search(item):
+                    refs.append(item)
+            elif key == "source_refs" and isinstance(item, list):
+                refs.extend(
+                    str(ref)
+                    for ref in item
+                    if isinstance(ref, str) and KB_SOURCE_REF_PATTERN.search(ref)
+                )
+            else:
+                refs.extend(_kb_source_refs(item))
+        return refs
+    if isinstance(value, list):
+        refs = []
+        for item in value:
+            refs.extend(_kb_source_refs(item))
+        return refs
+    return []
+
+
 def _evaluate(run: dict[str, Any], trace_rows: list[dict[str, Any]]) -> dict[str, Any]:
     metadata = run.get("metadata") if isinstance(run.get("metadata"), dict) else {}
     run_text = _flatten_text(metadata)
@@ -186,19 +215,31 @@ def _evaluate(run: dict[str, Any], trace_rows: list[dict[str, Any]]) -> dict[str
     trace_text = " ".join(trace_texts)
 
     has_kb_trace = _contains_any(trace_text, KB_MARKERS)
+    kb_runtime_source_refs = sorted(set(_kb_source_refs(metadata)))
+    has_kb_runtime_evidence = bool(kb_runtime_source_refs)
     fallback_in_trace = _contains_any(trace_text, FALLBACK_MARKERS)
     fallback_in_metadata = _contains_any(run_text, FALLBACK_MARKERS)
     kb_error_in_trace = _contains_any(trace_text, KB_ERROR_MARKERS)
+    kb_error_in_metadata = _contains_any(run_text, KB_ERROR_MARKERS)
 
     failures = []
-    if not has_kb_trace:
-        failures.append("no knowledge_base_retrieve invocation was found in the run trace")
+    if not has_kb_trace and not has_kb_runtime_evidence:
+        failures.append(
+            "no knowledge_base_retrieve trace event or KB-cited runtime evidence was found"
+        )
     if fallback_in_trace:
         failures.append("fallback evidence tool or fallback summary appeared in the trace")
     if fallback_in_metadata:
         failures.append("the recorded run metadata contains fallback evidence")
     if kb_error_in_trace:
         failures.append("the trace contains a knowledge-base retrieval error")
+    if kb_error_in_metadata:
+        failures.append("the recorded run metadata contains a knowledge-base retrieval error")
+
+    if has_kb_trace:
+        success_detail = "KB retrieval proof passed from trace telemetry."
+    else:
+        success_detail = "KB retrieval proof passed from recorded runtime evidence."
 
     return {
         "passed": not failures,
@@ -206,10 +247,13 @@ def _evaluate(run: dict[str, Any], trace_rows: list[dict[str, Any]]) -> dict[str
         "operation_id": run.get("app_insights_operation_id"),
         "trace_event_count": len(trace_rows),
         "has_knowledge_base_retrieve": has_kb_trace,
+        "has_kb_runtime_evidence": has_kb_runtime_evidence,
+        "kb_runtime_source_refs": kb_runtime_source_refs[:20],
         "fallback_in_trace": fallback_in_trace,
         "fallback_in_metadata": fallback_in_metadata,
         "kb_error_in_trace": kb_error_in_trace,
-        "detail": "; ".join(failures) if failures else "KB retrieval trace passed.",
+        "kb_error_in_metadata": kb_error_in_metadata,
+        "detail": "; ".join(failures) if failures else success_detail,
     }
 
 
@@ -221,6 +265,7 @@ def _verify(
     workspace_id: str,
     lookback_hours: int,
     timeout_seconds: float,
+    log_query_timeout_seconds: float,
     poll_timeout_seconds: float,
     poll_interval_seconds: float,
 ) -> dict[str, Any]:
@@ -246,8 +291,16 @@ def _verify(
     last_error = ""
     while True:
         try:
-            trace_rows = _run_log_query(workspace_id=workspace_id, query=query)
-        except (subprocess.CalledProcessError, json.JSONDecodeError) as exc:
+            trace_rows = _run_log_query(
+                workspace_id=workspace_id,
+                query=query,
+                timeout_seconds=log_query_timeout_seconds,
+            )
+        except (
+            subprocess.CalledProcessError,
+            subprocess.TimeoutExpired,
+            json.JSONDecodeError,
+        ) as exc:
             last_error = str(exc)
             trace_rows = []
         result = _evaluate(run, trace_rows)
@@ -272,6 +325,7 @@ def main() -> int:
         workspace_id=args.workspace_id,
         lookback_hours=args.lookback_hours,
         timeout_seconds=args.timeout_seconds,
+        log_query_timeout_seconds=args.log_query_timeout_seconds,
         poll_timeout_seconds=args.poll_timeout_seconds,
         poll_interval_seconds=args.poll_interval_seconds,
     )

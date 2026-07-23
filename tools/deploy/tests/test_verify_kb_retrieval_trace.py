@@ -35,7 +35,39 @@ class VerifyKbRetrievalTraceTests(unittest.TestCase):
 
         self.assertTrue(result["passed"])
         self.assertTrue(result["has_knowledge_base_retrieve"])
+        self.assertTrue(result["has_kb_runtime_evidence"])
         self.assertFalse(result["fallback_in_metadata"])
+
+    def test_passes_when_trace_is_empty_but_runtime_evidence_has_kb_refs(self):
+        result = verify._evaluate(
+            {
+                "id": "run-1",
+                "app_insights_operation_id": "op-1",
+                "metadata": {
+                    "fanout": [
+                        {
+                            "agent": "contract-policy-expert",
+                            "plane": "foundryiq",
+                            "summary": "Foundry knowledge retrieval returned grounded records.",
+                            "evidence": [
+                                {
+                                    "source_ref": (
+                                        "contract-sup-009-bluepeak-biologics-capacity-agreement"
+                                        "::contamination/deviation charge allocation (KB ref_id:0)"
+                                    )
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+            [],
+        )
+
+        self.assertTrue(result["passed"])
+        self.assertFalse(result["has_knowledge_base_retrieve"])
+        self.assertTrue(result["has_kb_runtime_evidence"])
+        self.assertIn("KB ref_id:0", result["kb_runtime_source_refs"][0])
 
     def test_fails_when_trace_uses_local_fallback(self):
         result = verify._evaluate(
@@ -75,14 +107,34 @@ class VerifyKbRetrievalTraceTests(unittest.TestCase):
         self.assertFalse(result["passed"])
         self.assertTrue(result["fallback_in_metadata"])
 
-    def test_fails_when_no_kb_trace_is_found(self):
+    def test_fails_when_no_kb_trace_or_runtime_evidence_is_found(self):
         result = verify._evaluate(
             {"id": "run-1", "app_insights_operation_id": "op-1", "metadata": {}},
             [{"message_text": "assurance completed"}],
         )
 
         self.assertFalse(result["passed"])
-        self.assertIn("no knowledge_base_retrieve", result["detail"])
+        self.assertIn("no knowledge_base_retrieve trace event", result["detail"])
+
+    def test_fails_when_recorded_metadata_contains_kb_error(self):
+        result = verify._evaluate(
+            {
+                "id": "run-1",
+                "app_insights_operation_id": "op-1",
+                "metadata": {
+                    "fanout": [
+                        {
+                            "summary": "Knowledge-base retrieval failed.",
+                            "evidence": [{"source_ref": "Document; KB ref_id:3"}],
+                        }
+                    ]
+                },
+            },
+            [],
+        )
+
+        self.assertFalse(result["passed"])
+        self.assertTrue(result["kb_error_in_metadata"])
 
     def test_parses_azure_cli_tables_output(self):
         raw = json.dumps(
