@@ -6,7 +6,9 @@ synthetic demo data.
 
 ## Validated paths
 
-- The monorepo's full default Azure deployment completed successfully.
+- The monorepo's full default Azure deployment completed successfully end to end
+  in **East US 2**, with four active hosted agents, one analyst Bot Service, and a
+  terminal correlated assurance run.
 - An unchanged rerun completed successfully while reusing stable resources and
   skipping unchanged hosted-agent versions.
 - The default runtime fleet is `invoice-analyst`,
@@ -41,6 +43,16 @@ results remain reference-only and cannot satisfy mutation gates.
 
 ## Still in progress
 
+- **Co-located contract-grounded KB retrieval is not yet proven end to end in a
+  single region.** East US 2 deploys green but lacks Azure AI Search `basic`
+  capacity, so the knowledge base runs cross-region and the contract expert falls
+  back (uncalibrated confidence). A co-located region (such as Sweden Central)
+  would fix grounding, but Sweden Central currently cannot provision hosted agents
+  on newly-created Foundry accounts — a Microsoft-side regional/stamp condition.
+  No single region has yet been green for **both** agent provisioning **and** real
+  KB grounding. See
+  [platform and environmental blockers](deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
+  and the [end-to-end readiness assessment](e2e-readiness-assessment.md).
 - WorkIQ, WebIQ, FabricIQ, and Fabric/OneLake source modules remain in the
   repository for future development, outside the initial launch package.
 - The agent quality workflow cannot be manually dispatched from this branch

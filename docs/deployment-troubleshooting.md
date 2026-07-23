@@ -16,6 +16,14 @@ The clean deployment, convergence rerun, and strict unchanged rerun all
 completed successfully. The unchanged rerun preserved all four hosted-agent
 versions.
 
+This validated environment proves the **deploy/idempotency** path, but its
+cross-region split (Foundry in East US 2, Search in North Europe) is the reason
+knowledge-base retrieval fell back rather than grounding — it is **not** the
+recommended co-located target. A production target must co-locate Search,
+Foundry, and the model in one region, which in turn depends on that region
+having both Search `basic` capacity and healthy hosted-agent provisioning. See
+[platform and environmental blockers](#platform-and-environmental-blockers-encountered).
+
 ## Validation record
 
 | Purpose | GitHub Actions run |
@@ -166,6 +174,137 @@ pull:
 - image resolution failure: inspect ACR DNS and image existence; or
 - container startup failure: inspect the hosted-agent revision logs and
   application entrypoint.
+
+### Generic `ProvisioningError` is a control-plane failure with no customer logs
+
+Symptom: every hosted-agent version reports
+`error.code = ProvisioningError`, `error.message = "Agent version
+provisioning failed. Please retry."` (`https://aka.ms/hostedagents/tsg/provisioning`).
+The Foundry Playground shows the same banner and cannot start a session, and
+`azd deploy` fails after its retries.
+
+There are **no deeper customer-visible logs** for hosted-agent provisioning.
+Provisioning runs entirely in the Microsoft-managed Foundry control plane. This
+was verified by exhausting every surface:
+
+- data-plane version sub-resources (`/versions/{v}/logs|instances|operations|diagnostics`)
+  all return 404 on both `api-version=v1` and `2025-11-15-preview`;
+- the Cognitive Services account has no diagnostic settings;
+- the linked Application Insights (`appi-*`) is empty;
+- the customer Log Analytics workspace only carries the `api`/`web` Container
+  Apps logs — hosted agents do **not** run in the customer Container Apps
+  environment, so no agent container logs land there;
+- the account Activity Log shows no provisioning events (only caller-initiated
+  `listkeys` calls); and
+- Resource Health reports nothing.
+
+The only customer signal is `error.code`/`error.message`. The generic
+`ProvisioningError` is the 5xx-class "retry or contact support" outcome, not one
+of the named 4xx codes (`image_pull_failed`, `InvalidAcrPullCredentials`,
+`SubscriptionIsNotRegistered`, …). Do **not** read it as image pull or identity
+creation — those produce named codes.
+
+### Isolating a poisoned account/project with a differential probe
+
+Because the error is opaque, classify it with a **net-new throwaway agent**
+created directly via REST (bypassing `azd`), using a known-good image already in
+the account's ACR plus minimal env, then poll the version to a terminal state:
+
+```bash
+tok="$(az account get-access-token --resource https://ai.azure.com --query accessToken -o tsv)"
+POST {project_endpoint}/agents/zzz-probe-<rand>/versions?api-version=v1
+  { "metadata": {"enableVnextExperience":"true"},
+    "definition": { "kind":"hosted", "cpu":"0.5", "memory":"1Gi",
+      "protocol_versions":[{"protocol":"responses","version":"1.0.0"}],
+      "container_configuration": {"image":"<acr>/...:<tag>"},
+      "environment_variables": {"AZURE_AI_MODEL_DEPLOYMENT_NAME":"gpt-5.5"} } }
+```
+
+Run the identical probe against a known-good project (for example the
+pre-consolidation `forge` project in the same subscription/region/tenant). The
+differential result localizes the fault:
+
+- probe **fails in the target project but succeeds in the reference project** →
+  the fault is scoped somewhere between the target account and the region. It is
+  **not** the image, config, or RBAC (everything else being healthy: container
+  serves `/readiness` locally, image present in ACR, project managed identity
+  holds `AcrPull`, per-agent `…-AgentIdentityBlueprint` Entra identity exists and
+  is enabled). **Do not stop here and conclude "poisoned single account."** A
+  pre-existing reference project (for example `forge`) that keeps working may be
+  **grandfathered** onto a healthy backend while newly-created accounts land on an
+  unhealthy one. Before blaming the account, run the region isolation below.
+- probe **fails in both** → the fault is region/subscription/tenant-wide
+  (capacity or a platform incident); switch region or open a support case.
+
+**Region isolation (run this before concluding it is the account).** Create a
+brand-new throwaway Foundry account + project + `gpt-5.5` + one agent version in
+the target region, and the same in a *different* region, and compare:
+
+- fails on a **fresh account in the target region** but succeeds on a **fresh
+  account in another region** → the fault is **region/stamp-scoped**, not the
+  account. See
+  [Region/stamp-scoped provisioning failure](#regionstamp-scoped-hosted-agent-provisioning-failure-new-accounts)
+  below. This is what Sweden Central exhibited: a fresh account there failed with
+  *both* our image and the reference image, while a fresh account in East US 2
+  provisioned our exact image to `active` in ~40s.
+- fails on a fresh account in **every** region tried → subscription/tenant-wide;
+  open a support case.
+- succeeds on a fresh account in the target region → the original target account
+  really is individually poisoned; re-provision a clean account/project.
+
+Note: the `/agents/{name}` and `/agents/{name}/versions` **list** responses may
+cache a stale `active` status for a version whose `/versions/{v}` detail (and the
+Playground) report `failed`. Trust the version **detail** endpoint and the
+Playground, not the cached list, when judging live provisioning health.
+
+### Region/stamp-scoped hosted-agent provisioning failure (new accounts)
+
+Symptom: every hosted-agent version fails with the generic `ProvisioningError`
+above, in a region where hosted agents *used to* deploy. Older projects in the
+same region and subscription keep working; only newly-created (or recently
+re-provisioned) accounts fail, and they fail within ~10 seconds — before an image
+pull could complete.
+
+Observed in Sweden Central. The full differential, all in the same subscription,
+tenant, and image, captured live:
+
+| Foundry account | Region | Net-new agent result |
+| --- | --- | --- |
+| `forge` (pre-existing) | Sweden Central | active in ~30s |
+| Waypoint E2E account (recent) | Sweden Central | failed |
+| brand-new throwaway account | Sweden Central | failed (our image **and** the `forge` image) |
+| brand-new throwaway account | East US 2 | active in ~40s (our exact image) |
+
+Root cause: a **Microsoft-managed control-plane / regional-stamp health problem**
+for hosted-agent provisioning on **newly-created** Foundry accounts in that
+region. It is not something the deploy repository controls. Ruled out by direct
+test, each verified equal to the working `forge` account or fixed with no effect:
+
+- the `kind=Agents` capability host (deleted it — new agents still failed; and
+  the East US 2 deploy provisions this same capability host and *does* reach four
+  active agents, so it is benign);
+- image architecture (our image and the `forge` image are both `linux/amd64`);
+- the `gpt-5.5` model deployment (`Succeeded`, identical SKU/version to `forge`);
+- project managed identity `AcrPull` and ACR ARM-audience authentication (both
+  present/enabled, identical to `forge`).
+
+Because our exact image provisions cleanly in another region, the image, model,
+RBAC, capability host, and protocols are all confirmed **not** to be the cause.
+
+Handling:
+
+1. Do not retry against the same region — `failed` is terminal and does not
+   self-heal.
+2. Use the region isolation probe above to find a region whose **fresh accounts**
+   provision hosted agents right now.
+3. Weigh it against the co-located-Search requirement
+   ([cross-region KB retrieval failure](#search-capacity-exhaustion-and-cross-region-kb-retrieval-failure)):
+   the chosen region must satisfy **both** Azure AI Search `basic` capacity **and**
+   live hosted-agent provisioning for new accounts. When a single region cannot,
+   the deploy is genuinely blocked on external platform state, not on repository
+   configuration.
+4. Open a Microsoft support case for the affected region with the failing
+   `request-id`s; only Microsoft can see the control-plane provisioning logs.
 
 ## Agent topology and protocol checks
 
@@ -360,6 +499,30 @@ calibration process that:
 3. measures calibration error by decision and evidence shape;
 4. versions the dataset, grader, and calibration mapping; and
 5. sets `confidence_calibrated: true` only for runs using that approved mapping.
+
+## Platform and environmental blockers encountered
+
+Proving this deployment end to end was repeatedly interrupted by **external
+platform conditions** rather than repository defects. They are cataloged here so
+a future operator can recognize them quickly, and so the "one click for tens of
+thousands of sellers" goal is assessed with eyes open: several of these are
+Azure- or GitHub-side and are not fixable in this repo. Each seller runs in its
+own subscription, which changes the blast radius (noted per row).
+
+| Blocker | Class | Symptom | Root cause | Repo mitigation | Residual risk |
+| --- | --- | --- | --- | --- | --- |
+| First-model service gate (Azure case `715-123420`) | External (Azure fraud/abuse review) | The **first** `gpt-5.5` deployment on a brand-new AI Services account failed for every identity (parity OIDC, `forge` OIDC, a tenant user) at every capacity (200/50/10/1) | Azure applies an automated first-model risk/abuse gate to new accounts; not OIDC, Bicep, model version, or quota | None possible in-repo; resolved after review, later confirmed unblocked | High for a cold tenant/subscription: a brand-new seller subscription can hit the same gate on its first model deploy and needs Azure to clear it |
+| GitHub-hosted runner incident | External (GitHub Actions) | Three clean deploy attempts could not obtain hosted runners; workflow blocked before any Azure work | A confirmed GitHub-hosted runner allocation incident | Fail-fast classification separates a runner/transport incident from a deployment failure; retry after the incident | Medium: one-click depends on GitHub Actions availability |
+| Sweden Central hosted-agent provisioning (new accounts) | External (Foundry control plane / regional stamp) | Every hosted-agent version fails with generic `ProvisioningError` within ~10s; pre-existing projects in the same region keep working | Region/stamp-scoped Microsoft-managed provisioning failure for newly-created accounts; a fresh account in East US 2 provisions our exact image in ~40s (see the [region section](#regionstamp-scoped-hosted-agent-provisioning-failure-new-accounts)) | None possible in-repo; select a region whose fresh accounts provision, or wait/support-case | High **for the co-located goal**: the region must satisfy both Search `basic` capacity and new-account agent provisioning at the same time |
+| Regional capacity exhaustion | External (Azure capacity) | Azure AI Search `basic` create fails in East US 2; tight `gpt-5.5`/embedding quota in southcentralus, westeurope, westus; Container Apps capacity pressure | Regional service capacity varies by day | `region_capacity_preflight.py` runs capability, model-availability, quota, and a real Search PUT/DELETE probe **before** provisioning and picks a qualifying region | Medium: capacity shifts over time; preflight must run per deploy |
+| Identity / permission propagation | Mixed (Azure RBAC timing + setup) | New Container Apps env cannot pull its image; `AcrPull`/managed-identity assignments race the new environment; agent creation needs Foundry Project Manager; project MI needs Foundry User + ACR pull | Eventual-consistency of role assignments plus first-time data-plane role setup | Bounded identity/registry reconciliation with one retry; deploy verifies project MI holds Foundry User + an ACR image-pull role and ACR ARM auth before deploying agents | Low–medium: mostly self-heals with bounded retries |
+| Soft-deleted resource recreation | Azure lifecycle | Re-deploying after a failed environment failed because a soft-deleted Foundry account / Key Vault still held the name | Cognitive Services accounts and Key Vaults soft-delete by default | Teardown is scoped and named so recreation can purge/reuse; failed environments were fully removed | Low: known and handled |
+| MSAL / workflow ordering | Repo (fixed) | `deploy-app == skipped` could mean healthy **or** blocked-by-failed-MSAL; app-only Aspire deploy once cleared the post-deploy Foundry endpoint | Ambiguous skip semantics and an app deploy that dropped Foundry wiring | Endpoint/project wiring is preserved across app-only deploys; skip vs. blocked is disambiguated | Low: fixed and re-validated |
+
+The first three rows are **not repository bugs** — they are Azure- or
+GitHub-side. The repository's job is to detect them early (preflight, fail-fast
+classification, verification gates) and avoid wasting a full deploy on a region
+or tenant that cannot currently succeed.
 
 ## Remaining known limitations
 

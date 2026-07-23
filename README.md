@@ -126,13 +126,19 @@ The launch package is FoundryIQ-only. Fabric/OneLake, WorkIQ, WebIQ, and
 FabricIQ modules remain in the repository for future development but are not
 inputs, stages, resources, or agents in the one-click deployment.
 
-The full default deployment has been validated end to end, including an
-unchanged rerun that reused stable resources and skipped unchanged hosted-agent
-versions. In the app, a reviewer can run assurance for one invoice or select up
-to 25 visible invoices and start a batch. The batch starts at most four new
-orchestrations concurrently, reuses active invoice runs, and reports independent
-accepted, reused, not-found, or start-failed outcomes. Every run invokes
-`assurance-orchestrator` and persists its result only through
+The full default deployment has been validated end to end in **East US 2**,
+including an unchanged rerun that reused stable resources and skipped unchanged
+hosted-agent versions. Region selection matters: the deployment must co-locate
+Azure AI Search, Foundry, and the model for real contract-grounded knowledge-base
+retrieval, and it depends on live Foundry hosted-agent provisioning in the chosen
+region. Both are subject to Azure capacity and regional platform health at deploy
+time — see
+[platform and environmental blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
+before choosing a region. In the app, a reviewer can run assurance for one
+invoice or select up to 25 visible invoices and start a batch. The batch starts
+at most four new orchestrations concurrently, reuses active invoice runs, and
+reports independent accepted, reused, not-found, or start-failed outcomes. Every
+run invokes `assurance-orchestrator` and persists its result only through
 `waypoint-recorder`.
 
 For the exact batch steps and the controlled evaluation-to-release flow, see

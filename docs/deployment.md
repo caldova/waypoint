@@ -189,6 +189,26 @@ then `azure_location`, preserving the single-region default. For example, use
 `azure_location=swedencentral` with `app_location=northeurope` when Foundry
 requires Sweden Central but Container Apps capacity is unavailable there.
 
+The `region-preflight` gate (`tools/deploy/scripts/region_capacity_preflight.py`)
+resolves and validates the Foundry region **before** provisioning: it checks the
+capability combination, model availability, model quota, and runs a real
+non-destructive Azure AI Search `basic` PUT/DELETE probe. Two region constraints
+are load-bearing and cannot both be worked around in the repository:
+
+- **Knowledge-base grounding needs co-location.** Azure AI Search, Foundry, and
+  the model must be in the **same** region, or the contract expert's
+  `knowledge_base_retrieve` call runs cross-region, fails, and silently falls
+  back (uncalibrated confidence). Do not split Search away from Foundry to chase
+  capacity.
+- **Hosted agents need a healthy region for new accounts.** A freshly-created
+  Foundry account must be able to provision hosted agents in the chosen region at
+  deploy time. This has failed region-wide (Sweden Central) independent of this
+  repository.
+
+If a single region cannot satisfy both at once, the deployment is blocked on
+external Azure/Foundry platform state, not on configuration. See
+[platform and environmental blockers](deployment-troubleshooting.md#platform-and-environmental-blockers-encountered).
+
 ## Acceptance evidence
 
 `tools/deploy/deployment.manifest.json` declares the canonical source roots,
