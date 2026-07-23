@@ -254,9 +254,10 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("git ls-files -z", deploy_agents)
         self.assertIn("azd env get-values", deploy_agents)
         self.assertIn("Microsoft.BotService/botServices", deploy_agents)
-        self.assertIn("waypoint_agent_hash", deploy_agents)
-        self.assertIn("waypoint_agent_version", deploy_agents)
-        self.assertIn('state_resource_id="$(azd env get-value AZURE_AI_ACCOUNT_ID)"', deploy_agents)
+        self.assertIn(
+            'state_resource_id="$(az group show --name "$STATE_RESOURCE_GROUP"',
+            deploy_agents,
+        )
         self.assertIn('tag_prefix="waypoint_${AGENT_NAME//-/_}"', deploy_agents)
         self.assertIn(
             "if grep -q 'protocol: activity_protocol'",
@@ -274,6 +275,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
         )
         self.assertIn("az tag update", deploy_agents)
         self.assertIn("--operation Merge", deploy_agents)
+        self.assertIn("Agent state tag conflict", deploy_agents)
 
     def test_acceptance_selects_an_invoice_from_the_deployed_work_queue(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()

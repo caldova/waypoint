@@ -1213,16 +1213,10 @@ jobs:
           if grep -q 'protocol: activity_protocol' "agents/${AGENT_NAME}/agent.yaml"; then
             activity_enabled=true
           fi
-          if [ "$activity_enabled" = "true" ] && [ "${#bot_ids[@]}" -eq 1 ]; then
-            state_resource_id="${bot_ids[0]}"
-            hash_tag="waypoint_agent_hash"
-            version_tag="waypoint_agent_version"
-          else
-            state_resource_id="$(azd env get-value AZURE_AI_ACCOUNT_ID)"
-            tag_prefix="waypoint_${AGENT_NAME//-/_}"
-            hash_tag="${tag_prefix}_hash"
-            version_tag="${tag_prefix}_version"
-          fi
+          state_resource_id="$(az group show --name "$STATE_RESOURCE_GROUP" --query id --output tsv)"
+          tag_prefix="waypoint_${AGENT_NAME//-/_}"
+          hash_tag="${tag_prefix}_hash"
+          version_tag="${tag_prefix}_version"
           recorded_hash=""
           recorded_version=""
           if [ -n "$state_resource_id" ]; then
@@ -1234,6 +1228,11 @@ jobs:
               --resource-id "$state_resource_id" \
               --output json 2>/dev/null \
               | jq -r --arg key "$version_tag" '.properties.tags[$key] // empty' || true)"
+          fi
+          if { [ "$activity_enabled" = "true" ] && [ "${#bot_ids[@]}" -ne 1 ]; } ||
+             { [ "$activity_enabled" = "false" ] && [ "${#bot_ids[@]}" -ne 0 ]; }; then
+            recorded_hash=""
+            recorded_version=""
           fi
 
           needs_deploy=true
@@ -1342,26 +1341,44 @@ jobs:
               echo "::error::Activity agent ${AGENT_NAME} requires exactly one Bot Service resource; found ${#bot_ids[@]}."
               exit 1
             fi
-            state_resource_id="${bot_ids[0]}"
-            hash_tag="waypoint_agent_hash"
-            version_tag="waypoint_agent_version"
           else
             for bot_id in "${bot_ids[@]}"; do
               echo "::notice::Removing stale Bot Service from Responses-only agent ${AGENT_NAME}."
               az resource delete --ids "$bot_id"
             done
-            state_resource_id="$(azd env get-value AZURE_AI_ACCOUNT_ID)"
-            tag_prefix="waypoint_${AGENT_NAME//-/_}"
-            hash_tag="${tag_prefix}_hash"
-            version_tag="${tag_prefix}_version"
           fi
-          az tag update \
-            --resource-id "$state_resource_id" \
-            --operation Merge \
-            --tags \
-              "${hash_tag}=${DESIRED_HASH}" \
-              "${version_tag}=${live_version}" \
-            --output none
+          state_resource_id="$(az group show --name "$STATE_RESOURCE_GROUP" --query id --output tsv)"
+          tag_prefix="waypoint_${AGENT_NAME//-/_}"
+          hash_tag="${tag_prefix}_hash"
+          version_tag="${tag_prefix}_version"
+          for attempt in 1 2 3 4 5; do
+            set +e
+            tag_output="$(
+              az tag update \
+                --resource-id "$state_resource_id" \
+                --operation Merge \
+                --tags \
+                  "${hash_tag}=${DESIRED_HASH}" \
+                  "${version_tag}=${live_version}" \
+                --output none 2>&1
+            )"
+            tag_status=$?
+            set -e
+            if [ "$tag_status" -eq 0 ]; then
+              break
+            fi
+            if printf '%s' "$tag_output" | grep -q 'RequestConflict'; then
+              echo "::warning::Agent state tag conflict on attempt ${attempt}; retrying."
+              sleep $((attempt * 5))
+              continue
+            fi
+            echo "::error::Unable to record ${AGENT_NAME} deployment state: ${tag_output}"
+            exit "$tag_status"
+          done
+          if [ "$tag_status" -ne 0 ]; then
+            echo "::error::Unable to record ${AGENT_NAME} deployment state after retries: ${tag_output}"
+            exit "$tag_status"
+          fi
 
       - name: Deployment summary
         if: always()
