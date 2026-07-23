@@ -32,7 +32,7 @@ KB_ERROR_MARKERS = (
     "Function tools with reasoning_effort are not supported",
 )
 RETRIEVAL_SOURCE_REF_PATTERN = re.compile(
-    r"\b(?:KB|Foundry)\s+ref_id\s*:\s*\d+\b",
+    r"\b(?:(?:KB|Foundry|retrieved)\s+)?ref_id\s*:\s*\d+\b",
     re.IGNORECASE,
 )
 
