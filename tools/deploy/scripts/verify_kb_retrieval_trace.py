@@ -31,7 +31,10 @@ KB_ERROR_MARKERS = (
     "knowledge-base retrieval failed",
     "Function tools with reasoning_effort are not supported",
 )
-KB_SOURCE_REF_PATTERN = re.compile(r"\bKB\s+ref_id\s*:\s*\d+\b", re.IGNORECASE)
+RETRIEVAL_SOURCE_REF_PATTERN = re.compile(
+    r"\b(?:KB|Foundry)\s+ref_id\s*:\s*\d+\b",
+    re.IGNORECASE,
+)
 
 
 def _arguments() -> argparse.Namespace:
@@ -189,13 +192,13 @@ def _kb_source_refs(value: Any) -> list[str]:
         refs = []
         for key, item in value.items():
             if key in {"source_ref", "source", "id"} and isinstance(item, str):
-                if KB_SOURCE_REF_PATTERN.search(item):
+                if RETRIEVAL_SOURCE_REF_PATTERN.search(item):
                     refs.append(item)
             elif key == "source_refs" and isinstance(item, list):
                 refs.extend(
                     str(ref)
                     for ref in item
-                    if isinstance(ref, str) and KB_SOURCE_REF_PATTERN.search(ref)
+                    if isinstance(ref, str) and RETRIEVAL_SOURCE_REF_PATTERN.search(ref)
                 )
             else:
                 refs.extend(_kb_source_refs(item))

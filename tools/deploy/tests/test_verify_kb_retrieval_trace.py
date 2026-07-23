@@ -69,6 +69,36 @@ class VerifyKbRetrievalTraceTests(unittest.TestCase):
         self.assertTrue(result["has_kb_runtime_evidence"])
         self.assertIn("KB ref_id:0", result["kb_runtime_source_refs"][0])
 
+    def test_passes_when_runtime_evidence_has_foundry_refs(self):
+        result = verify._evaluate(
+            {
+                "id": "run-1",
+                "app_insights_operation_id": "op-1",
+                "metadata": {
+                    "fanout": [
+                        {
+                            "agent": "contract-policy-expert",
+                            "plane": "foundryiq",
+                            "summary": "Foundry retrieval returned grounded records.",
+                            "evidence": [
+                                {
+                                    "source_ref": (
+                                        "contract-sup-009-bluepeak-biologics-capacity-agreement"
+                                        " / Contamination clause / Foundry ref_id:0"
+                                    )
+                                }
+                            ],
+                        }
+                    ]
+                },
+            },
+            [],
+        )
+
+        self.assertTrue(result["passed"])
+        self.assertTrue(result["has_kb_runtime_evidence"])
+        self.assertIn("Foundry ref_id:0", result["kb_runtime_source_refs"][0])
+
     def test_fails_when_trace_uses_local_fallback(self):
         result = verify._evaluate(
             {
