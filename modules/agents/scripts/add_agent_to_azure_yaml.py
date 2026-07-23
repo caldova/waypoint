@@ -28,8 +28,8 @@ def _block(name: str) -> str:
         f"    config:\n"
         f"      container:\n"
         f"        resources:\n"
-        f'          cpu: "0.25"\n'
-        f"          memory: 0.5Gi\n"
+        f'          cpu: "0.5"\n'
+        f"          memory: 1Gi\n"
         f"      startupCommand: python main.py\n"
     )
 

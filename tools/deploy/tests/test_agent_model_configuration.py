@@ -191,6 +191,13 @@ class AgentModelConfigurationTests(unittest.TestCase):
             "ACR ARM-audience authentication must be enabled for hosted agents",
             workflow,
         )
+        azure_yaml = (ROOT / "modules/agents/azure.yaml").read_text()
+        self.assertNotIn('cpu: "0.25"', azure_yaml)
+        self.assertNotIn("memory: 0.5Gi", azure_yaml)
+        for agent_manifest in (ROOT / "modules/agents/agents").glob("*/agent.yaml"):
+            manifest = agent_manifest.read_text()
+            self.assertNotIn("cpu: '0.25'", manifest)
+            self.assertNotIn("memory: '0.5Gi'", manifest)
 
     def test_agent_deploy_uses_key_vault_keys_without_bearer_precedence(self) -> None:
         workflow = (ROOT / ".github/workflows/deploy.yml").read_text()

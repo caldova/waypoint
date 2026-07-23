@@ -14,8 +14,8 @@ services:
         config:
             container:
                 resources:
-                    cpu: "0.25"
-                    memory: 0.5Gi
+                    cpu: "0.5"
+                    memory: 1Gi
             startupCommand: python main.py
     assurance-orchestrator:
         project: ./agents/assurance-orchestrator
@@ -26,8 +26,8 @@ services:
         config:
             container:
                 resources:
-                    cpu: "0.25"
-                    memory: 0.5Gi
+                    cpu: "0.5"
+                    memory: 1Gi
             startupCommand: uv run --frozen python -m assurance_orchestrator
     collaboration-evidence-expert:
         project: ./agents/collaboration-evidence-expert
@@ -38,8 +38,8 @@ services:
         config:
             container:
                 resources:
-                    cpu: "0.25"
-                    memory: 0.5Gi
+                    cpu: "0.5"
+                    memory: 1Gi
             startupCommand: python main.py
     contract-policy-expert:
         project: ./agents/contract-policy-expert
@@ -50,8 +50,8 @@ services:
         config:
             container:
                 resources:
-                    cpu: "0.25"
-                    memory: 0.5Gi
+                    cpu: "0.5"
+                    memory: 1Gi
             startupCommand: python main.py
     market-evidence-expert:
         project: ./agents/market-evidence-expert
@@ -62,8 +62,8 @@ services:
         config:
             container:
                 resources:
-                    cpu: "0.25"
-                    memory: 0.5Gi
+                    cpu: "0.5"
+                    memory: 1Gi
             startupCommand: python main.py
     operations-data-expert:
         project: ./agents/operations-data-expert
@@ -74,8 +74,8 @@ services:
         config:
             container:
                 resources:
-                    cpu: "0.25"
-                    memory: 0.5Gi
+                    cpu: "0.5"
+                    memory: 1Gi
             startupCommand: python main.py
     waypoint-recorder:
         project: ./agents/waypoint-recorder
@@ -86,8 +86,8 @@ services:
         config:
             container:
                 resources:
-                    cpu: "0.25"
-                    memory: 0.5Gi
+                    cpu: "0.5"
+                    memory: 1Gi
             startupCommand: python main.py
 infra:
     provider: bicep

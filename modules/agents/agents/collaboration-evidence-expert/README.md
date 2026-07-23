@@ -27,8 +27,8 @@ Then:
      config:
        container:
          resources:
-           cpu: "0.25"
-           memory: 0.5Gi
+           cpu: "0.5"
+           memory: 1Gi
        startupCommand: python main.py
    ```
 
