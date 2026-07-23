@@ -1,16 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
 kind: hosted
 name: collaboration-evidence-expert
-# Declare BOTH protocols so the container serves the Foundry Playground
-# (responses) AND the Microsoft 365 AI Teammate / Bot Service surface
-# (activity_protocol). This dual-declare is verified end-to-end on the
-# zephyr agent: Playground works AND Teams chat lands on /api/messages.
-# See agents/zephyr/agent.yaml for the full write-up.
+# Evidence expert: Responses only.
 protocols:
   - protocol: responses
     version: 2.0.0
-  - protocol: activity_protocol
-    version: v1
 resources:
   cpu: '0.5'
   memory: '1Gi'
@@ -25,39 +19,3 @@ environment_variables:
     value: ${WORKIQ_TOOLBOX_MCP_ENDPOINT}
   - name: WORKIQ_TOOLBOX_NAME
     value: ${WORKIQ_TOOLBOX_NAME}
-  # ---------------------------------------------------------------------
-  # Microsoft 365 AI Teammate / Agents SDK configuration
-  # ---------------------------------------------------------------------
-  # See agents/rhodes/agent.yaml for the full annotated rationale. The
-  # short version: the Python M365 Agents SDK reads ASP.NET-style env
-  # vars and looks up the connection by the literal key SERVICE_CONNECTION
-  # (with the underscore). The connection must be a Confidential Client
-  # (AuthType=ClientSecret) so the agentic CCA token flow works; managed
-  # identity returns the wrong client type. The federated client id is
-  # the *project* MI (not the per-instance FMI) because the blueprint app
-  # trusts the project MI via ProjectManagedIdentityFederatedIdentityCredential.
-  #
-  # The {AGENT}_BLUEPRINT_CLIENT_ID / _SECRET env vars are populated by
-  # `make publish <agent>` (via scripts/publish_agent.py + ensure_foundry_application.py).
-  # While they are empty, activity_protocol.py mount is a no-op so the
-  # Responses path is unaffected.
-  - name: AGENTAPPLICATION__USERAUTHORIZATION__HANDLERS__AGENTIC__TYPE
-    value: AgenticUserAuthorization
-  - name: AGENTAPPLICATION__USERAUTHORIZATION__HANDLERS__AGENTIC__SETTINGS__ALTERNATEBLUEPRINTCONNECTIONNAME
-    value: AgentBluePrint
-  - name: CONNECTIONS__SERVICE_CONNECTION__SETTINGS__AUTHTYPE
-    value: ClientSecret
-  - name: CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTID
-    value: ${WORKIQ_EXPERT_BLUEPRINT_CLIENT_ID}
-  - name: CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTSECRET
-    value: ${WORKIQ_EXPERT_BLUEPRINT_CLIENT_SECRET}
-  - name: CONNECTIONS__SERVICE_CONNECTION__SETTINGS__FEDERATEDCLIENTID
-    value: ${AGENT_BLUEPRINT_FEDERATED_CLIENT_ID}
-  - name: CONNECTIONS__SERVICE_CONNECTION__SETTINGS__TENANTID
-    value: ${AZURE_TENANT_ID}
-  - name: CONNECTIONS__SERVICE_CONNECTION__SETTINGS__SCOPES__0
-    value: ${AGENT_BLUEPRINT_SERVICE_SCOPE}
-  - name: CONNECTIONSMAP__0__SERVICEURL
-    value: '*'
-  - name: CONNECTIONSMAP__0__CONNECTION
-    value: SERVICE_CONNECTION

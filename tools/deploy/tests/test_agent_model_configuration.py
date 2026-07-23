@@ -77,6 +77,17 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn('"foundryiq": True', expert_clients)
         self.assertIn('"fabriciq": False', expert_clients)
 
+    def test_only_invoice_analyst_declares_activity_protocol(self) -> None:
+        activity_agents = []
+        for agent_manifest in (ROOT / "modules/agents/agents").glob("*/agent.yaml"):
+            if "protocol: activity_protocol" in agent_manifest.read_text():
+                activity_agents.append(agent_manifest.parent.name)
+
+        self.assertEqual(activity_agents, ["invoice-analyst"])
+        workflow = (ROOT / ".github/workflows/deploy.yml").read_text()
+        self.assertNotIn("ASSURANCE_ORCHESTRATOR_BLUEPRINT_CLIENT_SECRET", workflow)
+        self.assertIn("INVOICE_ANALYST_BLUEPRINT_CLIENT_SECRET", workflow)
+
     def test_content_understanding_reuses_primary_completion_model(self) -> None:
         bicep = (ROOT / "modules/agents/infra/main.bicep").read_text()
         parameters = json.loads(
@@ -195,6 +206,14 @@ class AgentModelConfigurationTests(unittest.TestCase):
             "must support both Hosted Agents and Content Understanding GA",
             workflow,
         )
+        self.assertIn(
+            "--resource-type Microsoft.Search/searchServices",
+            provision,
+        )
+        self.assertIn(
+            'azd env set AZURE_AI_SEARCH_LOCATION "${search_locations[0]}"',
+            provision,
+        )
         self.assertNotIn("'francecentral'", infra)
         self.assertIn("'eastus2'", infra)
         azure_yaml = (ROOT / "modules/agents/azure.yaml").read_text()
@@ -239,6 +258,14 @@ class AgentModelConfigurationTests(unittest.TestCase):
         self.assertIn("waypoint_agent_version", deploy_agents)
         self.assertIn('state_resource_id="$(azd env get-value AZURE_AI_ACCOUNT_ID)"', deploy_agents)
         self.assertIn('tag_prefix="waypoint_${AGENT_NAME//-/_}"', deploy_agents)
+        self.assertIn(
+            "if grep -q 'protocol: activity_protocol'",
+            deploy_agents,
+        )
+        self.assertIn(
+            "Removing stale Bot Service from Responses-only agent",
+            deploy_agents,
+        )
         self.assertIn("agent_exists=true", deploy_agents)
         self.assertIn("--max-time 30", deploy_agents)
         self.assertIn(

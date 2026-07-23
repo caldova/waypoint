@@ -712,21 +712,8 @@ jobs:
           azd env set AZURE_TENANT_ID       "${{ vars.AZURE_TENANT_ID }}"
           azd env set AZURE_SUBSCRIPTION_ID "${{ vars.AZURE_SUBSCRIPTION_ID }}"
           azd env set AZURE_CLIENT_ID       "${{ vars.AZURE_CLIENT_ID }}"
-          # AI Teammate blueprint client secret for assurance-orchestrator.
-          # agent.yaml binds ${ASSURANCE_ORCHESTRATOR_BLUEPRINT_CLIENT_SECRET}
-          # into CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTSECRET, which
-          # the MSAL confidential-client agentic-token flow behind /api/messages
-          # requires (Teams direct chat AND digital-worker email). CI has no
-          # remote azd state, so inject it from the repo Actions secret before
-          # `azd deploy`. Guard on non-empty so runs without the secret don't
-          # shadow a local .env with "" (which surfaces as an opaque -60018 at
-          # hire-chat time — see docs/AI_TEAMMATE.md).
-          orch_bp_secret="${{ secrets.ASSURANCE_ORCHESTRATOR_BLUEPRINT_CLIENT_SECRET }}"
-          if [ -n "$orch_bp_secret" ]; then
-            azd env set ASSURANCE_ORCHESTRATOR_BLUEPRINT_CLIENT_SECRET "$orch_bp_secret"
-          fi
-          # Same blueprint-secret requirement for invoice-analyst's Teams
-          # chat surface. agent.yaml binds ${INVOICE_ANALYST_BLUEPRINT_CLIENT_SECRET}
+          # invoice-analyst is the sole Activity-protocol agent. Its manifest binds
+          # ${INVOICE_ANALYST_BLUEPRINT_CLIENT_SECRET}
           # into CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTSECRET.
           analyst_bp_secret="${{ secrets.INVOICE_ANALYST_BLUEPRINT_CLIENT_SECRET }}"
           if [ -n "$analyst_bp_secret" ]; then
@@ -1039,6 +1026,7 @@ jobs:
         timeout-minutes: 5
 
       - name: Discover blueprint client id for ${{ matrix.agent }}
+        if: matrix.agent == 'invoice-analyst'
         # The Microsoft 365 AI Teammate /api/messages mount in
         # agents/<name>/activity_protocol.py only activates when the
         # container env var CONNECTIONS__SERVICE_CONNECTION__SETTINGS__CLIENTID
@@ -1296,11 +1284,13 @@ jobs:
           # model AND serve project-endpoint reads from the Playground.
           grant "instance_identity" "$INSTANCE_PRINCIPAL_ID" "$COGNITIVE_SERVICES_USER" "Cognitive Services User"
           grant "instance_identity" "$INSTANCE_PRINCIPAL_ID" "$FOUNDRY_USER" "Foundry User"
-          # blueprint only needs Cognitive Services User for Bot Service auth.
-          grant "blueprint" "$BLUEPRINT_PRINCIPAL_ID" "$COGNITIVE_SERVICES_USER" "Cognitive Services User"
+          if [ "$AGENT" = "invoice-analyst" ]; then
+            grant "blueprint" "$BLUEPRINT_PRINCIPAL_ID" "$COGNITIVE_SERVICES_USER" "Cognitive Services User"
+          fi
         timeout-minutes: 3
 
       - name: Ensure agent endpoint protocols + auth scheme for ${{ matrix.agent }}
+        if: matrix.agent == 'invoice-analyst'
         # Runs on EVERY deploy (not just publish) because `azd deploy` can
         # reset an agent's `agent_endpoint.protocols` to `["responses"]` only.
         # When that happens, Bot Service POSTs to `/protocols/activityprotocol`
@@ -1466,7 +1456,7 @@ jobs:
         #
         # Listing in the Microsoft 365 Copilot agent store is a separate
         # step (`make publish AGENT=<name>` from a developer laptop).
-        if: github.event_name == 'workflow_dispatch' && inputs.publish == true
+        if: github.event_name == 'workflow_dispatch' && inputs.publish == true && matrix.agent == 'invoice-analyst'
         env:
           AGENT_NAME: ${{ matrix.agent }}
           PROJECT_ENDPOINT: ${{ steps.endpoint.outputs.endpoint }}

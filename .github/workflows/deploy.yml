@@ -663,6 +663,20 @@ jobs:
           azd env set AZURE_CLIENT_ID "$AZURE_CLIENT_ID"
           azd env set AZURE_LOCATION "$AZURE_LOCATION"
           azd env set AZURE_RESOURCE_GROUP_LOCATION "$APP_AZURE_LOCATION"
+          mapfile -t search_locations < <(
+            az resource list \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --resource-type Microsoft.Search/searchServices \
+              --query "[].location" \
+              --output tsv
+          )
+          if [ "${#search_locations[@]}" -gt 1 ]; then
+            echo "::error::Multiple Azure AI Search services exist in $AZURE_RESOURCE_GROUP; cannot select an idempotent deployment location."
+            exit 1
+          fi
+          if [ "${#search_locations[@]}" -eq 1 ]; then
+            azd env set AZURE_AI_SEARCH_LOCATION "${search_locations[0]}"
+          fi
           azd env set ENABLE_HOSTED_AGENTS true
           azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME "${{ vars.AZURE_AI_MODEL_DEPLOYMENT_NAME || 'gpt-5.5' }}"
           azd env set MODEL_NAME "${{ vars.MODEL_NAME || vars.AZURE_AI_MODEL_DEPLOYMENT_NAME || 'gpt-5.5' }}"
@@ -994,10 +1008,6 @@ jobs:
           azd env set AZURE_TENANT_ID       "$AZURE_TENANT_ID"
           azd env set AZURE_SUBSCRIPTION_ID "$AZURE_SUBSCRIPTION_ID"
           azd env set AZURE_CLIENT_ID       "$AZURE_CLIENT_ID"
-          orch_bp_secret="${{ secrets.ASSURANCE_ORCHESTRATOR_BLUEPRINT_CLIENT_SECRET }}"
-          if [ -n "$orch_bp_secret" ]; then
-            azd env set ASSURANCE_ORCHESTRATOR_BLUEPRINT_CLIENT_SECRET "$orch_bp_secret"
-          fi
           analyst_bp_secret="${{ secrets.INVOICE_ANALYST_BLUEPRINT_CLIENT_SECRET }}"
           if [ -n "$analyst_bp_secret" ]; then
             azd env set INVOICE_ANALYST_BLUEPRINT_CLIENT_SECRET "$analyst_bp_secret"
@@ -1199,10 +1209,15 @@ jobs:
             echo "::error::Multiple Bot Service resources found for ${AGENT_NAME}; reconcile drift before deployment."
             exit 1
           fi
-          state_resource_id="${bot_ids[0]:-}"
-          hash_tag="waypoint_agent_hash"
-          version_tag="waypoint_agent_version"
-          if [ -z "$state_resource_id" ]; then
+          activity_enabled=false
+          if grep -q 'protocol: activity_protocol' "agents/${AGENT_NAME}/agent.yaml"; then
+            activity_enabled=true
+          fi
+          if [ "$activity_enabled" = "true" ] && [ "${#bot_ids[@]}" -eq 1 ]; then
+            state_resource_id="${bot_ids[0]}"
+            hash_tag="waypoint_agent_hash"
+            version_tag="waypoint_agent_version"
+          else
             state_resource_id="$(azd env get-value AZURE_AI_ACCOUNT_ID)"
             tag_prefix="waypoint_${AGENT_NAME//-/_}"
             hash_tag="${tag_prefix}_hash"
@@ -1318,19 +1333,27 @@ jobs:
               --query "[?starts_with(name, '${AGENT_NAME}-bot-')].id" \
               -o tsv
           )
-          if [ "${#bot_ids[@]}" -ne 1 ]; then
-            if [ "${#bot_ids[@]}" -gt 1 ]; then
-              echo "::error::Multiple Bot Service resources found for ${AGENT_NAME}; reconcile drift before recording state."
+          activity_enabled=false
+          if grep -q 'protocol: activity_protocol' "agents/${AGENT_NAME}/agent.yaml"; then
+            activity_enabled=true
+          fi
+          if [ "$activity_enabled" = "true" ]; then
+            if [ "${#bot_ids[@]}" -ne 1 ]; then
+              echo "::error::Activity agent ${AGENT_NAME} requires exactly one Bot Service resource; found ${#bot_ids[@]}."
               exit 1
             fi
+            state_resource_id="${bot_ids[0]}"
+            hash_tag="waypoint_agent_hash"
+            version_tag="waypoint_agent_version"
+          else
+            for bot_id in "${bot_ids[@]}"; do
+              echo "::notice::Removing stale Bot Service from Responses-only agent ${AGENT_NAME}."
+              az resource delete --ids "$bot_id"
+            done
             state_resource_id="$(azd env get-value AZURE_AI_ACCOUNT_ID)"
             tag_prefix="waypoint_${AGENT_NAME//-/_}"
             hash_tag="${tag_prefix}_hash"
             version_tag="${tag_prefix}_version"
-          else
-            state_resource_id="${bot_ids[0]}"
-            hash_tag="waypoint_agent_hash"
-            version_tag="waypoint_agent_version"
           fi
           az tag update \
             --resource-id "$state_resource_id" \
