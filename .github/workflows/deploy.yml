@@ -527,7 +527,7 @@ jobs:
   deploy-app:
     name: Deploy Waypoint app
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     if: |
       always() &&
       inputs.deploy_app &&

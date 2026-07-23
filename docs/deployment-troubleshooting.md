@@ -218,6 +218,23 @@ Unknown failures remain fail-fast. Cleanup of a partial managed environment is
 allowed only when it contains no Container Apps. An environment with apps fails
 closed for operator review.
 
+### Cold deploy per-attempt timeout
+
+A cold single-region deploy provisions PostgreSQL Flexible Server (~8 minutes)
+and a fresh Container Apps environment (~4 minutes) before the app/web revisions
+roll out. The first Sweden Central attempt tripped the Aspire per-attempt
+watchdog (`##[error]Aspire deploy exceeded 12m without a recognized capacity
+failure` / exit 124) because Postgres alone consumed 7.8 minutes and left too
+little of the 12-minute budget for the Container Apps environment.
+
+This is not a capacity failure; the deploy was progressing. The per-attempt
+budget (`ASPIRE_DEPLOY_ATTEMPT_TIMEOUT`, default `20m` in
+`tools/deploy/scripts/aspire_deploy.sh`) and the `deploy-app` job timeout
+(45 minutes) now accommodate a cold provision. The deploy is idempotent, so a
+rerun reuses the already-provisioned Postgres and Container Apps environment and
+converges quickly. Raise `ASPIRE_DEPLOY_ATTEMPT_TIMEOUT` further only if a
+region's cold provisions are unusually slow.
+
 Do not repeatedly dispatch the workflow while an earlier managed environment is
 still being deleted. Check:
 

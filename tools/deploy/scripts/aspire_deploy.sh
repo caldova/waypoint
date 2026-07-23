@@ -3,7 +3,11 @@ set -uo pipefail
 
 resource_group="${AZURE_RESOURCE_GROUP:?AZURE_RESOURCE_GROUP is required}"
 max_attempts="${ASPIRE_DEPLOY_MAX_ATTEMPTS:-2}"
-attempt_timeout="${ASPIRE_DEPLOY_ATTEMPT_TIMEOUT:-12m}"
+# A cold single-region deploy provisions PostgreSQL Flexible Server (~8m) and a
+# fresh Container Apps environment (~4m) before the app/web revisions roll out,
+# so the per-attempt budget must exceed the sum of those cold provisions. 12m
+# was too tight for a cold Sweden Central deploy (Postgres alone took 7.8m).
+attempt_timeout="${ASPIRE_DEPLOY_ATTEMPT_TIMEOUT:-20m}"
 retry_delay_seconds="${ASPIRE_DEPLOY_RETRY_DELAY_SECONDS:-20}"
 capacity_pattern='ManagedEnvironmentCapacityHeavyUsageError|AKSCapacityHeavyUsage'
 managed_identity_pull_pattern='unable to pull image using Managed identity'
