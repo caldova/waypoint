@@ -145,7 +145,9 @@ the prior Forge/Waypoint KB model split: hosted agents use `gpt-5.5`, while
 fails if the run falls back. Region selection still matters because Azure AI
 Search, Foundry, both model deployments, and hosted-agent provisioning must all
 be healthy in the selected region — see
-[platform and environmental blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
+[tested regions](docs/deployment-troubleshooting.md#tested-regions-and-known-regional-issues)
+and
+[platform/environmental blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
 before choosing a region. In the app, a reviewer can run assurance for one
 invoice or select up to 25 visible invoices and start a batch. The batch starts
 at most four new orchestrations concurrently, reuses active invoice runs, and

@@ -52,7 +52,8 @@ results remain reference-only and cannot satisfy mutation gates.
 - **Regional availability remains the main deployment risk.** UK South now has a
   one-click proof with grounded KB runtime evidence at commit `f9fc7bb`. Sweden
   Central still cannot provision hosted agents on newly-created Foundry accounts, so
-  region choice remains subject to Azure platform health. See
+  region choice remains subject to Azure platform health. See the
+  [tested region matrix](deployment-troubleshooting.md#tested-regions-and-known-regional-issues),
   [platform and environmental blockers](deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
   and the [end-to-end readiness assessment](e2e-readiness-assessment.md).
 - Runtime confidence scores are visible again as uncalibrated evidence scores;

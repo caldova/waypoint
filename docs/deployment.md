@@ -211,7 +211,9 @@ are load-bearing and cannot both be worked around in the repository:
 
 If a single region cannot satisfy both at once, the deployment is blocked on
 external Azure/Foundry platform state, not on configuration. See
-[platform and environmental blockers](deployment-troubleshooting.md#platform-and-environmental-blockers-encountered).
+the [tested region matrix](deployment-troubleshooting.md#tested-regions-and-known-regional-issues)
+and
+[platform/environmental blockers](deployment-troubleshooting.md#platform-and-environmental-blockers-encountered).
 
 ## Acceptance evidence
 

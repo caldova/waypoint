@@ -40,6 +40,26 @@ unchanged idempotency with Search, Foundry, app, and agents all in UK South. Run
 stages passed, the terminal run completed, and acceptance found recorder-
 preserved retrieval citations with no fallback markers.
 
+## Tested regions and known regional issues
+
+Waypoint's grounded one-click path needs **all** of these in the selected region:
+Foundry hosted agents, the hosted-agent `gpt-5.5` deployment, the KB
+`gpt-5-mini` answer-synthesis deployment, `text-embedding-3-large`, Azure AI
+Search `basic`, PostgreSQL, Container Apps, and healthy fresh-account hosted-
+agent provisioning. The table below records the regions and placements tested so
+far.
+
+| Region / placement | What was tested | Current status | Evidence | Operator guidance |
+| --- | --- | --- | --- | --- |
+| **UK South** | Single-region app + PostgreSQL + Search + Foundry + models + four hosted agents + KB upload + acceptance | **Known green for a single pilot**. Current proof passed with grounded runtime `ref_id` citations and no fallback markers. | Structural one-click `29998293196`; unchanged idempotency `30000311095`; grounded current code `30034540034` at `f9fc7bb`. | Best current proof region while capacity remains available. Re-run preflight before using it for a new tenant/subscription. |
+| **Sweden Central** | Co-located model/Search/Postgres capacity; fresh hosted-agent provisioning; pre-existing keynote environment | **Blocked for newly-created Foundry accounts**: all new hosted-agent versions fail quickly with generic `ProvisioningError`, while pre-existing `rg-waypoint` / `forge` resources keep working. | Differential probe: existing `forge` active; new Sweden accounts failed with both our image and the `forge` image; fresh East US 2 account provisioned our image in ~40s. | Do not use for fresh one-click deploys until the Foundry hosted-agent regional stamp is fixed or Microsoft confirms the issue is resolved. Existing pre-matured environments can still be demo proof, not fresh one-click proof. |
+| **East US 2** | Foundry hosted agents and full deploy/idempotency with app/Search split to North Europe | **Structurally works, not grounded when Search is split**. Hosted agents provision, but Azure AI Search `basic` capacity was unavailable in-region, forcing cross-region KB topology and fallback. | Clean deploy `29975010853`; convergence `29976423127`; strict unchanged `29977004582`; Search capacity failure during region probing. | Useful hosted-agent sanity/reference region. Do not use for grounded one-click until Search `basic` capacity is available in-region. |
+| **North Europe** | App, PostgreSQL, and Azure AI Search region paired with East US 2 Foundry | **App/Search placement worked, but cross-region KB grounding failed** because Search and Foundry/model answer synthesis were split. | Same East US 2/North Europe validation set above. | Acceptable app region only when not relying on FoundryIQ KB grounding across regions; not a standalone proof for hosted agents. |
+| **France Central** | Foundry capability probe | **Unsupported capability combination** for the required Foundry stack observed during validation. | Content Understanding capability failure during early deployment validation. | Do not bypass the allow-list/preflight to force this region. |
+| **East US** | App/PostgreSQL placement | **Blocked by PostgreSQL offer restriction** (`LocationIsOfferRestricted`). | Regional app placement attempts. | Avoid for app/PostgreSQL until Azure offer availability changes. |
+| **West US 3** | App/PostgreSQL placement | **Blocked by PostgreSQL internal server error** during provisioning. | Regional app placement attempts. | Treat as an Azure platform issue; retry only after checking current regional health. |
+| **South Central US / West Europe / West US** | Model and embedding quota checks | **Capacity-constrained candidates** during preflight: tight `gpt-5.5`, `gpt-5-mini`, or embedding quota/headroom. | `region_capacity_preflight.py` quota checks. | Let preflight choose; do not hard-code these without current quota confirmation. |
+
 ## Start with the failing stage
 
 Do not wait for the entire workflow when a required job has already failed.
@@ -69,7 +89,7 @@ a monitoring transport error into a deployment failure.
 | Symptom | Root cause | Current handling |
 | --- | --- | --- |
 | Content Understanding failed in France Central | The region did not support the required GA capability set | Preflight allows only the documented Hosted Agents and Content Understanding intersection |
-| Azure AI Search creation failed in East US 2 | Regional Search capacity was exhausted | Search can fail over to the app region without moving Foundry or hosted-agent compute |
+| Azure AI Search creation failed in East US 2 | Regional Search capacity was exhausted | The split-region fallback proved structural deploy/idempotency only; grounded KB deploys now require co-located Search/model capacity and fail fast when the selected region cannot satisfy it |
 | Container Apps provisioning stalled or reported capacity pressure | Azure regional capacity or a poisoned partial managed environment | Deployment uses bounded attempts and narrowly scoped cleanup/retry |
 | A recreated app could not pull its image | Managed-identity and `AcrPull` propagation raced the new Container Apps environment | The exact failure reconciles the sole expected identity/registry assignment and retries once |
 | ACR hostname temporarily returned `no such host` | New-registry DNS propagation | The exact registry-resolution failure receives one bounded retry |

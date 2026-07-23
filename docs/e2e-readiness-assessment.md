@@ -166,6 +166,8 @@ probability is repository work that does not exist yet.
 ## Residual risks
 
 See
+[Tested regions and known regional issues](deployment-troubleshooting.md#tested-regions-and-known-regional-issues)
+and
 [Platform and environmental blockers encountered](deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
 for the full catalog with class and mitigation. The load-bearing ones for E2E
 readiness — note that not all are external:
