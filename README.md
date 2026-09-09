@@ -111,13 +111,10 @@ parallel environments, and troubleshooting.
 2. Keep the defaults for a first deployment.
 3. Start the workflow and follow the acceptance job through completion.
 
-> **Current status caveat.** A fresh one-click deployment depends on Azure-side
-> hosted-agent provisioning being healthy in the selected co-located region. As of
-> this writing that provisioning is failing for **newly-created** Foundry accounts
-> in the default co-located region, so a brand-new run may fail at the agent-deploy
-> stage for reasons outside this repository. Read the
-> [end-to-end readiness assessment](docs/e2e-readiness-assessment.md) and
-> [platform blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
+> **Current status caveat.** A fresh deployment depends on Azure-side
+> hosted-agent provisioning and co-located knowledge-base resources being healthy
+> in the selected region. A brand-new run can fail at the agent-deploy stage for
+> reasons outside this repository. See [Azure deployment](docs/deployment.md)
 > before a first run.
 
 The default path deploys:
@@ -141,11 +138,7 @@ Hosted agents use `gpt-5.5`, while `contracts-kb` answer synthesis uses
 co-located `gpt-5-mini`, and acceptance fails if the run falls back. Region
 selection still matters because Azure AI Search, Foundry, both model
 deployments, and hosted-agent provisioning must all be healthy in the selected
-region — see
-[tested regions](docs/deployment-troubleshooting.md#tested-regions-and-known-regional-issues)
-and
-[platform/environmental blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
-before choosing a region. In the app, a reviewer can run assurance for one
+region — see [Azure deployment](docs/deployment.md) before choosing a region. In the app, a reviewer can run assurance for one
 invoice or select up to 25 visible invoices and start a batch. The batch starts
 at most four new runs concurrently, reuses active invoice runs, and reports
 independent accepted, reused, not-found, or start-failed outcomes. Every run
@@ -260,13 +253,11 @@ checks without requiring the presenter canvas.
 | --- | --- |
 | [Project status](docs/status.md) | Validated paths, current caveats, and work still in progress. |
 | [Getting started](docs/getting-started.md) | Local developer prerequisites and validation commands. |
-| [Azure deployment](docs/deployment.md) | Deployment variables, FoundryIQ-only stages, parallel environments, and troubleshooting. |
-| [Deployment troubleshooting](docs/deployment-troubleshooting.md) | Observed E2E failures, root causes, recovery steps, and remaining limitations. |
+| [Azure deployment](docs/deployment.md) | Deploying the single agent (azd + castia) and the app. |
 | [Foundry demo](docs/foundry-demo.md) | Live Pharmashield presenter workflow and fidelity contract. |
-| [Architecture](docs/architecture.md) | Application, corpus, agents, evaluations, optimization, and deployment layers. |
+| [Architecture](docs/architecture.md) | Application, corpus, agent, evaluations, optimization, and deployment layers. |
 | [Agent quality operations](docs/quality-operations.md) | Full batch assurance and the five-step run, inspect, measure, improve, and release workflow. |
 | [Data disclaimer](docs/data-disclaimer.md) | Scope and handling of the synthetic Caldova data set. |
-| [Compatibility](docs/compatibility.md) | Compatibility names retained while the consolidated repository stabilizes. |
 | [Repository settings](docs/repository-settings.md) | Recommended settings for publishing and operating the repository. |
 
 See [Security](SECURITY.md), [Contributing](CONTRIBUTING.md), and

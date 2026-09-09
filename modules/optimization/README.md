@@ -14,8 +14,8 @@ The supported quality path is:
    passes.
 
 The operator surface for this loop is documented in
-[`../../docs/quality-operations.md`](../../docs/quality-operations.md) and
-implemented by `.github/workflows/agent-quality-operations.yml`.
+[`../../docs/quality-operations.md`](../../docs/quality-operations.md) and run
+with `castia eval` and `castia optimize`.
 
 The current target is `contract-policy-expert`. Historical
 `assurance-analyst` artifacts remain only as calibration provenance.

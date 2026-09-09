@@ -4,28 +4,19 @@ This directory contains the lower-level scripts, manifest, tests, and historical
 workflow assets used by Waypoint's monorepo deployment.
 
 > [!IMPORTANT]
-> The canonical entry point is the root
-> [Deploy Azure workflow](../../.github/workflows/deploy.yml), and the canonical
-> operator guide is [docs/deployment.md](../../docs/deployment.md). Do not run
-> the workflow under `tools/deploy/.github/` as the current deployment path.
+> These scripts are lower-level helpers. The agent is deployed with `azd` +
+> `castia` (see [docs/deployment.md](../../docs/deployment.md)); the app is
+> deployed from [apps/waypoint](../../apps/waypoint/README.md). The workflow
+> under `tools/deploy/.github/` is historical and should not be run.
 
-## Current deployment shape
+## What this provides
 
-The validated default deployment provisions the Waypoint app, corpus seed,
-Foundry project and knowledge base, and four hosted agents:
+Reusable helpers for the app deployment and acceptance checks:
 
-- `invoice-analyst`
-- `assurance-orchestrator`
-- `contract-policy-expert`
-- `waypoint-recorder`
-
-FoundryIQ is the only launch evidence lane. WorkIQ, WebIQ, FabricIQ, and
-Fabric/OneLake modules remain in the repository for future development but are
-not inputs, stages, resources, or agents in the one-click launch deployment.
-
-`waypoint-recorder` is the sole agent writer. The app's assurance operation and
-deployment acceptance both run one invoice through `assurance-orchestrator`,
-then verify that the recorder finalized the governed Waypoint run.
+- one-time GitHub-to-Azure OIDC bootstrap;
+- idempotent Key Vault and generated-secret handling;
+- Waypoint Entra (MSAL) application reconciliation; and
+- versioned HTTP acceptance probes.
 
 ## Directory map
 
@@ -68,9 +59,9 @@ contract, safety boundaries, and parity-environment commands.
 Deployment confidence comes from the root workflow's acceptance job and uploaded
 evidence artifact.
 
-See [Deployment findings and troubleshooting](../../docs/deployment-troubleshooting.md)
-for the failures observed during the validated E2E, safe recovery procedures,
-and the remaining KB-retrieval fidelity gap.
+Deployment confidence comes from the acceptance probes and the uploaded
+evidence artifact.
+
 
 ## Rerun behavior
 

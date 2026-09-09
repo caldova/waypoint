@@ -12,8 +12,8 @@ verify, report, and gate. Every gate defaults to blocked.
 
 The repository-level operator flow is documented in
 [`../../../docs/quality-operations.md`](../../../docs/quality-operations.md).
-The authenticated Waypoint quality page and
-`.github/workflows/agent-quality-operations.yml` present the same sequence:
+The authenticated Waypoint quality page and the `castia eval` / `castia
+optimize` loop present the same sequence:
 run, inspect, measure, improve, and release with approval.
 
 ## Why this exists

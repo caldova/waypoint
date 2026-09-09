@@ -26,9 +26,9 @@ No package installation or local service startup is required.
 ## Prerequisites
 
 - Azure CLI is installed and `az login` is authenticated to the target tenant.
-- The root **Deploy Azure** workflow has successfully deployed the default
-  FoundryIQ fleet and uploaded `contracts-kb`.
-- The signed-in identity can invoke the hosted `contract-policy-expert`.
+- The **Deploy waypoint-agent** workflow has successfully deployed
+  `waypoint-agent` and uploaded `contracts-kb`.
+- The signed-in identity can invoke the hosted `waypoint-agent`.
 
 The canvas does not deploy Azure resources. If these prerequisites are absent,
 its readiness panel stays blocked and identifies the missing boundary.
@@ -75,7 +75,8 @@ words occur in the live tool output.
 The included Aster Ridge invoice is the demo's business artifact. Contract
 conclusions still come exclusively from the live FoundryIQ knowledge base.
 
-The hosted `contract-policy-expert` remains a read-only evidence expert. If the
+The hosted `waypoint-agent` remains a read-only evidence expert on this surface.
+If the
 retrieved sources do not prove a purchase-order authorization, the canvas keeps
 that question unresolved instead of reproducing the scripted demo's conclusion.
 
