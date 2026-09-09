@@ -7,7 +7,7 @@ synthetic demo data.
 ## Current shape
 
 - Invoice assurance runs on a single [castia](https://github.com/sethjuarez/castia)-based
-  `waypoint-agent`, deployed to the **caldova** Foundry project in **West US**.
+  `contract-agent`, deployed to the **caldova** Foundry project in **West US**.
   It serves the responses, activity, and invocations protocols from one entry
   point.
 - The agent's evidence and status tools are read-only; a single governed writer
@@ -23,7 +23,7 @@ synthetic demo data.
 ## Quality and optimization
 
 Quality and optimization run through `castia eval` and `castia optimize` against
-`waypoint-agent`, backed by Caliber datasets, deterministic graders, and
+`contract-agent`, backed by Caliber datasets, deterministic graders, and
 calibration in `modules/evals`, and the Agent Optimizer / RFT assets in
 `modules/optimization`.
 

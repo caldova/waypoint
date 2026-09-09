@@ -1,20 +1,20 @@
 # Azure deployment
 
 Waypoint deploys in two independent parts: the **application** (web, API,
-PostgreSQL) and the single **`waypoint-agent`** in the caldova Foundry project.
+PostgreSQL) and the single **`contract-agent`** in the caldova Foundry project.
 
 ## The agent
 
-`waypoint-agent` is deployed with `azd` + [castia](https://github.com/sethjuarez/castia)
+`contract-agent` is deployed with `azd` + [castia](https://github.com/sethjuarez/castia)
 to the caldova Foundry project (**West US**), either locally or through the
-[Deploy waypoint-agent workflow](../.github/workflows/deploy.yml).
+[Deploy contract-agent workflow](../.github/workflows/deploy.yml).
 
 Locally, from the repository root:
 
 ```bash
 azd provision            # shared Foundry resources + the gpt-5.5 deployment
 castia deploy            # reconcile azure.yaml protocols from the agent decorators
-azd deploy waypoint-agent
+azd deploy contract-agent
 ```
 
 `azd provision` is only needed on the first run or after infrastructure changes.
@@ -37,7 +37,7 @@ bootstrap):
 | `AZD_ENV_NAME` | azd environment name; defaults to `caldova`. |
 | `AZURE_LOCATION` | Azure region; defaults to `westus`. |
 
-Run **Actions → Deploy waypoint-agent**, enabling **provision** on the first run.
+Run **Actions → Deploy contract-agent**, enabling **provision** on the first run.
 
 ## The application
 
@@ -54,6 +54,6 @@ acceptance-probe helpers live under [tools/deploy](../tools/deploy/README.md).
 ## Quality and optimization
 
 Agent quality and optimization run through `castia eval` and `castia optimize`
-against `waypoint-agent`, backed by the datasets and graders in
+against `contract-agent`, backed by the datasets and graders in
 [modules/evals](../modules/evals/README.md) and the Agent Optimizer / RFT assets
 in [modules/optimization](../modules/optimization/README.md).

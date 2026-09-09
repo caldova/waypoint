@@ -94,7 +94,7 @@ class _WaypointWriter(_WaypointClient):
         return await self._send("POST", "/api/runs", {
             "name": name,
             "case_id": case_id,
-            "foundry_agent_name": "waypoint-agent",
+            "foundry_agent_name": "contract-agent",
             "status": status,
             "summary": summary,
             "idempotency_key": idempotency_key,

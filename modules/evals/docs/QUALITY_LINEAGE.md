@@ -128,7 +128,7 @@ operation itself.
 
 ```bash
 # Validate an agent's eval.yaml plus its referenced dataset and rubric/evaluator files
-uv run caliber eval validate-assets --eval-config modules/agents/agents/contract-policy-expert/eval.yaml --json
+uv run caliber eval validate-assets --eval-config modules/agents/contract-policy-expert/eval.yaml --json
 
 # Compute and append an immutable lineage snapshot (never overwrites)
 uv run caliber lineage snapshot \
@@ -136,7 +136,7 @@ uv run caliber lineage snapshot \
   --operation-id eval-run-123 \
   --operation-kind eval \
   --dataset datasets/contract-policy-expert/contract-policy-expert-eval.jsonl \
-  --rubric-eval-config modules/agents/agents/contract-policy-expert/eval.yaml \
+  --rubric-eval-config modules/agents/contract-policy-expert/eval.yaml \
   --grader graders/contract-policy-expert/contract_policy_evidence_grader.py \
   --model-deployment gpt-5-mini \
   --metric pass_rate=0.91 \
@@ -172,7 +172,7 @@ location, e.g. a committed one for reference evidence.
 - `modules/evals/tests/test_eval_assets.py` — valid/invalid configs, missing
   dataset/evaluator, empty/malformed rubric dimensions, backslash-path
   handling, and a regression test against the real
-  `modules/agents/agents/contract-policy-expert/eval.yaml`.
+  `modules/agents/contract-policy-expert/eval.yaml`.
 - `modules/evals/tests/test_cli_lineage_gates.py` — end-to-end CLI smoke tests
   through `caliber.cli.main` for `lineage snapshot/verify/report`,
   `gates check`, and `eval validate-assets`.

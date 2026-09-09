@@ -12,8 +12,8 @@ from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_SPEC = REPO_ROOT / "iqs" / "waypoint-iq" / "openapi.json"
+IQ_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SPEC = IQ_ROOT / "openapi.json"
 READ_SMOKE_PATHS = (
     "/health",
     "/api/work",

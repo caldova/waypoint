@@ -14,8 +14,8 @@ from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_OUTPUT = REPO_ROOT / "iqs" / "waypoint-iq" / "openapi.json"
+IQ_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT = IQ_ROOT / "openapi.json"
 
 Operation = tuple[str, str, str, str]
 

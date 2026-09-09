@@ -5,7 +5,7 @@ reusable IQ/toolbox contract it depends on.
 
 ## The agent
 
-`waypoint-agent` is one [castia](https://github.com/sethjuarez/castia)-based
+`contract-agent` is one [castia](https://github.com/sethjuarez/castia)-based
 agent that serves every surface. It speaks three protocols from a single
 `main:app` entry point:
 
@@ -21,8 +21,8 @@ reported honestly, never fabricated.
 
 ```text
 modules/agents/
-├── agents/waypoint-agent/   # the hosted-agent source (main:app, agent.yaml, tools)
-└── iqs/waypoint-iq/         # reusable IQ/toolbox + OpenAPI contract
+├── contract-agent/   # the hosted-agent source (main:app, agent.yaml, tools)
+└── waypoint-iq/      # reusable IQ/toolbox + OpenAPI contract
 ```
 
 The deployable service is declared in the repo-root `azure.yaml`.
@@ -30,7 +30,7 @@ The deployable service is declared in the repo-root `azure.yaml`.
 ## Local development
 
 ```bash
-cd modules/agents/agents/waypoint-agent
+cd modules/agents/contract-agent
 uv sync --frozen
 uv run castia --help
 ```
@@ -42,7 +42,7 @@ Deployed to the `caldova` Foundry project from the repo root:
 ```bash
 azd provision            # shared Foundry resources + gpt-5.5
 castia deploy            # reconcile azure.yaml protocols from decorators
-azd deploy waypoint-agent
+azd deploy contract-agent
 ```
 
 ## Quality

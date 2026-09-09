@@ -17,8 +17,8 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_SPEC = REPO_ROOT / "iqs" / "waypoint-iq" / "openapi.json"
+IQ_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SPEC = IQ_ROOT / "openapi.json"
 DEFAULT_TOOLBOX_NAME = "waypoint-iq"
 DEFAULT_TOOL_NAME = "waypoint_iq"
 DEFAULT_DESCRIPTION = "WaypointIQ managed-identity OpenAPI toolbox for Caldova Waypoint."

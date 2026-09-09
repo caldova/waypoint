@@ -30,7 +30,7 @@ from toolbox import assurance_specs, read_specs
 
 load_dotenv()
 
-app = Agent(name="waypoint-agent")
+app = Agent(name="contract-agent")
 
 # Built once for the process. Instructions resolve from .agent_configs/baseline
 # (or environment defaults), so the Foundry Agent Optimizer can tune the prompt

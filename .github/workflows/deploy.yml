@@ -1,6 +1,6 @@
-name: Deploy waypoint-agent
+name: Deploy contract-agent
 
-# Deploys the single castia-based waypoint-agent to the caldova Foundry project.
+# Deploys the single castia-based contract-agent to the caldova Foundry project.
 # The app (web/API/PostgreSQL) is deployed separately and is not part of this
 # workflow yet. Requires repo variables AZURE_CLIENT_ID, AZURE_TENANT_ID, and
 # AZURE_SUBSCRIPTION_ID wired for GitHub-to-Azure OIDC.
@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-waypoint-agent-${{ github.ref }}
+  group: deploy-contract-agent-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -29,7 +29,7 @@ env:
 
 jobs:
   deploy-agent:
-    name: Deploy waypoint-agent
+    name: Deploy contract-agent
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,12 +63,12 @@ jobs:
           AZURE_DEV_USER_AGENT: waypoint-ci
 
       - name: Reconcile agent protocols
-        working-directory: modules/agents/agents/waypoint-agent
+        working-directory: modules/agents/contract-agent
         run: |
           uv sync --frozen
           uv run castia deploy
 
       - name: Deploy the agent
-        run: azd deploy waypoint-agent --no-prompt
+        run: azd deploy contract-agent --no-prompt
         env:
           AZURE_DEV_USER_AGENT: waypoint-ci

@@ -69,7 +69,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
     def test_orchestrator_defaults_match_foundryiq_only_fleet(self) -> None:
         expert_clients = (
             ROOT
-            / "modules/agents/agents/assurance-orchestrator/expert_clients.py"
+            / "modules/agents/assurance-orchestrator/expert_clients.py"
         ).read_text()
 
         self.assertIn('"workiq": False', expert_clients)
@@ -79,7 +79,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
 
     def test_only_invoice_analyst_declares_activity_protocol(self) -> None:
         activity_agents = []
-        for agent_manifest in (ROOT / "modules/agents/agents").glob("*/agent.yaml"):
+        for agent_manifest in (ROOT / "modules/agents").glob("*/agent.yaml"):
             if "protocol: activity_protocol" in agent_manifest.read_text():
                 activity_agents.append(agent_manifest.parent.name)
 
@@ -231,7 +231,7 @@ class AgentModelConfigurationTests(unittest.TestCase):
         azure_yaml = (ROOT / "modules/agents/azure.yaml").read_text()
         self.assertNotIn('cpu: "0.25"', azure_yaml)
         self.assertNotIn("memory: 0.5Gi", azure_yaml)
-        for agent_manifest in (ROOT / "modules/agents/agents").glob("*/agent.yaml"):
+        for agent_manifest in (ROOT / "modules/agents").glob("*/agent.yaml"):
             manifest = agent_manifest.read_text()
             self.assertNotIn("cpu: '0.25'", manifest)
             self.assertNotIn("memory: '0.5Gi'", manifest)

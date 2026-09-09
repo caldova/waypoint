@@ -63,7 +63,7 @@ workflows, evaluation, optimization, and deployment automation.
 
 The complete demo path has two parts: deploy the shared Azure environment,
 then open the live presenter experience. If your team already has a working
-Waypoint environment with `waypoint-agent`, skip directly to
+Waypoint environment with `contract-agent`, skip directly to
 [Present the demo](#2-present-the-demo).
 
 ### 1. Deploy the demo environment
@@ -124,7 +124,7 @@ The default path deploys:
 - the synthetic corpus and Waypoint seed data;
 - the Foundry project, hosted-agent `gpt-5.5` deployment, KB `gpt-5-mini`
   deployment, embedding deployment, search, and `contracts-kb`;
-- the single `waypoint-agent`, which serves every surface and owns the sole
+- the single `contract-agent`, which serves every surface and owns the sole
   governed write path into Waypoint; and
 - an acceptance artifact proving endpoint health, agent availability, a
   completed assurance run, and real KB retrieval with no fallback.
@@ -142,7 +142,7 @@ region — see [Azure deployment](docs/deployment.md) before choosing a region. 
 invoice or select up to 25 visible invoices and start a batch. The batch starts
 at most four new runs concurrently, reuses active invoice runs, and reports
 independent accepted, reused, not-found, or start-failed outcomes. Every run
-invokes `waypoint-agent`, which persists its result only through the agent's
+invokes `contract-agent`, which persists its result only through the agent's
 single governed writer.
 
 For the exact batch steps and the controlled evaluation-to-release flow, see
@@ -164,7 +164,7 @@ ask Copilot:
 > Start the Pharmashield Foundry demo.
 
 The repo-scoped skill opens the **Pharmashield · Foundry live demo** canvas. It
-discovers the deployed Foundry project, checks that `waypoint-agent` is
+discovers the deployed Foundry project, checks that `contract-agent` is
 available, and enables one primary action: **Run grounded audit**.
 
 The Aster Ridge story is live:
@@ -184,7 +184,7 @@ The Aster Ridge story is live:
 | --- | --- |
 | Application | A production-style Waypoint app with API, web UI, auth, telemetry, and PostgreSQL persistence. |
 | Corpus | A realistic synthetic domain corpus: suppliers, contracts, policies, invoice facts, scenarios, seed data, and generated documents. |
-| Agents | A single castia-based `waypoint-agent` for invoice assurance: read-only evidence and status tools, multi-protocol surfaces, and one governed write boundary. |
+| Agents | A single castia-based `contract-agent` for invoice assurance: read-only evidence and status tools, multi-protocol surfaces, and one governed write boundary. |
 | Evaluations | Foundry-native evaluations plus Caliber datasets, graders, golden cases, calibration, and quality gates. |
 | Optimization | Foundry Agent Optimizer and Caliber RFT/RLE planning, cost-quality tradeoffs, promotion metadata, and telemetry backfill workflows. |
 | Deployment | An idempotent workflow for the app, corpus, agent, cloud resources, seed data, and cross-system wiring. |
@@ -195,7 +195,7 @@ The Aster Ridge story is live:
 flowchart LR
     Corpus[Synthetic invoices<br/>contracts and policies]
     App[Waypoint<br/>governed system of record]
-    Agent[waypoint-agent<br/>read-only evidence + FoundryIQ]
+    Agent[contract-agent<br/>read-only evidence + FoundryIQ]
     Writer[Governed writer<br/>sole write path]
     Evals[Evaluate and optimize]
 
@@ -240,7 +240,7 @@ checks without requiring the presenter canvas.
 | --- | --- |
 | `apps/waypoint/` | Waypoint itself: Aspire AppHost, FastAPI API, React web app, infrastructure, tests, and product docs. |
 | `modules/corpus/` | Synthetic suppliers, contracts, policies, invoice scenarios, seed generation, document generation, and upload tooling. |
-| `modules/agents/` | The single `waypoint-agent` (castia-based, multi-protocol) and its WaypointIQ toolbox/OpenAPI contract. |
+| `modules/agents/` | The single `contract-agent` (castia-based, multi-protocol) and its WaypointIQ toolbox/OpenAPI contract. |
 | `modules/evals/` | Datasets, graders, calibration, quality gates, and repeatable checks for agent behavior. |
 | `modules/optimization/` | Optimizer artifacts, RFT/RLE materials, cost-quality demos, promotion metadata, and telemetry-backed improvement planning. |
 | `tools/deploy/` | Environment discovery, preflight, Key Vault, MSAL, OIDC, deployment, seed import, wiring, and acceptance tooling. |

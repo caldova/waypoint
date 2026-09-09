@@ -90,7 +90,7 @@ if [[ "$mode" == "ensure" ]]; then
       --query '{tags:tags}' \
       --output json 2>/dev/null || echo '{}'
   )"
-  managed_tags="$(AZD_ENV="${AZD_ENV_NAME:-waypoint-agents}" REPO="${GITHUB_REPOSITORY:-}" python3 - "$ownership_app" <<'PY'
+  managed_tags="$(AZD_ENV="${AZD_ENV_NAME:-contract-agents}" REPO="${GITHUB_REPOSITORY:-}" python3 - "$ownership_app" <<'PY'
 import json, os, sys
 app = json.loads(sys.argv[1] or "{}")
 tags = set(app.get("tags") or [])
@@ -100,7 +100,7 @@ if os.environ["REPO"]:
 print(json.dumps({"tags": sorted(tags)}))
 PY
 )"
-  log "ensuring teardown ownership tags for ${AZD_ENV_NAME:-waypoint-agents}"
+  log "ensuring teardown ownership tags for ${AZD_ENV_NAME:-contract-agents}"
   graph_patch "${graph}/applications/${OBJ_ID}" "$managed_tags"
 
   # `az ad app create` creates only the application object. A clean tenant also

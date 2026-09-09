@@ -26,17 +26,17 @@ $env:WAYPOINT_IQ_ENDPOINT = "https://localhost:62595"
 When Waypoint Aspire is running locally with API docs enabled:
 
 ```powershell
-python iqs\waypoint-iq\scripts\export_openapi.py `
+python waypoint-iq\scripts\export_openapi.py `
   --endpoint $env:WAYPOINT_IQ_ENDPOINT `
   --allow-insecure-localhost
 ```
 
-The exporter writes `iqs/waypoint-iq/openapi.json`.
+The exporter writes `waypoint-iq/openapi.json`.
 
 ## Local smoke
 
 ```powershell
-python iqs\waypoint-iq\tests\smoke_local.py `
+python waypoint-iq\tests\smoke_local.py `
   --endpoint $env:WAYPOINT_IQ_ENDPOINT `
   --allow-insecure-localhost
 ```
@@ -80,7 +80,7 @@ After the hosted Waypoint endpoint is reachable from Foundry and the Forge
 managed identities have Waypoint app roles:
 
 ```powershell
-python iqs\waypoint-iq\scripts\deploy_toolbox.py `
+python waypoint-iq\scripts\deploy_toolbox.py `
   --project-endpoint $env:AZURE_AI_PROJECT_ENDPOINT `
   --waypoint-endpoint https://api.grayflower-2758f17b.swedencentral.azurecontainerapps.io
 ```
