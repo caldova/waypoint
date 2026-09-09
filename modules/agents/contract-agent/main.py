@@ -21,7 +21,18 @@ The entrypoint is ``main:app`` so ``python -m castia deploy`` / ``eval`` /
 
 from __future__ import annotations
 
-from castia import Agent, Depends, Message, Model, Teams, action_chips, configured_model
+from pathlib import Path
+
+from castia import (
+    Agent,
+    Depends,
+    Message,
+    Model,
+    Teams,
+    action_chips,
+    configured_model,
+    load_agent_config,
+)
 from dotenv import load_dotenv
 
 from tools import read_tools
@@ -32,20 +43,31 @@ load_dotenv()
 
 app = Agent(name="contract-agent")
 
-# Built once for the process. Instructions resolve from .agent_configs/baseline
-# (or environment defaults), so the Foundry Agent Optimizer can tune the prompt
-# with no handler change.
-chat_model = configured_model()
+# Resolve the agent config once — the baseline (.agent_configs/baseline) or, during
+# an optimization run, the candidate the optimizer injects. One AgentConfig threads
+# the tuned model + instructions AND the optimizer-rewritten tool descriptions into
+# the handlers, so both are real optimization targets with no handler change. The
+# directory is anchored explicitly so it resolves identically under `python main.py`,
+# `castia deploy`, and `python -m castia optimize` (relative resolution otherwise
+# lands in the castia package dir under `-m` and silently finds nothing).
+_config = load_agent_config(Path(__file__).resolve().parent / ".agent_configs")
 
-# Declare every tool provider so the optimizer can treat their descriptions as an
-# optimization asset. The handlers offer explicit per-surface subsets below.
+# Built once for the process; model + instructions come from the resolved config.
+chat_model = configured_model(_config)
+
+# Declare every tool provider so `python -m castia optimize` can emit the tools.json
+# baseline and the optimizer can treat their descriptions as an optimization asset.
 app.tools(read_tools, write_tools)
 
 # One source of truth for the tool sets, built once (Tool objects are cheap
-# dataclasses; the API clients inside them are constructed per call). The
-# assurance path may write; the Teams Q&A surface stays strictly read-only.
-_READ_TOOLS = read_tools()
-_ASSURANCE_TOOLS = _READ_TOOLS + write_tools()
+# dataclasses; the API clients inside them are constructed per call).
+# ``config.apply_tools`` folds any optimizer-rewritten tool + parameter descriptions
+# onto the tools by name — the seam that makes a corrected tool description actually
+# reach the model at runtime (inert until a candidate tools.json exists, so behavior
+# is unchanged today). The assurance path may write; the Teams Q&A surface stays
+# strictly read-only.
+_READ_TOOLS = _config.apply_tools(read_tools())
+_ASSURANCE_TOOLS = _config.apply_tools(read_tools() + write_tools())
 
 # Read-only follow-up chips for the Teams surface. imBack posts the chip text as
 # the user's next message, which the same read-only handler answers — so every
