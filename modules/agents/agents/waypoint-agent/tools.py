@@ -151,59 +151,82 @@ async def _gather_evidence_impl(activity: Any, *, invoice_id: str = "") -> dict[
     invoice_number = str(detail.get("invoice_number") or canonical)
     findings = await client.list_findings(canonical) or _as_list(detail.get("findings"))
 
-    specs: list[tuple[str, str, str]] = []
-    seen_docs: set[str] = set()
-    seen_policies: set[str] = set()
+    # Normalize findings so the model weighs real severity/status, not just docs.
+    finding_view = [
+        {
+            "id": str(f.get("id") or ""),
+            "category": str(f.get("category") or f.get("finding_type") or ""),
+            "severity": str(f.get("severity") or "").strip().lower(),
+            "status": str(f.get("status") or "").strip().lower(),
+            "overpayment_amount": _float(f.get("overpayment_amount")),
+        }
+        for f in findings
+    ]
+
+    seen_docs: list[str] = []
+    seen_policies: list[str] = []
     for finding in findings:
-        supports = "recover" if _float(finding.get("overpayment_amount")) > 0 else "review"
         for doc_id in _str_list(finding.get("contract_document_ids")):
             if doc_id not in seen_docs:
-                seen_docs.add(doc_id)
-                specs.append(("contract_document", doc_id, supports))
+                seen_docs.append(doc_id)
         for policy_id in _str_list(finding.get("policy_ids")):
             if policy_id not in seen_policies:
-                seen_policies.add(policy_id)
-                specs.append(("policy", policy_id, supports))
+                seen_policies.append(policy_id)
 
     documents = {doc_id: await client.get_contract_document(doc_id) for doc_id in seen_docs}
     policies = {policy_id: await client.get_policy(policy_id) for policy_id in seen_policies}
 
+    # Only emit a grounded claim when the source actually retrieved. A reference
+    # we could not fetch is reported as a gap, never dressed up as evidence.
     evidence: list[dict[str, Any]] = []
-    for kind, source_ref, supports in specs:
-        if kind == "contract_document":
-            doc = documents.get(source_ref)
-            title = str(doc.get("title")) if doc else source_ref
-            doc_type = str(doc.get("document_type")) if doc else "contract"
-            evidence.append(
-                {
-                    "claim": f"Governing {doc_type} '{title}' applies to this charge.",
-                    "supports": supports,
-                    "source_ref": source_ref,
-                    "classification": "confidential",
-                    "confidence": 0.85,
-                }
-            )
-        else:
-            policy = policies.get(source_ref)
-            name = str(policy.get("name")) if policy else source_ref
-            desc = str(policy.get("description")) if policy else ""
-            evidence.append(
-                {
-                    "claim": f"Policy '{name}' governs billability: {desc}".strip(),
-                    "supports": supports,
-                    "source_ref": source_ref,
-                    "classification": "standard",
-                    "confidence": 0.85,
-                }
-            )
+    unresolved: list[str] = []
+    for doc_id, doc in documents.items():
+        if not doc:
+            unresolved.append(doc_id)
+            continue
+        doc_type = str(doc.get("document_type") or "contract")
+        evidence.append(
+            {
+                "claim": f"Governing {doc_type} '{doc.get('title') or doc_id}' applies to this charge.",
+                "supports": "governs",
+                "source_ref": doc_id,
+                "classification": "confidential",
+                "confidence": 0.85,
+            }
+        )
+    for policy_id, policy in policies.items():
+        if not policy:
+            unresolved.append(policy_id)
+            continue
+        desc = str(policy.get("description") or "")
+        evidence.append(
+            {
+                "claim": f"Policy '{policy.get('name') or policy_id}' governs billability: {desc}".strip(),
+                "supports": "governs",
+                "source_ref": policy_id,
+                "classification": "standard",
+                "confidence": 0.85,
+            }
+        )
 
-    summary = (
-        f"{len(seen_docs)} contract document(s) and {len(seen_policies)} policy(ies) govern this invoice's findings."
-        if evidence
-        else "No governing contract or policy references found for this invoice."
-    )
-    payload = _evidence(canonical, evidence, summary, "completed" if evidence else "evidence_gap")
+    if not (seen_docs or seen_policies):
+        status = "evidence_gap"
+    elif unresolved:
+        status = "partial"
+    else:
+        status = "completed"
+    resolved = len(evidence)
+    referenced = len(seen_docs) + len(seen_policies)
+    if status == "partial":
+        summary = f"{resolved} of {referenced} governing source(s) retrieved; {len(unresolved)} could not be read: {', '.join(unresolved)}."
+    elif evidence:
+        summary = f"{len(seen_docs)} contract document(s) and {len(seen_policies)} policy(ies) govern this invoice's {len(findings)} finding(s)."
+    else:
+        summary = "No governing contract or policy references found for this invoice."
+    payload = _evidence(canonical, evidence, summary, status)
     payload["invoice_number"] = invoice_number
+    payload["findings"] = finding_view
+    payload["unresolved_sources"] = unresolved
     return payload
 
 
