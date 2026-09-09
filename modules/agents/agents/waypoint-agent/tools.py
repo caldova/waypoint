@@ -75,15 +75,18 @@ class _WaypointClient:
 
     async def _headers(self) -> dict[str, str]:
         headers = {"Accept": "application/json"}
-        if self._api_key:
-            headers["x-api-key"] = self._api_key
-        elif self._scope:
+        # Prefer the agent-identity bearer when a scope is configured; only fall
+        # back to an API key when no scope is set (the Waypoint API rejects
+        # x-api-key when server-side key auth is disabled).
+        if self._scope:
             if self._credential is None:
                 from azure.identity.aio import DefaultAzureCredential
 
                 self._credential = DefaultAzureCredential()
             token = await self._credential.get_token(self._scope)
             headers["Authorization"] = f"Bearer {token.token}"
+        elif self._api_key:
+            headers["x-api-key"] = self._api_key
         return headers
 
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> Any:
@@ -112,6 +115,9 @@ class _WaypointClient:
 
     async def list_findings(self, invoice_id: str) -> list[dict[str, Any]]:
         return _as_list(await self._get("/api/findings", {"invoice_id": invoice_id}))
+
+    async def list_evidence(self, invoice_id: str) -> list[dict[str, Any]]:
+        return _as_list(await self._get("/api/evidence", {"invoice_id": invoice_id}))
 
     async def get_contract_document(self, document_id: str) -> dict[str, Any] | None:
         value = await self._get(f"/api/contract-documents/{document_id}")
