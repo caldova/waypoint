@@ -10,7 +10,10 @@ One agent, three Foundry wire protocols from one handler set:
 
 Evidence and status are read-only (see ``tools.py``). The single centralized
 write tool — the only thing allowed to mutate Waypoint — lives in
-``write_tools.py`` and is offered only on the assurance path.
+``write_tools.py`` and is offered only on the assurance path. When a Foundry
+toolbox is configured (``TOOLBOX_*``), ``toolbox.py`` adds a server-side,
+read-only retrieval spec (e.g. the FoundryIQ knowledge base) to every surface;
+with none configured it attaches nothing and the direct-REST tools stand alone.
 
 The entrypoint is ``main:app`` so ``python -m castia deploy`` / ``eval`` /
 ``optimize`` resolve it with zero flags.
@@ -23,6 +26,7 @@ from dotenv import load_dotenv
 
 from tools import read_tools
 from write_tools import write_tools
+from toolbox import assurance_specs, read_specs
 
 load_dotenv()
 
@@ -53,13 +57,17 @@ _FOLLOWUPS = ("Show recent assurance runs", "Give me a case overview")
 @app.responses()
 async def assurance(text: str, model: Model = Depends(chat_model)) -> str:
     """Responses — the invoice-assurance run the Waypoint app calls."""
-    return await model.respond_with_tools(text, tools=_ASSURANCE_TOOLS, activity=None)
+    return await model.respond_with_tools(
+        text, tools=_ASSURANCE_TOOLS, activity=None, extra_specs=await assurance_specs()
+    )
 
 
 @app.invocations()
 async def invoked(text: str, model: Model = Depends(chat_model)) -> str:
     """Invocations — callable as a Foundry tool and in agent-to-agent flows."""
-    return await model.respond_with_tools(text, tools=_ASSURANCE_TOOLS, activity=None)
+    return await model.respond_with_tools(
+        text, tools=_ASSURANCE_TOOLS, activity=None, extra_specs=await assurance_specs()
+    )
 
 
 @app.activity(Teams.direct, Teams.group, Teams.channel_mention)
@@ -70,7 +78,9 @@ async def ask(msg: Message, model: Model = Depends(chat_model)) -> None:
     We post via ``msg.say`` and return ``None`` so the server does not also send
     the text (an activity handler's non-empty string return is posted verbatim).
     """
-    answer = await model.respond_with_tools(msg.text, tools=_READ_TOOLS, activity=None)
+    answer = await model.respond_with_tools(
+        msg.text, tools=_READ_TOOLS, activity=None, extra_specs=await read_specs()
+    )
     await msg.say(answer, ai_generated=True, attachments=[action_chips(*_FOLLOWUPS)])
 
 
