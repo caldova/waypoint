@@ -26,6 +26,16 @@ build/
 .env
 .env.*
 !.env.example
+
+# azd project state and provision/deploy logs
+.azure/
+provision*.log
+deploy*.log
+
+# azd hosted-agent deploy artifacts (Teams/bot app package)
+**/appPackage.zip
+**/.appPackage.zip.azd-generated
+**/TEAMS_APP_SETUP.md
 *.pem
 *.key
 
