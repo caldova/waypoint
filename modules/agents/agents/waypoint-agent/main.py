@@ -18,7 +18,7 @@ The entrypoint is ``main:app`` so ``python -m castia deploy`` / ``eval`` /
 
 from __future__ import annotations
 
-from castia import Agent, Depends, Model, Teams, configured_model
+from castia import Agent, Depends, Message, Model, Teams, action_chips, configured_model
 from dotenv import load_dotenv
 
 from tools import read_tools
@@ -43,6 +43,12 @@ app.tools(read_tools, write_tools)
 _READ_TOOLS = read_tools()
 _ASSURANCE_TOOLS = _READ_TOOLS + write_tools()
 
+# Read-only follow-up chips for the Teams surface. imBack posts the chip text as
+# the user's next message, which the same read-only handler answers — so every
+# suggestion maps to a read tool and can never trigger a write. Deliberately thin:
+# castia renders these as an Adaptive Card, retiring the old 21KB per-agent card DSL.
+_FOLLOWUPS = ("Show recent assurance runs", "Give me a case overview")
+
 
 @app.responses()
 async def assurance(text: str, model: Model = Depends(chat_model)) -> str:
@@ -57,9 +63,15 @@ async def invoked(text: str, model: Model = Depends(chat_model)) -> str:
 
 
 @app.activity(Teams.direct, Teams.group, Teams.channel_mention)
-async def ask(text: str, model: Model = Depends(chat_model)) -> str:
-    """Activity — Teams / AI Teammate Q&A and status (read-only)."""
-    return await model.respond_with_tools(text, tools=_READ_TOOLS, activity=None)
+async def ask(msg: Message, model: Model = Depends(chat_model)) -> None:
+    """Activity — Teams / AI Teammate Q&A and status (read-only).
+
+    Renders the answer as an AI-generated reply with read-only follow-up chips.
+    We post via ``msg.say`` and return ``None`` so the server does not also send
+    the text (an activity handler's non-empty string return is posted verbatim).
+    """
+    answer = await model.respond_with_tools(msg.text, tools=_READ_TOOLS, activity=None)
+    await msg.say(answer, ai_generated=True, attachments=[action_chips(*_FOLLOWUPS)])
 
 
 if __name__ == "__main__":
