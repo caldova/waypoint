@@ -74,8 +74,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m compileall -q modules/agents/agents modules/agents/scripts modules/agents/evals
-      - run: python -m compileall -q apps/waypoint/integrations/agents
+      - run: python -m compileall -q modules/agents/agents/waypoint-agent
+      - run: python -m compileall -q apps/waypoint/integrations/agents/waypoint-iq
 
   evals:
     name: Evaluation tooling
