@@ -1,5 +1,5 @@
 [project]
-name = "waypoint-agent"
+name = "contract-agent"
 version = "0.1.0"
 description = "Waypoint — the single invoice-assurance hosted agent, built on castia."
 requires-python = ">=3.11"

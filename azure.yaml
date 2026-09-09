@@ -2,12 +2,12 @@
 name: ai-foundry-starter-basic
 
 services:
-  waypoint-agent:
-    project: modules/agents/agents/waypoint-agent
+  contract-agent:
+    project: modules/agents/contract-agent
     host: azure.ai.agent
     language: docker
     kind: hosted
-    name: waypoint-agent
+    name: contract-agent
     description: Single Waypoint invoice-assurance agent (castia) speaking responses, activity, and invocations from one handler set.
     docker:
       remoteBuild: true

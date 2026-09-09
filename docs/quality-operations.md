@@ -4,7 +4,7 @@ Waypoint separates live invoice assurance from agent quality and optimization
 controls:
 
 - **Invoices** starts one or many invoice-scoped assurance runs through the
-  deployed `waypoint-agent`.
+  deployed `contract-agent`.
 - **Quality** explains the controlled improvement loop and links to the reviewed
   GitHub Actions operation that owns cloud credentials, evidence, and approvals.
 
@@ -44,7 +44,7 @@ safe way to run a smaller cohort.
 ## Follow the controlled quality loop
 
 Open the authenticated **Quality** page at `/quality`. Its numbered flow aligns
-with the castia quality loop against `waypoint-agent`:
+with the castia quality loop against `contract-agent`:
 
 | Step | Purpose | Tooling |
 | --- | --- | --- |

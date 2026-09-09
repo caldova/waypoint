@@ -325,7 +325,7 @@ def read_tools() -> list[Tool]:
 
 def _evidence(invoice_id: str, evidence: list[dict[str, Any]], summary: str, status: str) -> dict[str, Any]:
     return {
-        "agent": "waypoint-agent",
+        "agent": "contract-agent",
         "invoice_id": invoice_id,
         "evidence": evidence,
         "summary": summary,

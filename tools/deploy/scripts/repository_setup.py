@@ -61,7 +61,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--subscription-id", required=True)
     parser.add_argument("--branch", default="main")
     parser.add_argument("--location", default="swedencentral")
-    parser.add_argument("--azd-env-name", default="waypoint-agents")
+    parser.add_argument("--azd-env-name", default="contract-agents")
     parser.add_argument("--oidc-app-name", default="")
     parser.add_argument("--waypoint-app-name", default="")
     parser.add_argument("--oidc-script", type=Path, default=ROOT / "tools/deploy/scripts/oidc.sh")

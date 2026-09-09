@@ -1,4 +1,4 @@
-# waypoint-agent
+# contract-agent
 
 The single Waypoint invoice-assurance hosted agent, built on
 [`castia`](https://github.com/sethjuarez/castia). It replaces the previous
@@ -25,7 +25,7 @@ allowed to mutate Waypoint.
 ## Local development
 
 ```bash
-cd modules/agents/agents/waypoint-agent
+cd modules/agents/contract-agent
 cp .env.example .env      # set FOUNDRY_PROJECT_ENDPOINT + AZURE_AI_MODEL_DEPLOYMENT_NAME
 uv sync
 uv run python main.py     # serves 0.0.0.0:8088

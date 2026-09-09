@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
 kind: hosted
-name: waypoint-agent
+name: contract-agent
 # One agent, all three castia wire protocols. castia pins each publishable
 # protocol to contract version 2.0.0; `python -m castia deploy` reconciles the
 # azure.yaml service protocol list from the decorators in main.py.

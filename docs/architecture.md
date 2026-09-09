@@ -9,12 +9,12 @@ manufacturing invoice-assurance scenario.
 | --- | --- | --- |
 | Application | `apps/waypoint/` | Governed API, web UI, PostgreSQL, auth, telemetry, assurance operations, and audit. |
 | Corpus | `modules/corpus/` | Synthetic suppliers, contracts, policies, invoices, scenarios, seed generation, and upload tooling. |
-| Agents | `modules/agents/` | The single `waypoint-agent`, its prompts/toolbox, and its governed write boundary. |
+| Agents | `modules/agents/` | The single `contract-agent`, its prompts/toolbox, and its governed write boundary. |
 | Evaluations | `modules/evals/` | Caliber datasets, graders, calibration, and repeatable quality gates. |
 | Optimization | `modules/optimization/` | Foundry Agent Optimizer, RFT/RLE planning, cost-quality views, and promotion metadata. |
 | Deployment | `tools/deploy/` | OIDC, Key Vault, MSAL, manifests, probes, and lower-level deployment helpers. |
 
-The single `waypoint-agent` is deployed with `azd` + `castia`; the Waypoint app
+The single `contract-agent` is deployed with `azd` + `castia`; the Waypoint app
 deploys separately from `apps/waypoint`.
 
 ## Default assurance flow
@@ -24,14 +24,14 @@ flowchart LR
     Corpus[Synthetic corpus] --> App[Waypoint<br/>system of record]
     Corpus --> KB[contracts-kb]
     Reviewer[Reviewer<br/>one or many invoices] --> App
-    App --> Agent[waypoint-agent<br/>read-only evidence + FoundryIQ]
+    App --> Agent[contract-agent<br/>read-only evidence + FoundryIQ]
     KB --> Agent
     Agent --> Writer[Governed writer<br/>sole write path]
     Writer --> App
     Agent --> Quality[Run → inspect → measure<br/>improve → approve release]
 ```
 
-`waypoint-agent` has one evidence plane: FoundryIQ through its toolbox and
+`contract-agent` has one evidence plane: FoundryIQ through its toolbox and
 `contracts-kb`. WorkIQ, WebIQ, FabricIQ, and Fabric/OneLake source modules
 remain available for future development, but are not wired today.
 
@@ -47,7 +47,7 @@ remain available for future development, but are not wired today.
 
 ## Deployment and quality
 
-The Waypoint app deploys from `apps/waypoint`; the single `waypoint-agent`
+The Waypoint app deploys from `apps/waypoint`; the single `contract-agent`
 deploys with `azd` + `castia` to the caldova Foundry project. See
 [deployment](deployment.md).
 
@@ -63,5 +63,5 @@ ordered results, and independent failures.
 Agent quality operations are intentionally separate from the application write
 path. The authenticated `/quality` page explains a five-step loop — run,
 inspect, measure, improve, and release with approval — backed by `castia eval`
-and `castia optimize` against `waypoint-agent`. Cloud credentials, evidence, and
+and `castia optimize` against `contract-agent`. Cloud credentials, evidence, and
 approvals stay outside the browser.
