@@ -63,7 +63,7 @@ workflows, evaluation, optimization, and deployment automation.
 
 The complete demo path has two parts: deploy the shared Azure environment,
 then open the live presenter experience. If your team already has a working
-Waypoint environment with `contract-policy-expert`, skip directly to
+Waypoint environment with `waypoint-agent`, skip directly to
 [Present the demo](#2-present-the-demo).
 
 ### 1. Deploy the demo environment
@@ -127,33 +127,30 @@ The default path deploys:
 - the synthetic corpus and Waypoint seed data;
 - the Foundry project, hosted-agent `gpt-5.5` deployment, KB `gpt-5-mini`
   deployment, embedding deployment, search, and `contracts-kb`;
-- `invoice-analyst`, `assurance-orchestrator`, `contract-policy-expert`, and
-  `waypoint-recorder`; and
-- an acceptance artifact proving endpoint health, hosted-agent inventory, a
-  completed orchestrator-to-recorder run, and real KB retrieval with no fallback.
+- the single `waypoint-agent`, which serves every surface and owns the sole
+  governed write path into Waypoint; and
+- an acceptance artifact proving endpoint health, agent availability, a
+  completed assurance run, and real KB retrieval with no fallback.
 
 The launch package is FoundryIQ-only. Fabric/OneLake, WorkIQ, WebIQ, and
 FabricIQ modules remain in the repository for future development but are not
 inputs, stages, resources, or agents in the one-click deployment.
 
-The full default deployment has been validated end to end in **UK South**,
-including run `30034540034` at commit `f9fc7bb` that passed acceptance with
-grounded KB runtime evidence and no fallback. An earlier unchanged rerun reused
-stable resources and skipped unchanged hosted-agent versions. The branch mirrors
-the prior Forge/Waypoint KB model split: hosted agents use `gpt-5.5`, while
-`contracts-kb` answer synthesis uses co-located `gpt-5-mini`, and acceptance
-fails if the run falls back. Region selection still matters because Azure AI
-Search, Foundry, both model deployments, and hosted-agent provisioning must all
-be healthy in the selected region — see
+The full deployment targets the **caldova** Foundry project in **West US**.
+Hosted agents use `gpt-5.5`, while `contracts-kb` answer synthesis uses
+co-located `gpt-5-mini`, and acceptance fails if the run falls back. Region
+selection still matters because Azure AI Search, Foundry, both model
+deployments, and hosted-agent provisioning must all be healthy in the selected
+region — see
 [tested regions](docs/deployment-troubleshooting.md#tested-regions-and-known-regional-issues)
 and
 [platform/environmental blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
 before choosing a region. In the app, a reviewer can run assurance for one
 invoice or select up to 25 visible invoices and start a batch. The batch starts
-at most four new orchestrations concurrently, reuses active invoice runs, and
-reports independent accepted, reused, not-found, or start-failed outcomes. Every
-run invokes `assurance-orchestrator` and persists its result only through
-`waypoint-recorder`.
+at most four new runs concurrently, reuses active invoice runs, and reports
+independent accepted, reused, not-found, or start-failed outcomes. Every run
+invokes `waypoint-agent`, which persists its result only through the agent's
+single governed writer.
 
 For the exact batch steps and the controlled evaluation-to-release flow, see
 [Agent quality operations](docs/quality-operations.md).
@@ -174,7 +171,7 @@ ask Copilot:
 > Start the Pharmashield Foundry demo.
 
 The repo-scoped skill opens the **Pharmashield · Foundry live demo** canvas. It
-discovers the deployed Foundry project, checks that `contract-policy-expert` is
+discovers the deployed Foundry project, checks that `waypoint-agent` is
 available, and enables one primary action: **Run grounded audit**.
 
 The Aster Ridge story is live:
@@ -194,10 +191,10 @@ The Aster Ridge story is live:
 | --- | --- |
 | Application | A production-style Waypoint app with API, web UI, auth, telemetry, and PostgreSQL persistence. |
 | Corpus | A realistic synthetic domain corpus: suppliers, contracts, policies, invoice facts, scenarios, seed data, and generated documents. |
-| Agents | A multi-agent invoice assurance workflow with orchestration, read-only evidence experts, analyst surfaces, and one write-boundary agent. |
+| Agents | A single castia-based `waypoint-agent` for invoice assurance: read-only evidence and status tools, multi-protocol surfaces, and one governed write boundary. |
 | Evaluations | Foundry-native evaluations plus Caliber datasets, graders, golden cases, calibration, and quality gates. |
 | Optimization | Foundry Agent Optimizer and Caliber RFT/RLE planning, cost-quality tradeoffs, promotion metadata, and telemetry backfill workflows. |
-| Deployment | An idempotent workflow for the app, corpus, agents, cloud resources, seed data, and cross-system wiring. |
+| Deployment | An idempotent workflow for the app, corpus, agent, cloud resources, seed data, and cross-system wiring. |
 
 ## How it works
 
@@ -205,24 +202,21 @@ The Aster Ridge story is live:
 flowchart LR
     Corpus[Synthetic invoices<br/>contracts and policies]
     App[Waypoint<br/>governed system of record]
-    Expert[Contract policy expert<br/>FoundryIQ]
-    Orchestrator[Assurance orchestrator]
-    Recorder[Waypoint recorder<br/>sole writer]
+    Agent[waypoint-agent<br/>read-only evidence + FoundryIQ]
+    Writer[Governed writer<br/>sole write path]
     Evals[Evaluate and optimize]
 
     Corpus --> App
-    Corpus --> Expert
-    App --> Orchestrator
-    Orchestrator --> Expert
-    Expert --> Orchestrator
-    Orchestrator --> Recorder
-    Recorder --> App
-    Orchestrator --> Evals
+    Corpus --> Agent
+    App --> Agent
+    Agent --> Writer
+    Writer --> App
+    Agent --> Evals
 ```
 
-Waypoint remains the governed boundary. Evidence experts are read-only,
-orchestration combines their evidence, and `waypoint-recorder` is the sole
-agent allowed to write governed run results.
+Waypoint remains the governed boundary. The agent's evidence and status tools
+are read-only, and its single governed writer is the only path allowed to write
+governed run results.
 
 ## The Caldova story
 
