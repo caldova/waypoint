@@ -33,15 +33,34 @@ State legend: **exists** (already there, reuse as-is) · **create** (we make it)
 | 3 | Chat model | model deployment | `gpt-5.5` | exists | Agent reasoning + KB answer synthesis | usage | azd (`aiProjectDeploymentsJson`) |
 | 4 | Container registry | `Microsoft.ContainerRegistry` | `crsyhurnetrksxc` | exists | Hosted-agent images | ~$5/mo | azd (root infra) |
 | 5 | App Insights | `Microsoft.Insights/components` | `appi-syhurnetrksxc` | exists | Traces (retrieval verification) | usage | azd (root infra) |
-| 6 | Embedding model | model deployment | `text-embedding-3-large` (planned) | pending | Vectorize contract chunks for search | usage | `az cognitiveservices ... deployment create` |
-| 7 | Storage account | `Microsoft.Storage/storageAccounts` | `stsyhurnetrksxc` (planned) | pending | Blob `knowledge` container = KB source docs | ~$0 (few MB) | TBD (`az storage account create`) |
-| 8 | Blob container | storage container | `knowledge/contracts/` | pending | Holds contract markdown (`contracts_kb_upload.py`) | incl. | `ledgerfield contracts-kb upload` |
-| 9 | Azure AI Search | `Microsoft.Search/searchServices` | `srch-syhurnetrksxc` (planned) | pending | Index host for KB retrieval | Basic ≈ $75/mo | TBD (`az search service create`) |
+| 6 | Embedding model | model deployment | `text-embedding-3-large` | **done** | Vectorize contract chunks for search | usage | `az cognitiveservices ... deployment create` (GlobalStandard, cap 50) |
+| 7 | Storage account | `Microsoft.Storage/storageAccounts` | `stsyhurnetrksxc` | **done** | Blob `knowledge` container = KB source docs | ~$0 (few MB) | `az storage account create` (Standard_LRS, westus) |
+| 8 | Blob container | storage container | `knowledge/contracts/` | **done** | 18 docs (15 contracts + 3 policies) uploaded | incl. | `ledgerfield upload-contracts-kb --include-policies` |
+| 9 | Azure AI Search | `Microsoft.Search/searchServices` | `srch-syhurnetrksxc` | **done** | Index host for KB retrieval | Basic ≈ $75/mo | `az search service create` (basic, westus, 1x1) |
 | 10 | Search connection | project connection | `contracts-search` (planned) | pending | Lets project/KB reach Search | incl. | `azd ai connection` / bicep |
 | 11 | Storage connection | project connection | `contracts-storage` (planned) | pending | Lets KB knowledge source reach blobs | incl. | `azd ai connection` / bicep |
-| 12 | Knowledge source | FoundryIQ knowledge source | `contracts-ks` (planned) | pending | Azure Blob source feeding the index | incl. | Foundry KB API — **method TBD** |
-| 13 | Knowledge base | FoundryIQ knowledge base | `contracts-kb` (planned) | pending | Exposes `knowledge_base_retrieve` | incl. | Foundry KB API — **method TBD** |
+| 12 | Knowledge source | Azure AI Search `knowledgeSource` (`azureBlob`) | `contracts-ks` (planned) | pending | Blob source; Search chunks + vectorizes | incl. | Search REST `PUT /knowledgesources/{name}` (preview) |
+| 13 | Knowledge base | Azure AI Search `knowledgeBase` | `contracts-kb` (planned) | pending | Orchestrates retrieval → `knowledge_base_retrieve` | incl. | Search REST `PUT /knowledgebases/{name}` (preview) |
 | 14 | Toolbox | Foundry toolbox | `contracts-kb` (planned) | pending | Federates KB retrieve as server-side MCP | incl. | `azd ai toolbox` (see `deploy_toolbox.py`) |
+
+## KB creation method (confirmed)
+
+FoundryIQ retrieval **is Azure AI Search agentic retrieval**. The `knowledgeSource`
+and `knowledgeBase` are first-class objects **on the Search service** (not the
+Foundry project endpoint — which is why `GET {project}/knowledgeBases` 404s),
+created via Search REST with a preview api-version (`2025-08-01-preview` or newer):
+
+- `PUT https://{search}.search.windows.net/knowledgesources/contracts-ks?api-version=...`
+  — type `azureBlob`, pointing at the `knowledge/contracts/` container; Search owns
+  chunking + vectorization via the embedding deployment (row 6).
+- `PUT https://{search}.search.windows.net/knowledgebases/contracts-kb?api-version=...`
+  — references `contracts-ks` + `models` (chat for query planning/synthesis,
+  embedding for vectors). A Foundry **connection** to the Search service + a
+  **toolbox** (row 14) then surface it to the agent as `knowledge_base_retrieve`.
+
+Simplification option: a `files`/upload knowledge source would drop the storage
+account + blob writer (rows 7–8, 11), but `azureBlob` matches the repo's proven
+`contracts_kb_upload.py` path and is the reliable default for the demo.
 
 ## Open decisions
 
@@ -49,11 +68,9 @@ State legend: **exists** (already there, reuse as-is) · **create** (we make it)
   `rg-forge`, `rg-waypoint-e2e-*`). Free tier (F, $0, 1/sub) would host a few
   markdown docs but is risky for Foundry integrated vectorization — revisit only
   if cost matters more than reliability.
-- **KB creation method (rows 12–13):** `azd ai` has **no** `knowledge` command and
-  `GET /knowledgeBases` 404s on the versions tried. Must confirm the Foundry
-  knowledge-base data-plane API/SDK (or portal) before scripting — the one gap the
-  repo does not already cover. The blob writer (row 8) and toolbox (row 14) are
-  already scripted.
+- **KB creation method (rows 12–13):** RESOLVED — Azure AI Search agentic
+  retrieval (`knowledgeSources`/`knowledgeBases` on the Search service via preview
+  REST). See "KB creation method (confirmed)" above.
 - **Managed vs BYO search:** sticking with BYO Azure AI Search (the repo's proven
   `contracts-ks`/`contracts-kb` shape) unless the project supports a managed
   FoundryIQ knowledge base that skips standing up our own Search service.
