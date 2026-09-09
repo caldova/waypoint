@@ -157,18 +157,29 @@ def _derive_decision(findings: list[dict[str, Any]]) -> tuple[str, str]:
     return "review", "variance"
 
 
-def _govern_decision(findings: list[dict[str, Any]], model_decision: str) -> tuple[str, dict[str, Any]]:
+def _govern_decision(state: str, findings: list[dict[str, Any]], model_decision: str) -> tuple[str, dict[str, Any]]:
     proposed = (model_decision or "review").strip().lower()
     if proposed not in DECISIONS:
         proposed = "review"
-    if not findings:
-        return proposed, {"source": "model", "model_decision": proposed, "policy_decision": None, "overridden": False}
+    # No grounded corpus truth → never persist a model-authored verdict. Hold for
+    # human review rather than let a transient corpus failure ship an approve/recover.
+    if state != "grounded":
+        return "review", {
+            "source": "ungrounded_hold",
+            "model_decision": proposed,
+            "policy_decision": "review",
+            "grounding_state": state,
+            "overridden": proposed != "review",
+        }
+    # A resolved invoice with zero findings is a legitimate clean pass; the
+    # deterministic policy (no actionable finding → approve) owns it, not the model.
     policy_decision, status = _derive_decision(findings)
     return policy_decision, {
         "source": "policy" if policy_decision == proposed else "policy_override",
         "model_decision": proposed,
         "policy_decision": policy_decision,
         "status": status,
+        "grounding_state": state,
         "overridden": policy_decision != proposed,
     }
 
@@ -177,10 +188,16 @@ def _govern_decision(findings: list[dict[str, Any]], model_decision: str) -> tup
 
 
 async def _ground(invoice_ref: str) -> dict[str, Any]:
-    """Fetch the invoice's findings + evidence from the corpus (best-effort)."""
-    empty = {"invoice_id": "", "invoice_number": "", "money_at_risk": 0.0, "evidence_ids": [], "finding_id": None, "finding_count": 0, "findings": []}
+    """Fetch the invoice's findings + evidence from the corpus.
+
+    Returns an explicit ``state`` so the writer can tell grounded truth apart from
+    a degraded corpus: ``grounded`` (invoice resolved), ``unresolved`` (no invoice
+    matched), ``unavailable`` (corpus errored), ``not_configured``. Money and
+    evidence are only trustworthy when ``state == "grounded"``.
+    """
+    empty = {"state": "unresolved", "invoice_id": "", "invoice_number": "", "money_at_risk": 0.0, "evidence_ids": [], "finding_id": None, "finding_count": 0, "findings": []}
     if not is_waypoint_configured():
-        return empty
+        return {**empty, "state": "not_configured"}
     try:
         reader = _WaypointClient()
         detail = await reader.resolve_invoice(invoice_ref)
@@ -189,8 +206,8 @@ async def _ground(invoice_ref: str) -> dict[str, Any]:
         invoice_id = str(detail.get("id") or "")
         findings = await reader.list_findings(invoice_id) or _as_list(detail.get("findings"))
         evidence = await reader.list_evidence(invoice_id) or _as_list(detail.get("evidence"))
-    except Exception:  # noqa: BLE001 - grounding is best-effort
-        return empty
+    except Exception:  # noqa: BLE001 - a corpus failure must not look like a clean invoice
+        return {**empty, "state": "unavailable"}
 
     money = 0.0
     evidence_ids: list[str] = []
@@ -203,6 +220,7 @@ async def _ground(invoice_ref: str) -> dict[str, Any]:
             evidence_ids.append(ev_id)
 
     return {
+        "state": "grounded",
         "invoice_id": invoice_id,
         "invoice_number": str(detail.get("invoice_number") or ""),
         "money_at_risk": round(money, 2),
@@ -231,15 +249,20 @@ async def _record_assurance_impl(activity: Any, *, result_json: str) -> dict[str
         return {"ok": False, "error": "result_json.invoice_id is required; no invoice reference was found."}
 
     grounding = await _ground(invoice_ref)
+    state = grounding["state"]
     invoice_id = grounding["invoice_id"] or invoice_ref
     invoice_number = grounding["invoice_number"] or invoice_ref
 
-    # The deterministic policy check owns the decision when corpus truth exists.
-    decision, decision_governance = _govern_decision(grounding["findings"], str(result.get("decision") or ""))
+    # The deterministic policy check owns the decision when corpus truth exists;
+    # an ungrounded turn is held for review rather than trusting the model.
+    decision, decision_governance = _govern_decision(state, grounding["findings"], str(result.get("decision") or ""))
 
-    money_at_risk = grounding["money_at_risk"] if grounding["money_at_risk"] > 0 else _float(result.get("money_at_risk"))
-    evidence_ids = grounding["evidence_ids"] or _str_list(result.get("evidence_ids"))
-    finding_id = _opt(result.get("finding_id")) or grounding["finding_id"]
+    # Money and evidence come from the corpus, never the model — a grounded turn
+    # uses the grounded totals; an ungrounded turn asserts nothing it can't verify.
+    grounded = state == "grounded"
+    money_at_risk = grounding["money_at_risk"] if grounded else 0.0
+    evidence_ids = grounding["evidence_ids"] if grounded else []
+    finding_id = grounding["finding_id"]
     reasoning = str(result.get("reasoning") or "").strip()
     confidence = _float(result.get("confidence"))
     classification = str(result.get("classification") or "standard")
@@ -293,9 +316,12 @@ async def _record_assurance_impl(activity: Any, *, result_json: str) -> dict[str
             )
             correlation["waypoint_draft_id"] = _id(created_draft)
 
-        await writer.update_run(run_id, status="completed", summary=run_summary, metadata={
+        final = await writer.update_run(run_id, status="completed", summary=run_summary, metadata={
             **run_metadata, "waypoint_recommendation_id": correlation["waypoint_recommendation_id"], "waypoint_draft_id": correlation["waypoint_draft_id"],
         })
+        # A run PATCH route absent on an older API degrades to None — say so rather
+        # than reporting a completed run the server never actually closed.
+        correlation["run_finalized"] = final is not None
     except Exception as exc:  # noqa: BLE001 - surface a structured error to the model
         if run_id is not None:
             try:
@@ -304,7 +330,7 @@ async def _record_assurance_impl(activity: Any, *, result_json: str) -> dict[str
                 pass
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}", "correlation": correlation}
 
-    return {"ok": True, "decision": decision, "governance": decision_governance, "correlation": correlation}
+    return {"ok": True, "decision": decision, "governance": decision_governance, "grounding_state": state, "correlation": correlation}
 
 
 def write_tools() -> list[Tool]:

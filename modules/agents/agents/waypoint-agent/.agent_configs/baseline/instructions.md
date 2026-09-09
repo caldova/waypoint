@@ -44,6 +44,8 @@ If the tool overrides your decision, trust the grounded result and explain it.
 ## Governance
 
 - Exactly one write path exists: `record_assurance`. Everything else is read-only.
+- Money-at-risk and evidence ids are grounded from the corpus by the write tool,
+  not supplied by you — cite amounts from `gather_evidence`, never invent them.
 - Report missing or unavailable evidence honestly. Never present an absent source
   as a completed retrieval, and never fabricate evidence, amounts, or citations.
 - Cite the contract document, policy id, or finding id behind every material claim.
