@@ -253,7 +253,7 @@ checks without requiring the presenter canvas.
 | --- | --- |
 | `apps/waypoint/` | Waypoint itself: Aspire AppHost, FastAPI API, React web app, infrastructure, tests, and product docs. |
 | `modules/corpus/` | Synthetic suppliers, contracts, policies, invoice scenarios, seed generation, document generation, and upload tooling. |
-| `modules/agents/` | Agent fleet, WaypointIQ contracts, prompts, toolboxes, orchestration, evidence experts, analyst surfaces, and publish tooling. |
+| `modules/agents/` | The single `waypoint-agent` (castia-based, multi-protocol) and its WaypointIQ toolbox/OpenAPI contract. |
 | `modules/evals/` | Datasets, graders, calibration, quality gates, and repeatable checks for agent behavior. |
 | `modules/optimization/` | Optimizer artifacts, RFT/RLE materials, cost-quality demos, promotion metadata, and telemetry-backed improvement planning. |
 | `tools/deploy/` | Environment discovery, preflight, Key Vault, MSAL, OIDC, deployment, seed import, wiring, and acceptance tooling. |
