@@ -1,0 +1,19 @@
+[project]
+name = "waypoint-agent"
+version = "0.1.0"
+description = "Waypoint — the single invoice-assurance hosted agent, built on castia."
+requires-python = ">=3.11"
+dependencies = [
+    # castia owns the framework layer: hosting, the three wire protocols,
+    # Adaptive Cards, telemetry, optimizer-config resolution, and the
+    # eval/optimize/rft lifecycle. The [optimize] extra ships the runtime
+    # resolver so configured_model() can load Agent Optimizer candidates.
+    "castia[optimize]>=0.3.0",
+    "python-dotenv>=1.0",
+]
+
+[tool.uv]
+# Flat application, not a library: uv installs deps without building a local
+# package. prerelease="allow" resolves castia's azure-ai-agentserver-* betas.
+package = false
+prerelease = "allow"
