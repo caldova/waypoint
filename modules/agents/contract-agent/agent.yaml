@@ -17,3 +17,6 @@ resources:
 environment_variables:
   - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
     value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+  # Investigative toolbox lane (FoundryIQ contract/policy KB); see azure.yaml.
+  - name: TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT
+    value: ${TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT}
