@@ -1,0 +1,26 @@
+# contract-agent investigative toolbox (Foundry project-scoped MCP aggregation).
+#
+# The single aggregation point for the agent's server-side investigative lanes.
+# Adding a lane means publishing a new toolbox version that attaches another
+# project connection here -- the agent discovers the federated tools with zero
+# code change and no redeploy (see modules/agents/contract-agent/toolbox.py).
+#
+# Lane 1 (live): FoundryIQ contract/policy knowledge base. The `contracts-kb-mcp`
+# project connection points at the agentic-retrieval MCP endpoint of the
+# `contracts-kb` knowledge base; it federates `knowledge_base_retrieve`, the
+# demo's grounded contract/policy lookup.
+#
+# Future lanes (WorkIQ / WebIQ / FabricIQ) join by adding their project
+# connection under `connections` and republishing -- nothing else changes.
+#
+# Create/update:
+#   azd ai connection create contracts-kb-mcp --kind remote-tool \
+#     --target "<kb-mcp-endpoint>" --auth-type project-managed-identity \
+#     --audience "https://search.azure.com" --project-endpoint "<project>"
+#   azd ai toolbox create contract-toolbox --from-file ./toolbox.yaml \
+#     --project-endpoint "<project>"
+# On success azd writes TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT to the azd env;
+# forward that to the agent so toolbox.py discovers the lane.
+description: contract-agent investigative toolbox -- FoundryIQ contract/policy knowledge base (lane 1).
+connections:
+  - name: contracts-kb-mcp
