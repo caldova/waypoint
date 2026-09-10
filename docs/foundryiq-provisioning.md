@@ -41,8 +41,9 @@ State legend: **exists** (already there, reuse as-is) · **create** (we make it)
 | 11 | Storage connection | project connection | — | **n/a** | KS reaches blobs via `ResourceId=` + search MI (row 10), no project connection needed | — | — |
 | 12 | Knowledge source | Azure AI Search `knowledgeSource` (`azureBlob`) | `contracts-ks` | **done** | Blob source; Search chunks + vectorizes (minimal mode) | incl. | Search REST `PUT /knowledgesources/contracts-ks` (`2026-08-01-preview`) → gen'd datasource/indexer/skillset/index |
 | 13 | Knowledge base | Azure AI Search `knowledgeBase` | `contracts-kb` | **done** | Orchestrates retrieval → `knowledge_base_retrieve` (18/18 docs, retrieve verified) | incl. | Search REST `PUT /knowledgebases/contracts-kb` (`2026-08-01-preview`), gpt-5.5 answerSynthesis |
-| 14 | Search connection | Foundry project connection | `contracts-search` (planned) | pending | Lets project/toolbox reach Search KB | incl. | `azd ai connection` / bicep |
-| 15 | Toolbox | Foundry toolbox | `contracts-kb` (planned) | pending | Federates KB retrieve as server-side MCP | incl. | `azd ai toolbox` (see `deploy_toolbox.py`) |
+| 14 | KB MCP connection | Foundry project connection (`RemoteTool`/MCP) | `contracts-kb-mcp` | **done** | Lets the toolbox reach the KB MCP endpoint, keyless (project MI) | incl. | `azd ai connection create --kind remote-tool --auth-type project-managed-identity --audience https://search.azure.com` |
+| 15 | Toolbox | Foundry toolbox | `contract-toolbox` | **done** | Single aggregating investigative toolbox; federates `contracts-kb-mcp___knowledge_base_retrieve` server-side | incl. | `azd ai toolbox create contract-toolbox --from-file toolbox.yaml` (`modules/agents/contract-agent/toolbox.yaml`) |
+| 16 | Search RBAC + reader grants | search config + role assignments | `srch-syhurnetrksxc` | **done** | KB MCP endpoint accepts AAD; project/account MI + self can retrieve | incl. | `az search service update --auth-options aadOrApiKey --aad-auth-failure-mode http403` + `Search Index Data Reader` to self, project MI, account MI |
 
 ## KB creation method (confirmed)
 
@@ -72,6 +73,31 @@ Simplification option: a `files`/upload knowledge source would drop the storage
 account + blob writer (rows 7–8, 11), but `azureBlob` matches the repo's proven
 `contracts_kb_upload.py` path and is the reliable default for the demo.
 
+## Toolbox wiring (confirmed)
+
+The KB is surfaced to `contract-agent` through a **single Foundry project-scoped
+toolbox** (the user's chosen aggregation point) — so future investigative lanes
+(WorkIQ / WebIQ / FabricIQ) join by attaching another connection and republishing
+the toolbox's default version, with **no agent redeploy**.
+
+- **Connection `contracts-kb-mcp`** (`RemoteTool`/MCP): `target` = the KB agentic
+  MCP endpoint `https://srch-syhurnetrksxc.search.windows.net/knowledgebases/contracts-kb/mcp?api-version=2026-08-01-preview`;
+  `auth-type project-managed-identity`, `audience https://search.azure.com`.
+  Keyless — the toolbox calls Search as the project MI (row 16 grant). No admin
+  key stored anywhere.
+- **Toolbox `contract-toolbox`** (`modules/agents/contract-agent/toolbox.yaml`):
+  attaches `contracts-kb-mcp` under `connections`. Federates one tool,
+  `contracts-kb-mcp___knowledge_base_retrieve`. No `policies` block — the account's
+  `Microsoft.Default` RAI name is **rejected** by the toolbox runtime (`tools/list`
+  → `bad_request`), so RAI is left at the service default.
+- **Agent wiring:** `TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT` (azd env) points at the
+  **version-less** endpoint `{project}/toolboxes/contract-toolbox/mcp?api-version=v1`,
+  which always serves the published default version. `toolbox.py` discovers it as a
+  named managed-identity lane (headless-safe, all federated tools offered).
+- **Verified e2e:** MCP `tools/list` shows `knowledge_base_retrieve`; a live
+  `tools/call` returned a grounded, multi-reference answer from the Aster Ridge SOW
+  + invoice policies through the keyless project-MI connection.
+
 ## Open decisions
 
 - **Search SKU:** planning **Basic** (matches every working KB in the sub:
@@ -90,6 +116,7 @@ account + blob writer (rows 7–8, 11), but `azureBlob` matches the repo's prove
 1. Fold rows 6–11 into `infra` as `AI_PROJECT_DEPENDENT_RESOURCES` (search +
    storage + connections) and an added embedding deployment, so `azd provision`
    stands up the substrate.
-2. A single `create-foundryiq` script does rows 8, 12–14 (upload → knowledge
-   source → knowledge base → toolbox), idempotent like `contracts_kb_upload.py`.
+2. A single `create-foundryiq` script does rows 8, 12–16 (upload → knowledge
+   source → knowledge base → KB MCP connection → toolbox → RBAC), idempotent like
+   `contracts_kb_upload.py`.
 3. Verify with `tools/deploy/scripts/verify_kb_retrieval_trace.py`.
