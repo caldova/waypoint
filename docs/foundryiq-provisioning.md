@@ -44,6 +44,8 @@ State legend: **exists** (already there, reuse as-is) · **create** (we make it)
 | 14 | KB MCP connection | Foundry project connection (`RemoteTool`/MCP) | `contracts-kb-mcp` | **done** | Lets the toolbox reach the KB MCP endpoint, keyless (project MI) | incl. | `azd ai connection create --kind remote-tool --auth-type project-managed-identity --audience https://search.azure.com` |
 | 15 | Toolbox | Foundry toolbox | `contract-toolbox` | **done** | Single aggregating investigative toolbox; federates `contracts-kb-mcp___knowledge_base_retrieve` server-side | incl. | `azd ai toolbox create contract-toolbox --from-file toolbox.yaml` (`modules/agents/contract-agent/toolbox.yaml`) |
 | 16 | Search RBAC + reader grants | search config + role assignments | `srch-syhurnetrksxc` | **done** | KB MCP endpoint accepts AAD; project/account MI + self can retrieve | incl. | `az search service update --auth-options aadOrApiKey --aad-auth-failure-mode http403` + `Search Index Data Reader` to self, project MI, account MI |
+| 17 | Hosted agent | Foundry hosted agent | `contract-agent:1` | **done** | The single castia agent; all 3 protocols (activity/responses/invocations). Platform auto-attaches `contract-toolbox` | usage | `azd deploy contract-agent` (container image in ACR row 4) |
+| 18 | Agent-identity RBAC | role assignment | agent instance MI `<AGENT_INSTANCE_PRINCIPAL_ID>` | **done** | Lets the Responses model service enumerate + call the toolbox MCP as the container MI (fixes HTTP 403 on `tools/list`) | incl. | `Foundry User` at **project** scope. NOTE: the agent **blueprint** principal is `agentIdentityBlueprintPrincipal` and **cannot** take role assignments — grant the **instance** MI (`azd ai agent show` → `instance_identity.principal_id`). Propagation ~5–10 min |
 
 ## KB creation method (confirmed)
 
@@ -96,7 +98,11 @@ the toolbox's default version, with **no agent redeploy**.
   named managed-identity lane (headless-safe, all federated tools offered).
 - **Verified e2e:** MCP `tools/list` shows `knowledge_base_retrieve`; a live
   `tools/call` returned a grounded, multi-reference answer from the Aster Ridge SOW
-  + invoice policies through the keyless project-MI connection.
+  + invoice policies through the keyless project-MI connection. **Live hosted agent
+  confirmed:** `azd ai agent invoke contract-agent --protocol responses` (rejected-batch
+  billing question) returned a grounded answer quoting the SOW ("not billable for
+  rejected batches") + the Quality Release & Billability Policy — full path
+  agent → `contract-toolbox` → `contracts-kb-mcp` → FoundryIQ KB (needs row 18 grant).
 
 ## Open decisions
 
@@ -119,4 +125,9 @@ the toolbox's default version, with **no agent redeploy**.
 2. A single `create-foundryiq` script does rows 8, 12–16 (upload → knowledge
    source → knowledge base → KB MCP connection → toolbox → RBAC), idempotent like
    `contracts_kb_upload.py`.
-3. Verify with `tools/deploy/scripts/verify_kb_retrieval_trace.py`.
+3. **Post-deploy agent-identity grant (row 18):** after `azd deploy contract-agent`,
+   resolve the agent **instance** MI (`azd ai agent show` → `instance_identity.principal_id`)
+   and assign it `Foundry User` at project scope, then allow ~5–10 min propagation.
+   The blueprint principal can't take role assignments, so this must key off the
+   instance MI. Gate it on `enableHostedAgents` in the deploy pipeline.
+4. Verify with `tools/deploy/scripts/verify_kb_retrieval_trace.py`.

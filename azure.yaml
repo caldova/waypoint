@@ -18,6 +18,11 @@ services:
     environmentVariables:
       - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
         value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      # Investigative toolbox lane (FoundryIQ contract/policy KB). Version-less
+      # endpoint => always the published default version, so attaching a lane +
+      # republishing needs no agent redeploy. Discovered by toolbox.py.
+      - name: TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT
+        value: ${TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT}
     protocols:
       - protocol: activity
         version: 2.0.0
