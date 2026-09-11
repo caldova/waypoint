@@ -8,6 +8,15 @@ the fleet-era eval splits use for the custom Python graders).
 Every row here is grounded in ``invoice-decisions.json``: the query is the
 natural assurance ask for a real corpus invoice, and the ground truth is that
 invoice's governed decision plus the corpus summary, verbatim — nothing invented.
+
+Each row also carries a task-level ``criteria`` grounding check. The optimizer's
+eval loop is response-scoped (it scores the agent's answer against each
+criterion), so ``builtin.tool_call_accuracy`` — which needs the tool trajectory —
+can't run there. This criterion recovers the same "decided from evidence, not
+from memory" signal in a form the loop supports: it names the invoice's real
+corpus ``sources`` and asks the eval model to check the answer is grounded in
+them and cites the governing basis.
+
 Re-run this whenever the seed decisions change::
 
     python datasets/build_assurance_optimize.py
@@ -33,9 +42,22 @@ _DECISION = {"approved": "approve"}
 
 def _row(decision: dict) -> dict:
     verb = _DECISION.get(decision["status"], decision["status"])
+    sources = ", ".join(decision.get("sources", [])) or "the governing contract and policy"
     return {
+        "name": decision["invoice_id"],
         "query": f"Assure invoice {decision['invoice_id']} and record your decision.",
         "ground_truth": f"{verb}: {decision['summary']}",
+        "criteria": [
+            {
+                "name": "grounded_in_evidence",
+                "instruction": (
+                    "The decision must be grounded in the retrieved contract and "
+                    f"policy evidence for this invoice ({sources}) and cite the "
+                    "governing basis for the outcome. It must not be asserted from "
+                    "memory or general knowledge."
+                ),
+            }
+        ],
     }
 
 

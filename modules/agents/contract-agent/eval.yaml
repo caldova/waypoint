@@ -9,12 +9,6 @@
 # Offline sanity first: `python -m castia eval check` validates this file and the
 # dataset paths with no Azure call. `optimize run --dry-run` prints the assembled
 # request without submitting.
-#
-# NOTE: the deployed contract-agent publishes all three wire protocols
-# (responses, activity_protocol, invocations). The Agent Optimizer currently
-# accepts only a responses-only agent and rejects a multi-protocol one at submit
-# time; a platform fix is in flight. Everything below is verified ready so a real
-# `optimize run` works the moment that lands.
 name: contract-agent-optimize
 
 agent:
@@ -22,15 +16,23 @@ agent:
   # Baseline model; the optimizer rewrites the prompt/tools, not the model.
   model: gpt-5.5
 
-# Built-in Foundry evaluators keep this offline-checkable and need no rubric
-# files. task_adherence scores whether the agent did the governed assurance task;
-# tool_call_accuracy scores whether it grounded via gather_evidence before
-# deciding. Swapping in the repo's custom contract_policy_evidence_grader (as a
-# registered Foundry evaluator with a rubric) is the follow-up once we run a real
-# scored job.
+# Built-in Foundry evaluator, offline-checkable, no rubric file. task_adherence
+# scores whether the agent did the governed assurance task.
+#
+# We deliberately do NOT use builtin.tool_call_accuracy here. The optimizer's
+# eval loop is response-scoped — the eval model reads the agent's response and
+# each criterion and returns a score — whereas tool_call_accuracy is
+# trajectory-scoped and needs tool_calls + tool_definitions, which the optimizer
+# holds but never surfaces to the evaluator (it fails with "Tool definitions
+# input is required but not provided"). Instead, each dataset row carries a
+# task-level `grounded_in_evidence` criterion that recovers the same "decided
+# from evidence, not from memory" signal in a form this loop supports.
+# tool_call_accuracy still belongs in the standalone eval loop, where the
+# trajectory is available. Swapping in the repo's custom
+# contract_policy_evidence_grader as a registered Foundry evaluator is the
+# follow-up once we run a real scored job.
 evaluators:
   - builtin.task_adherence
-  - builtin.tool_call_accuracy
 
 # contract-agent-native optimizer dataset, derived from the corpus by
 # datasets/build_assurance_optimize.py. The optimizer's dataset schema is
