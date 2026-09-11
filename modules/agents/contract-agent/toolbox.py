@@ -30,6 +30,13 @@ that mutates Waypoint stays ``record_assurance`` in ``write_tools.py``, governed
 by the deterministic policy check — a retrieval toolbox can never persist a case,
 run, or recommendation.
 
+Guidance is authored, not inherited: each selected tool carries local
+:data:`_TOOL_GUIDANCE` (castia 0.5.0 ``descriptions`` / ``param_guidance``) that
+overrides the upstream server's own tool text. This seeds model-visible steering
+*and* an optimizer sidecar, so a federated tool's description is a Foundry Agent
+Optimizer asset — castia folds any candidate rewrite back in and strips the
+sidecar before the Responses call, with no handler change.
+
 Fail-closed: with nothing configured, both :func:`read_specs` and
 :func:`assurance_specs` return ``[]`` and the agent falls back to the
 deterministic local tools with no code change. A managed-identity token is minted
@@ -61,6 +68,55 @@ _ENDPOINT_RE = re.compile(r"^TOOLBOX_(?P<slug>.+)_MCP_ENDPOINT$")
 #: publishes, so a toolbox later (mis)provisioned with a mutation tool cannot
 #: become a second write path. Per-lane ``TOOLBOX_<NAME>_ALLOWED_TOOLS`` overrides.
 _DEFAULT_ALLOWED_TOOLS = ("knowledge_base_retrieve",)
+
+
+@dataclass(frozen=True)
+class _Guidance:
+    """Authored, post-facto guidance for one federated toolbox tool.
+
+    A federated toolbox tool arrives with the upstream server's own description,
+    which the model would otherwise steer on verbatim. castia 0.5.0 lets us
+    override it locally: the text seeds a model-visible ``server_description``
+    (runtime steering) *and* a private optimizer sidecar, so the Foundry Agent
+    Optimizer can rewrite it like any hand-written tool. castia folds the
+    candidate's rewrite back in and strips the sidecar before the Responses call
+    — so this is the seam that makes a toolbox tool's guidance an optimization
+    asset with no handler change.
+    """
+
+    description: str
+    params: Mapping[str, str] | None = None
+
+
+#: Authored guidance keyed by the **bare** federated tool name (the segment after
+#: the final ``___``), so it matches a lane whether the tool is allow-listed bare
+#: (``knowledge_base_retrieve``) or connection-prefixed
+#: (``contracts-kb-mcp___knowledge_base_retrieve``). Applied only to tools a lane
+#: actually selects; a wide-open lane (no allow-list) carries none, because castia
+#: cannot validate override names without a concrete tool list.
+_TOOL_GUIDANCE: dict[str, _Guidance] = {
+    "knowledge_base_retrieve": _Guidance(
+        description=(
+            "Retrieve grounding passages from Caldova's governing contracts and "
+            "billing/quality policies — statements of work, rate cards, and "
+            "release/billability policies. Use for any question about what a "
+            "supplier's contract or a Caldova policy permits, requires, or "
+            "prohibits: whether a fee is billable, rate or threshold lookups, and "
+            "clause interpretation. Returns cited source passages; ground every "
+            "contractual claim in them and never assert a term this tool does not "
+            "return."
+        ),
+        params={
+            "query": (
+                "A specific, self-contained contract or billing-policy question "
+                "naming the supplier and the fee or term at issue (e.g. 'Aster "
+                "Ridge SOW: is a batch release administration fee billable for a "
+                "rejected batch?'). Prefer the contractual vocabulary on the "
+                "invoice or finding over paraphrase."
+            ),
+        },
+    ),
+}
 
 _FALSEY = {"0", "false", "no", "off"}
 
@@ -102,13 +158,37 @@ class _Lane:
         # stored connection — never mint the container identity for those, or the
         # call would run as the wrong principal.
         token = None if self.connection_id else await toolbox_token()
+        descriptions, param_guidance = self._overrides()
         return toolbox_mcp_tool(
             self.endpoint,
             server_label=self.server_label,
             allowed_tools=self.allowed_tools,
             project_connection_id=self.connection_id,
             token=token,
+            descriptions=descriptions or None,
+            param_guidance=param_guidance or None,
         )
+
+    def _overrides(self) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
+        """Authored guidance for this lane's selected tools, keyed by bare name.
+
+        Overrides require a concrete allow-list (castia validates override names
+        against it), so a wide-open lane carries none. Only tools with authored
+        :data:`_TOOL_GUIDANCE` contribute; the rest keep their upstream text.
+        """
+        if not self.allowed_tools:
+            return {}, {}
+        descriptions: dict[str, str] = {}
+        param_guidance: dict[str, dict[str, str]] = {}
+        for tool in self.allowed_tools:
+            bare = tool.rsplit("___", 1)[-1]
+            guidance = _TOOL_GUIDANCE.get(bare)
+            if guidance is None:
+                continue
+            descriptions[bare] = guidance.description
+            if guidance.params:
+                param_guidance[bare] = dict(guidance.params)
+        return descriptions, param_guidance
 
 
 def _lane_from_slug(slug: str, endpoint: str, env: Mapping[str, str]) -> _Lane:
