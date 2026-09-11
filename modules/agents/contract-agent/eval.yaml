@@ -9,6 +9,12 @@
 # Offline sanity first: `python -m castia eval check` validates this file and the
 # dataset paths with no Azure call. `optimize run --dry-run` prints the assembled
 # request without submitting.
+#
+# NOTE: the deployed contract-agent publishes all three wire protocols
+# (responses, activity_protocol, invocations). The Agent Optimizer currently
+# accepts only a responses-only agent and rejects a multi-protocol one at submit
+# time; a platform fix is in flight. Everything below is verified ready so a real
+# `optimize run` works the moment that lands.
 name: contract-agent-optimize
 
 agent:
@@ -26,12 +32,15 @@ evaluators:
   - builtin.task_adherence
   - builtin.tool_call_accuracy
 
-# Reuse the canonical corpus-derived splits from the evals module (no copy).
-# Paths resolve relative to this file's folder.
+# contract-agent-native optimizer dataset, derived from the corpus by
+# datasets/build_assurance_optimize.py. The optimizer's dataset schema is
+# {query, ground_truth} scalars — NOT the fleet-era eval splits' messages/dict
+# shape, which target retired agents and fail the optimizer schema. Paths resolve
+# relative to this file's folder.
 dataset:
-  local_uri: ../../evals/datasets/contract-policy-expert/contract-policy-expert-eval.jsonl
+  local_uri: datasets/assurance-optimize-train.jsonl
 validation_dataset:
-  local_uri: ../../evals/datasets/contract-policy-expert/contract-policy-expert-validation.jsonl
+  local_uri: datasets/assurance-optimize-validation.jsonl
 
 options:
   eval_model: gpt-5.5

@@ -1,0 +1,5 @@
+{"query": "Assure invoice INV-2026-08177 and record your decision.", "ground_truth": "escalate: Unapproved API handling fee lacks a matching batch authorization for the sensitive ingredient."}
+{"query": "Assure invoice INV-2026-08462 and record your decision.", "ground_truth": "recover: Duplicate invoice number submitted through both EDI and supplier portal."}
+{"query": "Assure invoice INV-2026-08305 and record your decision.", "ground_truth": "approve: Stability testing surcharge matches the quality protocol attached to the approved batch record."}
+{"query": "Assure invoice INV-2026-08644 and record your decision.", "ground_truth": "approve: Validated cleaning charge is expected between protected SKU campaigns and appears in the approved batch plan."}
+{"query": "Assure invoice INV-2026-08690 and record your decision.", "ground_truth": "review: Supplier billed deviation support beyond the approved quality hold window, but closure evidence is missing."}

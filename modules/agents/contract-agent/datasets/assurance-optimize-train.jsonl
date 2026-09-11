@@ -1,0 +1,13 @@
+{"query": "Assure invoice INV-2026-08034 and record your decision.", "ground_truth": "escalate: Contamination investigation was billed to the sponsor where the deviation record indicates supplier-caused contamination, so the investigation cost is not recoverable and must be escalated."}
+{"query": "Assure invoice INV-2026-08055 and record your decision.", "ground_truth": "escalate: Off-contract tooling setup references a protected formulation process that is not covered by the current MSA."}
+{"query": "Assure invoice INV-2026-08338 and record your decision.", "ground_truth": "escalate: Tech transfer support fee references process-support work that requires legal and IP review."}
+{"query": "Assure invoice INV-2026-08102 and record your decision.", "ground_truth": "recover: Duplicate QA release testing appears on the invoice and release log for the same batch lot."}
+{"query": "Assure invoice INV-2026-08244 and record your decision.", "ground_truth": "recover: Packaging line changeover was billed for an IP-sensitive SKU without an approved purchase order."}
+{"query": "Assure invoice INV-2026-08507 and record your decision.", "ground_truth": "recover: Cold-chain storage surcharge lacks a temperature-control requirement on the approved batch profile."}
+{"query": "Assure invoice INV-2026-08602 and record your decision.", "ground_truth": "recover: Unapproved overtime premium appears on a commercial-scale batch that did not have surge authorization."}
+{"query": "Assure invoice INV-2026-08140 and record your decision.", "ground_truth": "approve: Base production run matches PO quantity, approved batch record, and contracted conversion fee."}
+{"query": "Assure invoice INV-2026-08201 and record your decision.", "ground_truth": "approve: Expedited packaging line changeover matches a documented prescription-surge approval."}
+{"query": "Assure invoice INV-2026-08411 and record your decision.", "ground_truth": "approve: Minimum batch charge applied correctly under the supplier rate card."}
+{"query": "Assure invoice INV-2026-08549 and record your decision.", "ground_truth": "approve: Conversion fee aligns to the negotiated manufacturing rate table after volume discount is applied."}
+{"query": "Assure invoice INV-2026-08273 and record your decision.", "ground_truth": "review: Invoice line is missing a PO and batch ID, so it cannot be tied to authorized manufacturing work."}
+{"query": "Assure invoice INV-2026-08392 and record your decision.", "ground_truth": "review: Batch record reconciliation fee begins before the documented deviation closure timestamp."}
