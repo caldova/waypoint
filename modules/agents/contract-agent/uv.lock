@@ -290,7 +290,7 @@ wheels = [
 
 [[package]]
 name = "castia"
-version = "0.4.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-ai-projects", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -301,9 +301,9 @@ dependencies = [
     { name = "pyjwt", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "uvicorn", extra = ["standard"], marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d3/0d/abe083f3b282e432b0b90b9c6363122f9586b6d74b83553edc076e6287ef/castia-0.4.0.tar.gz", hash = "sha256:efeb7a6414cae010e9c3126fa411aa4020aa40b51a9f8b812d2211936a32aded", size = 109053, upload-time = "2026-09-09T21:10:18.208Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c5/e0/ee818e43e5b8f88e28d0cf700ac491f71d899fffe31c0e22f989939b33a8/castia-0.5.0.tar.gz", hash = "sha256:fb91cb4bd2d67a41a91f4d076147d0efb0fb27ba8dc7600cd61247baed426d0f", size = 124371, upload-time = "2026-09-10T21:05:15.539Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/44/f4/463c29dcb6610f35ce800c526f87e84e806ad03d6f45871f995a5e3d3aa0/castia-0.4.0-py3-none-any.whl", hash = "sha256:284f920ec14963d8682d04d861926383f1fb518b963ed8b6902ed9f5b087654e", size = 102609, upload-time = "2026-09-09T21:10:16.689Z" },
+    { url = "https://files.pythonhosted.org/packages/10/4c/bb43959069c4d38758575665ab764c3827f2b0bcd0476b05d9d6d0b1577f/castia-0.5.0-py3-none-any.whl", hash = "sha256:072da5e9cb8a7efbd5418ddfaa23ac0cd5d88e306e7dcf99923e0a8ec9a2fdee", size = 115308, upload-time = "2026-09-10T21:05:14.14Z" },
 ]
 
 [package.optional-dependencies]
@@ -547,6 +547,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/c7/0e/7fa0ef50764b67090eca4114772a2abf8b6148198475e54c660b97caeee6/click-8.5.0.tar.gz", hash = "sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34", size = 382235, upload-time = "2026-08-26T13:33:14.56Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/58/50/6c0d534c5f134586a8e1ba4e330569e32f057e33372ae556463212fb4cd3/click-8.5.0-py3-none-any.whl", hash = "sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360", size = 125251, upload-time = "2026-08-26T13:33:12.928Z" },
+]
+
+[[package]]
+name = "contract-agent"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "castia", extra = ["optimize"], marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "python-dotenv", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "castia", extras = ["optimize"], specifier = ">=0.5.0" },
+    { name = "python-dotenv", specifier = ">=1.0" },
 ]
 
 [[package]]
@@ -2067,21 +2082,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/46/4b/95ab2f256bb4af3cb2eb23b9317bda984ee6e0f11733a5c004a6c95b06e3/watchfiles-1.2.0-cp315-cp315-musllinux_1_1_x86_64.whl", hash = "sha256:922c0e019fe68b3ae392965a766b02a71ba1168c932cebc3733cd52c5fe5b377", size = 657684, upload-time = "2026-05-18T04:31:32.027Z" },
     { url = "https://files.pythonhosted.org/packages/5e/2c/73f31a3b893886206c3f54d73e8ad8dee58cdb2f69ad2622e0a8a9e07f4e/watchfiles-1.2.0-pp311-pypy311_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:b0ef001f8c25ad0fa9529f914c1600647ecd0f542d11c19b7894768c67b6acb7", size = 457318, upload-time = "2026-05-18T04:31:01.932Z" },
     { url = "https://files.pythonhosted.org/packages/e9/f9/45d021e4a5cc7b9dd567f7cbb06d3b75f751a690063fb6cc7ec60f4e46b7/watchfiles-1.2.0-pp311-pypy311_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a88fc94e647bc4eec523f1caa540258eb71d14278b9daf72fa1e2658a98df0f0", size = 457771, upload-time = "2026-05-18T04:30:56.331Z" },
-]
-
-[[package]]
-name = "waypoint-agent"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "castia", extra = ["optimize"], marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-    { name = "python-dotenv", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "castia", extras = ["optimize"], specifier = ">=0.4.0" },
-    { name = "python-dotenv", specifier = ">=1.0" },
 ]
 
 [[package]]
