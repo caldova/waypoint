@@ -46,6 +46,44 @@ State legend: **exists** (already there, reuse as-is) · **create** (we make it)
 | 16 | Search RBAC + reader grants | search config + role assignments | `srch-syhurnetrksxc` | **done** | KB MCP endpoint accepts AAD; project/account MI + self can retrieve | incl. | `az search service update --auth-options aadOrApiKey --aad-auth-failure-mode http403` + `Search Index Data Reader` to self, project MI, account MI |
 | 17 | Hosted agent | Foundry hosted agent | `contract-agent:1` | **done** | The single castia agent; all 3 protocols (activity/responses/invocations). Platform auto-attaches `contract-toolbox` | usage | `azd deploy contract-agent` (container image in ACR row 4) |
 | 18 | Agent-identity RBAC | role assignment | agent instance MI `<AGENT_INSTANCE_PRINCIPAL_ID>` | **done** | Lets the Responses model service enumerate + call the toolbox MCP as the container MI (fixes HTTP 403 on `tools/list`) | incl. | `Foundry User` at **project** scope. NOTE: the agent **blueprint** principal is `agentIdentityBlueprintPrincipal` and **cannot** take role assignments — grant the **instance** MI (`azd ai agent show` → `instance_identity.principal_id`). Propagation ~5–10 min |
+| 19 | Optimizer eval-model RBAC | role assignments | project MI `<PROJECT_MI>` + account MI `<ACCOUNT_MI>` + **run submitter** `<USER_OBJECT_ID>` | **done** | Lets the Agent Optimizer eval model score responses; a real scored run needs the **submitting user** to hold this, not just the MIs (see "Agent Optimizer" below) | usage | `Cognitive Services OpenAI User` (data-plane) at account scope, all three principals. `Owner` does **not** grant data-plane inference (empty dataActions). Propagation ~5–10 min |
+
+## Agent Optimizer (confirmed)
+
+Wiring `contract-agent` into the Foundry **Agent Optimizer** (`castia optimize
+run` against `eval.yaml`). Job `opt_a5f3b615…` ran end-to-end and scored, so the
+loop is proven. The hard-won constraints:
+
+- **The eval loop has ONE shape: `(agent response, criterion) → binary`.** For
+  each task the optimizer runs the agent, takes the **response text**, and asks
+  the eval model whether it meets each criterion. It optimizes only knobs that
+  change the response — instructions, skill bodies, tool *descriptions*, model
+  choice. It never inspects the tool trajectory.
+- **`builtin.tool_call_accuracy` cannot run here.** It is *trajectory-scoped*
+  (needs `tool_calls` + `tool_definitions`), a different shape. Submit succeeds
+  but every row fails: `Tool definitions input is required but not provided`. The
+  optimizer holds the tools (`optimization_config.tools`) but never surfaces the
+  trajectory to the evaluator. This is an optimizer gap, not an evaluator/dataset/
+  castia defect — raised with the product owner. Keep `tool_call_accuracy` for the
+  **standalone eval** loop, where the trajectory is available.
+- **Recover the grounding signal with per-row `criteria`.** Each dataset row
+  carries a `grounded_in_evidence` criterion naming the invoice's real corpus
+  `sources`. This scores "decided from evidence, not from memory" in the shape the
+  loop supports. `eval.yaml` therefore uses `builtin.task_adherence` + these
+  criteria only.
+- **Eval auth runs as the SUBMITTING USER (on-behalf-of), not an MI.** Granting
+  the project + account MIs `Cognitive Services OpenAI User` was **not** enough —
+  the CLI-submitted eval 401'd until the signed-in user got the same data-plane
+  role (row 19). This is the key gotcha for interactive optimizer runs.
+- **Tools must be reachable (or mocked) during eval, or scores collapse.** The
+  optimizer invokes the agent for real each task; the docs warn external tool
+  calls execute. In our run `gather_evidence`/`record_assurance` were unreachable
+  in the eval sandbox, so the agent bailed (thin responses, `avg_tokens≈0`) and
+  baseline scored 0.025. The winning candidate's rewrite was mostly anti-bail
+  guardrails plus **memorized answers for specific validation invoice ids** —
+  overfit to the 13/5 dataset. **Do not deploy `candidate_1`.** Next real unit:
+  make the four tools reachable or mocked for eval, and grow/de-identify the
+  dataset so the optimizer can't memorize invoice ids.
 
 ## KB creation method (confirmed)
 
