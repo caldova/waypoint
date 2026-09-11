@@ -1,0 +1,40 @@
+# Foundry Agent Optimizer config for the single contract-agent.
+#
+# `python -m castia optimize run` reads this to submit an optimizer job: it runs
+# the baseline agent (.agent_configs/baseline — instructions.md + tools.json)
+# against `dataset`, scores each response with `evaluators`, and proposes prompt
+# + tool-description rewrites, keeping only candidates that beat the baseline on
+# `validation_dataset`.
+#
+# Offline sanity first: `python -m castia eval check` validates this file and the
+# dataset paths with no Azure call. `optimize run --dry-run` prints the assembled
+# request without submitting.
+name: contract-agent-optimize
+
+agent:
+  name: contract-agent
+  # Baseline model; the optimizer rewrites the prompt/tools, not the model.
+  model: gpt-5.5
+
+# Built-in Foundry evaluators keep this offline-checkable and need no rubric
+# files. task_adherence scores whether the agent did the governed assurance task;
+# tool_call_accuracy scores whether it grounded via gather_evidence before
+# deciding. Swapping in the repo's custom contract_policy_evidence_grader (as a
+# registered Foundry evaluator with a rubric) is the follow-up once we run a real
+# scored job.
+evaluators:
+  - builtin.task_adherence
+  - builtin.tool_call_accuracy
+
+# Reuse the canonical corpus-derived splits from the evals module (no copy).
+# Paths resolve relative to this file's folder.
+dataset:
+  local_uri: ../../evals/datasets/contract-policy-expert/contract-policy-expert-eval.jsonl
+validation_dataset:
+  local_uri: ../../evals/datasets/contract-policy-expert/contract-policy-expert-validation.jsonl
+
+options:
+  eval_model: gpt-5.5
+  optimization_model: gpt-5.5
+  # Keep the first real job small and cheap; raise once the loop is proven.
+  max_candidates: 4
