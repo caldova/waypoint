@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: ai-foundry-starter-basic
+
+services:
+  contract-agent:
+    project: modules/agents/contract-agent
+    host: azure.ai.agent
+    language: docker
+    kind: hosted
+    name: contract-agent
+    description: Single Waypoint invoice-assurance agent (castia) speaking responses, activity, and invocations from one handler set.
+    docker:
+      remoteBuild: true
+    container:
+      resources:
+        cpu: "0.5"
+        memory: 1Gi
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      # Investigative toolbox lane (FoundryIQ contract/policy KB). Version-less
+      # endpoint => always the published default version, so attaching a lane +
+      # republishing needs no agent redeploy. Discovered by toolbox.py.
+      - name: TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT
+        value: ${TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT}
+    protocols:
+      - protocol: activity
+        version: 2.0.0
+      - protocol: responses
+        version: 2.0.0
+      - protocol: invocations
+        version: 2.0.0
+infra:
+  provider: bicep
+  path: ./infra
+
+requiredVersions:
+  extensions:
+    # the azd ai agent extension is required for this template
+    "azure.ai.agents": ">=0.1.0-preview"
+

@@ -66,7 +66,7 @@ SET_REPO_CONFIG="true"
 # privilege. ON by default; opt out with --no-graph-grants.
 GRANT_GRAPH="true"
 WAYPOINT_APP_NAME="waypoint"
-AZD_ENV_NAME="waypoint-agents"
+AZD_ENV_NAME="contract-agents"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

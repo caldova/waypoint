@@ -54,7 +54,7 @@ class DeploymentPlannerTests(unittest.TestCase):
 
     def test_agent_path_selects_only_that_agent(self) -> None:
         plan = self.plan(
-            ["modules/agents/agents/contract-policy-expert/prompt.md"]
+            ["modules/agents/contract-policy-expert/prompt.md"]
         )
 
         self.assertEqual(plan["selected_agents"], ["contract-policy-expert"])

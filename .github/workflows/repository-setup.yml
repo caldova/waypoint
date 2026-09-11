@@ -28,7 +28,7 @@ on:
         description: Environment tag used by deployment and safe teardown.
         required: true
         type: string
-        default: waypoint-agents
+        default: contract-agents
 
 permissions:
   contents: read

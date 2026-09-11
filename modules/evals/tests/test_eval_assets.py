@@ -138,7 +138,7 @@ def test_validate_eval_config_flags_missing_required_top_level_fields(tmp_path: 
 
 def test_validate_eval_config_handles_windows_style_backslash_local_uri(tmp_path: Path) -> None:
     # Mirrors real Caldova eval configs authored with backslash path separators,
-    # e.g. modules/agents/agents/contract-policy-expert/eval.yaml.
+    # e.g. modules/agents/contract-policy-expert/eval.yaml.
     eval_config = _write_eval_config(
         tmp_path,
         dataset_local_uri=r"datasets\sample",
@@ -151,7 +151,7 @@ def test_validate_eval_config_handles_windows_style_backslash_local_uri(tmp_path
 
 def test_validate_eval_config_against_real_contract_policy_expert_asset() -> None:
     # Guards against regressions in the actual in-scope eval asset this
-    # command targets: modules/agents/agents/contract-policy-expert/eval.yaml.
+    # command targets: modules/agents/contract-policy-expert/eval.yaml.
     modules_dir = Path(__file__).resolve().parents[2]
     eval_config = (
         modules_dir / "agents" / "agents" / "contract-policy-expert" / "eval.yaml"

@@ -79,5 +79,5 @@ real orchestrator-to-recorder run. See
 
 Agent quality operations remain outside the governed write path. The `/quality`
 page explains the run, inspect, measure, improve, and approved-release loop;
-`.github/workflows/agent-quality-operations.yml` owns cloud credentials,
+`castia eval` and `castia optimize` own cloud credentials,
 sanitized artifacts, and protected approvals.

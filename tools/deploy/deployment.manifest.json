@@ -24,9 +24,9 @@
       "**/README.md",
       "**/AGENTS.md",
       "**/.github/copilot-instructions.md",
-      "modules/agents/agents/collaboration-evidence-expert/**",
-      "modules/agents/agents/market-evidence-expert/**",
-      "modules/agents/agents/operations-data-expert/**"
+      "modules/agents/collaboration-evidence-expert/**",
+      "modules/agents/market-evidence-expert/**",
+      "modules/agents/operations-data-expert/**"
     ],
     "stages": {
       "app": {
@@ -98,9 +98,9 @@
       "waypoint-recorder"
     ],
     "agent_sources": {
-      "root": "modules/agents/agents",
+      "root": "modules/agents",
       "shared_paths": [
-        "modules/agents/agents/_template/**",
+        "modules/agents/_template/**",
         "modules/agents/scripts/create_toolbox.py",
         "modules/agents/scripts/deploy_prompt_agents.py",
         "modules/agents/scripts/discover_agents.py",
@@ -247,7 +247,7 @@
       "app_resource_group": "rg-waypoint",
       "state_resource_group": "rg-waypoint-state",
       "key_vault_name": "derived as kv-waypoint-<env+sub-hash>",
-      "azd_environment": "waypoint-agents",
+      "azd_environment": "contract-agents",
       "msal_display_name": "waypoint"
     },
     "evidence_plane": "foundryiq",
