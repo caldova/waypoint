@@ -5,7 +5,7 @@ It is not an agent.
 
 This directory retains app-side integration assets. The canonical contract and
 guide live under
-[`modules/agents/iqs/waypoint-iq`](../../../../../modules/agents/iqs/waypoint-iq/README.md)
+[`modules/agents/waypoint-iq`](../../../../../modules/agents/waypoint-iq/README.md)
 and
 [`modules/agents/docs/WAYPOINTIQ.md`](../../../../../modules/agents/docs/WAYPOINTIQ.md).
 

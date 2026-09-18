@@ -1,89 +1,52 @@
-# Waypoint hosted agents
+# Waypoint hosted agent
 
-This module contains Waypoint's Microsoft Foundry hosted agents, shared
-infrastructure, toolboxes, prompts, deployment helpers, and agent-local
-evaluation contracts.
+This module contains Waypoint's single Microsoft Foundry hosted agent and the
+reusable IQ/toolbox contract it depends on.
 
-## Runtime fleet
+## The agent
 
-The root deployment ships four agents by default:
+`contract-agent` is one [castia](https://github.com/sethjuarez/castia)-based
+agent that serves every surface. It speaks three protocols from a single
+`main:app` entry point:
 
-- `invoice-analyst` - read-only human-facing Q&A and status
-- `assurance-orchestrator` - deterministic single-invoice coordinator
-- `contract-policy-expert` - read-only FoundryIQ evidence
-- `waypoint-recorder` - sole Waypoint writer
+- **responses** — read-only human-facing Q&A and assurance
+- **activity** — Teams / AI Teammate cards
+- **invocations** — programmatic single-invoice runs
 
-The following evidence experts are opt-in:
-
-- `collaboration-evidence-expert` - WorkIQ
-- `market-evidence-expert` - WebIQ
-- `operations-data-expert` - FabricIQ
-
-FoundryIQ is the only evidence lane enabled by default.
+Evidence and status tools are read-only; a single governed writer
+(`record_assurance`) is the sole path that mutates Waypoint. Missing evidence is
+reported honestly, never fabricated.
 
 ## Structure
 
 ```text
 modules/agents/
-├── agents/          # one hosted-agent source directory per service
-├── iqs/             # reusable IQ/toolbox contracts
-├── infra/           # shared Foundry, Search, storage, registry, and telemetry IaC
-├── scripts/         # discovery, toolbox, deploy, smoke, and publish helpers
-├── docs/            # pipeline and operating guides
-└── azure.yaml       # hosted service declarations
+├── contract-agent/   # the hosted-agent source (main:app, agent.yaml, tools)
+└── waypoint-iq/      # reusable IQ/toolbox + OpenAPI contract
 ```
 
-Each agent owns its container entry point, `agent.yaml`, `prompt.md`, dependency
-manifest, and tests. `azure.yaml` is the source of truth for deployable hosted
-services.
+The deployable service is declared in the repo-root `azure.yaml`.
 
 ## Local development
 
 ```bash
-cd modules/agents/agents/assurance-orchestrator
+cd modules/agents/contract-agent
 uv sync --frozen
-uv run python -m assurance_orchestrator
+uv run castia --help
 ```
-
-Other agents can be started from their own source directory with the command in
-their `agent.yaml` or README.
-
-## Validation
-
-```bash
-cd modules/agents
-python -m compileall -q agents scripts
-python scripts/discover_agents.py
-python scripts/prompt_agent_plan.py --check
-```
-
-Run agent-local tests from the changed agent directory.
 
 ## Deployment
 
-The canonical deployment is the root workflow documented in
-[docs/deployment.md](../../docs/deployment.md). It provisions shared Foundry
-resources, deploys the selected agent matrix, wires the orchestrator and assurance
-operation, and runs live acceptance.
+Deployed to the `caldova` Foundry project from the repo root:
 
-`azd provision` and `azd deploy <agent>` remain useful for isolated agent
-development, but they are not the canonical full-environment path.
-
-## Governance
-
-- Evidence experts and `invoice-analyst` are read-only.
-- `assurance-orchestrator` owns orchestration and lifecycle, not governed
-  persistence.
-- `waypoint-recorder` is the sole agent writer.
-- WorkIQ is user-scoped.
-- Missing optional evidence must be reported honestly, never replaced with
-  fabricated evidence.
+```bash
+azd provision            # shared Foundry resources + gpt-5.5
+castia deploy            # reconcile azure.yaml protocols from decorators
+azd deploy contract-agent
+```
 
 ## Quality
 
-Foundry-native evaluation contracts live with agents. Shared datasets, graders,
-calibration, and RFT/RLE planning live under `modules/evals`; optimization
-artifacts live under `modules/optimization`. P2M is retired.
-
-See [Agent catalog](docs/AGENT_CATALOG.md) and
-[Current state](docs/FORGE_CURRENT_STATE.md).
+Shared datasets, graders, calibration, and RFT/RLE planning live under
+`modules/evals`; Agent Optimizer and RFT artifacts live under
+`modules/optimization`.

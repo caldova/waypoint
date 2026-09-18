@@ -41,9 +41,8 @@ preserves input order, reuses active invoice-scoped runs, and isolates failures.
 
 The authenticated **Quality** page documents the separate agent quality loop:
 run assurance, inspect traces, measure quality, improve the agent, and release
-only with explicit approval. Those cloud operations link to
-`.github/workflows/agent-quality-operations.yml`; they do not execute in the
-browser.
+only with explicit approval. Those cloud operations run with `castia eval` and
+`castia optimize`; they do not execute in the browser.
 
 ## Prerequisites
 

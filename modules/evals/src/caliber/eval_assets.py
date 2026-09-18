@@ -1,7 +1,7 @@
 """Validate a Foundry-style agent eval config (eval.yaml + dataset + rubric).
 
 This targets `azd ai agent eval` style configs such as
-`modules/agents/agents/contract-policy-expert/eval.yaml`: a YAML file that
+`modules/agents/contract-policy-expert/eval.yaml`: a YAML file that
 references a dataset directory and one or more evaluator rubric-dimension
 JSON files. Caliber treats these assets as read-only evidence to validate and
 hash for lineage, not as something it generates or mutates.

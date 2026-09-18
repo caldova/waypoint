@@ -1,0 +1,73 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "gather_evidence",
+      "description": "Retrieve grounded contract and policy evidence for an invoice under assurance review. Resolves the invoice in the Waypoint corpus, reads its reconciliation findings, and returns the governing contract documents and policies with source references. Call this before deciding — never invent evidence; if none is found, say so.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "invoice_id": {
+            "type": "string",
+            "description": "The invoice id or invoice number under review."
+          }
+        },
+        "required": [
+          "invoice_id"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "run_status",
+      "description": "Report Waypoint assurance run status. Pass a case_id to filter to one case, or omit it for recent runs. Read-only.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "case_id": {
+            "type": "string",
+            "description": "Optional case id to filter runs to."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "case_overview",
+      "description": "Report a high-level overview of Waypoint assurance cases. Read-only.",
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "record_assurance",
+      "description": "Persist the FINAL governed assurance decision for ONE invoice to Waypoint. This is the only tool that writes to Waypoint — call it exactly once, after gathering evidence, with your decision and reasoning. The tool re-grounds money-at-risk and evidence ids against the corpus and lets a deterministic policy check own the decision when corpus findings exist, so pass your honest read and it will be reconciled. Pass a JSON object (as a string) shaped like:\n{\n  \"invoice_id\": \"INV-2026-08034\",\n  \"decision\": \"approve|recover|escalate|review\",\n  \"reasoning\": \"Why this decision, citing the gathered evidence.\",\n  \"confidence\": 0.0,\n  \"money_at_risk\": 0.0,\n  \"finding_id\": \"optional finding id\",\n  \"title\": \"optional case title\",\n  \"summary\": \"short case summary\",\n  \"classification\": \"standard|confidential|ip_sensitive|restricted\",\n  \"evidence_ids\": [\"optional evidence ref ids\"],\n  \"proposed_next_actions\": [\"optional action labels\"],\n  \"draft\": {\"draft_type\": \"supplier_dispute|escalation_packet|approval_summary\",\n            \"title\": \"draft title\", \"body\": \"draft body\"}\n}",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "result_json": {
+            "type": "string",
+            "description": "A JSON object (serialized) describing the final decision for one invoice."
+          }
+        },
+        "required": [
+          "result_json"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+]

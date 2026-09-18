@@ -19,7 +19,7 @@ Start with the root README, then read:
 2. `docs/architecture.md` for the system shape.
 3. `apps/waypoint/README.md` for the application runtime.
 4. `modules/corpus/README.md` for synthetic domain data and seed generation.
-5. `modules/agents/README.md` for the agent fleet.
+5. `modules/agents/README.md` for the single `contract-agent`.
 6. `modules/evals/README.md` for quality gates.
 7. `modules/optimization/README.md` for improvement workflows.
 8. `docs/deployment.md` for the current GitHub Actions deployment path.
@@ -45,9 +45,6 @@ Pop-Location
 
 The full corpus environment includes optional dependencies that may be platform-specific. The seed generator itself can be validated directly:
 
-> [!NOTE]
-> Some commands still use compatibility package or CLI names while the public module names are being stabilized. See `docs/compatibility.md`.
-
 ```powershell
 $env:PYTHONPATH = (Resolve-Path modules\corpus\src).Path
 python -m compileall -q modules\corpus\src
@@ -58,7 +55,7 @@ Remove-Item Env:\PYTHONPATH
 ## Validate agent and evaluation tooling
 
 ```powershell
-python -m compileall -q apps\waypoint\integrations\agents modules\agents\agents modules\agents\scripts modules\agents\evals
+python -m compileall -q apps\waypoint\integrations\agents\waypoint-iq modules\agents\contract-agent
 
 Push-Location modules\evals
 uv run caliber telemetry backfill-plan --json

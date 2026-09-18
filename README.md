@@ -63,7 +63,7 @@ workflows, evaluation, optimization, and deployment automation.
 
 The complete demo path has two parts: deploy the shared Azure environment,
 then open the live presenter experience. If your team already has a working
-Waypoint environment with `contract-policy-expert`, skip directly to
+Waypoint environment with `contract-agent`, skip directly to
 [Present the demo](#2-present-the-demo).
 
 ### 1. Deploy the demo environment
@@ -111,13 +111,10 @@ parallel environments, and troubleshooting.
 2. Keep the defaults for a first deployment.
 3. Start the workflow and follow the acceptance job through completion.
 
-> **Current status caveat.** A fresh one-click deployment depends on Azure-side
-> hosted-agent provisioning being healthy in the selected co-located region. As of
-> this writing that provisioning is failing for **newly-created** Foundry accounts
-> in the default co-located region, so a brand-new run may fail at the agent-deploy
-> stage for reasons outside this repository. Read the
-> [end-to-end readiness assessment](docs/e2e-readiness-assessment.md) and
-> [platform blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
+> **Current status caveat.** A fresh deployment depends on Azure-side
+> hosted-agent provisioning and co-located knowledge-base resources being healthy
+> in the selected region. A brand-new run can fail at the agent-deploy stage for
+> reasons outside this repository. See [Azure deployment](docs/deployment.md)
 > before a first run.
 
 The default path deploys:
@@ -127,33 +124,26 @@ The default path deploys:
 - the synthetic corpus and Waypoint seed data;
 - the Foundry project, hosted-agent `gpt-5.5` deployment, KB `gpt-5-mini`
   deployment, embedding deployment, search, and `contracts-kb`;
-- `invoice-analyst`, `assurance-orchestrator`, `contract-policy-expert`, and
-  `waypoint-recorder`; and
-- an acceptance artifact proving endpoint health, hosted-agent inventory, a
-  completed orchestrator-to-recorder run, and real KB retrieval with no fallback.
+- the single `contract-agent`, which serves every surface and owns the sole
+  governed write path into Waypoint; and
+- an acceptance artifact proving endpoint health, agent availability, a
+  completed assurance run, and real KB retrieval with no fallback.
 
 The launch package is FoundryIQ-only. Fabric/OneLake, WorkIQ, WebIQ, and
 FabricIQ modules remain in the repository for future development but are not
 inputs, stages, resources, or agents in the one-click deployment.
 
-The full default deployment has been validated end to end in **UK South**,
-including run `30034540034` at commit `f9fc7bb` that passed acceptance with
-grounded KB runtime evidence and no fallback. An earlier unchanged rerun reused
-stable resources and skipped unchanged hosted-agent versions. The branch mirrors
-the prior Forge/Waypoint KB model split: hosted agents use `gpt-5.5`, while
-`contracts-kb` answer synthesis uses co-located `gpt-5-mini`, and acceptance
-fails if the run falls back. Region selection still matters because Azure AI
-Search, Foundry, both model deployments, and hosted-agent provisioning must all
-be healthy in the selected region — see
-[tested regions](docs/deployment-troubleshooting.md#tested-regions-and-known-regional-issues)
-and
-[platform/environmental blockers](docs/deployment-troubleshooting.md#platform-and-environmental-blockers-encountered)
-before choosing a region. In the app, a reviewer can run assurance for one
+The full deployment targets the **caldova** Foundry project in **West US**.
+Hosted agents use `gpt-5.5`, while `contracts-kb` answer synthesis uses
+co-located `gpt-5-mini`, and acceptance fails if the run falls back. Region
+selection still matters because Azure AI Search, Foundry, both model
+deployments, and hosted-agent provisioning must all be healthy in the selected
+region — see [Azure deployment](docs/deployment.md) before choosing a region. In the app, a reviewer can run assurance for one
 invoice or select up to 25 visible invoices and start a batch. The batch starts
-at most four new orchestrations concurrently, reuses active invoice runs, and
-reports independent accepted, reused, not-found, or start-failed outcomes. Every
-run invokes `assurance-orchestrator` and persists its result only through
-`waypoint-recorder`.
+at most four new runs concurrently, reuses active invoice runs, and reports
+independent accepted, reused, not-found, or start-failed outcomes. Every run
+invokes `contract-agent`, which persists its result only through the agent's
+single governed writer.
 
 For the exact batch steps and the controlled evaluation-to-release flow, see
 [Agent quality operations](docs/quality-operations.md).
@@ -174,7 +164,7 @@ ask Copilot:
 > Start the Pharmashield Foundry demo.
 
 The repo-scoped skill opens the **Pharmashield · Foundry live demo** canvas. It
-discovers the deployed Foundry project, checks that `contract-policy-expert` is
+discovers the deployed Foundry project, checks that `contract-agent` is
 available, and enables one primary action: **Run grounded audit**.
 
 The Aster Ridge story is live:
@@ -194,10 +184,10 @@ The Aster Ridge story is live:
 | --- | --- |
 | Application | A production-style Waypoint app with API, web UI, auth, telemetry, and PostgreSQL persistence. |
 | Corpus | A realistic synthetic domain corpus: suppliers, contracts, policies, invoice facts, scenarios, seed data, and generated documents. |
-| Agents | A multi-agent invoice assurance workflow with orchestration, read-only evidence experts, analyst surfaces, and one write-boundary agent. |
+| Agents | A single castia-based `contract-agent` for invoice assurance: read-only evidence and status tools, multi-protocol surfaces, and one governed write boundary. |
 | Evaluations | Foundry-native evaluations plus Caliber datasets, graders, golden cases, calibration, and quality gates. |
 | Optimization | Foundry Agent Optimizer and Caliber RFT/RLE planning, cost-quality tradeoffs, promotion metadata, and telemetry backfill workflows. |
-| Deployment | An idempotent workflow for the app, corpus, agents, cloud resources, seed data, and cross-system wiring. |
+| Deployment | An idempotent workflow for the app, corpus, agent, cloud resources, seed data, and cross-system wiring. |
 
 ## How it works
 
@@ -205,24 +195,21 @@ The Aster Ridge story is live:
 flowchart LR
     Corpus[Synthetic invoices<br/>contracts and policies]
     App[Waypoint<br/>governed system of record]
-    Expert[Contract policy expert<br/>FoundryIQ]
-    Orchestrator[Assurance orchestrator]
-    Recorder[Waypoint recorder<br/>sole writer]
+    Agent[contract-agent<br/>read-only evidence + FoundryIQ]
+    Writer[Governed writer<br/>sole write path]
     Evals[Evaluate and optimize]
 
     Corpus --> App
-    Corpus --> Expert
-    App --> Orchestrator
-    Orchestrator --> Expert
-    Expert --> Orchestrator
-    Orchestrator --> Recorder
-    Recorder --> App
-    Orchestrator --> Evals
+    Corpus --> Agent
+    App --> Agent
+    Agent --> Writer
+    Writer --> App
+    Agent --> Evals
 ```
 
-Waypoint remains the governed boundary. Evidence experts are read-only,
-orchestration combines their evidence, and `waypoint-recorder` is the sole
-agent allowed to write governed run results.
+Waypoint remains the governed boundary. The agent's evidence and status tools
+are read-only, and its single governed writer is the only path allowed to write
+governed run results.
 
 ## The Caldova story
 
@@ -253,7 +240,7 @@ checks without requiring the presenter canvas.
 | --- | --- |
 | `apps/waypoint/` | Waypoint itself: Aspire AppHost, FastAPI API, React web app, infrastructure, tests, and product docs. |
 | `modules/corpus/` | Synthetic suppliers, contracts, policies, invoice scenarios, seed generation, document generation, and upload tooling. |
-| `modules/agents/` | Agent fleet, WaypointIQ contracts, prompts, toolboxes, orchestration, evidence experts, analyst surfaces, and publish tooling. |
+| `modules/agents/` | The single `contract-agent` (castia-based, multi-protocol) and its WaypointIQ toolbox/OpenAPI contract. |
 | `modules/evals/` | Datasets, graders, calibration, quality gates, and repeatable checks for agent behavior. |
 | `modules/optimization/` | Optimizer artifacts, RFT/RLE materials, cost-quality demos, promotion metadata, and telemetry-backed improvement planning. |
 | `tools/deploy/` | Environment discovery, preflight, Key Vault, MSAL, OIDC, deployment, seed import, wiring, and acceptance tooling. |
@@ -266,13 +253,11 @@ checks without requiring the presenter canvas.
 | --- | --- |
 | [Project status](docs/status.md) | Validated paths, current caveats, and work still in progress. |
 | [Getting started](docs/getting-started.md) | Local developer prerequisites and validation commands. |
-| [Azure deployment](docs/deployment.md) | Deployment variables, FoundryIQ-only stages, parallel environments, and troubleshooting. |
-| [Deployment troubleshooting](docs/deployment-troubleshooting.md) | Observed E2E failures, root causes, recovery steps, and remaining limitations. |
+| [Azure deployment](docs/deployment.md) | Deploying the single agent (azd + castia) and the app. |
 | [Foundry demo](docs/foundry-demo.md) | Live Pharmashield presenter workflow and fidelity contract. |
-| [Architecture](docs/architecture.md) | Application, corpus, agents, evaluations, optimization, and deployment layers. |
+| [Architecture](docs/architecture.md) | Application, corpus, agent, evaluations, optimization, and deployment layers. |
 | [Agent quality operations](docs/quality-operations.md) | Full batch assurance and the five-step run, inspect, measure, improve, and release workflow. |
 | [Data disclaimer](docs/data-disclaimer.md) | Scope and handling of the synthetic Caldova data set. |
-| [Compatibility](docs/compatibility.md) | Compatibility names retained while the consolidated repository stabilizes. |
 | [Repository settings](docs/repository-settings.md) | Recommended settings for publishing and operating the repository. |
 
 See [Security](SECURITY.md), [Contributing](CONTRIBUTING.md), and
