@@ -1,9 +1,9 @@
 # contract-agent
 
-The single Waypoint invoice-assurance hosted agent, built on
-[`castia`](https://github.com/sethjuarez/castia). It replaces the previous
-multi-agent fleet (`invoice-analyst`, `assurance-orchestrator`,
-`contract-policy-expert`, `waypoint-recorder`) with one agent.
+The full Caldova invoice-assurance workhorse, built on
+[`castia`](https://github.com/sethjuarez/castia). It owns multi-IQ evidence
+gathering, workflow orchestration, and the sole governed write path into
+Waypoint.
 
 ## Protocols
 
@@ -17,18 +17,24 @@ One handler set in `main.py` serves all three Foundry wire protocols:
 
 ## Responsibilities
 
-Evidence gathering, analyst Q&A / status, the assurance run, and the governed
-write — all in one process. Everything is read-only except a **single
-centralized write tool** (added in a later step), which is the only thing
-allowed to mutate Waypoint.
+Evidence gathering, analyst Q&A/status, assurance runs, and governed writeback
+all happen in one Castia app. The live FoundryIQ lane attaches through Castia's
+server-side toolbox MCP spec; Waypoint API tools provide structured
+status/evidence and the centralized `record_assurance` writer is the only
+mutating capability.
+
+Use the smaller sibling agents for narrower story/eval targets:
+
+- `contract-expert` — prompt-grounded demo expert with no IQ tools.
+- `contract-policy-expert` — FoundryIQ-only Teams/Q&A expert.
 
 ## Local development
 
 ```bash
-cd modules/agents/contract-agent
-cp .env.example .env      # set FOUNDRY_PROJECT_ENDPOINT + AZURE_AI_MODEL_DEPLOYMENT_NAME
+cd modules/agents
 uv sync
-uv run python main.py     # serves 0.0.0.0:8088
+cd contract-agent
+..\.venv\Scripts\python.exe main.py
 ```
 
 Model and instructions resolve from `.agent_configs/baseline/` via castia's

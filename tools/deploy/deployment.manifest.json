@@ -92,10 +92,9 @@
       }
     },
     "agents": [
-      "invoice-analyst",
-      "assurance-orchestrator",
+      "contract-expert",
       "contract-policy-expert",
-      "waypoint-recorder"
+      "contract-agent"
     ],
     "agent_sources": {
       "root": "modules/agents",
@@ -178,11 +177,8 @@
       {
         "name": "foundry-infrastructure",
         "paths": [
-          "modules/agents/azure.yaml",
-          "modules/agents/infra/**",
-          "modules/agents/scripts/bootstrap_foundry_account.sh",
-          "modules/agents/scripts/configure_content_understanding.py",
-          "modules/agents/scripts/initialize_contracts_kb.py"
+          "azure.yaml",
+          "infra/**"
         ],
         "stages": [
           "foundry_infrastructure"
@@ -191,8 +187,7 @@
       {
         "name": "shared-agent-deployment",
         "paths": [
-          "modules/agents/Makefile",
-          "modules/agents/scripts/**"
+          "modules/agents/**"
         ],
         "stages": [
           "deploy_agents"
@@ -266,7 +261,7 @@
       "notes": [
         "Key Vault is always created in state_resource_group, never the app_resource_group.",
         "KV name includes azd_env_name in its hash so parallel environments in one subscription never share a vault.",
-        "The launch hosted-agent deployment includes only FoundryIQ."
+        "The launch hosted-agent deployment includes the three Castia agents; contract-policy-expert is FoundryIQ-only and contract-agent is the multi-IQ workhorse."
       ]
     }
   },
@@ -280,10 +275,9 @@
       "waypoint-seed"
     ],
     "agents": [
-      "invoice-analyst",
-      "assurance-orchestrator",
+      "contract-expert",
       "contract-policy-expert",
-      "waypoint-recorder"
+      "contract-agent"
     ]
   },
   "probes": [

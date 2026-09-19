@@ -8,9 +8,9 @@ dependencies = [
     # Adaptive Cards, telemetry, optimizer-config resolution, and the
     # eval/optimize/rft lifecycle. The [optimize] extra ships the runtime
     # resolver so configured_model() can load Agent Optimizer candidates.
-    # 0.5.0 adds optimizer-ready toolbox tool descriptions (descriptions/
+    # 0.7.1 adds the current canonical package layout and hosted diagnostics.
     # param_guidance on toolbox_mcp_tool + apply_optimized_toolbox_tools).
-    "castia[optimize]>=0.5.0",
+    "castia[optimize]==0.7.3",
     "python-dotenv>=1.0",
 ]
 

@@ -13,7 +13,6 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
-
 IQ_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = IQ_ROOT / "openapi.json"
 
@@ -81,9 +80,9 @@ def _fetch_openapi(endpoint: str, *, allow_insecure_localhost: bool) -> dict[str
     url = f"{endpoint}/openapi.json"
     context = None
     if allow_insecure_localhost and _is_localhost(endpoint):
-        context = ssl._create_unverified_context()  # noqa: SLF001 - local Aspire dev certs only.
+        context = ssl._create_unverified_context()
     try:
-        with urlopen(url, timeout=20, context=context) as response:  # noqa: S310 - endpoint is explicit CLI input.
+        with urlopen(url, timeout=20, context=context) as response:
             payload = response.read().decode("utf-8")
     except HTTPError as exc:
         raise SystemExit(f"GET {url} failed with HTTP {exc.code}") from exc

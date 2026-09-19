@@ -2,13 +2,55 @@
 name: ai-foundry-starter-basic
 
 services:
+  contract-expert:
+    project: modules/agents/contract-expert
+    host: azure.ai.agent
+    language: python
+    kind: hosted
+    name: contract-expert
+    description: Prompt-grounded Contract Expert demo agent serving Foundry Responses.
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+      dependencyResolution: remote_build
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+
+  contract-policy-expert:
+    project: modules/agents/contract-policy-expert
+    host: azure.ai.agent
+    language: python
+    kind: hosted
+    name: contract-policy-expert
+    description: FoundryIQ-only Contract Policy Expert serving Responses and Teams activity.
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+      dependencyResolution: remote_build
+    environmentVariables:
+      - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+        value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: TOOLBOX_NAME
+        value: contract-toolbox
+      - name: TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT
+        value: ${TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT}
+    protocols:
+      - protocol: activity
+        version: 2.0.0
+      - protocol: responses
+        version: 2.0.0
+
   contract-agent:
     project: modules/agents/contract-agent
     host: azure.ai.agent
     language: docker
     kind: hosted
     name: contract-agent
-    description: Single Waypoint invoice-assurance agent (castia) speaking responses, activity, and invocations from one handler set.
+    description: Full multi-IQ Caldova contract-agent (castia) speaking responses, activity, and invocations from one handler set.
     docker:
       remoteBuild: true
     container:
@@ -18,9 +60,11 @@ services:
     environmentVariables:
       - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
         value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      - name: TOOLBOX_NAME
+        value: contract-toolbox
       # Investigative toolbox lane (FoundryIQ contract/policy KB). Version-less
       # endpoint => always the published default version, so attaching a lane +
-      # republishing needs no agent redeploy. Discovered by toolbox.py.
+      # republishing needs no agent redeploy. Resolved by castia.
       - name: TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT
         value: ${TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT}
     protocols:
@@ -38,4 +82,3 @@ requiredVersions:
   extensions:
     # the azd ai agent extension is required for this template
     "azure.ai.agents": ">=0.1.0-preview"
-

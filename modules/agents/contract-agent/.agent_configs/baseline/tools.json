@@ -69,5 +69,22 @@
         "additionalProperties": false
       }
     }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "contracts-kb-mcp___knowledge_base_retrieve",
+      "description": "Retrieve grounding passages from Caldova's governing contracts and billing/quality policies - statements of work, rate cards, and release/billability policies. Use for any question about what a supplier's contract or a Caldova policy permits, requires, or prohibits: whether a fee is billable, rate or threshold lookups, and clause interpretation. Returns cited source passages; ground every contractual claim in them and never assert a term this tool does not return.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "A specific, self-contained contract or billing-policy question naming the supplier and the fee or term at issue (e.g. 'Aster Ridge SOW: is a batch release administration fee billable for a rejected batch?'). Prefer the contractual vocabulary on the invoice or finding over paraphrase."
+          }
+        },
+        "required": [],
+        "additionalProperties": true
+      }
+    }
   }
 ]
