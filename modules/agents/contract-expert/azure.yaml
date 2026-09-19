@@ -1,0 +1,19 @@
+name: contract-expert
+services:
+  contract-expert:
+    project: .
+    host: azure.ai.agent
+    language: python
+    kind: hosted
+    name: contract-expert
+    description: Prompt-grounded Contract Expert demo agent serving Foundry Responses.
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+      dependencyResolution: remote_build
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+    env:
+      AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      FOUNDRY_PROJECT_ENDPOINT: ${FOUNDRY_PROJECT_ENDPOINT}

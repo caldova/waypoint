@@ -1,0 +1,23 @@
+{
+  "include": [
+    "modules/agents"
+  ],
+  "exclude": [
+    "**/.venv",
+    "**/__pycache__"
+  ],
+  "venvPath": "modules/agents",
+  "venv": ".venv",
+  "pythonVersion": "3.13",
+  "executionEnvironments": [
+    {
+      "root": "modules/agents/contract-agent"
+    },
+    {
+      "root": "modules/agents/contract-expert"
+    },
+    {
+      "root": "modules/agents/contract-policy-expert"
+    }
+  ]
+}

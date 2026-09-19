@@ -1,0 +1,17 @@
+[project]
+name = "waypoint-agents"
+version = "0.1.0"
+description = "Shared local development environment for the Caldova contract agents."
+requires-python = ">=3.11"
+dependencies = [
+    "castia[optimize]==0.7.3",
+    "python-dotenv>=1.0.1",
+]
+
+[tool.uv]
+package = false
+prerelease = "allow"
+environments = ["sys_platform == 'linux'", "sys_platform == 'win32'"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["toolbox", "tools", "write_tools"]

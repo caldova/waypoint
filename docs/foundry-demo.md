@@ -26,9 +26,9 @@ No package installation or local service startup is required.
 ## Prerequisites
 
 - Azure CLI is installed and `az login` is authenticated to the target tenant.
-- The **Deploy contract-agent** workflow has successfully deployed
-  `contract-agent` and uploaded `contracts-kb`.
-- The signed-in identity can invoke the hosted `contract-agent`.
+- The deployment has published `contract-policy-expert` and uploaded
+  `contracts-kb`.
+- The signed-in identity can invoke the hosted `contract-policy-expert`.
 
 The canvas does not deploy Azure resources. If these prerequisites are absent,
 its readiness panel stays blocked and identifies the missing boundary.
@@ -38,7 +38,7 @@ its readiness panel stays blocked and identifies the missing boundary.
 The surface presents one Foundry contract-expert story:
 
 - the Aster Ridge invoice is the business context for the live audit;
-- the Anatomy panel names the live `gpt-5.5` deployment and shows Model +
+- the Anatomy panel names the live `gpt-6-astra` deployment and shows Model +
   Instructions + Context + Memory + Tools;
 - Chat asks the audit question, Trace proves live retrieval, and Connection
   explains how the explicit model, approved knowledge, and instructions form the
@@ -47,7 +47,7 @@ The surface presents one Foundry contract-expert story:
   optimization, and workforce governance.
 
 The model shown in the canvas comes from the selected hosted agent's live
-deployment metadata, with the repository's `gpt-5.5` deployment default used
+deployment metadata, with the repository's `gpt-6-astra` deployment default used
 only when that metadata is unavailable. Keeping the model explicit is
 intentional: different agents can use different models for their jobs.
 
@@ -75,7 +75,7 @@ words occur in the live tool output.
 The included Aster Ridge invoice is the demo's business artifact. Contract
 conclusions still come exclusively from the live FoundryIQ knowledge base.
 
-The hosted `contract-agent` remains a read-only evidence expert on this surface.
+The hosted `contract-policy-expert` remains a read-only evidence expert on this surface.
 If the
 retrieved sources do not prove a purchase-order authorization, the canvas keeps
 that question unresolved instead of reproducing the scripted demo's conclusion.

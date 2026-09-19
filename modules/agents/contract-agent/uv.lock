@@ -290,7 +290,7 @@ wheels = [
 
 [[package]]
 name = "castia"
-version = "0.5.0"
+version = "0.7.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-ai-projects", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -301,9 +301,9 @@ dependencies = [
     { name = "pyjwt", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "uvicorn", extra = ["standard"], marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c5/e0/ee818e43e5b8f88e28d0cf700ac491f71d899fffe31c0e22f989939b33a8/castia-0.5.0.tar.gz", hash = "sha256:fb91cb4bd2d67a41a91f4d076147d0efb0fb27ba8dc7600cd61247baed426d0f", size = 124371, upload-time = "2026-09-10T21:05:15.539Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/97/e9/256c4acd08b46ad0aec41bd72e9afd398afc863f076f215a651358449dbb/castia-0.7.3.tar.gz", hash = "sha256:32358e69a81d7901aedc5e27da98eeaa5d8bf632701c2fc6cd686c89c39613a0", size = 252569, upload-time = "2026-09-19T00:23:27.953Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/10/4c/bb43959069c4d38758575665ab764c3827f2b0bcd0476b05d9d6d0b1577f/castia-0.5.0-py3-none-any.whl", hash = "sha256:072da5e9cb8a7efbd5418ddfaa23ac0cd5d88e306e7dcf99923e0a8ec9a2fdee", size = 115308, upload-time = "2026-09-10T21:05:14.14Z" },
+    { url = "https://files.pythonhosted.org/packages/c9/33/61a6aed2cd78b1e204c03e8b6917a5d0bd27b2cda5a93029141ecf585f57/castia-0.7.3-py3-none-any.whl", hash = "sha256:fc174e7fd5eee5e4aa8a9d038e49aa2d6338ffeaee0815ab95ebe16ef07bd7fe", size = 203876, upload-time = "2026-09-19T00:23:25.982Z" },
 ]
 
 [package.optional-dependencies]
@@ -560,7 +560,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "castia", extras = ["optimize"], specifier = ">=0.5.0" },
+    { name = "castia", extras = ["optimize"], specifier = "==0.7.3" },
     { name = "python-dotenv", specifier = ">=1.0" },
 ]
 

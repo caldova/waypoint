@@ -28,9 +28,9 @@ import uuid
 from typing import Any
 
 import httpx
-from castia.tools import Tool
+from castia.inference.tools import Tool
 
-from tools import _WaypointClient, _as_list, _float, _str_list, is_waypoint_configured
+from tools import _as_list, _float, _str_list, _WaypointClient, is_waypoint_configured
 
 # Closed vocabularies mirrored from the Waypoint API cases schemas.
 DECISIONS = {"approve", "recover", "escalate", "review"}
@@ -136,9 +136,9 @@ def _is_actionable_finding(finding: dict[str, Any]) -> bool:
     status = str(finding.get("status") or "").strip().lower()
     if status in _CLEAN_FINDING_STATUSES:
         return False
-    if _float(finding.get("overpayment_amount")) == 0 and severity in {"", "low"}:
-        return False
-    return True
+    return not (
+        _float(finding.get("overpayment_amount")) == 0 and severity in {"", "low"}
+    )
 
 
 def _derive_decision(findings: list[dict[str, Any]]) -> tuple[str, str]:
@@ -241,7 +241,7 @@ async def _record_assurance_impl(activity: Any, *, result_json: str) -> dict[str
 
     try:
         result = _parse(result_json)
-    except ValueError as exc:
+    except (TypeError, ValueError) as exc:
         return {"ok": False, "error": f"invalid result_json: {exc}"}
 
     invoice_ref = _recover_invoice_ref(result)
@@ -289,6 +289,8 @@ async def _record_assurance_impl(activity: Any, *, result_json: str) -> dict[str
             metadata={"invoice_number": invoice_number},
         )
         case_id = _id(case)
+        if case_id is None:
+            raise RuntimeError("Waypoint create_case response did not include an id.")
         correlation["waypoint_case_id"] = case_id
 
         run = await writer.open_run(
@@ -296,6 +298,8 @@ async def _record_assurance_impl(activity: Any, *, result_json: str) -> dict[str
             summary=run_summary, idempotency_key=f"assurance:{invoice_ref}:{op_id}", metadata=run_metadata,
         )
         run_id = _id(run)
+        if run_id is None:
+            raise RuntimeError("Waypoint open_run response did not include an id.")
         correlation["waypoint_run_id"] = run_id
 
         recommendation = await writer.create_recommendation(
@@ -326,8 +330,10 @@ async def _record_assurance_impl(activity: Any, *, result_json: str) -> dict[str
         if run_id is not None:
             try:
                 await writer.update_run(run_id, status="failed", summary=run_summary, metadata={**run_metadata, "error": str(exc)})
-            except Exception:  # noqa: BLE001
-                pass
+                correlation["run_failure_recorded"] = True
+            except Exception as update_exc:  # noqa: BLE001
+                correlation["run_failure_recorded"] = False
+                correlation["run_failure_error"] = str(update_exc)
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}", "correlation": correlation}
 
     return {"ok": True, "decision": decision, "governance": decision_governance, "grounding_state": state, "correlation": correlation}
@@ -386,7 +392,7 @@ def _parse(raw: str) -> dict[str, Any]:
     except (TypeError, json.JSONDecodeError) as exc:
         raise ValueError(str(exc)) from exc
     if not isinstance(value, dict):
-        raise ValueError("expected a JSON object")
+        raise TypeError("expected a JSON object")
     return value
 
 

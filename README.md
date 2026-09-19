@@ -122,20 +122,21 @@ The default path deploys:
 - the Waypoint web application, API, PostgreSQL database, authentication, and
   telemetry;
 - the synthetic corpus and Waypoint seed data;
-- the Foundry project, hosted-agent `gpt-5.5` deployment, KB `gpt-5-mini`
+- the Foundry project, hosted-agent `gpt-6-astra` deployment, KB `gpt-5.5`
   deployment, embedding deployment, search, and `contracts-kb`;
-- the single `contract-agent`, which serves every surface and owns the sole
-  governed write path into Waypoint; and
+- the `contract-expert`, `contract-policy-expert`, and `contract-agent` hosted
+  agents; `contract-agent` owns the sole governed write path into Waypoint; and
 - an acceptance artifact proving endpoint health, agent availability, a
   completed assurance run, and real KB retrieval with no fallback.
 
-The launch package is FoundryIQ-only. Fabric/OneLake, WorkIQ, WebIQ, and
-FabricIQ modules remain in the repository for future development but are not
-inputs, stages, resources, or agents in the one-click deployment.
+The launch package is FoundryIQ-first. `contract-policy-expert` is the clean
+FoundryIQ-only surface; WorkIQ, WebIQ, and FabricIQ attach to `contract-agent` as
+multi-IQ toolbox lanes.
 
 The full deployment targets the **caldova** Foundry project in **West US**.
-Hosted agents use `gpt-5.5`, while `contracts-kb` answer synthesis uses
-co-located `gpt-5-mini`, and acceptance fails if the run falls back. Region
+Hosted agents use `gpt-6-astra`, while `contracts-kb` answer synthesis uses
+co-located `gpt-5.5` until Azure AI Search supports `gpt-6-astra` for knowledge
+bases, and acceptance fails if the run falls back. Region
 selection still matters because Azure AI Search, Foundry, both model
 deployments, and hosted-agent provisioning must all be healthy in the selected
 region — see [Azure deployment](docs/deployment.md) before choosing a region. In the app, a reviewer can run assurance for one
@@ -184,7 +185,7 @@ The Aster Ridge story is live:
 | --- | --- |
 | Application | A production-style Waypoint app with API, web UI, auth, telemetry, and PostgreSQL persistence. |
 | Corpus | A realistic synthetic domain corpus: suppliers, contracts, policies, invoice facts, scenarios, seed data, and generated documents. |
-| Agents | A single castia-based `contract-agent` for invoice assurance: read-only evidence and status tools, multi-protocol surfaces, and one governed write boundary. |
+| Agents | Three thin castia agents: prompt-grounded `contract-expert`, FoundryIQ-only `contract-policy-expert`, and full multi-IQ `contract-agent` with one governed write boundary. |
 | Evaluations | Foundry-native evaluations plus Caliber datasets, graders, golden cases, calibration, and quality gates. |
 | Optimization | Foundry Agent Optimizer and Caliber RFT/RLE planning, cost-quality tradeoffs, promotion metadata, and telemetry backfill workflows. |
 | Deployment | An idempotent workflow for the app, corpus, agent, cloud resources, seed data, and cross-system wiring. |
@@ -195,20 +196,26 @@ The Aster Ridge story is live:
 flowchart LR
     Corpus[Synthetic invoices<br/>contracts and policies]
     App[Waypoint<br/>governed system of record]
-    Agent[contract-agent<br/>read-only evidence + FoundryIQ]
+    Expert[contract-expert<br/>prompt-grounded demo]
+    Policy[contract-policy-expert<br/>FoundryIQ only]
+    Agent[contract-agent<br/>multi-IQ workhorse]
     Writer[Governed writer<br/>sole write path]
     Evals[Evaluate and optimize]
 
     Corpus --> App
-    Corpus --> Agent
+    Corpus --> Expert
+    Corpus --> Policy
     App --> Agent
+    Policy --> Agent
     Agent --> Writer
     Writer --> App
+    Policy --> Evals
     Agent --> Evals
 ```
 
-Waypoint remains the governed boundary. The agent's evidence and status tools
-are read-only, and its single governed writer is the only path allowed to write
+Waypoint remains the governed boundary. `contract-expert` and
+`contract-policy-expert` are read-only; `contract-agent` owns the operational
+workflow and its single governed writer is the only path allowed to write
 governed run results.
 
 ## The Caldova story
@@ -233,6 +240,7 @@ checks without requiring the presenter canvas.
 - [Waypoint application runtime](apps/waypoint/README.md)
 - [Architecture](docs/architecture.md)
 - [Project status](docs/status.md)
+- [Caldova agents buildout](docs/caldova-agents-buildout.md)
 
 ## Repository map
 
@@ -240,7 +248,7 @@ checks without requiring the presenter canvas.
 | --- | --- |
 | `apps/waypoint/` | Waypoint itself: Aspire AppHost, FastAPI API, React web app, infrastructure, tests, and product docs. |
 | `modules/corpus/` | Synthetic suppliers, contracts, policies, invoice scenarios, seed generation, document generation, and upload tooling. |
-| `modules/agents/` | The single `contract-agent` (castia-based, multi-protocol) and its WaypointIQ toolbox/OpenAPI contract. |
+| `modules/agents/` | The Castia agent portfolio: `contract-expert`, `contract-policy-expert`, full multi-IQ `contract-agent`, and the WaypointIQ toolbox/OpenAPI contract. |
 | `modules/evals/` | Datasets, graders, calibration, quality gates, and repeatable checks for agent behavior. |
 | `modules/optimization/` | Optimizer artifacts, RFT/RLE materials, cost-quality demos, promotion metadata, and telemetry-backed improvement planning. |
 | `tools/deploy/` | Environment discovery, preflight, Key Vault, MSAL, OIDC, deployment, seed import, wiring, and acceptance tooling. |

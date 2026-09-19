@@ -9,13 +9,13 @@ manufacturing invoice-assurance scenario.
 | --- | --- | --- |
 | Application | `apps/waypoint/` | Governed API, web UI, PostgreSQL, auth, telemetry, assurance operations, and audit. |
 | Corpus | `modules/corpus/` | Synthetic suppliers, contracts, policies, invoices, scenarios, seed generation, and upload tooling. |
-| Agents | `modules/agents/` | The single `contract-agent`, its prompts/toolbox, and its governed write boundary. |
+| Agents | `modules/agents/` | Three thin Castia agents: prompt-grounded `contract-expert`, FoundryIQ-only `contract-policy-expert`, and full multi-IQ `contract-agent`. |
 | Evaluations | `modules/evals/` | Caliber datasets, graders, calibration, and repeatable quality gates. |
 | Optimization | `modules/optimization/` | Foundry Agent Optimizer, RFT/RLE planning, cost-quality views, and promotion metadata. |
 | Deployment | `tools/deploy/` | OIDC, Key Vault, MSAL, manifests, probes, and lower-level deployment helpers. |
 
-The single `contract-agent` is deployed with `azd` + `castia`; the Waypoint app
-deploys separately from `apps/waypoint`.
+The agents are deployed with `azd` + `castia`; the Waypoint app deploys
+separately from `apps/waypoint`.
 
 ## Default assurance flow
 
@@ -24,16 +24,19 @@ flowchart LR
     Corpus[Synthetic corpus] --> App[Waypoint<br/>system of record]
     Corpus --> KB[contracts-kb]
     Reviewer[Reviewer<br/>one or many invoices] --> App
-    App --> Agent[contract-agent<br/>read-only evidence + FoundryIQ]
+    Reviewer --> Policy[contract-policy-expert<br/>FoundryIQ only]
+    App --> Agent[contract-agent<br/>multi-IQ workhorse]
+    KB --> Policy
     KB --> Agent
+    Policy --> Quality[Run → inspect → measure<br/>improve → approve release]
     Agent --> Writer[Governed writer<br/>sole write path]
     Writer --> App
     Agent --> Quality[Run → inspect → measure<br/>improve → approve release]
 ```
 
-`contract-agent` has one evidence plane: FoundryIQ through its toolbox and
-`contracts-kb`. WorkIQ, WebIQ, FabricIQ, and Fabric/OneLake source modules
-remain available for future development, but are not wired today.
+`contract-policy-expert` has one evidence plane: FoundryIQ through
+`contracts-kb`. `contract-agent` is the full workhorse: FoundryIQ plus WorkIQ,
+WebIQ, FabricIQ, Waypoint API tools, and the governed writer.
 
 ## Governance invariants
 
@@ -47,8 +50,8 @@ remain available for future development, but are not wired today.
 
 ## Deployment and quality
 
-The Waypoint app deploys from `apps/waypoint`; the single `contract-agent`
-deploys with `azd` + `castia` to the caldova Foundry project. See
+The Waypoint app deploys from `apps/waypoint`; agents deploy with `azd` +
+`castia` to the caldova Foundry project. See
 [deployment](deployment.md).
 
 Agent quality follows Foundry-native evaluation and Agent Optimizer plus Caliber
@@ -62,6 +65,7 @@ ordered results, and independent failures.
 
 Agent quality operations are intentionally separate from the application write
 path. The authenticated `/quality` page explains a five-step loop — run,
-inspect, measure, improve, and release with approval — backed by `castia eval`
-and `castia optimize` against `contract-agent`. Cloud credentials, evidence, and
-approvals stay outside the browser.
+inspect, measure, improve, and release with approval — backed by `castia eval` and `castia optimize`. Use `contract-policy-expert` for
+FoundryIQ-only answer-quality optimization and `contract-agent` for workflow and
+writeback correctness. Cloud credentials, evidence, and approvals stay outside
+the browser.

@@ -1,0 +1,14 @@
+[project]
+name = "contract-expert"
+version = "0.1.0"
+description = "Prompt-grounded Contract Expert demo agent for Caldova invoice evidence review."
+requires-python = ">=3.11"
+dependencies = [
+    "castia[optimize]==0.7.3",
+    "python-dotenv>=1.0.1",
+]
+
+[tool.uv]
+package = false
+prerelease = "allow"
+environments = ["sys_platform == 'linux'", "sys_platform == 'win32'"]
