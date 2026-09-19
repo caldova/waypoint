@@ -99,6 +99,10 @@
     "agent_sources": {
       "root": "modules/agents",
       "shared_paths": [
+        "modules/agents/.env.example",
+        "modules/agents/pyproject.toml",
+        "modules/agents/pyrightconfig.json",
+        "modules/agents/uv.lock",
         "modules/agents/_template/**",
         "modules/agents/scripts/create_toolbox.py",
         "modules/agents/scripts/deploy_prompt_agents.py",
@@ -183,16 +187,6 @@
         "stages": [
           "foundry_infrastructure"
         ]
-      },
-      {
-        "name": "shared-agent-deployment",
-        "paths": [
-          "modules/agents/**"
-        ],
-        "stages": [
-          "deploy_agents"
-        ],
-        "all_agents": true
       },
       {
         "name": "eval-assets",
