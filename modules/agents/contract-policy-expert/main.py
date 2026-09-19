@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from castia import (
@@ -62,4 +63,4 @@ async def ask(msg: Message, model: Model = _CHAT_MODEL_DEPENDENCY) -> None:
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8088)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8088")))

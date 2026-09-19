@@ -10,7 +10,7 @@ dependencies = [
     # resolver so configured_model() can load Agent Optimizer candidates.
     # 0.7.1 adds the current canonical package layout and hosted diagnostics.
     # param_guidance on toolbox_mcp_tool + apply_optimized_toolbox_tools).
-    "castia[optimize]==0.7.3",
+    "castia[optimize]==0.7.7",
     "python-dotenv>=1.0",
 ]
 
