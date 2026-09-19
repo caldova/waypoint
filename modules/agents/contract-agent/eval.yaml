@@ -14,7 +14,7 @@ name: contract-agent-optimize
 agent:
   name: contract-agent
   # Baseline model; the optimizer rewrites the prompt/tools, not the model.
-  model: gpt-5.5
+  model: gpt-6-astra
 
 # Built-in Foundry evaluator, offline-checkable, no rubric file. task_adherence
 # scores whether the agent did the governed assurance task.
@@ -45,7 +45,7 @@ validation_dataset:
   local_uri: datasets/assurance-optimize-validation.jsonl
 
 options:
-  eval_model: gpt-5.5
-  optimization_model: gpt-5.5
+  eval_model: gpt-6-astra
+  optimization_model: gpt-6-astra
   # Keep the first real job small and cheap; raise once the loop is proven.
   max_candidates: 4

@@ -8,14 +8,12 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
-
 
 IQ_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SPEC = IQ_ROOT / "openapi.json"
@@ -158,7 +156,7 @@ def _show_toolbox(project_endpoint: str, toolbox_name: str) -> dict[str, Any] | 
         "json",
         "--no-prompt",
     ]
-    completed = subprocess.run(command, check=False, capture_output=True, text=True)  # noqa: S603 - fixed executable/args.
+    completed = subprocess.run(command, check=False, capture_output=True, text=True)
     if completed.returncode != 0:
         if "not found" in completed.stderr.lower() or "not found" in completed.stdout.lower():
             return None
@@ -185,7 +183,7 @@ def _create_toolbox(project_endpoint: str, toolbox_name: str, payload: dict[str,
             "json",
             "--no-prompt",
         ]
-        completed = subprocess.run(command, check=False, capture_output=True, text=True)  # noqa: S603 - fixed executable/args.
+        completed = subprocess.run(command, check=False, capture_output=True, text=True)
         if completed.returncode != 0:
             raise SystemExit(completed.stderr or completed.stdout)
         return json.loads(completed.stdout)
@@ -221,7 +219,7 @@ def _publish_version(project_endpoint: str, toolbox_name: str, version: str) -> 
         project_endpoint,
         "--no-prompt",
     ]
-    completed = subprocess.run(command, check=False, capture_output=True, text=True)  # noqa: S603 - fixed executable/args.
+    completed = subprocess.run(command, check=False, capture_output=True, text=True)
     if completed.returncode != 0:
         raise SystemExit(completed.stderr or completed.stdout)
 
@@ -233,7 +231,7 @@ def _access_token() -> str:
         check=False,
         capture_output=True,
         text=True,
-    )  # noqa: S603 - fixed executable/args.
+    )
     if completed.returncode != 0:
         raise SystemExit(completed.stderr or completed.stdout)
     token = completed.stdout.strip()
@@ -244,7 +242,7 @@ def _access_token() -> str:
 
 def _json_request(request: Request) -> dict[str, Any]:
     try:
-        with urlopen(request, timeout=60) as response:  # noqa: S310 - URL is a resolved Foundry project endpoint.
+        with urlopen(request, timeout=60) as response:
             payload = response.read().decode("utf-8")
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")

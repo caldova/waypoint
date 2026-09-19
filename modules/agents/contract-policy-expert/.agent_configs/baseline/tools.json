@@ -1,0 +1,19 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "contracts-kb-mcp___knowledge_base_retrieve",
+      "description": "Retrieve cited grounding passages from Caldova contracts and billing or quality policies. Use this for every material contract or policy claim. If the tool does not return support, say the evidence is missing rather than filling the gap.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "A specific contract or policy question naming the supplier, term, fee, or invoice condition at issue."
+          }
+        },
+        "required": [],
+        "additionalProperties": true
+      }
+    }
+  }
+]

@@ -30,7 +30,7 @@
         "value": "${AZURE_PRINCIPAL_TYPE}"
       },
       "aiProjectDeploymentsJson": {
-        "value": "[{\"name\":\"gpt-5.5\",\"model\":{\"name\":\"gpt-5.5\",\"format\":\"OpenAI\",\"version\":\"2026-04-24\"},\"sku\":{\"name\":\"GlobalStandard\",\"capacity\":50}}]"
+        "value": "[{\"name\":\"gpt-6-astra\",\"model\":{\"name\":\"gpt-6-astra\",\"format\":\"OpenAI\",\"version\":\"2026-09-03\"},\"sku\":{\"name\":\"GlobalStandard\",\"capacity\":50}},{\"name\":\"gpt-5.5\",\"model\":{\"name\":\"gpt-5.5\",\"format\":\"OpenAI\",\"version\":\"2026-04-24\"},\"sku\":{\"name\":\"GlobalStandard\",\"capacity\":50}},{\"name\":\"text-embedding-3-large\",\"model\":{\"name\":\"text-embedding-3-large\",\"format\":\"OpenAI\",\"version\":\"1\"},\"sku\":{\"name\":\"GlobalStandard\",\"capacity\":50}}]"
       },
       "aiProjectConnectionsJson": {
         "value": "${AI_PROJECT_CONNECTIONS=[]}"
@@ -39,7 +39,7 @@
         "value": "${AI_PROJECT_CONNECTION_CREDENTIALS}"
       },
       "aiProjectDependentResourcesJson": {
-        "value": "${AI_PROJECT_DEPENDENT_RESOURCES=[]}"
+        "value": "[{\"resource\":\"storage\",\"connectionName\":\"contracts-kb-storage\"},{\"resource\":\"azure_ai_search\",\"connectionName\":\"contracts-kb-search\"}]"
       },
       "enableMonitoring": {
         "value": "${ENABLE_MONITORING=true}"

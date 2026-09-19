@@ -2841,7 +2841,7 @@
           "source": {
             "type": "string",
             "title": "Source",
-            "default": "assurance-orchestrator"
+            "default": "contract-agent"
           },
           "outcome": {
             "type": "string",
@@ -2956,7 +2956,7 @@
           "source": {
             "type": "string",
             "title": "Source",
-            "default": "assurance-orchestrator"
+            "default": "contract-agent"
           },
           "outcome": {
             "type": "string",

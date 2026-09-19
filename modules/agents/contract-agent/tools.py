@@ -20,7 +20,7 @@ import os
 from typing import Any
 
 import httpx
-from castia.tools import Tool
+from castia.inference.tools import Tool
 from dotenv import load_dotenv
 
 load_dotenv()

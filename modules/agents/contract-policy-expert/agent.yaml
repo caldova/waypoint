@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+kind: hosted
+name: contract-policy-expert
+displayName: Contract Policy Expert
+description: FoundryIQ-only grounded contract and policy expert.
+protocols:
+  - protocol: responses
+    version: 2.0.0
+  - protocol: activity_protocol
+    version: 2.0.0
+resources:
+  cpu: "0.5"
+  memory: 1Gi
+environment_variables:
+  - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+    value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+  - name: TOOLBOX_NAME
+    value: contract-toolbox
+  - name: TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT
+    value: ${TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT}

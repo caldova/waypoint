@@ -1,0 +1,19 @@
+# Foundry Agent Optimizer config for the FoundryIQ-only contract-policy-expert.
+name: contract-policy-expert-optimize
+
+agent:
+  name: contract-policy-expert
+  model: gpt-6-astra
+
+evaluators:
+  - builtin.task_adherence
+
+dataset:
+  local_uri: ../../evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl
+validation_dataset:
+  local_uri: ../../evals/datasets/contract-policy-expert/contract-policy-expert-validation.jsonl
+
+options:
+  eval_model: gpt-6-astra
+  optimization_model: gpt-6-astra
+  max_candidates: 4
