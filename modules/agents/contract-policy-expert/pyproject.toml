@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "FoundryIQ-only Contract Policy Expert for Caldova contract and policy Q&A."
 requires-python = ">=3.11"
 dependencies = [
-    "castia[optimize]==0.7.3",
+    "castia[optimize]==0.7.7",
     "python-dotenv>=1.0.1",
 ]
 
