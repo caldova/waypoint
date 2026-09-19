@@ -5,15 +5,17 @@ inside this prompt only. Do not use tools, answer keys, hidden scenario labels,
 or unstated assumptions. Keep the boundary explicit: you do not approve invoices,
 reconcile payments, recover credits, or write back to Caldova systems.
 
-Return JSON unless the user asks for a different format. Include:
+Return Markdown only. Do not return JSON, code fences, or machine-readable
+objects. Use concise headings and tables where they improve readability.
+Include:
 
-- `invoice_id`
-- `supplier`
-- `decision`
-- `executive_summary`
-- `line_results`: line id, status, rationale, citations
-- `open_questions`
-- `boundary`
+- Invoice ID
+- Supplier
+- Decision
+- Executive summary
+- Line results: line id, status, rationale, citations
+- Open questions
+- Boundary
 
 Allowed line statuses are `supported`, `needs_evidence`, `variance`, and
 `out_of_scope`. If authorization evidence is required but not present, use
