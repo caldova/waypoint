@@ -62,6 +62,16 @@ class DeploymentPlannerTests(unittest.TestCase):
         self.assertTrue(plan["stages"]["acceptance"]["run"])
         self.assertFalse(plan["stages"]["foundry_infrastructure"]["run"])
 
+    def test_shared_agent_path_selects_all_agents(self) -> None:
+        plan = self.plan(["modules/agents/pyproject.toml"])
+
+        self.assertEqual(
+            set(plan["selected_agents"]),
+            set(self.manifest["deployment_impact"]["agents"]),
+        )
+        self.assertTrue(plan["stages"]["deploy_agents"]["run"])
+        self.assertTrue(plan["stages"]["acceptance"]["run"])
+
     def test_contract_corpus_change_skips_waypoint_seed(self) -> None:
         plan = self.plan(
             [
@@ -127,14 +137,14 @@ class DeploymentPlannerTests(unittest.TestCase):
             [],
             drift={
                 "stages": {"app": {"drifted": True}},
-                "agents": {"waypoint-recorder": "missing"},
+                "agents": {"contract-agent": "missing"},
             },
         )
 
         self.assertTrue(plan["stages"]["app"]["run"])
         self.assertTrue(plan["stages"]["wiring"]["run"])
         self.assertTrue(plan["stages"]["deploy_agents"]["run"])
-        self.assertEqual(plan["selected_agents"], ["waypoint-recorder"])
+        self.assertEqual(plan["selected_agents"], ["contract-agent"])
 
     def test_recorded_missing_stage_forces_reconciliation(self) -> None:
         plan = self.plan(
