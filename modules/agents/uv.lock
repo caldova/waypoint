@@ -299,8 +299,8 @@ wheels = [
 
 [[package]]
 name = "castia"
-version = "0.8.0"
-source = { git = "https://github.com/sethjuarez/castia.git?subdirectory=packages%2Fpython&rev=55d6a0559157a731ee51c98a6c25c8d8d3eae691#55d6a0559157a731ee51c98a6c25c8d8d3eae691" }
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-ai-projects", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "azure-identity", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -309,6 +309,10 @@ dependencies = [
     { name = "microsoft-opentelemetry", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "pyjwt", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "uvicorn", extra = ["standard"], marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3f/52/a05ad0c36bd76b43b4875684a906c7e21f01eef4cef95b18e598c28ca39e/castia-0.9.0.tar.gz", hash = "sha256:0d0bcc777feea76fd4eac701290857786c4a3e15fde70de5ab9eea6851b103ed", size = 300441, upload-time = "2026-09-20T04:23:47.241Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/82/ce03bd961cee6177ba72847841614917df61dd3eacd2bc88580e3a0c8e58/castia-0.9.0-py3-none-any.whl", hash = "sha256:839058a71fe6f83655d3bb126e3cad46e0069796d23cf73c81b58e02fcb183b7", size = 229995, upload-time = "2026-09-20T04:23:45.599Z" },
 ]
 
 [package.optional-dependencies]
@@ -2224,7 +2228,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "castia", extras = ["optimize", "prompty"], git = "https://github.com/sethjuarez/castia.git?subdirectory=packages%2Fpython&rev=55d6a0559157a731ee51c98a6c25c8d8d3eae691" },
+    { name = "castia", extras = ["optimize", "prompty"], specifier = "==0.9.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
 ]
 
