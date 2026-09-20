@@ -12,8 +12,12 @@ resources:
   cpu: "0.5"
   memory: 1Gi
 environment_variables:
+  - name: FOUNDRY_PROJECT_ENDPOINT
+    value: ${FOUNDRY_PROJECT_ENDPOINT}
   - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
     value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+  - name: AZURE_TRACING_GEN_AI_CONTENT_RECORDING_ENABLED
+    value: "true"
   - name: TOOLBOX_NAME
     value: contract-toolbox
   - name: TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT
