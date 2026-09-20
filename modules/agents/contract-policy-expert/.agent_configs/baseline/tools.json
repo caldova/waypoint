@@ -7,12 +7,21 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "query": {
-            "description": "A specific contract or policy question naming the supplier, term, fee, or invoice condition at issue."
+          "query_variants": {
+            "description": "Exactly one complete natural-language contract or policy question naming the supplier, term, fee, or invoice condition at issue.",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 400
+            },
+            "minItems": 1,
+            "maxItems": 1
           }
         },
-        "required": [],
-        "additionalProperties": true
+        "required": [
+          "query_variants"
+        ],
+        "additionalProperties": false
       }
     }
   }

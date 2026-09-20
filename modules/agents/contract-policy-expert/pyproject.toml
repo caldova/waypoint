@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "FoundryIQ-only Contract Policy Expert for Caldova contract and policy Q&A."
 requires-python = ">=3.11"
 dependencies = [
-    "castia[optimize]==0.7.7",
+    "castia[optimize,prompty] @ git+https://github.com/sethjuarez/castia.git@55d6a0559157a731ee51c98a6c25c8d8d3eae691#subdirectory=packages/python",
     "python-dotenv>=1.0.1",
 ]
 
