@@ -96,32 +96,8 @@ datasets\contract-policy-expert\contract-policy-expert-validation.jsonl
 datasets\contract-policy-expert\contract-policy-expert-eval.jsonl
 ```
 
-When the scenario set is too thin for real RFT packaging, generate separate
-clause-grounded review rows from Ledgerfield contract and policy Markdown:
-
-```powershell
-uv run caliber datasets contract-policy expand-contracts `
-  --ledgerfield-path $Ledgerfield `
-  --agent $Agent `
-  --variants-per-clause 3 `
-  --json
-```
-
-This writes:
-
-```text
-datasets\contract-policy-expert\contract-policy-expert-contracts-train.jsonl
-datasets\contract-policy-expert\contract-policy-expert-contracts-validation.jsonl
-datasets\contract-policy-expert\contract-policy-expert-contracts-eval.jsonl
-datasets\contract-policy-expert\contract-policy-expert-contracts-foundry-eval-input.jsonl
-```
-
-Treat these as generated contract-clause seeds until reviewed. They intentionally
-remain separate from the scenario-derived rows so curated subsets can be promoted
-without losing lineage.
-
-For Foundry eval generation, use the query-shaped eval input under ignored
-`runs\` storage:
+For Foundry eval generation, stage the CPE eval split under ignored `runs\`
+storage:
 
 ```text
 runs\eval-results\contract-policy-expert\contract-policy-expert-foundryiq-eval-input.jsonl

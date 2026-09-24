@@ -1,0 +1,11 @@
+model: gpt-6-astra
+instruction_file: instructions.md
+instructions_file: instructions.md
+instruction: instructions.md
+instructions: instructions.md
+tool_file: tools.json
+tools_file: tools.json
+optimizer_job: opt_58bea824c02e420992e28cee71f281b9
+optimizer_candidate: cand_opt_58bea824c02e420992e28cee71f281b9_0003
+optimizer_candidate_name: candidate_3
+optimizer_avg_score: 0.8202673333333333

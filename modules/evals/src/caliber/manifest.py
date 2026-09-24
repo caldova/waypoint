@@ -71,10 +71,6 @@ def build_manifest() -> dict[str, Any]:
                 },
                 "caliber_assets": {
                     "datasets": "datasets/contract-policy-expert",
-                    "contract_expansion": (
-                        "datasets/contract-policy-expert/"
-                        "contract-policy-expert-contracts-*.jsonl"
-                    ),
                     "grader": (
                         "graders/contract-policy-expert/contract_policy_evidence_grader.py"
                     ),

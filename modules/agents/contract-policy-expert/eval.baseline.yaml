@@ -1,0 +1,19 @@
+name: contract-policy-expert-baseline
+agent:
+    name: contract-policy-expert
+    kind: hosted
+    config: .agent_configs/baseline
+    model: gpt-6-astra
+dataset:
+    name: contract-policy-expert-test-foundry-eval
+    version: "1.0"
+    local_uri: .foundry/datasets/contract-policy-expert-test-foundry-eval
+dataset_reference:
+    local_uri: .foundry/datasets/contract-policy-expert-test-foundry-eval
+evaluators:
+    - name: contract-policy-expert-generated-rubric
+      version: "7"
+      local_uri: evaluators\contract-policy-expert-generated-rubric\rubric_dimensions.json
+options:
+    eval_model: gpt-6-astra
+    optimization_model: gpt-5.5

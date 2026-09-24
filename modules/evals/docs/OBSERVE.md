@@ -75,33 +75,11 @@ datasets\contract-policy-expert\contract-policy-expert-validation.jsonl
 datasets\contract-policy-expert\contract-policy-expert-eval.jsonl
 ```
 
-## Step 4 - Build contract-clause expansion datasets
-
-```powershell
-uv run caliber datasets contract-policy expand-contracts `
-  --ledgerfield-path $Ledgerfield `
-  --agent $Agent `
-  --variants-per-clause 3 `
-  --json
-```
-
-Expected committed dataset paths:
-
-```text
-datasets\contract-policy-expert\contract-policy-expert-contracts-train.jsonl
-datasets\contract-policy-expert\contract-policy-expert-contracts-validation.jsonl
-datasets\contract-policy-expert\contract-policy-expert-contracts-eval.jsonl
-datasets\contract-policy-expert\contract-policy-expert-contracts-foundry-eval-input.jsonl
-```
-
-Use the `*-foundry-eval-input.jsonl` file for Foundry eval generation. It is
-query-shaped to avoid chat-format data-mapping issues in generated evaluators.
-
-## Step 5 - Stage eval-generation input
+## Step 4 - Stage eval-generation input
 
 ```powershell
 New-Item -ItemType Directory -Force $RunDir | Out-Null
-Copy-Item "$DatasetDir\$Agent-contracts-foundry-eval-input.jsonl" `
+Copy-Item "$DatasetDir\$Agent-eval.jsonl" `
   "$RunDir\$Agent-foundryiq-eval-input.jsonl" `
   -Force
 ```
@@ -112,7 +90,7 @@ Expected ignored output:
 runs\eval-results\contract-policy-expert\contract-policy-expert-foundryiq-eval-input.jsonl
 ```
 
-## Step 6 - Generate Foundry rubric/eval config
+## Step 5 - Generate Foundry rubric/eval config
 
 Run the rubric/eval generation from Forge so the generated evaluator sees the
 agent prompt and deployed agent context:

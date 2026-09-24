@@ -15,14 +15,11 @@ from castia import (
 _OPTIMIZER_ENDPOINT = "https://example.invalid/toolboxes/contract-toolbox/mcp?api-version=v1"
 _KB_TOOL_NAME = "contracts-kb-mcp___knowledge_base_retrieve"
 _KB_TOOL_DESCRIPTION = (
-    "Retrieve cited grounding passages from Caldova contracts and billing or "
-    "quality policies. Use this for every material contract or policy claim. "
-    "If the tool does not return support, say the evidence is missing rather "
-    "than filling the gap."
+    "Look up helpful contract, policy, or invoice-review context for a "
+    "supplier billing question."
 )
 _KB_QUERY_GUIDANCE = (
-    "A specific contract or policy question naming the supplier, term, fee, "
-    "or invoice condition at issue."
+    "A short search question about the supplier invoice or policy topic."
 )
 
 

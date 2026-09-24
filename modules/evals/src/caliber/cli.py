@@ -10,6 +10,7 @@ from .calibration import calibrate_grader
 from .contract_policy import (
     build_contract_policy_contract_expansion,
     build_contract_policy_datasets,
+    write_contract_policy_foundry_eval_input,
 )
 from .doctor import run_doctor
 from .eval import build_eval_plan
@@ -132,6 +133,29 @@ def _build_parser() -> argparse.ArgumentParser:
             variants_per_scenario=args.variants_per_scenario,
             agent=args.agent,
             forge_agent=args.forge_agent or None,
+        )
+    )
+    contract_policy_foundry_eval = contract_policy_sub.add_parser(
+        "foundry-eval-input",
+        help="Convert canonical contract-policy JSONL rows into Foundry eval input shape.",
+    )
+    contract_policy_foundry_eval.add_argument(
+        "--source",
+        required=True,
+        type=Path,
+        help="Canonical contract-policy JSONL split with messages and expected fields.",
+    )
+    contract_policy_foundry_eval.add_argument(
+        "--out",
+        required=True,
+        type=Path,
+        help="Output JSONL path for Foundry eval registration.",
+    )
+    contract_policy_foundry_eval.add_argument("--json", action="store_true", help="Print JSON.")
+    contract_policy_foundry_eval.set_defaults(
+        handler=lambda args: write_contract_policy_foundry_eval_input(
+            source=args.source,
+            out=args.out,
         )
     )
     contract_policy_expand = contract_policy_sub.add_parser(

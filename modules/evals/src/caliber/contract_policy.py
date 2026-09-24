@@ -249,6 +249,33 @@ def build_contract_policy_datasets(
     }
 
 
+def write_contract_policy_foundry_eval_input(
+    *,
+    source: Path,
+    out: Path,
+) -> dict[str, Any]:
+    source_path = source.resolve()
+    _require_file(source_path)
+    rows = []
+    with source_path.open("r", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if "messages" not in row:
+                raise ValueError(f"{source_path}:{line_number}: missing messages")
+            rows.append(_foundry_eval_input(row))
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    _write_jsonl(out, rows)
+    return {
+        "source": str(source_path),
+        "out": str(out),
+        "rows": len(rows),
+        "shape": "foundry-eval-query",
+    }
+
+
 def build_contract_policy_contract_expansion(
     *,
     ledgerfield_path: Path,
