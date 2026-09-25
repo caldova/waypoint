@@ -37,6 +37,7 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     type: 'SystemAssigned'
   }
   properties: {
+    publicNetworkAccess: 'Enabled'
     supportsHttpsTrafficOnly: true
     allowBlobPublicAccess: false
     minimumTlsVersion: 'TLS1_2'

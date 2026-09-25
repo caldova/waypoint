@@ -3,25 +3,17 @@
     "type": "function",
     "function": {
       "name": "contracts-kb-mcp___knowledge_base_retrieve",
-      "description": "Retrieve FoundryIQ knowledge-plane evidence for supplier invoice, contract, policy, SOW, PO/change-authorization, pricing, tax, shipment, batch, packaging, milestone, capacity, or reconciliation questions. Use this tool to obtain grounded contract/policy passages before preparing an evidence object for controller or reviewer review. The tool is for evidence retrieval only: it does not approve, dispute, reconcile, decide payment status, write to Waypoint, create cases, or perform business-system actions. Prefer retrieval when the user asks for contract/policy support, leakage-risk analysis, variance review, decision-boundary evidence, or invoice-line substantiation; when provided excerpts are incomplete; or when temporal/version applicability may matter. For invoice-line reviews, retrieve evidence that can establish or rule out: supplier identity and governing agreement/SOW applicability; effective dates, amendments, version history, and whether the terms cover the invoice date and service period; billability conditions; authorization requirements; minimum approval evidence; linkage to authorized source documents; pricing/rate schedules; PO or written change-authorization requirements; and source support for the billed quantity, unit price, amount, product/SKU, batch, milestone, material, capacity period, shipment, or packaging format. In contract-manufacturer packaging scenarios, look specifically for clauses indicating whether standard packaging is included in unit price and whether nonstandard packaging such as blister packaging, sample packs, relabeling, or market-specific cartons is billable only when the purchase order or written change authorization identifies the packaging format. Also retrieve invoice-reconciliation policy passages requiring an invoice line to be tied to an authorized source document before approval. Returned evidence should be used with strict citation discipline: quote exact passages, cite source_refs, distinguish user-provided invoice fields and expected decision states from independent evidence, identify evidence gaps, and preserve uncertainty where the retrieved material does not prove authorization, pricing, effective-version applicability, amendment coverage, or line-level linkage.",
+      "description": "Look up Caldova contract or policy background if needed.",
       "parameters": {
         "type": "object",
         "properties": {
           "query": {
-            "type": null,
-            "description": "A concise but specific search request for FoundryIQ contract, policy, SOW, amendment, pricing, PO/change-authorization, or invoice-reconciliation evidence. Include supplier name/id, invoice id, line id, service period/invoice date, issue category, reference ids, and the exact evidence needed whenever available. Good queries ask for governing terms and temporal applicability as well as the substantive issue, e.g. “Aster Ridge Biomanufacturing cmo-001 October 2026 blister packaging surcharge SOW packaging authorization PO written change authorization effective date amendments pricing support invoice reconciliation minimum evidence authorized source document.” Use targeted follow-up queries when gaps remain, especially for effective dates, amendments, pricing schedules, PO/change-authorization contents, packaging order authorization, and policy requirements for tying invoice lines to authorized source documents.",
-            "enum": null,
-            "default": null,
-            "items": null,
-            "properties": null,
-            "required": null,
-            "additionalProperties": null
+            "description": "A short search phrase."
           }
         },
         "required": [],
         "additionalProperties": true
-      },
-      "strict": null
+      }
     }
   }
 ]

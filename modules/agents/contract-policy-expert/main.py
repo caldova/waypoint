@@ -1,7 +1,5 @@
 """FoundryIQ-only Contract Policy Expert for grounded contract Q&A."""
 
-from __future__ import annotations
-
 import os
 from pathlib import Path
 

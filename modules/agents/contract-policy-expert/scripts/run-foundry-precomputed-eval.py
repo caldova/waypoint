@@ -207,6 +207,9 @@ def main() -> None:
     parser.add_argument("--eval-model", default="gpt-6-astra")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--timeout", type=int, default=180)
+    parser.add_argument("--retries", type=int, default=3)
+    parser.add_argument("--retry-delay", type=float, default=5.0)
+    parser.add_argument("--resume", action="store_true")
     parser.add_argument("--skip-invoke", action="store_true")
     parser.add_argument("--skip-submit", action="store_true")
     args = parser.parse_args()
@@ -217,16 +220,44 @@ def main() -> None:
     if not args.skip_invoke:
         rows = _read_jsonl(args.input, limit=args.limit)
         endpoint = _agent_endpoint(args.project_endpoint, args.agent_name)
-        output_rows = []
+        output_rows = _read_jsonl(args.output) if args.resume and args.output.exists() else []
+        completed_ids = {row.get("id") for row in output_rows}
         for index, row in enumerate(rows, start=1):
+            if args.resume and row.get("id") in completed_ids:
+                print(
+                    json.dumps(
+                        {"row": index, "id": row.get("id"), "status": "skipped"},
+                        sort_keys=True,
+                    )
+                )
+                continue
             query = row["query"]
             started = time.time()
-            response = _invoke_agent(
-                endpoint=endpoint,
-                token=token,
-                query=query,
-                timeout=args.timeout,
-            )
+            for attempt in range(1, args.retries + 2):
+                try:
+                    response = _invoke_agent(
+                        endpoint=endpoint,
+                        token=token,
+                        query=query,
+                        timeout=args.timeout,
+                    )
+                    break
+                except RuntimeError as error:
+                    if attempt > args.retries:
+                        raise
+                    print(
+                        json.dumps(
+                            {
+                                "row": index,
+                                "id": row.get("id"),
+                                "status": "retrying",
+                                "attempt": attempt,
+                                "error": str(error),
+                            },
+                            sort_keys=True,
+                        )
+                    )
+                    time.sleep(args.retry_delay * attempt)
             elapsed = round(time.time() - started, 3)
             output_rows.append(
                 {
@@ -255,7 +286,7 @@ def main() -> None:
                     sort_keys=True,
                 )
             )
-        _write_jsonl(args.output, output_rows)
+            _write_jsonl(args.output, output_rows)
 
     if args.skip_submit:
         print(json.dumps({"output": str(args.output)}, indent=2))
