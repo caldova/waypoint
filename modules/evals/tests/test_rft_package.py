@@ -59,6 +59,12 @@ def test_rft_package_emits_python_grader_endpoint_fallback_and_response_schema(
     assert "Authorization" in fallback_config["headers"]
     assert job_spec["method"]["reinforcement"]["response_format"] == response_format
 
+    grader_module = _load_module(Path(manifest["artifacts"]["grader"]["path"]))
+    assert grader_module.grade(
+        {"output_json": row["expected_output_json"]},
+        row,
+    ) == 1.0
+
     endpoint_module = _load_module(endpoint_path)
     monkeypatch.setenv("BLOSSOM_GRADER_SECRET", "local-secret")
     result = endpoint_module.handle_blossom_request(

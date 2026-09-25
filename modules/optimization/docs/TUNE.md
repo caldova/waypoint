@@ -332,6 +332,11 @@ RFT defaults, including `n_epochs: -1` (automatic/default), `eval_interval: 5`,
 `learning_rate_multiplier: 2`. The current job status is recorded in ignored run
 state, not committed documentation.
 
+If `response_format` is present, the Python grader must support structured
+samples as `sample.output_json` as well as string samples as
+`sample.output_text`. A grader that only reads `output_text` can receive no
+usable learning signal even when local string-sample validation passes.
+
 After the live job reaches a terminal succeeded state:
 
 1. Swap the `contract-policy-expert` model reference to the selected tuned

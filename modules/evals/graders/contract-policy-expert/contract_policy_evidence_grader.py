@@ -86,7 +86,8 @@ def grade(sample: Any, item: dict[str, Any]) -> float:
 
     `sample` is the agent answer. Local Caliber callers pass
     `{"output_text": ...}`; Foundry grader-run validation passes the model
-    sample string directly.
+    sample string directly. Foundry RFT with response_format may pass
+    structured generations as `{"output_json": ...}`.
     `item` supplies the expected JSON, ground truth citations, and metadata.
     """
     output_text = _output_text(sample)
@@ -317,6 +318,11 @@ def _is_valid_confidence(value: Any) -> bool:
 
 def _output_text(sample: Any) -> str:
     if isinstance(sample, dict):
+        output_json = sample.get("output_json")
+        if output_json is not None:
+            if isinstance(output_json, str):
+                return output_json.strip()
+            return json.dumps(output_json, sort_keys=True)
         return str(sample.get("output_text", "") or "").strip()
     return str(sample or "").strip()
 
