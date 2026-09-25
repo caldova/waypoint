@@ -8,7 +8,8 @@ name: Deploy Waypoint app
 #   vars:    AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, AZURE_LOCATION,
 #            AZURE_RESOURCE_GROUP, WAYPOINT_MSAL_TENANT_ID, WAYPOINT_MSAL_CLIENT_ID,
 #            WAYPOINT_MSAL_REDIRECT_URI, WAYPOINT_POSTGRES_SERVER_NAME,
-#            WAYPOINT_MSAL_ALLOWED_APP_IDS (optional)
+#            WAYPOINT_MSAL_ALLOWED_APP_IDS (optional),
+#            WAYPOINT_{WEB,API}_CUSTOM_DOMAIN + WAYPOINT_{WEB,API}_CERTIFICATE_NAME (optional)
 #   secrets: POSTGRES_APP_PASSWORD
 
 on:
@@ -114,6 +115,10 @@ jobs:
           Waypoint__Msal__AdminAppRole: ""
           Waypoint__ApiKeyAuth__Enabled: false
           Waypoint__Postgres__ServerName: ${{ vars.WAYPOINT_POSTGRES_SERVER_NAME }}
+          Waypoint__Web__CustomDomain: ${{ vars.WAYPOINT_WEB_CUSTOM_DOMAIN }}
+          Waypoint__Web__CertificateName: ${{ vars.WAYPOINT_WEB_CERTIFICATE_NAME }}
+          Waypoint__Api__CustomDomain: ${{ vars.WAYPOINT_API_CUSTOM_DOMAIN }}
+          Waypoint__Api__CertificateName: ${{ vars.WAYPOINT_API_CERTIFICATE_NAME }}
           Waypoint__Postgres__ProvisionEnabled: false
           Waypoint__Fabric__ProvisionEnabled: false
           Waypoint__Fabric__IqEnabled: false
