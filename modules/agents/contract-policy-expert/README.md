@@ -11,10 +11,8 @@ writeback behavior.
 The default `.agent_configs\baseline` is the early-prototype baseline used for
 the Foundry Agent Optimizer demo. It is intentionally sparse but still functional
 so the optimizer can improve real agent assets: instructions and tool
-descriptions. The stronger pre-demo configuration is preserved in
-`.agent_configs\reference-good` for rollback and comparison.
-The reference optimized candidate is preserved in
-`.agent_configs\optimized-candidate-3` so the improved CPE can be replayed or
+descriptions. The reference optimized candidate from the production run is
+preserved in `.agent_configs\optimized` so the improved CPE can be replayed or
 promoted without rerunning the optimizer.
 
 `eval.yaml` points at the shared `modules/evals/datasets/contract-policy-expert`
@@ -76,8 +74,7 @@ uv run python .\scripts\submit-foundry-optimizer-sdk.py `
   --project-endpoint <foundry-project-endpoint> `
   --eval-model gpt-6-astra `
   --optimization-model gpt-5.5 `
-  --max-candidates 4 `
-  --max-items 15
+  --max-candidates 15
 ```
 
 The SDK path keeps `gpt-6-astra` as both the hosted agent model under
@@ -96,24 +93,22 @@ uv run python .\scripts\submit-foundry-optimizer-sdk.py `
   --status-job-id <optimizer-job-id>
 ```
 
-The first successful generated-rubric optimizer run in the Caldova project was
-`opt_58bea824c02e420992e28cee71f281b9`. It completed four candidates and raised
-the generated-rubric average score from `0.3779` for the weak baseline to
-`0.8203` for `candidate_3`
-(`cand_opt_58bea824c02e420992e28cee71f281b9_0003`), mutating the system prompt
-and tool descriptions.
+The production optimizer story run in the Caldova project was
+`opt_2fb58fc1723e461d9a1496907d029ac8`. It completed 15 candidates and selected
+`candidate_14` (`cand_opt_2fb58fc1723e461d9a1496907d029ac8_0014`), improving the
+training score from `0.455684` to `0.8000013333333332` by mutating the system
+prompt and tool descriptions.
 
-The same optimizer job also produced explicit generated-rubric eval runs that
-can be used as the demo's before/after evidence without applying or deploying
-the candidate first:
+The stage evidence is the like-for-like deployed-agent eval comparison:
 
 | Run | Eval run | Agent version | Generated-rubric result | Avg score |
 | --- | --- | --- | --- | --- |
-| Baseline | `evalrun_c9625d5a3ade48bea4cfefd2993bac22` | `12` | 2 passed / 13 failed / 0 errored / 15 total | `0.3779` |
-| Candidate 3 | `evalrun_d2a14edd2f4046678a134d6918c0f997` | `draft-1790271309857` | 15 passed / 0 failed / 0 errored / 15 total | `0.8203` |
+| Baseline | Five runs in `contract-policy-expert-baseline` | `6` | 16/24, 15/24, 11/24, 14/24, 18/24; 0 errored | varies |
+| Optimized | Five runs in `contract-policy-expert-optimized` | `7` | 24/24 on all five runs; 0 errored | maxed |
 
-Both runs use eval definition `eval_20b2995b658a4506919b39aa6a4ad300` and the
-same generated rubric, `contract-policy-expert-generated-rubric`.
+Both eval groups use the same held-out dataset
+`contract-policy-expert-test-foundry-eval` version `2.0` and generated rubric
+`contract-policy-expert-generated-rubric` version `13`.
 
 The lower-level REST fallback is documented in
 `modules\evals\docs\CONTRACT_POLICY_EXPERT_PROCESS.md`; it posts the optimizer
