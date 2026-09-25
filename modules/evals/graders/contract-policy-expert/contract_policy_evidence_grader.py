@@ -81,13 +81,15 @@ ALLOWED_SUPPORTS = {"approve", "recover", "escalate", "review", "unknown"}
 ALLOWED_CLASSIFICATIONS = {"standard", "confidential", "ip_sensitive", "restricted"}
 
 
-def grade(sample: dict[str, Any], item: dict[str, Any]) -> float:
+def grade(sample: Any, item: dict[str, Any]) -> float:
     """Grade one model answer against one contract-policy evidence task.
 
-    `sample["output_text"]` is the agent answer.
+    `sample` is the agent answer. Local Caliber callers pass
+    `{"output_text": ...}`; Foundry grader-run validation passes the model
+    sample string directly.
     `item` supplies the expected JSON, ground truth citations, and metadata.
     """
-    output_text = str(sample.get("output_text", "") or "").strip()
+    output_text = _output_text(sample)
     expected = item.get("expected_output_json", {})
     ground_truth = item.get("ground_truth", {})
     metadata = item.get("metadata", {})
@@ -311,6 +313,12 @@ def _score_expected_shape(output: dict[str, Any], expected: dict[str, Any]) -> f
 
 def _is_valid_confidence(value: Any) -> bool:
     return isinstance(value, int | float) and 0 <= float(value) <= 1
+
+
+def _output_text(sample: Any) -> str:
+    if isinstance(sample, dict):
+        return str(sample.get("output_text", "") or "").strip()
+    return str(sample or "").strip()
 
 
 def _award(points_available: int, earned_fraction: float) -> float:

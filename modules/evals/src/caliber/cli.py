@@ -6,7 +6,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .calibration import calibrate_grader
+from .calibration import (
+    build_model_output_calibration_plan,
+    build_threshold_failure_report,
+    calibrate_grader,
+    write_gold_answer_outputs,
+)
 from .contract_policy import (
     build_contract_policy_contract_expansion,
     build_contract_policy_datasets,
@@ -31,7 +36,13 @@ from .lineage import (
 )
 from .manifest import build_manifest
 from .optimizer import build_optimizer_plan
-from .rft import build_rft_plan, package_rft_assets, read_rft_status
+from .rft import (
+    build_grader_validation_request,
+    build_integration_preflight,
+    build_rft_plan,
+    package_rft_assets,
+    read_rft_status,
+)
 from .rle import build_rle_plan
 from .telemetry import build_telemetry_backfill_plan
 
@@ -341,6 +352,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     package.add_argument("--suffix", default="", help="Optional fine-tune suffix.")
     package.add_argument(
+        "--pass-threshold",
+        type=float,
+        default=None,
+        help="Optional provisional grader pass threshold for the dry-run RFT payload.",
+    )
+    package.add_argument(
         "--out-dir",
         type=Path,
         default=Path("runs") / "rft" / "contract-policy-expert",
@@ -368,6 +385,7 @@ def _build_parser() -> argparse.ArgumentParser:
             suffix=args.suffix or None,
             optimizer_job_id=args.optimizer_job_id or None,
             optimizer_candidate_id=args.optimizer_candidate_id or None,
+            pass_threshold=args.pass_threshold,
         )
     )
 
@@ -380,6 +398,68 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     status.add_argument("--json", action="store_true", help="Print JSON.")
     status.set_defaults(handler=lambda args: read_rft_status(args.state))
+
+    integration_preflight = rft_sub.add_parser(
+        "integration-preflight",
+        help="Check RFT integration readiness without file upload or job submission.",
+    )
+    integration_preflight.add_argument(
+        "--package-dir",
+        required=True,
+        type=Path,
+        help="RFT package directory containing manifest and dry-run artifacts.",
+    )
+    integration_preflight.add_argument(
+        "--base-model",
+        required=True,
+        help="Exact allowlisted MAI/RFT base model name.",
+    )
+    integration_preflight.add_argument(
+        "--project-endpoint",
+        default="",
+        help="Optional Foundry project endpoint override.",
+    )
+    integration_preflight.add_argument(
+        "--grader-endpoint",
+        default="",
+        help="Optional deployed Blossom grader endpoint URL.",
+    )
+    integration_preflight.add_argument("--json", action="store_true", help="Print JSON.")
+    integration_preflight.set_defaults(
+        handler=lambda args: build_integration_preflight(
+            package_dir=args.package_dir,
+            base_model=args.base_model,
+            project_endpoint=args.project_endpoint or None,
+            grader_endpoint=args.grader_endpoint or None,
+        )
+    )
+
+    grader_validation_request = rft_sub.add_parser(
+        "grader-validation-request",
+        help=(
+            "Create a no-job Foundry grader-run validation request from the packaged "
+            "Python grader."
+        ),
+    )
+    grader_validation_request.add_argument(
+        "--package-dir",
+        required=True,
+        type=Path,
+        help="RFT package directory containing dry-run artifacts.",
+    )
+    grader_validation_request.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Optional path to save the grader-run request JSON.",
+    )
+    grader_validation_request.add_argument("--json", action="store_true", help="Print JSON.")
+    grader_validation_request.set_defaults(
+        handler=lambda args: build_grader_validation_request(
+            package_dir=args.package_dir,
+            out=args.out,
+        )
+    )
 
     grader = sub.add_parser("grader", help="Grader calibration helpers.")
     grader_sub = grader.add_subparsers(dest="grader_command")
@@ -409,6 +489,100 @@ def _build_parser() -> argparse.ArgumentParser:
             outputs_path=args.outputs,
             grader_path=args.grader,
             thresholds=args.thresholds,
+        )
+    )
+    gold_outputs = grader_sub.add_parser(
+        "gold-outputs",
+        help="Write output-items JSONL from expected_output_json answer keys.",
+    )
+    gold_outputs.add_argument("--dataset", required=True, type=Path, help="Dataset JSONL file.")
+    gold_outputs.add_argument("--out", required=True, type=Path, help="Output JSONL path.")
+    gold_outputs.add_argument("--json", action="store_true", help="Print JSON.")
+    gold_outputs.set_defaults(
+        handler=lambda args: write_gold_answer_outputs(
+            dataset_path=args.dataset,
+            out_path=args.out,
+        )
+    )
+    model_plan = grader_sub.add_parser(
+        "model-output-plan",
+        help="Score available gold/teacher/base output-items and report missing captures.",
+    )
+    model_plan.add_argument("--dataset", required=True, type=Path, help="Dataset JSONL file.")
+    model_plan.add_argument("--grader", required=True, type=Path, help="Python grader file.")
+    model_plan.add_argument(
+        "--gold-outputs",
+        required=True,
+        type=Path,
+        help="Gold-answer ceiling output-items JSONL.",
+    )
+    model_plan.add_argument(
+        "--teacher-outputs",
+        required=True,
+        type=Path,
+        help="Optimized teacher output-items JSONL.",
+    )
+    model_plan.add_argument(
+        "--base-outputs",
+        required=True,
+        type=Path,
+        help="MAI/base model output-items JSONL.",
+    )
+    model_plan.add_argument(
+        "--threshold",
+        dest="thresholds",
+        action="append",
+        type=float,
+        help="Threshold to test; repeat for multiple values.",
+    )
+    model_plan.add_argument("--json", action="store_true", help="Print JSON.")
+    model_plan.set_defaults(
+        handler=lambda args: build_model_output_calibration_plan(
+            dataset_path=args.dataset,
+            grader_path=args.grader,
+            gold_outputs_path=args.gold_outputs,
+            teacher_outputs_path=args.teacher_outputs,
+            base_outputs_path=args.base_outputs,
+            thresholds=args.thresholds,
+        )
+    )
+    threshold_report = grader_sub.add_parser(
+        "threshold-report",
+        help="Write a failed-row diagnostic report for a candidate grader threshold.",
+    )
+    threshold_report.add_argument("--dataset", required=True, type=Path, help="Dataset JSONL file.")
+    threshold_report.add_argument(
+        "--outputs",
+        required=True,
+        type=Path,
+        help="Output-items or raw invocation JSONL file.",
+    )
+    threshold_report.add_argument(
+        "--grader",
+        required=True,
+        type=Path,
+        help="Python grader file. Uses score_with_diagnostics when available.",
+    )
+    threshold_report.add_argument(
+        "--threshold",
+        required=True,
+        type=float,
+        help="Candidate pass threshold to inspect.",
+    )
+    threshold_report.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="Optional path to save the report JSON.",
+    )
+    threshold_report.add_argument("--json", action="store_true", help="Print JSON.")
+    threshold_report.set_defaults(
+        handler=lambda args: build_threshold_failure_report(
+            dataset_path=args.dataset,
+            outputs_path=args.outputs,
+            grader_path=args.grader,
+            threshold=args.threshold,
+            out_path=args.out,
         )
     )
 
