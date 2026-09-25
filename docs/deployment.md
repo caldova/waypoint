@@ -2,6 +2,7 @@
 
 Waypoint deploys in two independent parts: the **application** (web, API,
 PostgreSQL) and the hosted **contract agents** in the caldova Foundry project.
+Each has its own workflow.
 
 ## The agents
 
@@ -52,10 +53,40 @@ gaps for FoundryIQ, toolbox publishing, RBAC, and acceptance.
 ## The application
 
 The Waypoint app (Aspire AppHost, FastAPI API, React web, PostgreSQL, auth, and
-telemetry) is deployed separately from `apps/waypoint`. See
-[apps/waypoint/README.md](../apps/waypoint/README.md) for the current
-`aspire`/`azd` app deployment path. Reusable OIDC, Key Vault, MSAL, and
-acceptance-probe helpers live under [tools/deploy](../tools/deploy/README.md).
+telemetry) lives in `apps/waypoint` and is deployed to the Caldova tenant by the
+[Deploy Waypoint app workflow](../.github/workflows/deploy-app.yml). It runs on
+every push to `v2` that touches `apps/waypoint/**` and on demand from
+**Actions → Deploy Waypoint app**.
+
+The workflow runs `aspire deploy` (via `tools/deploy/scripts/aspire_deploy.sh`)
+against the existing `waypoint-rg` resource group. PostgreSQL is an existing
+Flexible Server and is not provisioned; Fabric/OneLake is not enabled. After the
+deploy it checks API `/health` (200), unauthenticated `/api/runs` (401), and the
+web root (200).
+
+All target values live in the `caldova` GitHub Environment (deployments limited
+to the `v2` branch), so the repository-level `AZURE_*` variables used by the
+agent workflow are not affected:
+
+| Name | Kind | Purpose |
+| --- | --- | --- |
+| `AZURE_CLIENT_ID` | variable | `waypoint-app-gha-oidc` OIDC identity (1). |
+| `AZURE_TENANT_ID` | variable | Caldova tenant ID. |
+| `AZURE_SUBSCRIPTION_ID` | variable | Caldova subscription ID. |
+| `AZURE_LOCATION` | variable | Region (`swedencentral`). |
+| `AZURE_RESOURCE_GROUP` | variable | App resource group (`waypoint-rg`). |
+| `WAYPOINT_MSAL_TENANT_ID` | variable | Entra tenant for the `waypoint` app registration. |
+| `WAYPOINT_MSAL_CLIENT_ID` | variable | `waypoint` API app registration client ID. |
+| `WAYPOINT_MSAL_REDIRECT_URI` | variable | Web SPA redirect URI. |
+| `WAYPOINT_MSAL_ALLOWED_APP_IDS` | variable | Optional agent app IDs (CSV). |
+| `WAYPOINT_POSTGRES_SERVER_NAME` | variable | Existing PostgreSQL Flexible Server name. |
+| `POSTGRES_APP_PASSWORD` | secret | Password for the `waypoint_app` DB role. |
+
+(1) Contributor + User Access Administrator on `waypoint-rg` only.
+
+The OIDC federated credential trusts
+`repo:caldova@297935432/waypoint@1301973660:environment:caldova` (this repository
+uses immutable OIDC subject claims).
 
 > The previous one-click workflow that provisioned the app and a seven-agent
 > fleet together has been retired. Its orchestration remains available in git

@@ -1,8 +1,8 @@
 name: Deploy contract agents
 
 # Deploys Caldova's castia-based hosted agents to the caldova Foundry project.
-# The app (web/API/PostgreSQL) is deployed separately and is not part of this
-# workflow yet. Requires repo variables AZURE_CLIENT_ID, AZURE_TENANT_ID, and
+# The app (web/API/PostgreSQL) is deployed separately by deploy-app.yml.
+# Requires repo variables AZURE_CLIENT_ID, AZURE_TENANT_ID, and
 # AZURE_SUBSCRIPTION_ID wired for GitHub-to-Azure OIDC.
 
 on:

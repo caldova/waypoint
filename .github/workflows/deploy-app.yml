@@ -1,0 +1,128 @@
+name: Deploy Waypoint app
+
+# Deploys the Waypoint application (apps/waypoint: FastAPI API + React web on Azure
+# Container Apps) with `aspire deploy` into the Caldova tenant. PostgreSQL is an
+# existing server (not provisioned here); Fabric/OneLake is not part of this workflow.
+#
+# All target values live in the `caldova` GitHub Environment (see docs/deployment.md):
+#   vars:    AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, AZURE_LOCATION,
+#            AZURE_RESOURCE_GROUP, WAYPOINT_MSAL_TENANT_ID, WAYPOINT_MSAL_CLIENT_ID,
+#            WAYPOINT_MSAL_REDIRECT_URI, WAYPOINT_POSTGRES_SERVER_NAME,
+#            WAYPOINT_MSAL_ALLOWED_APP_IDS (optional)
+#   secrets: POSTGRES_APP_PASSWORD
+
+on:
+  push:
+    branches: [v2]
+    paths:
+      - apps/waypoint/**
+      - .github/workflows/deploy-app.yml
+      - tools/deploy/scripts/aspire_deploy.sh
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-waypoint-app
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy Waypoint app
+    runs-on: ubuntu-latest
+    environment:
+      name: caldova
+      url: ${{ steps.verify.outputs.web_url }}
+    defaults:
+      run:
+        working-directory: apps/waypoint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Cache Aspire CLI
+        id: cache-aspire
+        uses: actions/cache@v4
+        with:
+          path: ~/.aspire
+          key: aspire-cli-${{ runner.os }}-${{ hashFiles('apps/waypoint/apphost.cs') }}-v1
+
+      - name: Install Aspire CLI
+        if: steps.cache-aspire.outputs.cache-hit != 'true'
+        run: curl -sSL https://aspire.dev/install.sh | bash
+
+      - name: Add Aspire to PATH
+        run: echo "$HOME/.aspire/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy with Aspire
+        env:
+          Azure__TenantId: ${{ vars.AZURE_TENANT_ID }}
+          Azure__SubscriptionId: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          Azure__Location: ${{ vars.AZURE_LOCATION }}
+          Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
+          Azure__AllowResourceGroupCreation: false
+          Azure__CredentialSource: AzureCli
+          AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          Waypoint__Msal__TenantId: ${{ vars.WAYPOINT_MSAL_TENANT_ID }}
+          Waypoint__Msal__ClientId: ${{ vars.WAYPOINT_MSAL_CLIENT_ID }}
+          Waypoint__Msal__RedirectUri: ${{ vars.WAYPOINT_MSAL_REDIRECT_URI }}
+          Waypoint__Msal__AllowedAppIds: ${{ vars.WAYPOINT_MSAL_ALLOWED_APP_IDS }}
+          # Waypoint.Admin is a delegated scope on the app registration, not an app role.
+          Waypoint__Msal__AdminAppRole: ""
+          Waypoint__ApiKeyAuth__Enabled: false
+          Waypoint__Postgres__ServerName: ${{ vars.WAYPOINT_POSTGRES_SERVER_NAME }}
+          Waypoint__Postgres__ProvisionEnabled: false
+          Waypoint__Fabric__ProvisionEnabled: false
+          Waypoint__Fabric__IqEnabled: false
+          Waypoint__Fabric__MirrorEnabled: false
+          Parameters__postgres_app_password: ${{ secrets.POSTGRES_APP_PASSWORD }}
+        run: |
+          export BUILD_VERSION="$(date -u +'%Y%m%d.%H%M%S')"
+          bash ../../tools/deploy/scripts/aspire_deploy.sh
+
+      - name: Verify deployment
+        id: verify
+        env:
+          RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: |
+          set -euo pipefail
+          api="$(az containerapp show -g "$RG" -n api --query properties.configuration.ingress.fqdn -o tsv)"
+          web="$(az containerapp show -g "$RG" -n web --query properties.configuration.ingress.fqdn -o tsv)"
+          echo "web_url=https://${web}" >> "$GITHUB_OUTPUT"
+          check() {
+            local url="$1" want="$2" code
+            for i in $(seq 1 20); do
+              code="$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)"
+              [ "$code" = "$want" ] && { echo "ok  $url -> $code"; return 0; }
+              sleep 15
+            done
+            echo "::error::$url returned $code (expected $want)"; return 1
+          }
+          check "https://${api}/health" 200
+          check "https://${api}/api/runs" 401
+          check "https://${web}/" 200
+          {
+            echo "### Waypoint deployed"
+            echo "- Web: https://${web}"
+            echo "- API: https://${api}"
+          } >> "$GITHUB_STEP_SUMMARY"
