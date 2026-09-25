@@ -11,6 +11,9 @@
     },
     {
       "root": "contract-policy-expert"
+    },
+    {
+      "root": "contracts"
     }
   ],
   "exclude": [

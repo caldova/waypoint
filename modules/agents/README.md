@@ -11,6 +11,7 @@ lives in the `castia` package instead of bespoke repo code.
 | `contract-expert` | Prompt-grounded keynote/video demo. Contract, policy, and invoice context lives in the baseline prompt. No IQ tools or writeback. | responses |
 | `contract-policy-expert` | FoundryIQ-only Teams/Q&A expert. Read-only `knowledge_base_retrieve` grounding for contracts and policies. | responses, activity |
 | `contract-agent` | Full multi-IQ workhorse for invoice assurance. Uses FoundryIQ, WorkIQ, WebIQ, FabricIQ, Waypoint API tools, and the single governed write path. | responses, activity, invocations |
+| `contracts` | Teams-first contract intake autopilot stub. Establishes the future inbox, artifact, extraction, evidence, and report workflow while the Waypoint Contracts API is built. | responses, activity, invocations |
 
 The first two agents keep the keynote story and the FoundryIQ optimization path
 small. The workhorse owns operational composition and persistence.
@@ -28,6 +29,7 @@ modules/agents/
 ├── contract-expert/          # prompt-grounded demo expert
 ├── contract-policy-expert/   # FoundryIQ-only contract/policy Q&A
 ├── contract-agent/           # full multi-IQ assurance workhorse
+├── contracts/                # contract inbox/autopilot stub
 └── waypoint-iq/              # reusable IQ/toolbox + OpenAPI contract
 ```
 
@@ -62,6 +64,7 @@ azd provision
 azd deploy contract-expert
 azd deploy contract-policy-expert
 azd deploy contract-agent
+azd deploy contracts
 ```
 
 ## Quality
