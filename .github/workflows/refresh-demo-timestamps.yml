@@ -1,0 +1,101 @@
+name: Refresh demo timestamps
+
+# Re-dates the Waypoint demo activity (runs, cases, recommendations, drafts, decision events)
+# onto a rolling window ending shortly before now, and moves invoice dates so each invoice
+# predates its run. Safe to re-run. See apps/waypoint/api/app/demo_timestamps.py.
+#
+# Uses the `caldova` GitHub Environment (same values as deploy-app.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      window_days:
+        description: Spread runs over this many past days.
+        type: number
+        default: 7
+      shift_invoice_dates:
+        description: Also move invoice/due dates so invoices predate their runs.
+        type: boolean
+        default: true
+      dry_run:
+        description: Show what would change without writing anything.
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: refresh-demo-timestamps
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh demo timestamps
+    runs-on: ubuntu-latest
+    environment: caldova
+    env:
+      RG: ${{ vars.AZURE_RESOURCE_GROUP }}
+      PG: ${{ vars.WAYPOINT_POSTGRES_SERVER_NAME }}
+      FIREWALL_RULE: gha-refresh-${{ github.run_id }}
+    defaults:
+      run:
+        working-directory: apps/waypoint/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v6
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # The Caldova subscription auto-stops PostgreSQL after hours.
+      - name: Ensure PostgreSQL is running
+        run: |
+          set -euo pipefail
+          state="$(az postgres flexible-server show -g "$RG" -n "$PG" --query state -o tsv)"
+          echo "PostgreSQL ${PG} state: ${state}"
+          if [ "$state" = "Stopped" ]; then
+            az postgres flexible-server start -g "$RG" -n "$PG" -o none
+          fi
+
+      - name: Allow this runner through the PostgreSQL firewall
+        run: |
+          set -euo pipefail
+          ip="$(curl -fsS https://api.ipify.org)"
+          az postgres flexible-server firewall-rule create -g "$RG" -n "$PG" \
+            --rule-name "$FIREWALL_RULE" --start-ip-address "$ip" --end-ip-address "$ip" -o none
+
+      - name: Refresh timestamps
+        env:
+          APP_DATABASE_CONNECTION: >-
+            Host=${{ vars.WAYPOINT_POSTGRES_SERVER_NAME }}.postgres.database.azure.com;Port=5432;Database=waypoint;Username=waypoint_app;Password=${{ secrets.POSTGRES_APP_PASSWORD }};SSL Mode=require
+          WINDOW_DAYS: ${{ inputs.window_days }}
+          SHIFT_INVOICES: ${{ inputs.shift_invoice_dates }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          uv sync --frozen --no-dev -q
+          args=(--window-days "$WINDOW_DAYS")
+          [ "$SHIFT_INVOICES" = "true" ] || args+=(--no-invoice-dates)
+          [ "$DRY_RUN" = "true" ] && args+=(--dry-run)
+          uv run --no-dev python -m app.demo_timestamps "${args[@]}" | tee summary.json
+          {
+            echo "### Demo timestamps $([ "$DRY_RUN" = "true" ] && echo '(dry run)')"
+            echo '```json'
+            cat summary.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the runner firewall rule
+        if: always()
+        run: |
+          az postgres flexible-server firewall-rule delete -g "$RG" -n "$PG" \
+            --rule-name "$FIREWALL_RULE" --yes -o none || true
