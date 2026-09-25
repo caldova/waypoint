@@ -15,6 +15,7 @@ from .common.settings import get_settings
 from .modules.assurance_runs import assurance_runs_router
 from .modules.cases.routes import router as cases_router
 from .modules.config import config_router
+from .modules.contracts.routes import router as contracts_router
 from .modules.records.routes import router as records_router
 from .modules.runs.reaper import start_run_reaper, stop_run_reaper
 from .modules.runs.routes import router as runs_router
@@ -74,6 +75,7 @@ app.include_router(cases_router, prefix="/api")
 app.include_router(runs_router, prefix="/api")
 app.include_router(work_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
+app.include_router(contracts_router, prefix="/api")
 
 
 @app.get("/", response_class=fastapi.responses.HTMLResponse)
