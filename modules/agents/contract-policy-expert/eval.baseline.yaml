@@ -6,13 +6,11 @@ agent:
     model: gpt-6-astra
 dataset:
     name: contract-policy-expert-test-foundry-eval
-    version: "1.0"
-    local_uri: .foundry/datasets/contract-policy-expert-test-foundry-eval
-dataset_reference:
+    version: "2.0"
     local_uri: .foundry/datasets/contract-policy-expert-test-foundry-eval
 evaluators:
     - name: contract-policy-expert-generated-rubric
-      version: "7"
+      version: "13"
       local_uri: evaluators\contract-policy-expert-generated-rubric\rubric_dimensions.json
 options:
     eval_model: gpt-6-astra
