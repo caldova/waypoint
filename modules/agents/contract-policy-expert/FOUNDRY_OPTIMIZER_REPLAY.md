@@ -133,6 +133,20 @@ the early prototype baseline. A too-strong baseline hides the optimizer lift; a
 too-broken baseline produces a cartoonish `0/24` result. The final baseline is
 intentionally weak but plausible.
 
+### Give the optimizer something real to improve
+
+The optimizer can improve instructions and existing tool definitions, but it
+does not invent a missing retrieval surface for the story. Keep the weak
+baseline functional and include the KB tool in `.agent_configs\baseline`; make
+the weakness about triage habits, evidence discipline, and policy reasoning.
+
+### Separate the story baseline from the deployed optimized version
+
+After the optimized candidate is deployed, the remote hosted agent may be on the
+optimized version while source control restores `.agent_configs\baseline` to the
+mediocre baseline. That is intentional: source keeps both story endpoints
+available, while Foundry keeps the deployment/version artifacts.
+
 ### Do not leave the optimized candidate in active baseline source
 
 Deploying the optimized candidate requires copying optimized assets into the
@@ -162,6 +176,13 @@ Do not mix old local `.foundry\results` payloads, old candidate folders, or old
 azd optimizer state into a new story run. Capture old evidence separately, then
 submit a fresh job and record the new IDs.
 
+### Treat local JSON as cache, not the durable demo artifact
+
+The authoritative artifacts to point at are in Foundry: eval groups/runs,
+dataset versions, evaluator versions, hosted-agent versions, and optimizer jobs.
+Local `.foundry\results` files are useful breadcrumbs but are ignored by git and
+should not be the only record of a demo run.
+
 ### Validate `tools.json` after materializing a candidate
 
 PowerShell can accidentally unwrap a one-element JSON array when writing
@@ -190,6 +211,13 @@ Use the follow-up list result as the source of truth.
 `gpt-6-astra` worked as the hosted-agent model and generated-rubric judge/eval
 model. Use `gpt-5.5` for optimizer reflection unless the target project has
 another known optimizer-supported reflection model.
+
+### Reuse one held-out rubric/dataset for the headline comparison
+
+The clean improvement story depends on changing only the agent assets. Keep the
+rubric evaluator version, held-out dataset version, agent model, and eval repeat
+method fixed between baseline and optimized runs. Optimizer-internal train
+scores are supporting evidence, not the headline proof.
 
 ### Foundry storage must be reachable
 
