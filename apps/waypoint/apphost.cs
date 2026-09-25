@@ -111,6 +111,13 @@ if (!builder.ExecutionContext.IsRunMode)
     }
 }
 
+// Optional custom domains for the published container apps. Each deploy re-applies the generated
+// ingress, so a domain bound outside Aspire (portal/CLI) is removed on the next `aspire deploy`.
+// Declaring it here keeps it. Set both the domain and the name of the environment's managed
+// certificate for that domain; leave both unset (the default) to publish without a custom domain.
+var apiCustomDomain = AddOptionalCustomDomain(builder, "api", "Waypoint:Api:CustomDomain", "Waypoint:Api:CertificateName");
+var webCustomDomain = AddOptionalCustomDomain(builder, "web", "Waypoint:Web:CustomDomain", "Waypoint:Web:CertificateName");
+
 // Python FastAPI Backend
 var api = builder.AddUvicornApp("api", "./api", "app.main:app")
     .WithUv()
@@ -144,6 +151,7 @@ var api = builder.AddUvicornApp("api", "./api", "app.main:app")
         var container = app.Template.Containers[0].Value!;
         container.Resources.Cpu = 1;
         container.Resources.Memory = "2Gi";
+        ConfigureOptionalCustomDomain(app, apiCustomDomain);
     });
 
 if (builder.ExecutionContext.IsRunMode && !msalApiValidationIsEnabled)
@@ -332,6 +340,7 @@ var web = builder.AddViteApp("web", "./web")
         var container = app.Template.Containers[0].Value!;
         container.Resources.Cpu = 1;
         container.Resources.Memory = "2Gi";
+        ConfigureOptionalCustomDomain(app, webCustomDomain);
     });
 
 // Force HTTPS for the API URL at deploy time
@@ -370,4 +379,41 @@ static bool IsEnabled(string value)
         "1" or "true" or "yes" or "y" or "on" => true,
         _ => false,
     };
+}
+
+static (IResourceBuilder<ParameterResource> Domain, IResourceBuilder<ParameterResource> Certificate)? AddOptionalCustomDomain(
+    IDistributedApplicationBuilder builder,
+    string resourceName,
+    string domainKey,
+    string certificateKey)
+{
+    var domain = builder.Configuration[domainKey];
+    var certificate = builder.Configuration[certificateKey];
+    if (builder.ExecutionContext.IsRunMode || string.IsNullOrWhiteSpace(domain))
+    {
+        return null;
+    }
+    if (string.IsNullOrWhiteSpace(certificate))
+    {
+        throw new InvalidOperationException(
+            $"{domainKey} is set but {certificateKey} is not. Provide the managed certificate name for {domain}."
+        );
+    }
+
+    return (
+        builder.AddParameter($"{resourceName}-custom-domain", domain.Trim()),
+        builder.AddParameter($"{resourceName}-certificate-name", certificate.Trim())
+    );
+}
+
+static void ConfigureOptionalCustomDomain(
+    Azure.Provisioning.AppContainers.ContainerApp app,
+    (IResourceBuilder<ParameterResource> Domain, IResourceBuilder<ParameterResource> Certificate)? customDomain)
+{
+    if (customDomain is { } value)
+    {
+#pragma warning disable ASPIREACADOMAINS001 // Evaluation API; the supported way to keep a custom domain across deploys.
+        app.ConfigureCustomDomain(value.Domain, value.Certificate);
+#pragma warning restore ASPIREACADOMAINS001
+    }
 }

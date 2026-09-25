@@ -82,9 +82,18 @@ agent workflow are not affected:
 | `WAYPOINT_MSAL_REDIRECT_URI` | variable | Web SPA redirect URI. |
 | `WAYPOINT_MSAL_ALLOWED_APP_IDS` | variable | Optional agent app IDs (CSV). |
 | `WAYPOINT_POSTGRES_SERVER_NAME` | variable | Existing PostgreSQL Flexible Server name. |
+| `WAYPOINT_WEB_CUSTOM_DOMAIN` | variable | Optional web custom domain (`app.caldova.com`). |
+| `WAYPOINT_WEB_CERTIFICATE_NAME` | variable | Managed certificate name for the web domain. |
+| `WAYPOINT_API_CUSTOM_DOMAIN` | variable | Optional API custom domain (`api.caldova.com`). |
+| `WAYPOINT_API_CERTIFICATE_NAME` | variable | Managed certificate name for the API domain. |
 | `POSTGRES_APP_PASSWORD` | secret | Password for the `waypoint_app` DB role. |
 
 (1) Contributor + User Access Administrator on `waypoint-rg` only.
+
+Custom domains must be declared through these variables. `aspire deploy`
+re-applies each container app's ingress, so a domain bound only in the portal or
+CLI is removed on the next deploy. For a new domain, create the DNS records and
+the environment managed certificate first, then set both variables.
 
 The OIDC federated credential trusts
 `repo:caldova@297935432/waypoint@1301973660:environment:caldova` (this repository
