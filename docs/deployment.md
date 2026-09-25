@@ -60,7 +60,9 @@ every push to `v2` that touches `apps/waypoint/**` and on demand from
 
 The workflow runs `aspire deploy` (via `tools/deploy/scripts/aspire_deploy.sh`)
 against the existing `waypoint-rg` resource group. PostgreSQL is an existing
-Flexible Server and is not provisioned; Fabric/OneLake is not enabled. After the
+Flexible Server and is not provisioned; Fabric/OneLake is not enabled.
+The Caldova subscription auto-stops PostgreSQL after hours, so the workflow
+starts the server first if it is stopped. After the
 deploy it checks API `/health` (200), unauthenticated `/api/runs` (401), and the
 web root (200).
 
