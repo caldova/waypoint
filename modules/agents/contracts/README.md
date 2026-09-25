@@ -28,8 +28,16 @@ The agent registers all three Castia protocols:
 | `activity` | Teams-style conversational surface. |
 | `invocations` | Agent-to-agent/tool use. |
 
-The tools in `tools.py` are placeholders. They return `not_implemented` for
-mailbox polling, latest-contract lookup, and document generation, along with the
+The tools in `tools.py` are API-ready scaffolds. When `WAYPOINT_API_BASE_URL` is
+unset, local fixture mode is enabled so the playground can exercise the flow
+without the future API:
+
+- `poll_contracts_inbox` seeds a mock Aster Ridge contract artifact.
+- `get_last_contract` resolves that mock artifact.
+- `draft_contract_report` writes a local Markdown report under
+  `.contracts-state/reports/`.
+
+When fixture mode is disabled, those tools return `not_implemented` with the
 future Waypoint API call each behavior expects.
 
 ## Local development
@@ -38,4 +46,13 @@ future Waypoint API call each behavior expects.
 cd modules\agents\contracts
 uv sync
 uv run python main.py
+```
+
+Useful local prompts:
+
+```text
+What can Contracts do right now?
+Check the Contracts inbox.
+What was in the last contract I sent?
+Draft a contract brief for the latest artifact.
 ```
