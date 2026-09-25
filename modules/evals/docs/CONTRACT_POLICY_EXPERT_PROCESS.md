@@ -524,6 +524,23 @@ evidence item metadata (`claim`, `supports`, `source_ref`, `classification`,
 custom JSON shapes, missing `invoice_id`, missing citations/classifications,
 final invoice decisions, recovery/dispute execution, and Waypoint writes.
 
+For the current v2 Blossom/MAI path, treat
+`graders\contract-policy-expert\contract_policy_evidence_grader.py` as the
+reference implementation. It should be augmented before live submission rather
+than reused unchanged:
+
+- wrap it as a Blossom endpoint grader that maps Blossom's request body into the
+  grader's `sample` and `item` inputs and returns a numeric `score`;
+- keep the endpoint self-contained, with no dependency on local Caliber imports;
+- align the Blossom `response_format.json_schema` with the grader's required
+  `expert_evidence` fields;
+- add v2-specific checks for retrieval discipline, cited-source availability,
+  no invented write/recovery actions, and current `contract-policy-expert`
+  identity/correlation fields;
+- return or log per-dimension diagnostics for pre-submit calibration, even if
+  the live Blossom endpoint response is just `{ "score": <number> }`;
+- recalibrate `pass_threshold` against current v2 baseline/optimized outputs.
+
 Caliber stores the local request and status snapshots under ignored run storage:
 
 ```text
@@ -558,7 +575,11 @@ versus optimized behavior.
 ## 6. FT/RFT for cost optimization
 
 FT/RFT happens after optimizer. The goal is to preserve optimized behavior on a
-cheaper model, not to replace the optimizer.
+cheaper model, not to replace the optimizer. For the current v2 lane, use the
+checked-in `contract-policy-expert` `gpt-6-astra` baseline/optimized configs as
+the teacher source and choose the lower-cost RFT base model only after current
+Foundry model support is verified. Historical `o4-mini` job IDs below are
+reference-only and are not proof of a current v2 RFT candidate.
 
 Plan the RFT job:
 
@@ -566,7 +587,7 @@ Plan the RFT job:
 $Caliber = "C:\path\to\caliber"
 $ProjectEndpoint = "<foundry-project-endpoint>"
 $Agent = "contract-policy-expert"
-$CheapBaseModel = "o4-mini"
+$RftBaseModel = "MAI-Code-1-Flash"
 $DatasetDir = "$Caliber\datasets\$Agent"
 
 Set-Location $Caliber
@@ -575,7 +596,7 @@ uv run caliber rft plan `
   --train "$DatasetDir\$Agent-train.jsonl" `
   --validation "$DatasetDir\$Agent-validation.jsonl" `
   --grader "$Caliber\graders\$Agent\contract_policy_evidence_grader.py" `
-  --base-model $CheapBaseModel `
+  --base-model $RftBaseModel `
   --project-endpoint $ProjectEndpoint `
   --suffix "$Agent-cost" `
   --json
@@ -589,7 +610,7 @@ uv run caliber rft package `
   --validation "$DatasetDir\$Agent-validation.jsonl" `
   --grader "$Caliber\graders\$Agent\contract_policy_evidence_grader.py" `
   --agent $Agent `
-  --base-model $CheapBaseModel `
+  --base-model $RftBaseModel `
   --suffix "$Agent-cost" `
   --optimizer-job-id <optimizer-job-id> `
   --json
@@ -608,10 +629,9 @@ runs\rft\contract-policy-expert\manifest.json
 The package is intentionally marked `ready_for_live_submit: false` until the
 optimizer candidate is selected, applied after review, the calibration eval is
 rerun, RFT base-model support is verified, and live RFT spend is explicitly
-approved. A normal `o4-mini` serving deployment is not required before
-submission; in this Forge account that rollout failed with
-`ServiceModelDeprecating`, but Microsoft documents `o4-mini` `2025-04-16` as
-the GA RFT base model.
+approved. A normal serving deployment of the selected RFT base model is not
+required before submission, but current Foundry RFT support must be verified in
+the target project before any live job is submitted.
 
 For expanded RFT review packaging, concatenate the reviewed scenario and
 contract-clause source rows into ignored `runs\rft\<agent>-expanded\` source
@@ -625,10 +645,12 @@ Before submitting a real FT/RFT job:
 2. Decide the accepted quality band versus the optimized hosted agent.
 3. Calibrate or replace the deterministic grader so it matches the Foundry rubric
    failure boundary.
-4. Submit FT/RFT only when the cheaper model has a clear cost target and a
+4. Package and load-test the v2 Blossom endpoint grader, including credential
+   handling via headers rather than grader URL query parameters.
+5. Submit FT/RFT only when the cheaper model has a clear cost target and a
    reviewed reward/eval gate.
 
-Current live RFT submission for the accepted golden candidate:
+Historical live RFT submission for the accepted golden candidate:
 
 ```text
 project endpoint: https://ai-account-wi2egf4sh4hfq.services.ai.azure.com/api/projects/ai-project-forge
@@ -639,6 +661,10 @@ training file: file-4272b94eaf5a476e95248922c36bc1b0
 validation file: file-5bd1f7647832481a92a2ec9ab9fe99a7
 package: runs\rft\contract-policy-expert-expanded
 ```
+
+Treat that submission as historical evidence only. For v2, create a fresh
+package, fresh current lineage snapshot, and fresh submit record from the
+currently deployed `contract-policy-expert` source and eval assets.
 
 ## Promotion criteria
 

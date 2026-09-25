@@ -339,33 +339,38 @@ current CLI shape:
 `evaluatorgen-assurance-analyst-contract-grounding-rubric-optimizer-v1-a04fb179`
 (`succeeded`). No optimizer operation ID or candidate IDs were created.
 
-Current credible route before RFT:
+Current v2 credible route before RFT:
 
-1. Patch the shared Forge prompt so invoice-assurance evidence tasks return the
-   strict Caliber evidence JSON contract (`agent`, `plane`, `output_type`,
-   `correlation`, `evidence`, `unsupported`, and `summary`). Keep concise
-   human-readable status answers only for pure Waypoint status questions.
-2. Scaffold hosted Agent Optimizer support in Forge for `assurance-analyst`:
-   add `azure-ai-agentserver-optimization`, call `load_config()` in `main.py`,
-   and create `.agent_configs\baseline\metadata.yaml` plus `instructions.md`
-   from the reviewed prompt. This is required before a non-interactive
-   optimizer job can be created.
-3. Use the reviewed rubric eval config as the optimizer dataset/evaluator input,
-   run `azd ai agent optimize` with an existing supported optimization model
-   deployment, apply the selected candidate locally, then review the Forge diff
-   before deploy.
-4. Rerun the contract-grounding rubric and Caliber grader calibration. Submit RFT
-   only if the remaining failures are grounded reasoning/citation failures rather
-   than prompt-contract or tool-description issues.
+1. Treat `contract-policy-expert` as the only active RFT target. Historical
+   `assurance-analyst` and `foundryiq-expert` names below are provenance only.
+2. Use the checked-in v2 hosted-agent configs under
+   `modules\agents\contract-policy-expert\.agent_configs\baseline` and
+   `.agent_configs\optimized` as the source anchor. Both currently target the
+   `gpt-6-astra` hosted-agent / teacher deployment family.
+3. Regenerate or verify the Foundry rubric/eval assets against the current
+   deployed `contract-policy-expert` version and the current
+   `modules\evals\datasets\contract-policy-expert` splits.
+4. Run fresh current baseline and optimized evals, export output-items, and
+   recalibrate `contract_policy_evidence_grader.py` against those current v2
+   outputs.
+5. Use the existing deterministic grader as the reference for a new v2 Blossom
+   endpoint grader. Augment it for current response schema parity, retrieval
+   discipline, source availability, MAI/Blossom request-shape adaptation, and
+   load/latency requirements before any live job.
+6. Package RFT only after the current optimized hosted agent is accepted as the
+   quality target. Select a supported lower-cost RFT base model at that time;
+   do not assume the historical `o4-mini` job/deployment is reusable for v2.
+7. Submit live RFT only with current lineage, verified model support, quota/cost
+   readiness, and explicit spend approval.
 
 Caliber can inspect this readiness without touching Forge:
 
 ```powershell
 uv run caliber optimizer plan `
   --forge-path C:\path\to\forge `
-  --agent assurance-analyst `
-  --dataset datasets\assurance-analyst\assurance-analyst-eval.jsonl `
-  --eval-config runs\eval-results\assurance-analyst\assurance-analyst-contract-grounding-rubric.eval.yaml `
+  --agent contract-policy-expert `
+  --dataset datasets\contract-policy-expert\contract-policy-expert-eval.jsonl `
+  --eval-config runs\eval-results\contract-policy-expert\contract-policy-expert-foundryiq-baseline.eval.yaml `
   --json
 ```
 
@@ -453,8 +458,8 @@ Before submitting any real model fine-tuning job:
    model choice.
 7. Deploy a fine-tuned model only after held-out evals show improvement.
 
-For `contract-policy-expert`, the accepted optimizer quality target is
-`opt_994a956b2d6e49939506323a15dfc5d2`:
+For `contract-policy-expert`, the historical accepted optimizer quality target
+was `opt_994a956b2d6e49939506323a15dfc5d2`:
 
 ```text
 baseline: cand_bc834224066e45d8938aa2fa738a9720, score 0.5084
@@ -464,9 +469,11 @@ candidate_3: cand_9f784632464f4155a7f532b37288806f, score 0.8344
 peak: cand_6bf6980ed16f4538ba0faf8935d93c01, score 0.8521
 ```
 
-Use that hill climb as the RFT handoff: the peak `gpt-5.5` candidate is the
-quality target, and the fine-tuned cheaper model must preserve that behavior
-while reducing measured eval cost.
+Use that hill climb only as the historical shape for the RFT handoff. Current v2
+work must replace it with fresh current lineage from the deployed
+`contract-policy-expert`: the peak current optimized candidate is the quality
+target, and the fine-tuned cheaper model must preserve that behavior while
+reducing measured eval cost.
 
 For `assurance-analyst`, start with Ledgerfield clause-grounded scenarios and
 Forge's retrieval-backed `contract-policy-evidence-compliance` eval as held-out

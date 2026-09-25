@@ -6,7 +6,23 @@ resource IDs, and generated run payloads under ignored `runs/` storage.
 
 ## Caldova RFT target
 
+This file is a **historical, reference-only artifact note**. It preserves the
+accepted Caldova RFT review from an earlier run, but it is not the current v2
+submission plan and must not be treated as proof that the checked-in v2 agent is
+already fine-tuned or promotable.
+
+Current v2 source of truth:
+
 - Agent: `contract-policy-expert`
+- Active hosted-agent configs:
+  `modules\agents\contract-policy-expert\.agent_configs\baseline` and
+  `modules\agents\contract-policy-expert\.agent_configs\optimized`
+- Current hosted-agent / teacher deployment family: `gpt-6-astra`
+- Current RFT question: can a newly reviewed lower-cost candidate preserve the
+  current v2 optimized `contract-policy-expert` behavior?
+
+Historical reference-only evidence:
+
 - Optimizer lineage: `opt_994a956b2d6e49939506323a15dfc5d2`
 - Golden optimizer candidate:
   `candidate_4 / cand_6bf6980ed16f4538ba0faf8935d93c01`
@@ -15,7 +31,10 @@ resource IDs, and generated run payloads under ignored `runs/` storage.
   `o4-mini-2025-04-16.ft-0265d673736e496dbd360530958c6149`
 - RFT serving deployment: `contract-policy-expert-rft-o4-mini`
 
-The Caldova comparison is **hosted agent + tools**, not model-only completions.
+The historical Caldova comparison was **hosted agent + tools**, not model-only
+completions. For current v2 work, rerun the same style of hosted-agent evals
+against the currently deployed `contract-policy-expert` versions and record new
+current lineage before making any submit or promotion decision.
 
 ## Customer-facing answer: dataset and grader origin
 
@@ -94,6 +113,10 @@ When speaking externally, describe these as:
   and policy corpus.
 
 ## Hosted agent versions
+
+These versions are from the historical reference run. They are intentionally
+preserved for demo provenance, but they are not assumed to correspond to the
+latest v2 deployment.
 
 | Version | Purpose | Model/deployment | Notes |
 | --- | --- | --- | --- |
@@ -187,10 +210,12 @@ preserved verbatim in each snapshot's `metrics` field.
 `reference_only` snapshots always report lineage status `reference_only`
 (never `current`), even if their hashes happen to match current files. This
 is a deliberate, permanent classification: the numbers on this page remain
-the accepted historical record, but any live optimizer/RFT gate decision must
-be backed by a freshly computed, freshly verified `current` snapshot rather
-than this historical one. See `../../evals/docs/QUALITY_LINEAGE.md` for the
-full lineage schema and the fail-closed gate commands
+the accepted historical record, but any v2 optimizer/RFT gate decision must be
+backed by a freshly computed, freshly verified `current` snapshot from the
+currently checked-in `contract-policy-expert` source, current deployed agent
+version, current eval dataset/evaluator versions, and current candidate model.
+See `../../evals/docs/QUALITY_LINEAGE.md` for the full lineage schema and the
+fail-closed gate commands
 (`caliber lineage snapshot|verify|report`, `caliber gates check`) that
 consume it. The `optimizer-diff` and `rft-cost-quality` canvases load this
 same file and surface a `Lineage: reference-only` badge alongside the numbers

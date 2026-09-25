@@ -22,9 +22,9 @@ $Caliber = "C:\path\to\caliber"
 $Forge = "C:\path\to\forge"
 $Ledgerfield = "C:\path\to\ledgerfield"
 $ProjectEndpoint = "<foundry-project-endpoint>"
-$EvalModel = "gpt-5.5"
+$EvalModel = "gpt-6-astra"
 $OptimizationModel = "gpt-5.5"
-$CheapBaseModel = "o4-mini"
+$RftBaseModel = "MAI-Code-1-Flash"
 $Agent = "contract-policy-expert"
 $DatasetDir = "$Caliber\datasets\$Agent"
 $RunDir = "$Caliber\runs\eval-results\$Agent"
@@ -163,7 +163,12 @@ optimized run becomes the quality target for cheaper-model RFT.
 
 ## 8. Plan RFT for cost optimization
 
-Use the accepted optimizer run as the transition point from accuracy to cost:
+Use the accepted optimizer run as the transition point from accuracy to cost.
+The table below is the historical Caldova review shape; for current v2 work,
+replace it with fresh current optimizer/eval lineage from the deployed
+`contract-policy-expert` that is actually present in the target Foundry project.
+Do not reuse the historical fine-tuned model or deployment as the v2 candidate
+unless a new eval proves it is attached to the current v2 source and behavior.
 
 | Step | Run/candidate | Score | Meaning |
 |---|---|---:|---|
@@ -171,17 +176,17 @@ Use the accepted optimizer run as the transition point from accuracy to cost:
 | Climb 1 | `cand_ff59c418490e4fd9bd3380d8e8e2a732` | `0.8159` | Optimizer makes the first major quality jump |
 | Climb 2 | `cand_270e4602da7b41aeb47c82d3cfbbdd01` | `0.8379` | Search finds a stronger candidate |
 | Explore | `cand_9f784632464f4155a7f532b37288806f` | `0.8344` | Slight regression shows hill climbing is search, not a straight line |
-| Peak | `cand_6bf6980ed16f4538ba0faf8935d93c01` | `0.8521` | Accepted optimized `gpt-5.5` behavior target |
+| Peak | `cand_6bf6980ed16f4538ba0faf8935d93c01` | `0.8521` | Historical optimized behavior target |
 
 RFT starts from the peak. It should preserve the optimized behavior while moving
-serving economics to `o4-mini`.
+serving economics to a supported lower-cost RFT base model.
 
 ```powershell
 uv run caliber rft plan `
   --train "$DatasetDir\$Agent-train.jsonl" `
   --validation "$DatasetDir\$Agent-validation.jsonl" `
   --grader "$Caliber\graders\$Agent\contract_policy_evidence_grader.py" `
-  --base-model $CheapBaseModel `
+  --base-model $RftBaseModel `
   --project-endpoint $ProjectEndpoint `
   --suffix "$Agent-cost" `
   --json
