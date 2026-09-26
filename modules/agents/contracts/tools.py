@@ -9,15 +9,26 @@ SharePoint, or live Waypoint state.
 from __future__ import annotations
 
 import json
+import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
+from azure.identity.aio import DefaultAzureCredential
 from castia.inference.tools import Tool
 from dotenv import load_dotenv
 
+from contract_sources import ContractAttachment, contract_source
+from content_understanding import ContractExtraction, extract_contract_pdf
+from report_publisher import report_publisher, sharepoint_report_publishing_configured
+from report_writer import render_report
+from toolbox import is_toolbox_configured
+
 load_dotenv()
+
+_LOGGER = logging.getLogger("contracts.telemetry")
 
 
 def _usable_env(name: str) -> str | None:
@@ -33,8 +44,27 @@ def _waypoint_base_url() -> str | None:
     return value.rstrip("/")
 
 
+def _is_local_base_url(value: str) -> bool:
+    return value.startswith(
+        (
+            "http://127.0.0.1",
+            "https://127.0.0.1",
+            "http://localhost",
+            "https://localhost",
+        )
+    )
+
+
 def _contracts_inbox() -> str:
     return _usable_env("CONTRACTS_INBOX_ADDRESS") or "contracts@company.example"
+
+
+def _contracts_owner() -> str:
+    return _usable_env("CONTRACTS_DEV_USER_EMAIL") or "local.user@contracts.local"
+
+
+def _env_presence(names: list[str]) -> dict[str, bool]:
+    return {name: _usable_env(name) is not None for name in names}
 
 
 def _local_fixture_enabled() -> bool:
@@ -81,80 +111,138 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _mock_artifact(owner_user_id: str = "local.user@contracts.local") -> dict[str, Any]:
+def _telemetry_event(name: str, **properties: Any) -> None:
+    payload = {
+        "event": name,
+        "agent": "contracts",
+        "timestamp": _now(),
+        "build_id": _usable_env("CONTRACTS_AGENT_BUILD_ID"),
+        "deployment_stage": _usable_env("CONTRACTS_AGENT_DEPLOYMENT_STAGE"),
+        **properties,
+    }
+    _LOGGER.info("contracts.telemetry %s", json.dumps(payload, sort_keys=True, default=str))
+
+
+def _coerce_artifact_type(value: str | None) -> str | None:
+    artifact_type = (value or "").strip().lower()
+    return artifact_type if artifact_type in {"contract", "invoice"} else None
+
+
+def _artifact_type_filter(value: str | None = None) -> str:
+    return _coerce_artifact_type(value) or _coerce_artifact_type(
+        os.environ.get("CONTRACTS_LOCAL_DOCUMENT_KIND")
+    ) or "contract"
+
+
+def _local_contract_attachment(
+    owner_user_id: str = "local.user@contracts.local",
+    *,
+    artifact_type: str | None = None,
+) -> ContractAttachment:
+    return contract_source().next_contract(
+        mailbox_id=_contracts_inbox(),
+        owner_user_id=owner_user_id,
+        artifact_type=artifact_type,
+    )
+
+
+def _mock_artifact(
+    owner_user_id: str = "local.user@contracts.local",
+    attachment: ContractAttachment | None = None,
+    extraction: ContractExtraction | None = None,
+) -> dict[str, Any]:
+    attachment = attachment or _local_contract_attachment(owner_user_id)
+    extracted_json = extraction.values if extraction else _local_extracted_json()
     created_at = _now()
+    artifact_id = f"{attachment.artifact_type}-local-{attachment.sha256[:16]}"
     return {
-        "id": "contract-local-aster-ridge-sow",
-        "type": "contract",
-        "title": "Aster Ridge Biomanufacturing Statement of Work",
+        "id": artifact_id,
+        "type": attachment.artifact_type,
+        "title": attachment.subject,
         "owner_user_id": owner_user_id,
         "source": "email",
-        "source_mailbox_id": _contracts_inbox(),
-        "source_message_id": "local-fixture-message-001",
-        "source_attachment_id": "local-fixture-attachment-001",
-        "source_attachment_sha256": (
-            "8bc8ef4e35c7d7f509b31d3b50a7e0a6c6f798ab617f5bba61583c0d79e64e9c"
-        ),
-        "original_file_uri": "local-fixture://contracts/aster-ridge-sow.pdf",
+        "source_mailbox_id": attachment.mailbox_id,
+        "source_message_id": attachment.message_id,
+        "source_attachment_id": attachment.attachment_id,
+        "source_attachment_sha256": attachment.sha256,
+        "original_file_uri": attachment.original_file_uri,
         "extraction_status": "completed",
         "processing_status": "ready",
         "created_at": created_at,
         "updated_at": created_at,
-        "extracted_json": {
-            "supplier": "Aster Ridge Biomanufacturing",
-            "document_type": "statement_of_work",
-            "effective_date": "2026-01-15",
-            "governing_terms": [
-                "batch release administration",
-                "quality deviation cost recovery",
-                "sponsor approval before pass-through fees",
-            ],
-            "commercial_values": {
-                "currency": "USD",
-                "monthly_minimum": 125000,
-                "release_administration_fee": 3750,
-            },
-        },
+        "extracted_json": extracted_json,
         "evidence": [
             {
                 "id": "evidence-local-001",
                 "source_type": "content_understanding",
-                "claim": "The fixture contract includes a release administration fee.",
-                "citation": "local-fixture://contracts/aster-ridge-sow.pdf#release-fees",
+                "claim": f"The fixture {attachment.artifact_type} was extracted by Content Understanding.",
+                "citation": f"{attachment.original_file_uri}#content-understanding",
                 "confidence": 0.82,
-            },
-            {
-                "id": "evidence-local-002",
-                "source_type": "policy",
-                "claim": "Pass-through fees require sponsor approval before recovery.",
-                "citation": "local-fixture://policies/invoice-reconciliation-policy.md",
-                "confidence": 0.78,
-            },
+            }
         ],
         "metadata": {
             "fixture": True,
+            "source_mode": attachment.source_mode,
+            "artifact_type": attachment.artifact_type,
+            "source_file_name": attachment.file_name,
+            "source_size_bytes": attachment.size_bytes,
             "note": "Local scaffold artifact for playground testing only.",
         },
     }
 
 
-def _ensure_mock_artifact(state: dict[str, Any], owner_user_id: str = "") -> dict[str, Any]:
-    artifact_id = "contract-local-aster-ridge-sow"
+def _local_extracted_json() -> dict[str, Any]:
+    return {
+        "supplier": "Aster Ridge Biomanufacturing",
+        "document_type": "statement_of_work",
+        "effective_date": "2026-01-15",
+        "governing_terms": [
+            "batch release administration",
+            "quality deviation cost recovery",
+            "sponsor approval before pass-through fees",
+        ],
+        "commercial_values": {
+            "currency": "USD",
+            "monthly_minimum": 125000,
+            "release_administration_fee": 3750,
+        },
+    }
+
+
+def _ensure_mock_artifact(
+    state: dict[str, Any],
+    owner_user_id: str = "",
+    *,
+    artifact_type: str | None = None,
+) -> dict[str, Any]:
+    attachment = _local_contract_attachment(
+        owner_user_id or "local.user@contracts.local",
+        artifact_type=artifact_type,
+    )
+    artifact_id = f"{attachment.artifact_type}-local-{attachment.sha256[:16]}"
     artifacts = [item for item in state["artifacts"] if isinstance(item, dict)]
     for artifact in artifacts:
         if artifact.get("id") == artifact_id:
             return artifact
-    artifact = _mock_artifact(owner_user_id or "local.user@contracts.local")
+    artifact = _mock_artifact(owner_user_id or "local.user@contracts.local", attachment)
     artifacts.append(artifact)
     state["artifacts"] = artifacts
     _save_state(state)
     return artifact
 
 
-def _latest_artifact(state: dict[str, Any], owner_user_id: str = "") -> dict[str, Any] | None:
+def _latest_artifact(
+    state: dict[str, Any],
+    owner_user_id: str = "",
+    *,
+    artifact_type: str | None = None,
+) -> dict[str, Any] | None:
     artifacts = [item for item in state["artifacts"] if isinstance(item, dict)]
     if owner_user_id:
         artifacts = [item for item in artifacts if item.get("owner_user_id") == owner_user_id]
+    artifact_type = _coerce_artifact_type(artifact_type)
+    if artifact_type:
+        artifacts = [item for item in artifacts if item.get("type") == artifact_type]
     if not artifacts:
         return None
     return max(artifacts, key=lambda item: str(item.get("created_at") or ""))
@@ -165,18 +253,213 @@ def _future_endpoint(path: str) -> str:
     return f"{base}{path}"
 
 
-async def _get_contracts_capabilities_impl(activity: Any) -> dict[str, Any]:
+def _report_markdown(artifact: dict[str, Any], report_type: str) -> str:
+    extracted = _artifact_extracted_values(artifact)
+    commercial = extracted.get("commercial_values") if isinstance(extracted, dict) else {}
+    commercial = commercial if isinstance(commercial, dict) else {}
+    evidence = artifact.get("evidence") if isinstance(artifact.get("evidence"), list) else []
+    title = (
+        artifact.get("title")
+        or artifact.get("file_name")
+        or artifact.get("source_file_name")
+        or "Contract artifact"
+    )
+    return "\n".join(
+        [
+            f"# {title} - {report_type.replace('_', ' ').title()}",
+            "",
+            "> Local generated report. In local smoke tests this Markdown is written to disk; "
+            "SharePoint upload/sharing is still a hosted workflow.",
+            "",
+            "## Summary",
+            "",
+            f"- Artifact: `{artifact.get('id', 'unknown')}`",
+            f"- Supplier: {extracted.get('supplier', 'Unknown')}",
+            f"- Document type: {extracted.get('document_type', 'Unknown')}",
+            f"- Effective date: {extracted.get('effective_date', 'Unknown')}",
+            f"- Monthly minimum: {commercial.get('currency', 'USD')} {commercial.get('monthly_minimum', 'Unknown')}",
+            f"- Release administration fee: {commercial.get('currency', 'USD')} {commercial.get('release_administration_fee', 'Unknown')}",
+            f"- Evidence records: {len(evidence)}",
+            "",
+            "## Review priorities",
+            "",
+            "- Confirm billing triggers and whether fees are inside or outside the monthly minimum.",
+            "- Verify sponsor approval requirements before pass-through fee recovery.",
+            "- Review quality deviation cost recovery support requirements.",
+            "",
+            "## Source",
+            "",
+            f"- Source URI: `{artifact.get('original_file_uri', artifact.get('file_url', 'unknown'))}`",
+        ]
+    )
+
+
+async def _publish_rendered_report(
+    *,
+    rendered_docx: Path,
+    rendered_markdown: Path,
+    title: str,
+) -> dict[str, Any]:
+    _telemetry_event(
+        "contracts_report_publish_started",
+        title=title,
+        docx_exists=rendered_docx.exists(),
+        markdown_exists=rendered_markdown.exists(),
+        publish_mode=_usable_env("CONTRACTS_REPORTS_PUBLISH_MODE") or "auto",
+        sharepoint_configured=sharepoint_report_publishing_configured(),
+    )
+    try:
+        published = await report_publisher().publish(
+            docx_path=rendered_docx,
+            markdown_path=rendered_markdown,
+            title=title,
+        )
+    except Exception as exc:
+        _telemetry_event(
+            "contracts_report_publish_failed",
+            title=title,
+            error_type=type(exc).__name__,
+            error=str(exc),
+            sharepoint_configured=sharepoint_report_publishing_configured(),
+        )
+        raise
+    _telemetry_event(
+        "contracts_report_publish_succeeded",
+        title=title,
+        storage=published.storage,
+        share_status=published.share_status,
+        has_teams_link=bool(published.teams_link_url),
+        has_drive_item=published.drive_item is not None,
+    )
     return {
+        "file_url": published.file_url,
+        "teams_link_url": published.teams_link_url,
+        "share_status": published.share_status,
+        "storage": published.storage,
+        "web_url": published.web_url,
+        "share_url": published.share_url,
+        "drive_item": published.drive_item,
+        "metadata": published.metadata or {},
+    }
+
+
+def _api_share_status(publication: dict[str, Any]) -> str:
+    status = str(publication.get("share_status") or "")
+    if status == "shared_link_created":
+        return "shared"
+    if status.startswith("not_shared"):
+        return "not_shared"
+    if status in {"pending_approval", "shared", "failed", "not_shared"}:
+        return status
+    return "failed"
+
+
+def _artifact_extracted_values(artifact: dict[str, Any]) -> dict[str, Any]:
+    extracted = artifact.get("extracted_json")
+    if isinstance(extracted, dict):
+        return extracted
+    extractions = artifact.get("extractions")
+    if isinstance(extractions, list) and extractions:
+        latest = next((item for item in reversed(extractions) if isinstance(item, dict)), None)
+        if latest:
+            values = latest.get("values")
+            if isinstance(values, dict):
+                return values
+    return {}
+
+
+class _WaypointContractsClient:
+    def __init__(self) -> None:
+        base = _waypoint_base_url()
+        if not base:
+            raise RuntimeError("WAYPOINT_API_BASE_URL is not configured.")
+        if not base.startswith(("http://", "https://")):
+            base = f"https://{base}"
+        self._base = base.rstrip("/")
+        self._scope = _usable_env("WAYPOINT_API_SCOPE")
+        self._api_key = _usable_env("WAYPOINT_API_KEY")
+        self._dev_user_email = _usable_env("CONTRACTS_DEV_USER_EMAIL")
+        raw_verify = _usable_env("WAYPOINT_API_VERIFY_SSL")
+        self._verify = True if raw_verify is None else raw_verify.lower() not in {
+            "0",
+            "false",
+            "no",
+            "off",
+        }
+        self._credential: Any | None = None
+
+    def _url(self, path: str) -> str:
+        if self._base.endswith("/api") and path.startswith("/api/"):
+            return f"{self._base}{path[4:]}"
+        return f"{self._base}{path}"
+
+    async def _headers(self) -> dict[str, str]:
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if self._scope:
+            if self._credential is None:
+                self._credential = DefaultAzureCredential()
+            token = await self._credential.get_token(self._scope)
+            headers["Authorization"] = f"Bearer {token.token}"
+        elif self._api_key:
+            headers["x-api-key"] = self._api_key
+        elif self._dev_user_email and _is_local_base_url(self._base):
+            headers["x-dev-user-email"] = self._dev_user_email
+        return headers
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json_body: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | list[Any]:
+        headers = await self._headers()
+        async with httpx.AsyncClient(timeout=30.0, verify=self._verify) as client:
+            response = await client.request(
+                method,
+                self._url(path),
+                headers=headers,
+                params=params,
+                json=json_body,
+            )
+        if response.is_error:
+            raise RuntimeError(
+                f"Waypoint {method} {path} failed with HTTP {response.status_code}: "
+                f"{response.text[:500]}"
+            )
+        if not response.content:
+            return {}
+        value = response.json()
+        return value if isinstance(value, (dict, list)) else {"value": value}
+
+
+async def _get_contracts_capabilities_impl(activity: Any) -> dict[str, Any]:
+    result = {
         "ok": True,
         "agent": "contracts",
-        "status": "stubbed",
+        "status": "api_configured" if _waypoint_base_url() else "fixture_ready",
         "wired_now": [
             "responses protocol",
             "activity protocol for Teams-style chat",
-            "invocations protocol for agent-to-agent/tool use",
-            "placeholder tools describing future Waypoint Contracts API calls",
+            "invocations protocol for structured routine and agent-to-agent work commands",
+            (
+                "Waypoint Contracts API tools"
+                if _waypoint_base_url()
+                else "local fixture tools for no-API playground testing"
+            ),
+            (
+                "FoundryIQ contract/policy toolbox"
+                if is_toolbox_configured()
+                else "FoundryIQ toolbox declaration (endpoint not configured)"
+            ),
+            (
+                "SharePoint report publishing"
+                if sharepoint_report_publishing_configured()
+                else "local DOCX report rendering (SharePoint publishing not configured)"
+            ),
         ],
-        "future_api_needed": [
+        "api_endpoints": [
             "POST /api/contracts/intake/messages/upsert",
             "GET /api/contracts/artifacts/latest",
             "GET /api/contracts/artifacts/{artifact_id}",
@@ -187,23 +470,174 @@ async def _get_contracts_capabilities_impl(activity: Any) -> dict[str, Any]:
         ],
         "inbox": _contracts_inbox(),
         "waypoint_configured": _waypoint_base_url() is not None,
+        "foundryiq_toolbox_configured": is_toolbox_configured(),
+        "sharepoint_report_publishing_configured": sharepoint_report_publishing_configured(),
         "local_fixture_mode": _local_fixture_enabled(),
+        "document_source": (
+            "local_pdf"
+            if _local_fixture_enabled() or _is_local_base_url(_waypoint_base_url() or "")
+            else "hosted_mailbox"
+        ),
         "local_state_dir": str(_state_dir()) if _local_fixture_enabled() else None,
     }
+    _telemetry_event(
+        "contracts_capabilities_checked",
+        waypoint_configured=result["waypoint_configured"],
+        foundryiq_toolbox_configured=result["foundryiq_toolbox_configured"],
+        sharepoint_report_publishing_configured=result[
+            "sharepoint_report_publishing_configured"
+        ],
+        document_source=result["document_source"],
+    )
+    return result
 
 
-async def _poll_contracts_inbox_impl(activity: Any, *, lookback_minutes: int = 15) -> dict[str, Any]:
+async def _get_deployment_diagnostics_impl(activity: Any) -> dict[str, Any]:
+    configured_values = {
+        "waypoint_api_base_url": _waypoint_base_url(),
+        "contracts_inbox_address": _contracts_inbox(),
+        "reports_publish_mode": _usable_env("CONTRACTS_REPORTS_PUBLISH_MODE") or "auto",
+        "reports_link_type": _usable_env("CONTRACTS_REPORTS_LINK_TYPE") or "view",
+        "reports_link_scope": _usable_env("CONTRACTS_REPORTS_LINK_SCOPE") or "organization",
+        "document_source_mode": _usable_env("CONTRACTS_DOCUMENT_SOURCE_MODE") or "auto",
+        "local_document_kind": _artifact_type_filter(),
+        "agent_build_id": _usable_env("CONTRACTS_AGENT_BUILD_ID"),
+        "agent_deployment_stage": _usable_env("CONTRACTS_AGENT_DEPLOYMENT_STAGE"),
+    }
+    environment_presence = _env_presence(
+        [
+            "FOUNDRY_PROJECT_ENDPOINT",
+            "AZURE_AI_MODEL_DEPLOYMENT_NAME",
+            "WAYPOINT_API_BASE_URL",
+            "WAYPOINT_API_SCOPE",
+            "CONTRACTS_INBOX_ADDRESS",
+            "CONTENT_UNDERSTANDING_ENDPOINT",
+            "CONTENT_UNDERSTANDING_ANALYZER_ID",
+            "TOOLBOX_NAME",
+            "TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT",
+            "CONTRACTS_REPORTS_DRIVE_ID",
+            "CONTRACTS_REPORTS_FOLDER_ITEM_ID",
+            "CONTRACTS_REPORTS_SCOPE",
+            "CONTRACTS_AGENT_BUILD_ID",
+            "CONTRACTS_AGENT_DEPLOYMENT_STAGE",
+        ]
+    )
+    result = {
+        "ok": True,
+        "status": "diagnostics_ready",
+        "agent": "contracts",
+        "timestamp": _now(),
+        "configured_values": configured_values,
+        "environment_presence": environment_presence,
+        "readiness": {
+            "waypoint_configured": _waypoint_base_url() is not None,
+            "foundryiq_toolbox_configured": is_toolbox_configured(),
+            "sharepoint_report_publishing_configured": sharepoint_report_publishing_configured(),
+            "local_fixture_mode": _local_fixture_enabled(),
+        },
+        "required_for_sharepoint_reports": [
+            "CONTRACTS_REPORTS_DRIVE_ID",
+            "CONTRACTS_REPORTS_FOLDER_ITEM_ID",
+            "Graph permission to upload DriveItem content",
+            "Graph permission to create a view link",
+        ],
+        "session_update_guidance": {
+            "immutable_versions": (
+                "Each azd deploy creates a new immutable hosted-agent version; sessions can remain "
+                "bound to older versions until explicitly reset, stopped, or deleted."
+            ),
+            "recommended_smoke": (
+                "After deploy, invoke responses/invocations with --new-session. For stale hosted "
+                "sessions, list sessions and stop or delete the old ones before final smoke."
+            ),
+            "activity_protocol": (
+                "Teams/hired-agent conversations should be treated as channel state; publish/install "
+                "the new version and start a fresh chat for deterministic validation."
+            ),
+        },
+    }
+    _telemetry_event(
+        "contracts_deployment_diagnostics_checked",
+        waypoint_configured=result["readiness"]["waypoint_configured"],
+        foundryiq_toolbox_configured=result["readiness"]["foundryiq_toolbox_configured"],
+        sharepoint_report_publishing_configured=result["readiness"][
+            "sharepoint_report_publishing_configured"
+        ],
+        local_fixture_mode=result["readiness"]["local_fixture_mode"],
+        has_build_id=environment_presence["CONTRACTS_AGENT_BUILD_ID"],
+    )
+    return result
+
+
+async def _poll_contracts_inbox_impl(
+    activity: Any,
+    *,
+    lookback_minutes: int = 15,
+    artifact_type: str | None = None,
+) -> dict[str, Any]:
+    artifact_type = _coerce_artifact_type(artifact_type)
     if _local_fixture_enabled():
+        attachment = _local_contract_attachment(artifact_type=artifact_type)
+        try:
+            extraction = await extract_contract_pdf(attachment)
+        except RuntimeError as exc:
+            response = {
+                "ok": False,
+                "status": "content_understanding_failed",
+                "inbox": _contracts_inbox(),
+                "lookback_minutes": max(1, lookback_minutes),
+                "error": str(exc),
+                "pdf": {
+                    "file_name": attachment.file_name,
+                    "artifact_type": attachment.artifact_type,
+                    "content_type": attachment.content_type,
+                    "size_bytes": attachment.size_bytes,
+                    "sha256": attachment.sha256,
+                    "uri": attachment.original_file_uri,
+                },
+                "note": "The fixture PDF was found, but extraction failed; no completed artifact should be reported.",
+            }
+            _telemetry_event(
+                "contracts_inbox_poll_completed",
+                status=response["status"],
+                artifact_type=attachment.artifact_type,
+                source_mode=attachment.source_mode,
+                processed_count=0,
+                error_type=type(exc).__name__,
+            )
+            return response
         state = _load_state()
-        artifact = _ensure_mock_artifact(state)
+        artifact = _ensure_mock_artifact(state, artifact_type=artifact_type)
+        artifact.update(
+            {
+                "source_mailbox_id": attachment.mailbox_id,
+                "source_message_id": attachment.message_id,
+                "source_attachment_id": attachment.attachment_id,
+                "source_attachment_sha256": attachment.sha256,
+                "original_file_uri": attachment.original_file_uri,
+                "extracted_json": extraction.values,
+                "evidence": _mock_artifact(owner_user_id=_contracts_owner(), attachment=attachment, extraction=extraction)[
+                    "evidence"
+                ],
+            }
+        )
+        artifact.setdefault("metadata", {})
+        artifact["metadata"].update(
+            {
+                "source_mode": attachment.source_mode,
+                "source_file_name": attachment.file_name,
+                "source_size_bytes": attachment.size_bytes,
+                "extraction": extraction.metadata,
+            }
+        )
         checkpoint = {
-            "mailbox_id": _contracts_inbox(),
+            "mailbox_id": attachment.mailbox_id,
             "message_id": artifact["source_message_id"],
             "attachment_id": artifact["source_attachment_id"],
             "attachment_sha256": artifact["source_attachment_sha256"],
             "artifact_id": artifact["id"],
             "processed_at": _now(),
-            "status": "processed_local_fixture",
+            "status": "processed_local_pdf_fixture",
         }
         checkpoints = [item for item in state["checkpoints"] if isinstance(item, dict)]
         key = (
@@ -225,45 +659,221 @@ async def _poll_contracts_inbox_impl(activity: Any, *, lookback_minutes: int = 1
             checkpoints.append(checkpoint)
             state["checkpoints"] = checkpoints
             _save_state(state)
-        return {
+        else:
+            _save_state(state)
+        response = {
             "ok": True,
-            "status": "local_fixture",
+            "status": "local_pdf_fixture",
             "inbox": _contracts_inbox(),
             "lookback_minutes": max(1, lookback_minutes),
             "processed_count": 1,
             "artifact": artifact,
             "checkpoint": checkpoint,
-            "note": "Local fixture mode only; no email mailbox was read.",
+            "extraction": {
+                "status": extraction.status,
+                "extractor": extraction.extractor,
+                "schema_version": extraction.schema_version,
+                "values": extraction.values,
+                "confidence": extraction.confidence,
+                "source_spans": extraction.source_spans,
+                "metadata": extraction.metadata,
+            },
+            "pdf": {
+                "file_name": attachment.file_name,
+                "artifact_type": attachment.artifact_type,
+                "content_type": attachment.content_type,
+                "size_bytes": attachment.size_bytes,
+                "sha256": attachment.sha256,
+                "uri": attachment.original_file_uri,
+            },
+            "note": "Local fixture mode read a fixture PDF from disk; no email mailbox was read.",
         }
+        _telemetry_event(
+            "contracts_inbox_poll_completed",
+            status=response["status"],
+            artifact_id=artifact["id"],
+            artifact_type=attachment.artifact_type,
+            source_mode=attachment.source_mode,
+            processed_count=response["processed_count"],
+        )
+        return response
 
-    return {
-        "ok": False,
-        "status": "not_implemented",
-        "reason": "Mailbox polling waits on the Waypoint Contracts intake API and Graph/WorkIQ mailbox connector.",
-        "inbox": _contracts_inbox(),
-        "lookback_minutes": max(1, lookback_minutes),
-        "future_call": {
-            "method": "POST",
-            "url": _future_endpoint("/api/contracts/intake/messages/upsert"),
-            "idempotency_keys": [
-                "mailbox_id",
-                "message_id",
-                "attachment_id",
-                "attachment_sha256",
-            ],
+    client = _WaypointContractsClient()
+    owner = _contracts_owner()
+    try:
+        attachment = contract_source().next_contract(
+            mailbox_id=_contracts_inbox(),
+            owner_user_id=owner,
+            artifact_type=artifact_type,
+        )
+    except NotImplementedError as exc:
+        response = {
+            "ok": False,
+            "status": "hosted_mailbox_not_implemented",
+            "inbox": _contracts_inbox(),
+            "lookback_minutes": max(1, lookback_minutes),
+            "future_endpoint": _future_endpoint("/api/contracts/intake/messages/upsert"),
+            "note": str(exc),
+        }
+        _telemetry_event(
+            "contracts_inbox_poll_completed",
+            status=response["status"],
+            artifact_type=artifact_type,
+            processed_count=0,
+        )
+        return response
+    body = {
+        "mailbox_id": attachment.mailbox_id,
+        "message_id": attachment.message_id,
+        "sender": attachment.sender,
+        "owner_user_id": attachment.owner_user_id,
+        "subject": attachment.subject,
+        "source": "email",
+        "attachments": [
+            {
+                "attachment_id": attachment.attachment_id,
+                "sha256": attachment.sha256,
+                "file_name": attachment.file_name,
+                "content_type": attachment.content_type,
+                "original_file_uri": attachment.original_file_uri,
+                "artifact_type": attachment.artifact_type,
+                "metadata": {
+                    "fixture": True,
+                    "source": "contracts-agent-local-api",
+                    "source_mode": attachment.source_mode,
+                    "artifact_type": attachment.artifact_type,
+                    "size_bytes": attachment.size_bytes,
+                },
+            }
+        ],
+        "metadata": {
+            "lookback_minutes": max(1, lookback_minutes),
+            "source_mode": attachment.source_mode,
+            "artifact_type": attachment.artifact_type,
         },
     }
+    result = await client.request("POST", "/api/contracts/intake/messages/upsert", json_body=body)
+    assert isinstance(result, dict)
+    artifact = result["results"][0]["artifact"]
+    artifact_id = str(artifact["id"])
+    try:
+        extracted = await extract_contract_pdf(attachment)
+    except RuntimeError as exc:
+        response = {
+            "ok": False,
+            "status": "content_understanding_failed",
+            "inbox": _contracts_inbox(),
+            "lookback_minutes": max(1, lookback_minutes),
+            "artifact_id": artifact_id,
+            "error": str(exc),
+            "pdf": {
+                "file_name": attachment.file_name,
+                "artifact_type": attachment.artifact_type,
+                "content_type": attachment.content_type,
+                "size_bytes": attachment.size_bytes,
+                "sha256": attachment.sha256,
+                "uri": attachment.original_file_uri,
+            },
+            "note": "Waypoint registered the intake placeholder, but extraction failed; do not treat this artifact as processed.",
+        }
+        _telemetry_event(
+            "contracts_inbox_poll_completed",
+            status=response["status"],
+            artifact_id=artifact_id,
+            artifact_type=attachment.artifact_type,
+            source_mode=attachment.source_mode,
+            processed_count=0,
+            error_type=type(exc).__name__,
+        )
+        return response
+
+    extraction = await client.request(
+        "POST",
+        f"/api/contracts/artifacts/{artifact_id}/extractions",
+        json_body={
+            "extractor": extracted.extractor,
+            "schema_version": extracted.schema_version,
+            "status": extracted.status,
+            "values": extracted.values,
+            "confidence": extracted.confidence,
+            "source_spans": extracted.source_spans,
+            "metadata": {
+                **extracted.metadata,
+                "fixture": attachment.source_mode == "local_pdf",
+                "source_mode": attachment.source_mode,
+                "artifact_type": attachment.artifact_type,
+            },
+        },
+    )
+    evidence_results = []
+    for evidence in _mock_artifact(owner, attachment, extracted)["evidence"]:
+        evidence_result = await client.request(
+            "POST",
+            f"/api/contracts/artifacts/{artifact_id}/evidence",
+            json_body={
+                "source_type": (
+                    "waypoint"
+                    if evidence["source_type"] == "content_understanding"
+                    else "user_file"
+                ),
+                "claim": evidence["claim"],
+                "citation": evidence["citation"],
+                "confidence": evidence["confidence"],
+                "metadata": {"fixture": True, "source_type": evidence["source_type"]},
+            },
+        )
+        evidence_results.append(evidence_result)
+    detail = await client.request("GET", f"/api/contracts/artifacts/{artifact_id}")
+    response = {
+        "ok": True,
+        "status": "api_local_pdf",
+        "inbox": _contracts_inbox(),
+        "lookback_minutes": max(1, lookback_minutes),
+        "intake": result,
+        "extraction": extraction,
+        "evidence": evidence_results,
+        "artifact_detail": detail,
+        "pdf": {
+            "file_name": attachment.file_name,
+            "artifact_type": attachment.artifact_type,
+            "content_type": attachment.content_type,
+            "size_bytes": attachment.size_bytes,
+            "sha256": attachment.sha256,
+            "uri": attachment.original_file_uri,
+        },
+        "note": (
+            "Waypoint API was used, but the intake payload came from a local fixture PDF; "
+            "no real email mailbox was read."
+        ),
+    }
+    _telemetry_event(
+        "contracts_inbox_poll_completed",
+        status=response["status"],
+        artifact_id=artifact_id,
+        artifact_type=attachment.artifact_type,
+        source_mode=attachment.source_mode,
+        processed_count=1,
+    )
+    return response
 
 
 async def _get_last_contract_impl(
     activity: Any,
     *,
     owner_user_id: str = "",
+    artifact_type: str | None = None,
 ) -> dict[str, Any]:
+    artifact_type = _coerce_artifact_type(artifact_type)
     if _local_fixture_enabled():
         state = _load_state()
-        artifact = _latest_artifact(state, owner_user_id) or _ensure_mock_artifact(
-            state, owner_user_id
+        artifact = _latest_artifact(
+            state,
+            owner_user_id,
+            artifact_type=artifact_type,
+        ) or _ensure_mock_artifact(
+            state,
+            owner_user_id,
+            artifact_type=artifact_type,
         )
         return {
             "ok": True,
@@ -272,19 +882,21 @@ async def _get_last_contract_impl(
             "note": "Local fixture mode only; this is not live Waypoint data.",
         }
 
+    client = _WaypointContractsClient()
+    owner = owner_user_id or _contracts_owner()
+    latest = await client.request(
+        "GET",
+        "/api/contracts/artifacts/latest",
+        params={"owner_user_id": owner, "artifact_type": _artifact_type_filter(artifact_type)},
+    )
+    assert isinstance(latest, dict)
+    detail = await client.request("GET", f"/api/contracts/artifacts/{latest['id']}")
     return {
-        "ok": False,
-        "status": "not_implemented",
-        "reason": "Latest-contract lookup waits on the Waypoint Contracts artifact API.",
-        "owner_user_id": owner_user_id,
-        "future_call": {
-            "method": "GET",
-            "url": _future_endpoint("/api/contracts/artifacts/latest"),
-            "query": {
-                "owner_user_id": owner_user_id or "{signed_in_user}",
-                "artifact_type": "contract",
-            },
-        },
+        "ok": True,
+        "status": "api",
+        "owner_user_id": owner,
+        "artifact": latest,
+        "artifact_detail": detail,
     }
 
 
@@ -293,7 +905,9 @@ async def _draft_contract_report_impl(
     *,
     artifact_id: str = "",
     report_type: str = "contract_brief",
+    artifact_type: str | None = None,
 ) -> dict[str, Any]:
+    artifact_type = _coerce_artifact_type(artifact_type)
     if _local_fixture_enabled():
         state = _load_state()
         artifact = (
@@ -308,61 +922,320 @@ async def _draft_contract_report_impl(
             if artifact_id
             else None
         )
-        artifact = artifact or _latest_artifact(state) or _ensure_mock_artifact(state)
-        report_id = f"report-{artifact['id']}-{report_type}"
-        report_path = _state_dir() / "reports" / f"{report_id}.md"
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_body = "\n".join(
-            [
-                f"# {artifact['title']} - {report_type.replace('_', ' ').title()}",
-                "",
-                "> Local scaffold report. No SharePoint file was created or shared.",
-                "",
-                f"- Artifact: `{artifact['id']}`",
-                f"- Supplier: {artifact['extracted_json'].get('supplier')}",
-                f"- Document type: {artifact['extracted_json'].get('document_type')}",
-                f"- Evidence records: {len(artifact.get('evidence', []))}",
-            ]
+        artifact = artifact or _latest_artifact(
+            state,
+            artifact_type=artifact_type,
+        ) or _ensure_mock_artifact(
+            state, artifact_type=artifact_type
         )
-        report_path.write_text(report_body, encoding="utf-8")
+        report_id = f"report-{artifact['id']}-{report_type}"
+        rendered = render_report(
+            report_id=report_id,
+            markdown=_report_markdown(artifact, report_type),
+            output_dir=_state_dir() / "reports",
+        )
+        title = f"{report_type.replace('_', ' ').title()} for {artifact['id']}"
+        try:
+            publication = await _publish_rendered_report(
+                rendered_docx=rendered.docx_path,
+                rendered_markdown=rendered.markdown_path,
+                title=title,
+            )
+        except RuntimeError as exc:
+            response = {
+                "ok": False,
+                "status": "report_publish_failed",
+                "artifact_id": artifact["id"],
+                "files": {
+                    "docx": rendered.docx_path.as_uri(),
+                    "markdown": rendered.markdown_path.as_uri(),
+                },
+                "error": str(exc),
+                "note": "The report was rendered locally, but publishing failed; no Teams link should be posted.",
+            }
+            _telemetry_event(
+                "contracts_report_draft_completed",
+                status=response["status"],
+                artifact_id=artifact["id"],
+                report_type=report_type,
+                publish_failed=True,
+            )
+            return response
         report = {
             "id": report_id,
             "artifact_id": artifact["id"],
             "report_type": report_type,
-            "file_url": report_path.as_uri(),
-            "share_status": "not_shared_local_fixture",
+            "file_url": publication["file_url"],
+            "teams_link_url": publication["teams_link_url"],
+            "share_status": _api_share_status(publication),
             "created_at": _now(),
-            "metadata": {"fixture": True},
+            "metadata": {
+                "fixture": True,
+                **publication["metadata"],
+                "storage": publication["storage"],
+                "web_url": publication["web_url"],
+                "share_url": publication["share_url"],
+            },
         }
         reports = [item for item in state["reports"] if isinstance(item, dict)]
         reports = [item for item in reports if item.get("id") != report_id]
         reports.append(report)
         state["reports"] = reports
         _save_state(state)
-        return {
+        response = {
             "ok": True,
             "status": "local_fixture",
             "report": report,
-            "note": "Local fixture mode only; no SharePoint document was created or shared.",
-        }
-
-    return {
-        "ok": False,
-        "status": "not_implemented",
-        "reason": "Report generation waits on the Waypoint Contracts report writer API.",
-        "artifact_id": artifact_id,
-        "report_type": report_type,
-        "future_call": {
-            "method": "POST",
-            "url": _future_endpoint(
-                f"/api/contracts/artifacts/{artifact_id or '{artifact_id}'}/reports"
+            "files": {
+                "docx": rendered.docx_path.as_uri(),
+                "markdown": rendered.markdown_path.as_uri(),
+            },
+            "publication": publication,
+            "note": (
+                "Local fixture mode rendered DOCX and Markdown reports. "
+                f"Publication storage: {publication['storage']}."
             ),
-            "body": {
-                "report_type": report_type,
-                "share_after_user_approval": True,
+        }
+        _telemetry_event(
+            "contracts_report_draft_completed",
+            status=response["status"],
+            artifact_id=artifact["id"],
+            report_type=report_type,
+            storage=publication["storage"],
+            share_status=publication["share_status"],
+        )
+        return response
+
+    client = _WaypointContractsClient()
+    if not artifact_id:
+        latest = await client.request(
+            "GET",
+            "/api/contracts/artifacts/latest",
+            params={
+                "owner_user_id": _contracts_owner(),
+                "artifact_type": _artifact_type_filter(artifact_type),
+            },
+        )
+        assert isinstance(latest, dict)
+        artifact_id = str(latest["id"])
+        detail = await client.request("GET", f"/api/contracts/artifacts/{artifact_id}")
+        assert isinstance(detail, dict)
+    else:
+        detail = await client.request("GET", f"/api/contracts/artifacts/{artifact_id}")
+        assert isinstance(detail, dict)
+
+    report_id = f"report-{artifact_id}-{report_type}"
+    rendered = render_report(
+        report_id=report_id,
+        markdown=_report_markdown(detail, report_type),
+        output_dir=_state_dir() / "reports",
+    )
+    title = f"{report_type.replace('_', ' ').title()} for {artifact_id}"
+    try:
+        publication = await _publish_rendered_report(
+            rendered_docx=rendered.docx_path,
+            rendered_markdown=rendered.markdown_path,
+            title=title,
+        )
+    except RuntimeError as exc:
+        response = {
+            "ok": False,
+            "status": "report_publish_failed",
+            "artifact_id": artifact_id,
+            "files": {
+                "docx": rendered.docx_path.as_uri(),
+                "markdown": rendered.markdown_path.as_uri(),
+            },
+            "error": str(exc),
+            "note": "The report was rendered locally, but publishing failed; no Teams link should be posted.",
+        }
+        _telemetry_event(
+            "contracts_report_draft_completed",
+            status=response["status"],
+            artifact_id=artifact_id,
+            report_type=report_type,
+            publish_failed=True,
+        )
+        return response
+
+    report = await client.request(
+        "POST",
+        f"/api/contracts/artifacts/{artifact_id}/reports",
+        json_body={
+            "report_type": report_type,
+            "file_url": publication["file_url"],
+            "title": title,
+            "share_status": _api_share_status(publication),
+            "metadata": {
+                "fixture": True,
+                **publication["metadata"],
+                "storage": publication["storage"],
+                "teams_link_url": publication["teams_link_url"],
+                "web_url": publication["web_url"],
+                "share_url": publication["share_url"],
+                "note": "Local DOCX report generated for playground testing.",
             },
         },
+    )
+    response = {
+        "ok": True,
+        "status": "api_fixture_report_metadata",
+        "artifact_id": artifact_id,
+        "report": report,
+        "teams_link_url": publication["teams_link_url"],
+        "publication": publication,
+        "files": {
+            "docx": rendered.docx_path.as_uri(),
+            "markdown": rendered.markdown_path.as_uri(),
+        },
+        "note": (
+            "Waypoint API recorded DOCX report metadata for playground testing. "
+            f"Publication storage: {publication['storage']}."
+        ),
     }
+    _telemetry_event(
+        "contracts_report_draft_completed",
+        status=response["status"],
+        artifact_id=artifact_id,
+        report_type=report_type,
+        storage=publication["storage"],
+        share_status=publication["share_status"],
+    )
+    return response
+
+
+def _summarize_invoice_detail(detail: dict[str, Any]) -> dict[str, Any]:
+    supplier = detail.get("supplier") if isinstance(detail.get("supplier"), dict) else {}
+    scenario = detail.get("scenario") if isinstance(detail.get("scenario"), dict) else {}
+    findings = [item for item in detail.get("findings", []) if isinstance(item, dict)]
+    evidence = [item for item in detail.get("evidence", []) if isinstance(item, dict)]
+    return {
+        "id": detail.get("id"),
+        "invoice_number": detail.get("invoice_number"),
+        "supplier_id": detail.get("supplier_id"),
+        "supplier_name": supplier.get("name"),
+        "scenario_id": detail.get("scenario_id"),
+        "scenario_name": scenario.get("name"),
+        "status": detail.get("status"),
+        "currency": detail.get("currency"),
+        "total_amount": detail.get("total_amount"),
+        "invoice_date": detail.get("invoice_date"),
+        "due_date": detail.get("due_date"),
+        "line_count": len(detail.get("lines", [])) if isinstance(detail.get("lines"), list) else 0,
+        "finding_count": len(findings),
+        "evidence_count": len(evidence),
+        "findings": [
+            {
+                "id": finding.get("id"),
+                "severity": finding.get("severity"),
+                "status": finding.get("status"),
+                "category": finding.get("category"),
+                "summary": finding.get("summary"),
+                "overpayment_amount": finding.get("overpayment_amount"),
+                "contract_document_ids": finding.get("contract_document_ids", []),
+                "policy_ids": finding.get("policy_ids", []),
+            }
+            for finding in findings
+        ],
+    }
+
+
+async def _query_invoices_impl(
+    activity: Any,
+    *,
+    invoice_id: str = "",
+    supplier_id: str = "",
+    invoice_number: str = "",
+    include_context: bool = True,
+    limit: int = 5,
+) -> dict[str, Any]:
+    if _local_fixture_enabled():
+        response = {
+            "ok": False,
+            "status": "waypoint_api_required",
+            "note": (
+                "Invoice queries use the Waypoint records/work APIs; set "
+                "WAYPOINT_API_BASE_URL to query seeded Aspire data."
+            ),
+        }
+        _telemetry_event(
+            "contracts_invoice_query_completed",
+            status=response["status"],
+            returned_count=0,
+            include_context=include_context,
+        )
+        return response
+
+    client = _WaypointContractsClient()
+    try:
+        limit = int(limit or 5)
+    except (TypeError, ValueError):
+        limit = 5
+    limit = max(1, min(limit, 10))
+    selected_id = invoice_id.strip()
+
+    if not selected_id:
+        params = {
+            key: value
+            for key, value in {
+                "supplier_id": supplier_id.strip(),
+                "invoice_number": invoice_number.strip(),
+            }.items()
+            if value
+        }
+        matches = await client.request("GET", "/api/invoices", params=params or None)
+        assert isinstance(matches, list)
+        selected = matches[:limit]
+    else:
+        selected = [{"id": selected_id}]
+        matches = selected
+
+    details: list[dict[str, Any]] = []
+    for invoice in selected:
+        invoice_detail_id = str(invoice.get("id") or "")
+        if not invoice_detail_id:
+            continue
+        detail = await client.request("GET", f"/api/invoices/{invoice_detail_id}")
+        assert isinstance(detail, dict)
+        details.append(detail)
+
+    context = None
+    if include_context and len(details) == 1:
+        context = await client.request(
+            "GET",
+            f"/api/invoices/{details[0]['id']}/context",
+            params={"include_sensitive": "false"},
+        )
+        assert isinstance(context, dict)
+
+    response = {
+        "ok": True,
+        "status": "api",
+        "query": {
+            "invoice_id": selected_id or None,
+            "supplier_id": supplier_id.strip() or None,
+            "invoice_number": invoice_number.strip() or None,
+            "limit": limit,
+        },
+        "match_count": len(matches),
+        "returned_count": len(details),
+        "invoices": [_summarize_invoice_detail(detail) for detail in details],
+        "context": context,
+        "note": (
+            "Invoice data came from the Waypoint records/work APIs. Contract, policy, "
+            "and evidence text in context is API-backed; live contract/policy "
+            "interpretation should still be grounded through the FoundryIQ toolbox."
+        ),
+    }
+    _telemetry_event(
+        "contracts_invoice_query_completed",
+        status=response["status"],
+        match_count=response["match_count"],
+        returned_count=response["returned_count"],
+        include_context=include_context,
+        had_context=context is not None,
+    )
+    return response
 
 
 def contracts_tools() -> list[Tool]:
@@ -370,8 +1243,8 @@ def contracts_tools() -> list[Tool]:
         Tool(
             name="get_contracts_capabilities",
             description=(
-                "Report what the Contracts agent can do now and which future Waypoint "
-                "Contracts API endpoints are required for production behavior."
+                "Report what the Contracts agent can do now and whether it is using the "
+                "Waypoint Contracts API or local fixture mode."
             ),
             parameters={
                 "type": "object",
@@ -382,10 +1255,26 @@ def contracts_tools() -> list[Tool]:
             impl=_get_contracts_capabilities_impl,
         ),
         Tool(
+            name="get_deployment_diagnostics",
+            description=(
+                "Return non-secret deployment diagnostics for smoke testing: configured "
+                "environment presence, SharePoint report readiness, build markers, and "
+                "session/update rollout guidance."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+            impl=_get_deployment_diagnostics_impl,
+        ),
+        Tool(
             name="poll_contracts_inbox",
             description=(
-                "Stub for the future routine-driven mailbox poll. Returns the intended "
-                "intake API call and idempotency keys; does not read email yet."
+                "Run the contracts inbox intake path. With WAYPOINT_API_BASE_URL configured, "
+                "registers a fixture email attachment through the live Waypoint Contracts API; "
+                "without it, uses local fixture state. Does not read a real mailbox yet."
             ),
             parameters={
                 "type": "object",
@@ -394,7 +1283,12 @@ def contracts_tools() -> list[Tool]:
                         "type": "integer",
                         "minimum": 1,
                         "description": "How far back the future mailbox poll should look.",
-                    }
+                    },
+                    "artifact_type": {
+                        "type": "string",
+                        "enum": ["contract", "invoice"],
+                        "description": "Optional local fixture artifact kind to process for this call.",
+                    },
                 },
                 "required": [],
                 "additionalProperties": False,
@@ -404,8 +1298,8 @@ def contracts_tools() -> list[Tool]:
         Tool(
             name="get_last_contract",
             description=(
-                "Stub for resolving the latest contract artifact for the signed-in user "
-                "or supplied owner_user_id."
+                "Resolve the latest contract artifact for the signed-in user or supplied "
+                "owner_user_id, using the Waypoint Contracts API when configured."
             ),
             parameters={
                 "type": "object",
@@ -413,7 +1307,12 @@ def contracts_tools() -> list[Tool]:
                     "owner_user_id": {
                         "type": "string",
                         "description": "Optional user id/email whose latest contract should be resolved.",
-                    }
+                    },
+                    "artifact_type": {
+                        "type": "string",
+                        "enum": ["contract", "invoice"],
+                        "description": "Optional artifact kind filter.",
+                    },
                 },
                 "required": [],
                 "additionalProperties": False,
@@ -423,8 +1322,9 @@ def contracts_tools() -> list[Tool]:
         Tool(
             name="draft_contract_report",
             description=(
-                "Stub for generating a contract report document from a contract artifact. "
-                "Returns the future report API call; does not create or share a file yet."
+                "Record or create a contract report placeholder for an artifact. With the "
+                "Waypoint API configured, records report metadata only; it does not create "
+                "or share a SharePoint document."
             ),
             parameters={
                 "type": "object",
@@ -437,10 +1337,55 @@ def contracts_tools() -> list[Tool]:
                         "type": "string",
                         "description": "Report type, such as contract_brief or diligence_memo.",
                     },
+                    "artifact_type": {
+                        "type": "string",
+                        "enum": ["contract", "invoice"],
+                        "description": "Optional artifact kind to use when artifact_id is omitted.",
+                    },
                 },
                 "required": [],
                 "additionalProperties": False,
             },
             impl=_draft_contract_report_impl,
+        ),
+        Tool(
+            name="query_invoices",
+            description=(
+                "Query seeded or live invoice data through the Waypoint records/work APIs. "
+                "Use this for conversation about prior invoices, findings, evidence, and invoice context."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "invoice_id": {
+                        "type": "string",
+                        "description": "Optional invoice id for an exact context lookup.",
+                    },
+                    "supplier_id": {
+                        "type": "string",
+                        "description": "Optional supplier id filter for invoice search.",
+                    },
+                    "invoice_number": {
+                        "type": "string",
+                        "description": "Optional exact invoice number filter.",
+                    },
+                    "include_context": {
+                        "type": "boolean",
+                        "description": (
+                            "Whether to include decision-relevant context when exactly "
+                            "one invoice is selected."
+                        ),
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 10,
+                        "description": "Maximum number of invoice details to return for list queries.",
+                    },
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+            impl=_query_invoices_impl,
         ),
     ]

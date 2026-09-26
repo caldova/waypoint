@@ -24,21 +24,194 @@ The agent registers all three Castia protocols:
 
 | Protocol | Purpose |
 | --- | --- |
-| `responses` | Routine/background work and direct Foundry runs. |
+| `responses` | Foundry Playground / direct chat. |
 | `activity` | Teams-style conversational surface. |
-| `invocations` | Agent-to-agent/tool use. |
+| `invocations` | Structured routine and agent-to-agent work commands. |
 
-The tools in `tools.py` are API-ready scaffolds. When `WAYPOINT_API_BASE_URL` is
-unset, local fixture mode is enabled so the playground can exercise the flow
-without the future API:
+For the deployment spike, keep work surfaces separated:
 
-- `poll_contracts_inbox` seeds a mock Aster Ridge contract artifact.
+- `responses` is the Foundry Playground / direct chat surface.
+- `activity` is the Teams / AI Teammate chat surface.
+- `invocations` is the structured work-command surface for routines and future
+  agent-to-agent calls.
+
+The intended scheduled `contracts-inbox-poll` routine should target
+`invoke_agent_invocations_api` with this payload once the local azd/Foundry
+extension supports routine resources in `azure.yaml`:
+
+```json
+{
+  "operation": "poll_contracts_inbox",
+  "lookback_minutes": 15
+}
+```
+
+In the local playground, switch to the Invocations protocol and send the same
+payload as a JSON string. Add `"artifact_type": "invoice"` to force the
+agent-local invoice fixture path for that call while testing; this no longer
+mutates process-wide environment state.
+
+The same structured surface supports invoice work queries against the Waypoint
+records/work APIs:
+
+```json
+{
+  "operation": "query_invoices",
+  "invoice_number": "SUP-001-2026-10",
+  "include_context": true
+}
+```
+
+Use `query_invoices` for seeded or live invoice conversations. When exactly one
+invoice is selected, it also fetches `/api/invoices/{invoice_id}/context` so the
+answer can cite findings, evidence, contract documents, policies, and cases from
+Waypoint rather than relying on model memory.
+
+Use `get_deployment_diagnostics` before and after each deploy to confirm the
+non-secret runtime fingerprint that the hosted agent sees:
+
+```json
+{
+"operation": "get_deployment_diagnostics"
+}
+```
+
+The result includes configured-value presence, SharePoint report readiness,
+`CONTRACTS_AGENT_BUILD_ID`, `CONTRACTS_AGENT_DEPLOYMENT_STAGE`, and rollout
+guidance for hosted sessions. It intentionally reports only presence and
+non-secret values, never tokens or credentials.
+
+The baseline agent config also declares the minimal read-only FoundryIQ-style
+contract/policy knowledge-base tool used by the older `contract-policy-expert`
+prototype:
+
+```text
+contracts-kb-mcp___knowledge_base_retrieve
+```
+
+In hosted Foundry runs, set `TOOLBOX_NAME=contract-toolbox` or
+`TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT` so Castia can resolve that MCP-backed
+toolbox. Local fixture mode can still run without the toolbox endpoint.
+
+The tools in `tools.py` are API-ready scaffolds. For local smoke tests, the
+agent can source an actual fixture PDF from disk instead of checking a mailbox.
+`CONTRACTS_DOCUMENT_SOURCE_MODE=auto` selects:
+
+- `local` when the Waypoint API URL is localhost or unset.
+- `hosted` when the API URL is non-local.
+
+Set `CONTRACTS_DOCUMENT_SOURCE_MODE=local` to force local PDF sourcing. By
+default the local source reads `fixtures/contracts/aster-ridge-sow.pdf` as a
+`contract` artifact. Pass `"artifact_type": "invoice"` in a structured
+invocation to exercise the same email-intake route with a Ledgerfield invoice
+PDF from `fixtures/invoices`, or set `CONTRACTS_LOCAL_DOCUMENT_KIND=invoice` as
+a process default for manual runs. `CONTRACTS_LOCAL_PDF_PATH` /
+`CONTRACTS_LOCAL_INVOICE_PDF_PATH` can point at a specific fixture.
+
+When `WAYPOINT_API_BASE_URL` is unset, local fixture mode is enabled so the
+playground can exercise the flow without the future API:
+
+- `poll_contracts_inbox` reads `fixtures/contracts/aster-ridge-sow.pdf` and
+  seeds a mock Aster Ridge contract artifact.
 - `get_last_contract` resolves that mock artifact.
-- `draft_contract_report` writes a local Markdown report under
-  `.contracts-state/reports/`.
+- `draft_contract_report` writes local DOCX and Markdown report artifacts under
+  `.contracts-state/reports/`; DOCX is the primary `file_url`. If
+  `CONTRACTS_REPORTS_DRIVE_ID` and `CONTRACTS_REPORTS_FOLDER_ITEM_ID` are set,
+  it uploads the DOCX to the agent-owned SharePoint folder, creates a view link,
+  and returns `teams_link_url` for the Teams response.
+- `query_invoices` requires `WAYPOINT_API_BASE_URL`; it is intentionally
+  API-backed so Flow 2 conversations use seeded/live Waypoint data.
 
-When fixture mode is disabled, those tools return `not_implemented` with the
-future Waypoint API call each behavior expects.
+Report publishing uses `report_publisher.py`:
+
+- local mode returns a `file://` DOCX URL plus Markdown sidecar for dev smoke
+  tests.
+- SharePoint mode uploads the DOCX with Microsoft Graph using the hosted
+  identity and creates an organization view link. Required environment:
+  `CONTRACTS_REPORTS_DRIVE_ID` and `CONTRACTS_REPORTS_FOLDER_ITEM_ID`.
+- The tool does not silently fall back if SharePoint upload is configured and
+  fails; it returns `status: report_publish_failed` so the Teams answer does not
+  claim a document was shared.
+
+When `WAYPOINT_API_BASE_URL` points at a local Waypoint API, the same PDF-backed
+intake path registers the artifact through `/api/contracts/intake/messages/upsert`.
+In hosted mode, mailbox polling intentionally returns
+`hosted_mailbox_not_implemented` until the Graph/WorkIQ connector is wired.
+
+## Deployment smoke telemetry
+
+Set these optional values before a smoke deploy:
+
+```powershell
+azd env set CONTRACTS_AGENT_BUILD_ID "<short-git-sha-or-smoke-id>"
+azd env set CONTRACTS_AGENT_DEPLOYMENT_STAGE "smoke"
+azd env set CONTRACTS_LOG_LEVEL "INFO"
+```
+
+The agent writes structured JSON log lines prefixed with
+`contracts.telemetry`. Current events include:
+
+- `contracts_deployment_diagnostics_checked`
+- `contracts_capabilities_checked`
+- `contracts_inbox_poll_completed`
+- `contracts_invoice_query_completed`
+- `contracts_report_publish_started`
+- `contracts_report_publish_succeeded`
+- `contracts_report_publish_failed`
+- `contracts_report_draft_completed`
+
+After `azd deploy contracts --no-prompt`, smoke a fresh hosted session through
+the Invocations protocol:
+
+```powershell
+azd ai agent invoke contracts --protocol invocations --new-session --input-file .\modules\agents\contracts\smoke-diagnostics.json
+```
+
+or send the same JSON string through the Foundry Agent Playground canvas. Then
+use `azd ai agent monitor contracts --tail 100` for the hosted session log, or
+query App Insights for `contracts.telemetry` to see which Graph/SharePoint,
+Content Understanding, Waypoint API, and toolbox settings are present in the
+published runtime.
+
+Each successful hosted `azd deploy` creates a new immutable agent version.
+Existing hosted sessions are separate state. For deterministic validation after
+an update, start with `--new-session`; for stale sessions, list and stop/delete
+old sessions with `azd ai agent sessions`. Teams/activity conversations should
+be treated as channel state, so publish/install the new version and start a
+fresh Teams chat for the smoke path rather than assuming old chat state was
+rebound.
+
+PDF extraction runs through `content_understanding.py`:
+
+- If `CONTENT_UNDERSTANDING_ENDPOINT` is set, the agent calls
+  `/contentunderstanding/analyzers/{CONTENT_UNDERSTANDING_ANALYZER_ID}:analyze`
+  with the PDF bytes and records the returned JSON in Waypoint.
+- If `CONTENT_UNDERSTANDING_USE_FOUNDRY_PROJECT=true`, the endpoint is derived
+  from `FOUNDRY_PROJECT_ENDPOINT`.
+- Prebuilt analyzers that require model deployments use
+  `CONTENT_UNDERSTANDING_COMPLETION_DEPLOYMENT` as
+  `prebuilt-analyzer-completion` and
+  `CONTENT_UNDERSTANDING_EMBEDDING_DEPLOYMENT` as
+  `prebuilt-analyzer-embedding`.
+- `prebuilt-contract` on `aif-caldova` supports `gpt-5.5` but rejects
+  `gpt-6-astra`, so the CU-specific completion default is `gpt-5.5` even
+  though the Contracts chat model can stay on Astra.
+- If neither is set, local smoke tests use deterministic PDF text extraction and
+  still post a `content_understanding` extraction record to the local API.
+
+The signed-in developer or hosted identity needs **Cognitive Services Content
+Understanding Reader** on the AI Services account that owns the CU endpoint. For
+the Caldova project this was assigned at:
+
+```text
+/subscriptions/e25e09c9-14a3-431e-9b72-1916344294d3/resourceGroups/rg-caldova/providers/Microsoft.CognitiveServices/accounts/aif-caldova
+```
+
+Role definition id:
+
+```text
+379c52cb-64de-498c-8b5b-c6170d6c49d4
+```
 
 ## Local development
 
@@ -55,4 +228,5 @@ What can Contracts do right now?
 Check the Contracts inbox.
 What was in the last contract I sent?
 Draft a contract brief for the latest artifact.
+Which invoices have findings?
 ```

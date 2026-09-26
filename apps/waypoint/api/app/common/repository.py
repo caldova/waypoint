@@ -1,6 +1,7 @@
 """Waypoint persistence implementations."""
 
 import asyncio
+from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, Protocol, cast
@@ -19,6 +20,14 @@ from ..modules.cases.schemas import (
     CaseRecommendation,
     DecisionAuditEvent,
     ProposedAction,
+)
+from ..modules.contracts.schemas import (
+    Artifact,
+    ArtifactEvidence,
+    ArtifactExtraction,
+    ArtifactReport,
+    ArtifactType,
+    IntakeMessageCheckpoint,
 )
 from ..modules.records.schemas import (
     AuditEvent,
@@ -358,6 +367,38 @@ class WaypointRepository(Protocol):
 
     async def save_audit_event(self, payload: dict[str, Any]) -> None: ...
 
+    async def register_contract_intake(
+        self, checkpoint: IntakeMessageCheckpoint, artifact: Artifact
+    ) -> tuple[Artifact, bool]: ...
+
+    async def get_contract_artifact(self, artifact_id: str) -> Artifact | None: ...
+
+    async def get_latest_contract_artifact(
+        self, owner_user_id: str, artifact_type: ArtifactType
+    ) -> Artifact | None: ...
+
+    async def compare_and_swap_contract_artifact(
+        self, artifact: Artifact, expected: Artifact
+    ) -> bool: ...
+
+    async def save_contract_extraction(self, extraction: ArtifactExtraction) -> None: ...
+
+    async def list_contract_extractions(self, artifact_id: str) -> list[ArtifactExtraction]: ...
+
+    async def save_contract_evidence(self, evidence: ArtifactEvidence) -> None: ...
+
+    async def list_contract_evidence(self, artifact_id: str) -> list[ArtifactEvidence]: ...
+
+    async def save_contract_report(self, report: ArtifactReport) -> None: ...
+
+    async def get_contract_report(self, report_id: str) -> ArtifactReport | None: ...
+
+    async def compare_and_swap_contract_report(
+        self, report: ArtifactReport, expected: ArtifactReport
+    ) -> bool: ...
+
+    async def list_contract_reports(self, artifact_id: str) -> list[ArtifactReport]: ...
+
     async def import_seed(self, seed: LedgerfieldSeedImport) -> SeedImportResult: ...
 
 
@@ -386,6 +427,12 @@ class InMemoryWaypointRepository:
         self.authorized_intents: dict[str, AuthorizedIntent] = {}
         self.decision_audit_events: dict[str, DecisionAuditEvent] = {}
         self.agent_runs: dict[str, AgentRun] = {}
+        self.contract_artifacts: dict[str, Artifact] = {}
+        self.contract_intake_checkpoints: dict[str, IntakeMessageCheckpoint] = {}
+        self.contract_extractions: dict[str, ArtifactExtraction] = {}
+        self.contract_evidence: dict[str, ArtifactEvidence] = {}
+        self.contract_reports: dict[str, ArtifactReport] = {}
+        self._contract_intake_lock = asyncio.Lock()
         self._agent_run_create_lock = asyncio.Lock()
 
     async def initialize(self, load_default_seed: bool = True) -> None:
@@ -708,6 +755,77 @@ class InMemoryWaypointRepository:
             metadata={"duration_ms": payload.get("duration_ms")},
         )
         self.audit_events[audit_event.id] = audit_event
+
+    async def register_contract_intake(
+        self, checkpoint: IntakeMessageCheckpoint, artifact: Artifact
+    ) -> tuple[Artifact, bool]:
+        async with self._contract_intake_lock:
+            existing = self.contract_intake_checkpoints.get(checkpoint.id)
+            if existing is not None:
+                return self.contract_artifacts[existing.artifact_id], False
+            self.contract_artifacts[artifact.id] = artifact
+            self.contract_intake_checkpoints[checkpoint.id] = checkpoint
+            return artifact, True
+
+    async def get_contract_artifact(self, artifact_id: str) -> Artifact | None:
+        return self.contract_artifacts.get(artifact_id)
+
+    async def get_latest_contract_artifact(
+        self, owner_user_id: str, artifact_type: ArtifactType
+    ) -> Artifact | None:
+        candidates = [
+            artifact
+            for artifact in self.contract_artifacts.values()
+            if artifact.owner_user_id == owner_user_id and artifact.type == artifact_type
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=_contract_artifact_recency_key)
+
+    async def compare_and_swap_contract_artifact(
+        self, artifact: Artifact, expected: Artifact
+    ) -> bool:
+        current = self.contract_artifacts.get(artifact.id)
+        if current is None or current.updated_at != expected.updated_at:
+            return False
+        self.contract_artifacts[artifact.id] = artifact
+        return True
+
+    async def save_contract_extraction(self, extraction: ArtifactExtraction) -> None:
+        self.contract_extractions[extraction.id] = extraction
+
+    async def list_contract_extractions(self, artifact_id: str) -> list[ArtifactExtraction]:
+        return _sorted_by_created(
+            item for item in self.contract_extractions.values() if item.artifact_id == artifact_id
+        )
+
+    async def save_contract_evidence(self, evidence: ArtifactEvidence) -> None:
+        self.contract_evidence[evidence.id] = evidence
+
+    async def list_contract_evidence(self, artifact_id: str) -> list[ArtifactEvidence]:
+        return _sorted_by_created(
+            item for item in self.contract_evidence.values() if item.artifact_id == artifact_id
+        )
+
+    async def save_contract_report(self, report: ArtifactReport) -> None:
+        self.contract_reports[report.id] = report
+
+    async def get_contract_report(self, report_id: str) -> ArtifactReport | None:
+        return self.contract_reports.get(report_id)
+
+    async def compare_and_swap_contract_report(
+        self, report: ArtifactReport, expected: ArtifactReport
+    ) -> bool:
+        current = self.contract_reports.get(report.id)
+        if current is None or current.updated_at != expected.updated_at:
+            return False
+        self.contract_reports[report.id] = report
+        return True
+
+    async def list_contract_reports(self, artifact_id: str) -> list[ArtifactReport]:
+        return _sorted_by_created(
+            item for item in self.contract_reports.values() if item.artifact_id == artifact_id
+        )
 
     async def import_seed(self, seed: LedgerfieldSeedImport) -> SeedImportResult:
         for supplier in seed.suppliers:
@@ -1328,6 +1446,148 @@ class PostgresWaypointRepository:
             for payload in await self._fetch_payloads("agent_runs", where, params)
         ]
 
+    async def register_contract_intake(
+        self, checkpoint: IntakeMessageCheckpoint, artifact: Artifact
+    ) -> tuple[Artifact, bool]:
+        # The checkpoint primary key is the intake identity (mailbox + message + attachment +
+        # sha256). Insert it first under a transaction: a concurrent duplicate blocks on the key
+        # and then sees the committed row, so exactly one artifact is ever registered.
+        async with self._pool.connection() as connection, connection.transaction():
+            cursor = await connection.execute(
+                """
+                insert into contract_intake_checkpoints (id, payload, updated_at)
+                values (%s, %s, now())
+                on conflict (id) do nothing
+                """,
+                (checkpoint.id, Jsonb(checkpoint.model_dump(mode="json"))),
+            )
+            if cursor.rowcount == 0:
+                cursor = await connection.execute(
+                    """
+                    select a.payload from contract_intake_checkpoints c
+                    join contract_artifacts a on a.id = c.artifact_id
+                    where c.id = %s
+                    """,
+                    (checkpoint.id,),
+                )
+                row = await cursor.fetchone()
+                if row is None:
+                    raise RuntimeError(
+                        f"Intake checkpoint '{checkpoint.id}' has no registered artifact."
+                    )
+                return Artifact(**cast(dict[str, Any], row)["payload"]), False
+            await connection.execute(
+                """
+                insert into contract_artifacts (id, payload, updated_at)
+                values (%s, %s, now())
+                """,
+                (artifact.id, Jsonb(artifact.model_dump(mode="json"))),
+            )
+            return artifact, True
+
+    async def get_contract_artifact(self, artifact_id: str) -> Artifact | None:
+        payload = await self._get_payload("contract_artifacts", artifact_id)
+        return Artifact(**payload) if payload else None
+
+    async def get_latest_contract_artifact(
+        self, owner_user_id: str, artifact_type: ArtifactType
+    ) -> Artifact | None:
+        payloads = await self._fetch_payloads(
+            "contract_artifacts",
+            """
+            where owner_user_id = %s and artifact_type = %s
+            order by (payload->>'received_at')::timestamptz desc,
+                     (payload->>'created_at')::timestamptz desc,
+                     id desc
+            limit 1
+            """,
+            (owner_user_id, artifact_type),
+        )
+        return Artifact(**payloads[0]) if payloads else None
+
+    async def compare_and_swap_contract_artifact(
+        self, artifact: Artifact, expected: Artifact
+    ) -> bool:
+        return await self._compare_and_swap_payload(
+            "contract_artifacts",
+            artifact.id,
+            artifact.model_dump(mode="json"),
+            expected.model_dump(mode="json")["updated_at"],
+        )
+
+    async def save_contract_extraction(self, extraction: ArtifactExtraction) -> None:
+        await self._upsert_payload(
+            "contract_artifact_extractions", extraction.id, extraction.model_dump(mode="json")
+        )
+
+    async def list_contract_extractions(self, artifact_id: str) -> list[ArtifactExtraction]:
+        return [
+            ArtifactExtraction(**payload)
+            for payload in await self._fetch_payloads(
+                "contract_artifact_extractions",
+                "where artifact_id = %s order by (payload->>'created_at')::timestamptz, id",
+                (artifact_id,),
+            )
+        ]
+
+    async def save_contract_evidence(self, evidence: ArtifactEvidence) -> None:
+        await self._upsert_payload(
+            "contract_artifact_evidence", evidence.id, evidence.model_dump(mode="json")
+        )
+
+    async def list_contract_evidence(self, artifact_id: str) -> list[ArtifactEvidence]:
+        return [
+            ArtifactEvidence(**payload)
+            for payload in await self._fetch_payloads(
+                "contract_artifact_evidence",
+                "where artifact_id = %s order by (payload->>'created_at')::timestamptz, id",
+                (artifact_id,),
+            )
+        ]
+
+    async def save_contract_report(self, report: ArtifactReport) -> None:
+        await self._upsert_payload(
+            "contract_artifact_reports", report.id, report.model_dump(mode="json")
+        )
+
+    async def get_contract_report(self, report_id: str) -> ArtifactReport | None:
+        payload = await self._get_payload("contract_artifact_reports", report_id)
+        return ArtifactReport(**payload) if payload else None
+
+    async def compare_and_swap_contract_report(
+        self, report: ArtifactReport, expected: ArtifactReport
+    ) -> bool:
+        return await self._compare_and_swap_payload(
+            "contract_artifact_reports",
+            report.id,
+            report.model_dump(mode="json"),
+            expected.model_dump(mode="json")["updated_at"],
+        )
+
+    async def list_contract_reports(self, artifact_id: str) -> list[ArtifactReport]:
+        return [
+            ArtifactReport(**payload)
+            for payload in await self._fetch_payloads(
+                "contract_artifact_reports",
+                "where artifact_id = %s order by (payload->>'created_at')::timestamptz, id",
+                (artifact_id,),
+            )
+        ]
+
+    async def _compare_and_swap_payload(
+        self, table: str, item_id: str, payload: dict[str, Any], expected_updated_at: str
+    ) -> bool:
+        async with self._pool.connection() as connection:
+            cursor = await connection.execute(
+                f"""
+                update {table}
+                set payload = %s, updated_at = now()
+                where id = %s and payload->>'updated_at' = %s
+                """,
+                (Jsonb(payload), item_id, expected_updated_at),
+            )
+        return cursor.rowcount > 0
+
     async def import_seed(self, seed: LedgerfieldSeedImport) -> SeedImportResult:
         for supplier in seed.suppliers:
             await self._upsert_payload("suppliers", supplier.id, supplier.model_dump(mode="json"))
@@ -1526,6 +1786,41 @@ create table if not exists agent_runs (
     case_id text generated always as (payload->>'case_id') stored,
     status text generated always as (payload->>'status') stored,
     updated_at_payload text generated always as (payload->>'updated_at') stored,
+    payload jsonb not null,
+    updated_at timestamptz not null default now()
+);
+-- Contracts API. Artifacts are independent of the invoice-assurance tables; extraction,
+-- evidence, and report rows are append-only children keyed by artifact_id. The intake
+-- checkpoint primary key is the idempotency identity of a mailbox attachment.
+create table if not exists contract_artifacts (
+    id text primary key,
+    owner_user_id text generated always as (payload->>'owner_user_id') stored,
+    artifact_type text generated always as (payload->>'type') stored,
+    intake_key text generated always as (payload->>'intake_key') stored,
+    payload jsonb not null,
+    updated_at timestamptz not null default now()
+);
+create table if not exists contract_intake_checkpoints (
+    id text primary key,
+    artifact_id text generated always as (payload->>'artifact_id') stored,
+    payload jsonb not null,
+    updated_at timestamptz not null default now()
+);
+create table if not exists contract_artifact_extractions (
+    id text primary key,
+    artifact_id text generated always as (payload->>'artifact_id') stored,
+    payload jsonb not null,
+    updated_at timestamptz not null default now()
+);
+create table if not exists contract_artifact_evidence (
+    id text primary key,
+    artifact_id text generated always as (payload->>'artifact_id') stored,
+    payload jsonb not null,
+    updated_at timestamptz not null default now()
+);
+create table if not exists contract_artifact_reports (
+    id text primary key,
+    artifact_id text generated always as (payload->>'artifact_id') stored,
     payload jsonb not null,
     updated_at timestamptz not null default now()
 );
@@ -1748,6 +2043,16 @@ exception
             current_user, sqlerrm;
 end $$;
 """
+
+
+def _contract_artifact_recency_key(artifact: Artifact) -> tuple[datetime, datetime, str]:
+    return (artifact.received_at, artifact.created_at, artifact.id)
+
+
+def _sorted_by_created[T: (ArtifactExtraction, ArtifactEvidence, ArtifactReport)](
+    items: Iterable[T],
+) -> list[T]:
+    return sorted(items, key=lambda item: (item.created_at, item.id))
 
 
 def _normalize_postgres_connection_string(connection_string: str) -> str:

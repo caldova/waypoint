@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "contracts-kb-mcp___knowledge_base_retrieve",
+      "description": "Look up Caldova contract or policy background if needed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "A short search phrase."
+          }
+        },
+        "required": [],
+        "additionalProperties": true
+      }
+    }
+  }
+]
