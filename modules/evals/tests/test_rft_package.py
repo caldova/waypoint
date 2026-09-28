@@ -109,24 +109,35 @@ def test_rft_package_can_omit_response_format_for_mai_diagnostic(tmp_path: Path)
         grader_path=grader,
         out_dir=tmp_path / "rft",
         agent="contract-policy-expert",
-        base_model="MAI-Code-1-Flash",
+        base_model="mai-code-1.1-flash-2026-08-27",
         suffix="contract-policy-expert-rft",
         include_response_format=False,
     )
 
+    assert manifest["base_model"] == "mai-code-1.1-flash-2026-08-27"
     assert manifest["response_format_mode"] == "omitted"
     assert manifest["artifacts"]["response_format"]["mode"] == "omitted"
     response_format_path = tmp_path / "rft" / "contract-policy-expert-rft-response-format.json"
     assert not response_format_path.exists()
 
     job_spec = json.loads(Path(manifest["artifacts"]["job_spec"]).read_text(encoding="utf-8"))
+    assert job_spec["model"] == "mai-code-1.1-flash-2026-08-27"
     reinforcement = job_spec["method"]["reinforcement"]
     assert "response_format" not in reinforcement
     assert reinforcement["grader"]["type"] == "python"
 
+    train_rows = [
+        json.loads(line)
+        for line in Path(manifest["artifacts"]["train"]["path"]).read_text(encoding="utf-8").splitlines()
+    ]
+    developer_message = train_rows[0]["messages"][0]
+    assert developer_message["role"] == "developer"
+    assert "output_type\":\"expert_evidence" in developer_message["content"]
+    assert "source_ref\":\"<exact retrieved_context source_ref>" in developer_message["content"]
+
     preflight = build_integration_preflight(
         package_dir=Path(manifest["artifacts"]["job_spec"]).parent,
-        base_model="MAI-Code-1-Flash",
+        base_model="mai-code-1.1-flash-2026-08-27",
         project_endpoint="https://example.services.ai.azure.com/api/projects/demo",
     )
     assert preflight["ready_for_integration_dry_run"] is True

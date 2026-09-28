@@ -8,6 +8,23 @@ from typing import Any
 from .grading import load_grader, require_score_range
 from .schemas import read_jsonl, validate_jsonl
 
+EXPERT_EVIDENCE_SCHEMA_PROMPT = (
+    "\n\nReturn exactly this JSON object shape and no other top-level keys: "
+    '{"agent":"contract-policy-expert","plane":"foundryiq","invoice_id":"<invoice_id>",'
+    '"output_type":"expert_evidence","evidence":[{"claim":"<grounded claim>",'
+    '"supports":"approve|recover|escalate|review|unknown",'
+    '"source_ref":"<exact retrieved_context source_ref>",'
+    '"classification":"standard|confidential|ip_sensitive|restricted","confidence":0.0}],'
+    '"unsupported":["<missing or unproven claim>"],'
+    '"summary":"<recommended action summary>",'
+    '"correlation":{"waypoint_invoice_id":"<invoice_id>","waypoint_run_id":"unknown"}}. '
+    "Each evidence row must use exact source_ref values from retrieved_context. "
+    "Use supports='recover' when the cited evidence says the billed amount should be "
+    "withheld, recovered, or not treated as billable until a missing contract/policy "
+    "condition is met. Use an empty unsupported array only when all material support is "
+    "proven by retrieved_context."
+)
+
 
 def build_rft_plan(
     train_path: Path,
@@ -518,7 +535,7 @@ def _to_rft_row(
     expected = row.get("expected", {})
     expected_text = expected.get("text") if isinstance(expected, dict) else None
     packaged = {
-        "messages": messages,
+        "messages": _with_expert_evidence_schema_prompt(messages),
         "expected_output_json": row.get("expected_output_json", {}),
         "ground_truth": row.get("ground_truth", {}),
         "metadata": {
@@ -536,6 +553,28 @@ def _to_rft_row(
     if "expected_tools" in row:
         packaged["expected_tools"] = row["expected_tools"]
     return packaged
+
+
+def _with_expert_evidence_schema_prompt(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    packaged_messages = [dict(message) for message in messages]
+    developer = next(
+        (message for message in packaged_messages if message.get("role") == "developer"),
+        None,
+    )
+    if developer is None:
+        packaged_messages.insert(
+            0,
+            {
+                "role": "developer",
+                "content": EXPERT_EVIDENCE_SCHEMA_PROMPT.strip(),
+            },
+        )
+        return packaged_messages
+
+    content = str(developer.get("content") or "")
+    if "output_type\":\"expert_evidence" not in content:
+        developer["content"] = content.rstrip() + EXPERT_EVIDENCE_SCHEMA_PROMPT
+    return packaged_messages
 
 
 def _self_contained_grader_source(grader_path: Path) -> str:
