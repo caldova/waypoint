@@ -1755,7 +1755,7 @@ function buildMapBubbles({
 
   const evidence: MapBubble = {
     key: "evidence",
-    title: `Microsoft IQ (${activeSources} of ${evidenceNodes.length})`,
+    title: `Evidence (${activeSources} of ${evidenceNodes.length})`,
     ...EVIDENCE_BUBBLE,
     hex: "#2563eb",
     fill: "radial-gradient(circle at 50% 38%, rgb(239 246 255 / 0.92) 0%, rgb(219 234 254 / 0.78) 100%)",
@@ -2239,7 +2239,7 @@ function EvidenceMap({
                 style={{ left: evidenceBubble.cx, top: evidenceBubble.cy }}
               >
                 <span className="text-[38px] font-semibold tracking-tight text-slate-900">
-                  Evidence
+                  Microsoft IQ
                 </span>
                 <span className="text-[96px] font-semibold leading-[0.95] tracking-[-0.03em] tabular-nums text-slate-900">
                   {totalCitations}
