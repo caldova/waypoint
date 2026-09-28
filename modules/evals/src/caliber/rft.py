@@ -57,6 +57,7 @@ def package_rft_assets(
     optimizer_job_id: str | None = None,
     optimizer_candidate_id: str | None = None,
     pass_threshold: float | None = None,
+    include_response_format: bool = True,
 ) -> dict[str, Any]:
     """Package reviewed Caliber rows into Foundry RFT-ready local artifacts."""
 
@@ -85,7 +86,8 @@ def package_rft_assets(
     _write_jsonl(train_out, train["rows"])
     _write_jsonl(validation_out, validation["rows"])
     grader_source = _self_contained_grader_source(grader_path)
-    grader_out.write_text(grader_source, encoding="utf-8")
+    rft_grader_source = _rft_reward_scaled_grader_source(grader_source)
+    grader_out.write_text(rft_grader_source, encoding="utf-8")
     gold_answer_parity = _gold_answer_parity(
         train_rows=train["rows"],
         validation_rows=validation["rows"],
@@ -95,11 +97,14 @@ def package_rft_assets(
         _blossom_endpoint_grader_source(grader_source),
         encoding="utf-8",
     )
-    response_format = _expert_evidence_response_format()
-    response_format_out.write_text(
-        json.dumps(response_format, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
+    response_format = _expert_evidence_response_format() if include_response_format else None
+    if response_format is not None:
+        response_format_out.write_text(
+            json.dumps(response_format, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+    elif response_format_out.exists():
+        response_format_out.unlink()
 
     resolved_suffix = suffix or f"{agent}-cost"
     job_spec = {
@@ -115,7 +120,7 @@ def package_rft_assets(
                 "grader": {
                     "type": "python",
                     "name": f"{_safe_name(agent)}_evidence_grader",
-                    "source": grader_source,
+                    "source": rft_grader_source,
                 },
                 "endpoint_grader_fallback": {
                     "type": "endpoint",
@@ -126,7 +131,7 @@ def package_rft_assets(
                     },
                     "source_file": str(endpoint_grader_out),
                 },
-                "response_format": response_format,
+                **({"response_format": response_format} if response_format is not None else {}),
             },
         },
     }
@@ -154,11 +159,13 @@ def package_rft_assets(
         "suffix": resolved_suffix,
         "pass_threshold": pass_threshold,
         "goal": "cost_optimization_after_agent_optimizer",
+        "response_format_mode": "strict" if response_format is not None else "omitted",
         "ready_for_live_submit": False,
         "blocked_until": _rft_submission_gates(
             optimizer_job_id=optimizer_job_id,
             optimizer_candidate_id=optimizer_candidate_id,
             pass_threshold_selected=pass_threshold is not None,
+            include_response_format=response_format is not None,
         ),
         "optimizer_job_id": optimizer_job_id,
         "optimizer_candidate_id": optimizer_candidate_id,
@@ -184,10 +191,24 @@ def package_rft_assets(
                 "path": str(endpoint_grader_out),
                 "bytes": endpoint_grader_out.stat().st_size,
             },
-            "response_format": {
-                "path": str(response_format_out),
-                "schema": "expert_evidence",
-            },
+            "response_format": (
+                {
+                    "path": str(response_format_out),
+                    "schema": "expert_evidence",
+                    "mode": "strict",
+                }
+                if response_format is not None
+                else {
+                    "path": None,
+                    "schema": None,
+                    "mode": "omitted",
+                    "reason": (
+                        "Historical-shape diagnostic package: rely on prompt/reference JSON "
+                        "contract and Python grader reward instead of schema-constrained "
+                        "trainer rollouts."
+                    ),
+                }
+            ),
             "job_spec": str(job_spec_out),
         },
         "checks": [
@@ -199,13 +220,13 @@ def package_rft_assets(
             ),
             _check(
                 "self_contained_grader",
-                "from caliber" not in grader_source,
+                "from caliber" not in rft_grader_source,
                 "Packaged grader does not import Caliber package modules.",
             ),
             _check(
                 "strict_evidence_schema_gate",
-                "REQUIRED_TOP_LEVEL_KEYS" in grader_source
-                and "REQUIRED_EVIDENCE_KEYS" in grader_source,
+                "REQUIRED_TOP_LEVEL_KEYS" in rft_grader_source
+                and "REQUIRED_EVIDENCE_KEYS" in rft_grader_source,
                 (
                     "Grader rewards the strict expert_evidence JSON contract and evidence-item "
                     "metadata surfaced by optimizer runs."
@@ -227,7 +248,7 @@ def package_rft_assets(
             ),
             _check(
                 "python_grader_payload",
-                "def grade(" in grader_source
+                "def grade(" in rft_grader_source
                 and job_spec["method"]["reinforcement"]["grader"]["type"] == "python",
                 "Dry-run payload uses a self-contained Python grader source.",
             ),
@@ -238,10 +259,15 @@ def package_rft_assets(
             ),
             _check(
                 "response_format_schema",
-                True,
+                response_format is not None,
                 (
                     "Packaged response_format JSON schema is aligned with the evidence "
                     "grader contract."
+                    if response_format is not None
+                    else (
+                        "response_format intentionally omitted for a historical-shape "
+                        "MAI diagnostic."
+                    )
                 ),
             ),
         ],
@@ -282,6 +308,8 @@ def build_integration_preflight(
     grader_validation_result_path = (
         package_dir / "contract-policy-expert-rft-grader-validation-result.json"
     )
+    manifest = _read_optional_json(manifest_path)
+    response_format_required = manifest.get("response_format_mode", "strict") != "omitted"
     resolved_project_endpoint = (
         project_endpoint
         or os.environ.get("FOUNDRY_PROJECT_ENDPOINT")
@@ -296,8 +324,16 @@ def build_integration_preflight(
         _check("dry_run_job_spec", job_spec_path.exists(), f"Dry-run job spec: {job_spec_path}"),
         _check(
             "response_format_artifact",
-            response_format_path.exists(),
-            f"Response format artifact: {response_format_path}",
+            (
+                response_format_path.exists()
+                if response_format_required
+                else not response_format_path.exists()
+            ),
+            (
+                f"Response format artifact: {response_format_path}"
+                if response_format_required
+                else "response_format intentionally omitted for this diagnostic package."
+            ),
         ),
         _check(
             "endpoint_grader_artifact",
@@ -402,7 +438,7 @@ def build_grader_validation_request(
         "live_side_effects": "grader_validation_only_no_file_upload_no_job_submission",
         "package_dir": str(package_dir),
         "request": request,
-        "expected_score": 1.0,
+        "expected_score": 5.0,
         "next_step": (
             "POST this request to the grader-run validation route with an Azure AI bearer token; "
             "do not upload files or create a fine-tuning job until it returns the expected score."
@@ -423,6 +459,16 @@ def _grader_validation_passed(path: Path) -> bool:
     except json.JSONDecodeError:
         return False
     return bool(result.get("passed")) and float(result.get("reward", 0.0)) == 1.0
+
+
+def _read_optional_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _integration_preflight_next_step(
@@ -506,6 +552,21 @@ def _self_contained_grader_source(grader_path: Path) -> str:
     )
 
 
+def _rft_reward_scaled_grader_source(grader_source: str) -> str:
+    """Scale Caliber's 0-1 grader to the 0-5 range used in Foundry RFT samples."""
+    marker = "\ndef grade("
+    if marker not in grader_source:
+        raise ValueError("grader source must define def grade(sample, item)")
+    scaled_source = grader_source.replace(marker, "\ndef _grade_unit(", 1)
+    return (
+        scaled_source.rstrip()
+        + "\n\n"
+        + "def grade(sample: Any, item: dict[str, Any]) -> float:\n"
+        + "    unit_score = float(_grade_unit(sample, item))\n"
+        + "    return round(max(0.0, min(unit_score, 1.0)) * 5.0, 3)\n"
+    )
+
+
 def _blossom_endpoint_grader_source(grader_source: str) -> str:
     return (
         grader_source.rstrip()
@@ -532,7 +593,7 @@ def _blossom_endpoint_grader_source(grader_source: str) -> str:
         + "    item: dict[str, Any],\n"
         + ") -> dict[str, Any]:\n"
         + "    \"\"\"Score locally with per-dimension diagnostics for preflight review.\"\"\"\n"
-        + "    output_text = str(sample.get(\"output_text\", \"\") or \"\").strip()\n"
+        + "    output_text = _output_text(sample)\n"
         + "    try:\n"
         + "        output = json.loads(output_text)\n"
         + "    except json.JSONDecodeError:\n"
@@ -791,7 +852,13 @@ def _rft_submission_gates(
     optimizer_job_id: str | None,
     optimizer_candidate_id: str | None,
     pass_threshold_selected: bool,
+    include_response_format: bool,
 ) -> list[str]:
+    grader_validation_gate = (
+        "v2 Python grader is validated and aligned with response_format"
+        if include_response_format
+        else "v2 Python grader is validated without relying on response_format"
+    )
     if pass_threshold_selected:
         return [
             "frozen dry-run payload is reviewed",
@@ -804,7 +871,7 @@ def _rft_submission_gates(
         return [
             "optimizer candidate is selected as the gold quality target",
             "gold candidate outputs are calibrated with the RFT grader",
-            "v2 Python grader is validated and aligned with response_format",
+            grader_validation_gate,
             "RFT base model support is verified",
             "live RFT spend is explicitly approved",
         ]
@@ -814,14 +881,14 @@ def _rft_submission_gates(
             "optimizer candidate is selected as the gold quality target",
             "optimized hosted agent passes the calibration eval",
             "RFT grader threshold is recalibrated against optimized outputs",
-            "v2 Python grader is validated and aligned with response_format",
+            grader_validation_gate,
         ]
     return [
         "optimizer job completes",
         "optimizer candidate is selected and applied after review",
         "optimized hosted agent passes the calibration eval",
         "RFT grader threshold is recalibrated against optimized outputs",
-        "v2 Python grader is validated and aligned with response_format",
+        grader_validation_gate,
     ]
 
 

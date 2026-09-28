@@ -50,8 +50,8 @@ def test_rft_package_emits_python_grader_endpoint_fallback_and_response_schema(
 
     job_spec = json.loads(job_spec_path.read_text(encoding="utf-8"))
     grader_config = job_spec["method"]["reinforcement"]["grader"]
-    assert job_spec["method"]["reinforcement"]["pass_threshold"] == 0.9
-    assert manifest["pass_threshold"] == 0.9
+    assert job_spec["method"]["reinforcement"]["pass_threshold"] == 0.5
+    assert manifest["pass_threshold"] == 0.5
     assert grader_config["type"] == "python"
     assert "def grade(" in grader_config["source"]
     fallback_config = job_spec["method"]["reinforcement"]["endpoint_grader_fallback"]
@@ -63,7 +63,19 @@ def test_rft_package_emits_python_grader_endpoint_fallback_and_response_schema(
     assert grader_module.grade(
         {"output_json": row["expected_output_json"]},
         row,
-    ) == 1.0
+    ) == 5.0
+    assert grader_module.grade(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": json.dumps(row["expected_output_json"]),
+                    },
+                },
+            ],
+        },
+        row,
+    ) == 5.0
 
     endpoint_module = _load_module(endpoint_path)
     monkeypatch.setenv("BLOSSOM_GRADER_SECRET", "local-secret")
@@ -75,6 +87,49 @@ def test_rft_package_emits_python_grader_endpoint_fallback_and_response_schema(
         headers={"Authorization": "Bearer local-secret"},
     )
     assert result == {"score": 1.0}
+
+
+def test_rft_package_can_omit_response_format_for_mai_diagnostic(tmp_path: Path) -> None:
+    row = _contract_policy_row()
+    train = tmp_path / "train.jsonl"
+    validation = tmp_path / "validation.jsonl"
+    _write_jsonl(train, [row])
+    _write_jsonl(validation, [row])
+
+    project_root = Path(__file__).resolve().parents[1]
+    grader = (
+        project_root
+        / "graders"
+        / "contract-policy-expert"
+        / "contract_policy_evidence_grader.py"
+    )
+    manifest = package_rft_assets(
+        train_path=train,
+        validation_path=validation,
+        grader_path=grader,
+        out_dir=tmp_path / "rft",
+        agent="contract-policy-expert",
+        base_model="MAI-Code-1-Flash",
+        suffix="contract-policy-expert-rft",
+        include_response_format=False,
+    )
+
+    assert manifest["response_format_mode"] == "omitted"
+    assert manifest["artifacts"]["response_format"]["mode"] == "omitted"
+    response_format_path = tmp_path / "rft" / "contract-policy-expert-rft-response-format.json"
+    assert not response_format_path.exists()
+
+    job_spec = json.loads(Path(manifest["artifacts"]["job_spec"]).read_text(encoding="utf-8"))
+    reinforcement = job_spec["method"]["reinforcement"]
+    assert "response_format" not in reinforcement
+    assert reinforcement["grader"]["type"] == "python"
+
+    preflight = build_integration_preflight(
+        package_dir=Path(manifest["artifacts"]["job_spec"]).parent,
+        base_model="MAI-Code-1-Flash",
+        project_endpoint="https://example.services.ai.azure.com/api/projects/demo",
+    )
+    assert preflight["ready_for_integration_dry_run"] is True
 
 
 def test_blossom_endpoint_diagnostics_reward_exact_contract_and_penalize_failures(
@@ -108,6 +163,19 @@ def test_blossom_endpoint_diagnostics_reward_exact_contract_and_penalize_failure
     )
     assert fake_action_result["score"] < perfect["score"]
     assert fake_action_result["diagnostics"]["boundary"] == 0.0
+
+
+def test_contract_policy_grader_preserves_signal_for_near_misses(tmp_path: Path) -> None:
+    row = _contract_policy_row()
+    manifest = _package_rows(tmp_path, [row])
+    grader_module = _load_module(Path(manifest["artifacts"]["grader"]["path"]))
+
+    near_miss = json.loads(json.dumps(row["expected_output_json"]))
+    near_miss["evidence"][0]["source_ref"] = "contract.md#nearby-section"
+    assert 2.5 <= grader_module.grade({"output_json": near_miss}, row) < 5.0
+
+    malformed = grader_module.grade({"output_text": "not json"}, row)
+    assert 0.0 < malformed < 0.5
 
 
 def test_blossom_endpoint_scores_committed_contract_policy_target_at_parity(
@@ -312,7 +380,7 @@ def test_grader_validation_request_uses_python_grader_without_job_submit(tmp_pat
 
     assert result["route"] == "/openai/v1/fine_tuning/alpha/graders/run"
     assert result["live_side_effects"] == "grader_validation_only_no_file_upload_no_job_submission"
-    assert result["expected_score"] == 1.0
+    assert result["expected_score"] == 5.0
     assert request_path.exists()
 
     payload = result["request"]
@@ -343,7 +411,7 @@ def _package_rows(tmp_path: Path, rows: list[dict[str, Any]]) -> dict[str, Any]:
         agent="contract-policy-expert",
         base_model="MAI-Code-1-Flash",
         suffix="contract-policy-expert-v2-mai",
-        pass_threshold=0.9,
+        pass_threshold=0.5,
     )
 
 
