@@ -306,14 +306,50 @@ score_summary: min 0.100, avg 0.1766, median 0.1365, max 0.331
 pass_rates: 0.15 => 0.500, 0.20 => 0.3125, 0.25 => 0.3125, 0.50 => 0.0
 ```
 
-This gives a useful diagnostic threshold band around `0.15`, not the historical
-teacher threshold `0.9`. It also confirms the zero-token RFT failure is not
-explained by the deterministic grader always returning zero for MAI-family
-outputs: with enough visible-output budget, the grader produces mixed nonzero
-scores. Caveat: the configured serving deployment reports a response model name
-that looks like a previously fine-tuned MAI model
-(`mai-code-1.1-flash-2026-08-27.ft-...`), so treat this as
-MAI-family serving calibration, not clean untuned-base evidence.
+This initial run was useful, but the score was artificially low: the validation
+prompt only said "FoundryIQ evidence contract JSON" and did not spell out the
+required `expert_evidence` keys. The model cited the right sources but invented
+alternate JSON shapes. Dimension diagnostics showed the problem:
+
+```text
+schema avg: 0.042
+identity avg: 0.094
+correlation avg: 0.000
+evidence avg: 0.172
+boundary avg: 1.000
+```
+
+A follow-up serving benchmark appended the exact `expert_evidence` shape to the
+developer message while keeping the same rows, route, deployment, Entra tenant,
+and `max_completion_tokens: 8192`:
+
+```text
+runs\eval-results\contract-policy-expert\mai-base-benchmark\mai-validation-schema-prompt-output-items-8192.jsonl
+runs\eval-results\contract-policy-expert\mai-base-benchmark\mai-validation-schema-prompt-summary-8192.json
+```
+
+That corrected prompt produced strong scores:
+
+```text
+rows: 16
+http_status_counts: 200 => 16
+visible_outputs: 16
+score_summary: min 0.904, avg 0.9599, median 0.966, max 0.988
+pass_rates: 0.90 => 1.000, 0.95 => 0.8125
+dimension_averages: schema 1.000, identity 1.000, correlation 1.000,
+  evidence 0.960, unsupported 0.9062, summary 0.5859, boundary 1.000
+```
+
+Conclusion: the `0.1766` run should not drive threshold selection. It diagnoses
+an underspecified prompt/schema contract. MAI-family serving can satisfy the
+current grader when the expected JSON object is made explicit, and the
+teacher-style threshold band around `0.9` remains plausible for schema-explicit
+outputs. The zero-token RFT failure is therefore more likely a live trainer
+rollout / sample-shape / completion-budget issue than a too-strict grader or
+incapable MAI-family model. Caveat: the configured serving deployment reports a
+response model name that looks like a previously fine-tuned MAI model
+(`mai-code-1.1-flash-2026-08-27.ft-...`), so treat this as MAI-family serving
+calibration, not clean untuned-base evidence.
 
 No-submit integration preflight:
 
