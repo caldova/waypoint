@@ -1578,6 +1578,8 @@ const ORCHESTRATION_BUBBLE = { cx: 260, cy: MAP_MID_Y, r: 230 };
 const SIDE_CX = 1440;
 // Below this on-screen scale, labels (fixed pixel size) would collide.
 const MIN_LABEL_SCALE = 0.45;
+const MIN_TILE_GROWTH = 0.85;
+const MAX_TILE_GROWTH = 1.4;
 const CORE_R = 128;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const MIN_ZOOM = 0.5;
@@ -1753,7 +1755,7 @@ function buildMapBubbles({
 
   const evidence: MapBubble = {
     key: "evidence",
-    title: `Evidence sources (${activeSources} of ${evidenceNodes.length})`,
+    title: `Microsoft IQ (${activeSources} of ${evidenceNodes.length})`,
     ...EVIDENCE_BUBBLE,
     hex: "#2563eb",
     fill: "radial-gradient(circle at 50% 38%, rgb(239 246 255 / 0.92) 0%, rgb(219 234 254 / 0.78) 100%)",
@@ -2065,7 +2067,12 @@ function EvidenceMap({
       : relativeZoom < 1.65
         ? "label"
         : "detail";
-  const counterScale = 1 / map.view.scale;
+  // Tiles start small at the fitted view and grow (sub-linearly) as you zoom in.
+  const tileGrowth = Math.min(
+    MAX_TILE_GROWTH,
+    Math.max(MIN_TILE_GROWTH, Math.sqrt(relativeZoom)),
+  );
+  const counterScale = tileGrowth / map.view.scale;
   const transition = map.isAnimating ? `transform ${MAP_ANIM_MS}ms ${MAP_EASE}` : undefined;
   const dotSpacing = 18 * map.view.scale;
 
@@ -2256,7 +2263,7 @@ function EvidenceMap({
                       className="absolute left-0 top-0"
                       style={{
                         transform: `scale(${counterScale}) translate(-50%, ${
-                          level === "compact" ? -18 : -28
+                          level === "compact" ? -14 : -21
                         }px)`,
                         transformOrigin: "0 0",
                         transition,
@@ -2333,7 +2340,8 @@ function MapTile({
   onSelect: () => void;
 }) {
   const Icon = node.icon;
-  const tileSize = level === "compact" ? "h-7 w-7 rounded-md p-1" : "h-12 w-12 rounded-xl p-1.5";
+  const tileSize =
+    level === "compact" ? "h-5 w-5 rounded-[5px] p-0.5" : "h-[34px] w-[34px] rounded-lg p-1";
 
   return (
     <button
@@ -2348,7 +2356,7 @@ function MapTile({
           node.active ? "" : "opacity-50 grayscale"
         }`}
         style={{
-          border: node.active ? `2px solid ${node.hex}` : "2px dashed rgb(148 163 184)",
+          border: node.active ? `1.5px solid ${node.hex}` : "1.5px dashed rgb(148 163 184)",
           boxShadow: selected
             ? `0 0 0 4px ${node.hex}33, 0 6px 16px -6px rgb(15 23 42 / 0.35)`
             : "0 1px 2px rgb(15 23 42 / 0.08), 0 4px 10px -4px rgb(15 23 42 / 0.18)",
@@ -2363,7 +2371,7 @@ function MapTile({
 
       {level !== "compact" ? (
         <span
-          className={`line-clamp-2 max-w-[136px] text-[13px] font-semibold leading-tight ${
+          className={`line-clamp-2 max-w-[120px] text-[12px] font-semibold leading-tight ${
             node.active ? "text-slate-800" : "text-slate-500"
           }`}
         >
@@ -2373,7 +2381,7 @@ function MapTile({
 
       {level !== "compact" && node.badge ? (
         <span
-          className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold uppercase ring-1 ${node.badge.className}`}
+          className={`rounded px-1.5 py-px text-[10px] font-semibold uppercase ring-1 ${node.badge.className}`}
         >
           {node.badge.text}
         </span>
