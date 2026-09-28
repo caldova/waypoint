@@ -14,6 +14,7 @@ import {
   HiLightningBolt,
   HiMinus,
   HiPlus,
+  HiPuzzle,
   HiRefresh,
   HiSearch,
   HiX,
@@ -1567,15 +1568,17 @@ interface MapBubble {
   hex: string;
   fill: string;
   titlePlacement: "above" | "below";
+  muted?: boolean;
   nodes: MapNode[];
 }
 
-const MAP_W = 1640;
+const MAP_W = 1840;
 const MAP_H = 800;
 const MAP_MID_Y = 390;
 const EVIDENCE_BUBBLE = { cx: 870, cy: MAP_MID_Y, r: 330 };
 const ORCHESTRATION_BUBBLE = { cx: 260, cy: MAP_MID_Y, r: 230 };
-const SIDE_CX = 1440;
+const SIDE_CX = 1640;
+const INTEGRATIONS_BUBBLE = { cx: 1300, cy: 115, r: 100 };
 // Below this on-screen scale, labels (fixed pixel size) would collide.
 const MIN_LABEL_SCALE = 0.45;
 const MIN_TILE_GROWTH = 0.85;
@@ -1642,8 +1645,10 @@ function layoutAgents(
   });
 }
 
-function buildEvidenceNodes(fanout: FanoutLane[]): MapNode[] {
-  const groups = new Map<string, { meta: IqMeta; lane: FanoutLane; evidence: FanoutEvidence[] }>();
+type LaneGroup = { meta: IqMeta; lane: FanoutLane; evidence: FanoutEvidence[] };
+
+function groupEvidenceLanes(fanout: FanoutLane[]): Map<string, LaneGroup> {
+  const groups = new Map<string, LaneGroup>();
   fanout.forEach((lane, index) => {
     const iqKey = iqKeyForLane(lane);
     const key = iqKey === "other" ? `other:${lane.agent || lane.plane || index}` : iqKey;
@@ -1651,49 +1656,78 @@ function buildEvidenceNodes(fanout: FanoutLane[]): MapNode[] {
     group.evidence.push(...citedEvidence(lane));
     groups.set(key, group);
   });
+  return groups;
+}
 
-  // Keep every known integration on the map so positions stay stable run to run.
-  const orderedKeys = [
-    ...IQ_ORDER,
-    ...[...groups.keys()].filter((key) => key.startsWith("other:")).sort(),
-  ];
-  const positions = layoutEvidence(orderedKeys.length);
+// Third-party (non-IQ) evidence lanes. Empty today; the Integrations bubble
+// shows a placeholder until a connector contributes cited evidence.
+function buildIntegrationNodes(fanout: FanoutLane[]): MapNode[] {
+  const groups = groupEvidenceLanes(fanout);
+  const keys = [...groups.keys()].filter((key) => key.startsWith("other:")).sort();
+  const positions = layoutAgents(Math.max(keys.length, 1), INTEGRATIONS_BUBBLE);
+  if (keys.length === 0) {
+    return [
+      {
+        key: "integrations-placeholder",
+        label: "None connected",
+        title: "Third-party integrations",
+        stats: "No integrations are connected yet",
+        lines: [],
+        active: false,
+        hex: "#94a3b8",
+        icon: HiPuzzle,
+        iconClass: "text-slate-500",
+        ...positions[0],
+      },
+    ];
+  }
+  return keys.map((key, index) => evidenceNodeFor(key, groups.get(key), positions[index]));
+}
 
-  return orderedKeys.map((key, index) => {
-    const group = groups.get(key);
-    const meta = group?.meta ?? IQ_META[key as IqKey];
-    const lane = group?.lane ?? {};
-    const evidence = group?.evidence ?? [];
-    const scored = evidence.filter((item) => typeof item.confidence === "number");
-    const avg =
-      scored.length > 0
-        ? scored.reduce((acc, item) => acc + (item.confidence ?? 0), 0) / scored.length
-        : null;
-    const active = evidence.length > 0;
-    return {
-      key,
-      label:
-        meta.key === "other" ? humanizeIdentifier(lane.plane || "Evidence source") : meta.label,
-      title:
-        meta.key === "other"
-          ? humanizeIdentifier(lane.agent || lane.plane || "Integration")
-          : meta.agent,
-      stats: active
-        ? `${evidence.length} ${evidence.length === 1 ? "citation" : "citations"}${
-            avg !== null ? ` · ${Math.round(avg * 100)}%` : ""
-          }`
-        : "Not used in this run",
-      lines: [
-        ...new Set(evidence.map((item) => cleanSourceRef(item.source_ref ?? "")).filter(Boolean)),
-      ],
-      active,
-      hex: meta.hex,
-      img: meta.img,
-      icon: meta.icon,
-      iconClass: meta.text,
-      ...positions[index],
-    };
-  });
+function buildEvidenceNodes(fanout: FanoutLane[]): MapNode[] {
+  const groups = groupEvidenceLanes(fanout);
+  // Keep every IQ plane on the map so positions stay stable run to run.
+  const positions = layoutEvidence(IQ_ORDER.length);
+  return IQ_ORDER.map((key, index) => evidenceNodeFor(key, groups.get(key), positions[index]));
+}
+
+function evidenceNodeFor(
+  key: string,
+  group: LaneGroup | undefined,
+  position: { x: number; y: number },
+): MapNode {
+  const meta = group?.meta ?? IQ_META[key as IqKey];
+  const lane = group?.lane ?? {};
+  const evidence = group?.evidence ?? [];
+  const scored = evidence.filter((item) => typeof item.confidence === "number");
+  const avg =
+    scored.length > 0
+      ? scored.reduce((acc, item) => acc + (item.confidence ?? 0), 0) / scored.length
+      : null;
+  const active = evidence.length > 0;
+  return {
+    key,
+    label:
+      meta.key === "other" ? humanizeIdentifier(lane.plane || "Evidence source") : meta.label,
+    title:
+      meta.key === "other"
+        ? humanizeIdentifier(lane.agent || lane.plane || "Integration")
+        : meta.agent,
+    stats: active
+      ? `${evidence.length} ${evidence.length === 1 ? "citation" : "citations"}${
+          avg !== null ? ` · ${Math.round(avg * 100)}%` : ""
+        }`
+      : "Not used in this run",
+    lines: [
+      ...new Set(evidence.map((item) => cleanSourceRef(item.source_ref ?? "")).filter(Boolean)),
+    ],
+    active,
+    hex: meta.hex,
+    img: meta.img,
+    icon: meta.icon,
+    iconClass: meta.text,
+    ...position,
+  };
 }
 
 function buildMapBubbles({
@@ -1791,7 +1825,23 @@ function buildMapBubbles({
     ],
   };
 
-  const bubbles = [orchestration, evidence, record];
+  const integrationNodes = buildIntegrationNodes(evidenceFanout);
+  const connectedIntegrations = integrationNodes.filter((node) => node.active).length;
+  const integrations: MapBubble = {
+    key: "integrations",
+    title: `Integrations (${connectedIntegrations})`,
+    ...INTEGRATIONS_BUBBLE,
+    hex: connectedIntegrations > 0 ? "#0891b2" : "#94a3b8",
+    fill:
+      connectedIntegrations > 0
+        ? "radial-gradient(circle at 50% 38%, rgb(236 254 255 / 0.95) 0%, rgb(207 250 254 / 0.8) 100%)"
+        : "radial-gradient(circle at 50% 38%, rgb(248 250 252 / 0.95) 0%, rgb(226 232 240 / 0.85) 100%)",
+    titlePlacement: "below",
+    muted: connectedIntegrations === 0,
+    nodes: integrationNodes,
+  };
+
+  const bubbles = [orchestration, evidence, integrations, record];
   if (hasAnalysts) {
     const analystShape = { cx: SIDE_CX, cy: 600, r: 130 };
     const analystPositions = layoutAgents(analystLanes.length, analystShape);
@@ -2045,14 +2095,17 @@ function EvidenceMap({
   const evidenceBubble = bubbleByKey.get("evidence");
   const evidenceNodes = evidenceBubble?.nodes ?? [];
   const activeSources = evidenceNodes.filter((node) => node.active);
-  const totalCitations = evidenceFanoutCitations(fanout);
+  const totalCitations = evidenceFanoutCitations(
+    fanout.filter((lane) => iqKeyForLane(lane) !== "other"),
+  );
   const agentCount = bubbles
-    .filter((bubble) => bubble.key !== "evidence")
+    .filter((bubble) => bubble.key !== "evidence" && bubble.key !== "integrations")
     .reduce((acc, bubble) => acc + bubble.nodes.length, 0);
 
   const connectors: { from: string; to: string; label?: string }[] = [
     { from: "orchestration", to: "evidence" },
     { from: "evidence", to: "record" },
+    { from: "integrations", to: "record" },
   ];
   if (bubbleByKey.has("analysts")) {
     connectors.push({ from: "record", to: "analysts", label: "reads" });
@@ -2166,11 +2219,23 @@ function EvidenceMap({
                 >
                   <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
                 </marker>
+                <marker
+                  id="em-arrow-muted"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
+                </marker>
               </defs>
               {connectors.map(({ from, to, label }) => {
                 const a = bubbleByKey.get(from);
                 const b = bubbleByKey.get(to);
                 if (!a || !b) return null;
+                const muted = Boolean(a.muted || b.muted);
                 const mid = {
                   x: (edgePoint(a, b.cx, b.cy).x + edgePoint(b, a.cx, a.cy).x) / 2,
                   y: (edgePoint(a, b.cx, b.cy).y + edgePoint(b, a.cx, a.cy).y) / 2,
@@ -2180,12 +2245,12 @@ function EvidenceMap({
                     <path
                       d={connectorPath(a, b)}
                       fill="none"
-                      stroke="#64748b"
+                      stroke={muted ? "#94a3b8" : "#64748b"}
                       strokeWidth={3}
                       strokeDasharray="8 5"
                       strokeLinecap="round"
-                      markerEnd="url(#em-arrow)"
-                      className="em-flow"
+                      markerEnd={muted ? "url(#em-arrow-muted)" : "url(#em-arrow)"}
+                      className={muted ? undefined : "em-flow"}
                     />
                     {label ? (
                       <text
@@ -2211,13 +2276,15 @@ function EvidenceMap({
                     width: bubble.r * 2,
                     height: bubble.r * 2,
                     background: bubble.fill,
-                    border: `5px solid ${bubble.hex}`,
-                    boxShadow: `inset 0 0 0 7px rgb(255 255 255 / 0.9), 0 24px 48px -28px ${bubble.hex}8c`,
+                    border: `5px ${bubble.muted ? "dashed" : "solid"} ${bubble.hex}`,
+                    boxShadow: bubble.muted
+                      ? "inset 0 0 0 7px rgb(255 255 255 / 0.9)"
+                      : `inset 0 0 0 7px rgb(255 255 255 / 0.9), 0 24px 48px -28px ${bubble.hex}8c`,
                   }}
                   aria-hidden="true"
                 />
                 <div
-                  className={`pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[26px] font-semibold leading-none tracking-tight text-slate-800 ${
+                  className={`pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[26px] font-semibold leading-none tracking-tight ${bubble.muted ? "text-slate-400" : "text-slate-800"} ${
                     bubble.titlePlacement === "above" ? "-translate-y-full" : ""
                   }`}
                   style={{
