@@ -383,6 +383,33 @@ teacher-style threshold band around `0.9`; do not lower the threshold based on
 the earlier underspecified prompt or the accidental fine-tuned-looking serving
 deployment.
 
+The first corrected RFT retry with the schema-explicit prompt failed during
+training-file preprocessing with `unsafe_file`. The platform did not identify a
+row, phrase, or policy category, so the exact trigger is unknown. To avoid
+guessing, the package prompt was neutralized: it keeps the same required
+`expert_evidence` keys but removes repeated placeholder language such as
+`missing or unproven claim`, `withheld`, `recovered`, and `not billable`.
+
+The neutral schema prompt still scored cleanly against `mai-code-1-1-flash-base`:
+
+```text
+rows: 16
+score_summary: min 0.945, avg 0.9597, median 0.9545, max 0.981
+pass_rates: 0.90 => 1.000, 0.95 => 0.750
+```
+
+As a no-job side-effect check, the neutral package files were uploaded for
+fine-tune preprocessing only. Both files processed successfully:
+
+```text
+training_file: file-428ff8967e2740629c558a060af471d3
+validation_file: file-6cce073d49ac4c6bafb04849025a764a
+```
+
+This does not prove which phrase caused the earlier `unsafe_file`, but it proves
+the neutralized 80/16 package can pass file processing before any new job
+submission.
+
 No-submit integration preflight:
 
 ```powershell

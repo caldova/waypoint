@@ -15,14 +15,13 @@ EXPERT_EVIDENCE_SCHEMA_PROMPT = (
     '"supports":"approve|recover|escalate|review|unknown",'
     '"source_ref":"<exact retrieved_context source_ref>",'
     '"classification":"standard|confidential|ip_sensitive|restricted","confidence":0.0}],'
-    '"unsupported":["<missing or unproven claim>"],'
+    '"unsupported":["<evidence gap>"],'
     '"summary":"<recommended action summary>",'
     '"correlation":{"waypoint_invoice_id":"<invoice_id>","waypoint_run_id":"unknown"}}. '
     "Each evidence row must use exact source_ref values from retrieved_context. "
-    "Use supports='recover' when the cited evidence says the billed amount should be "
-    "withheld, recovered, or not treated as billable until a missing contract/policy "
-    "condition is met. Use an empty unsupported array only when all material support is "
-    "proven by retrieved_context."
+    "Choose the supports label that best matches the cited evidence and requested "
+    "recommendation. Use an empty unsupported array only when retrieved_context contains "
+    "all evidence needed for the recommendation."
 )
 
 
