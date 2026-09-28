@@ -2,6 +2,8 @@ import type { MetaFunction } from "react-router";
 import type { ComponentType, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  HiArrowsExpand,
+  HiChatAlt2,
   HiChevronDown,
   HiChevronRight,
   HiClock,
@@ -12,9 +14,9 @@ import {
   HiLightningBolt,
   HiMinus,
   HiPlus,
+  HiPuzzle,
   HiRefresh,
   HiSearch,
-  HiUserGroup,
   HiX,
 } from "react-icons/hi";
 import { authFetch } from "../../lib/msalAuth";
@@ -1382,6 +1384,10 @@ function RunRow({
 function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
   const meta = run.metadata ?? {};
   const fanout = evidenceFanout(meta);
+  const analystLanes = useMemo(
+    () => (Array.isArray(meta.fanout) ? meta.fanout.filter(isAnalystLane) : []),
+    [meta.fanout],
+  );
   const invoiceLabel = meta.invoice_number || meta.invoice_id || run.name;
 
   useEffect(() => {
@@ -1465,8 +1471,9 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
             </p>
           ) : null}
 
-          <FanoutGraph
+          <EvidenceMap
             fanout={fanout}
+            analystLanes={analystLanes}
             decision={meta.decision || run.status}
             moneyAtRisk={meta.money_at_risk}
             confidence={meta.confidence}
@@ -1528,119 +1535,497 @@ function TelemetryRow({ label, value }: { label: string; value: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Fan-out graph — invoice intake → Assurance Orchestrator → evidence experts → Waypoint Recorder
+// Agent map — each group of agents lives in its own bubble (orchestration,
+// evidence sources, governed record, analysts). The evidence bubble holds every
+// integration the orchestrator can call: the IQ planes today, third-party
+// connectors later. Zooming spreads tiles apart and reveals more detail.
 // ---------------------------------------------------------------------------
 
-interface ExpertNode {
+type MapLevel = "compact" | "label" | "detail";
+
+interface MapNode {
   key: string;
-  meta: IqMeta;
-  agentLabel: string;
-  planeLabel: string;
-  claims: number;
-  confidence: number | null;
+  label: string;
+  title: string;
+  stats: string;
+  lines: string[];
+  badge?: { text: string; className: string };
+  active: boolean;
+  hex: string;
+  img?: string;
+  icon: ComponentType<{ className?: string }>;
+  iconClass: string;
+  x: number;
+  y: number;
 }
 
-const INTAKE_X = 8;
-const ORCHESTRATOR_X = 30;
-const EXPERT_X = 58;
-const RECORDER_X = 89;
-const MID_Y = 50;
-const BACKBONE = "#2563eb";
+interface MapBubble {
+  key: string;
+  title: string;
+  cx: number;
+  cy: number;
+  r: number;
+  hex: string;
+  fill: string;
+  titlePlacement: "above" | "below";
+  muted?: boolean;
+  nodes: MapNode[];
+}
 
-// Logical pipeline stage bounds, scaled and panned as a unit.
-const STAGE_W = 1040;
-const BASE_STAGE_H = 380;
-const EXPERT_ROW_H = 96;
-const MIN_SCALE = 0.4;
-const MAX_SCALE = 2.5;
-
-const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+const MAP_W = 1840;
+const MAP_H = 800;
+const MAP_MID_Y = 390;
+const EVIDENCE_BUBBLE = { cx: 870, cy: MAP_MID_Y, r: 330 };
+const ORCHESTRATION_BUBBLE = { cx: 260, cy: MAP_MID_Y, r: 230 };
+const SIDE_CX = 1640;
+const INTEGRATIONS_BUBBLE = { cx: 1300, cy: 115, r: 100 };
+// Below this on-screen scale, labels (fixed pixel size) would collide.
+const MIN_LABEL_SCALE = 0.45;
+const MIN_TILE_GROWTH = 0.85;
+const MAX_TILE_GROWTH = 1.4;
+const CORE_R = 128;
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+const MIN_ZOOM = 0.5;
+const MAX_ZOOM = 4;
+const FOCUS_ZOOM = 2.1;
+const DRAG_THRESHOLD_PX = 4;
+const MAP_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
+const MAP_ANIM_MS = 420;
 
 type ViewTransform = { scale: number; x: number; y: number };
 
-function usePanZoom(stageHeight: number) {
+function humanizeIdentifier(value: string): string {
+  return value
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\bIq\b/g, "IQ");
+}
+
+// Few integrations sit on a single ring (diagonals first so the centre label
+// stays clear); larger catalogs spread with a sunflower layout.
+function layoutEvidence(count: number): { x: number; y: number }[] {
+  const { cx, cy, r } = EVIDENCE_BUBBLE;
+  if (count === 0) return [];
+  if (count <= 6) {
+    const radius = (CORE_R + r) / 2 + 14;
+    const start = -Math.PI / 2 - Math.PI / count;
+    return Array.from({ length: count }, (_, index) => {
+      const angle = start + (index * 2 * Math.PI) / count;
+      return { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
+    });
+  }
+  const inner = CORE_R + 36;
+  const outer = r - 64;
+  return Array.from({ length: count }, (_, index) => {
+    const radius = inner + (outer - inner) * Math.sqrt((index + 0.5) / count);
+    const angle = index * GOLDEN_ANGLE - Math.PI / 4;
+    return { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
+  });
+}
+
+// Small agent bubbles: one tile sits centred, two stack in flow order, more ring.
+function layoutAgents(
+  count: number,
+  bubble: { cx: number; cy: number; r: number },
+): { x: number; y: number }[] {
+  // Tiles hang their label below the icon, so anchors sit above centre.
+  if (count === 1) return [{ x: bubble.cx, y: bubble.cy - 22 }];
+  if (count === 2) {
+    return [
+      { x: bubble.cx, y: bubble.cy - bubble.r * 0.58 },
+      { x: bubble.cx, y: bubble.cy + bubble.r * 0.2 },
+    ];
+  }
+  return Array.from({ length: count }, (_, index) => {
+    const angle = -Math.PI / 2 + (index * 2 * Math.PI) / count;
+    return {
+      x: bubble.cx + bubble.r * 0.5 * Math.cos(angle),
+      y: bubble.cy + bubble.r * 0.5 * Math.sin(angle),
+    };
+  });
+}
+
+type LaneGroup = { meta: IqMeta; lane: FanoutLane; evidence: FanoutEvidence[] };
+
+function groupEvidenceLanes(fanout: FanoutLane[]): Map<string, LaneGroup> {
+  const groups = new Map<string, LaneGroup>();
+  fanout.forEach((lane, index) => {
+    const iqKey = iqKeyForLane(lane);
+    const key = iqKey === "other" ? `other:${lane.agent || lane.plane || index}` : iqKey;
+    const group = groups.get(key) ?? { meta: IQ_META[iqKey], lane, evidence: [] };
+    group.evidence.push(...citedEvidence(lane));
+    groups.set(key, group);
+  });
+  return groups;
+}
+
+// Third-party (non-IQ) evidence lanes. Empty today; the Integrations bubble
+// shows a placeholder until a connector contributes cited evidence.
+function buildIntegrationNodes(fanout: FanoutLane[]): MapNode[] {
+  const groups = groupEvidenceLanes(fanout);
+  const keys = [...groups.keys()].filter((key) => key.startsWith("other:")).sort();
+  const positions = layoutAgents(Math.max(keys.length, 1), INTEGRATIONS_BUBBLE);
+  if (keys.length === 0) {
+    return [
+      {
+        key: "integrations-placeholder",
+        label: "None connected",
+        title: "Third-party integrations",
+        stats: "No integrations are connected yet",
+        lines: [],
+        active: false,
+        hex: "#94a3b8",
+        icon: HiPuzzle,
+        iconClass: "text-slate-500",
+        ...positions[0],
+      },
+    ];
+  }
+  return keys.map((key, index) => evidenceNodeFor(key, groups.get(key), positions[index]));
+}
+
+function buildEvidenceNodes(fanout: FanoutLane[]): MapNode[] {
+  const groups = groupEvidenceLanes(fanout);
+  // Keep every IQ plane on the map so positions stay stable run to run.
+  const positions = layoutEvidence(IQ_ORDER.length);
+  return IQ_ORDER.map((key, index) => evidenceNodeFor(key, groups.get(key), positions[index]));
+}
+
+function evidenceNodeFor(
+  key: string,
+  group: LaneGroup | undefined,
+  position: { x: number; y: number },
+): MapNode {
+  const meta = group?.meta ?? IQ_META[key as IqKey];
+  const lane = group?.lane ?? {};
+  const evidence = group?.evidence ?? [];
+  const scored = evidence.filter((item) => typeof item.confidence === "number");
+  const avg =
+    scored.length > 0
+      ? scored.reduce((acc, item) => acc + (item.confidence ?? 0), 0) / scored.length
+      : null;
+  const active = evidence.length > 0;
+  return {
+    key,
+    label:
+      meta.key === "other" ? humanizeIdentifier(lane.plane || "Evidence source") : meta.label,
+    title:
+      meta.key === "other"
+        ? humanizeIdentifier(lane.agent || lane.plane || "Integration")
+        : meta.agent,
+    stats: active
+      ? `${evidence.length} ${evidence.length === 1 ? "citation" : "citations"}${
+          avg !== null ? ` · ${Math.round(avg * 100)}%` : ""
+        }`
+      : "Not used in this run",
+    lines: [
+      ...new Set(evidence.map((item) => cleanSourceRef(item.source_ref ?? "")).filter(Boolean)),
+    ],
+    active,
+    hex: meta.hex,
+    img: meta.img,
+    icon: meta.icon,
+    iconClass: meta.text,
+    ...position,
+  };
+}
+
+function buildMapBubbles({
+  evidenceFanout,
+  analystLanes,
+  decision,
+  moneyAtRisk,
+  confidence,
+}: {
+  evidenceFanout: FanoutLane[];
+  analystLanes: FanoutLane[];
+  decision: string;
+  moneyAtRisk: number | undefined;
+  confidence: number | undefined;
+}): MapBubble[] {
+  const evidenceNodes = buildEvidenceNodes(evidenceFanout);
+  const activeSources = evidenceNodes.filter((node) => node.active).length;
+
+  const orchestrationPositions = layoutAgents(2, ORCHESTRATION_BUBBLE);
+  const orchestratorLines = [
+    typeof moneyAtRisk === "number" && moneyAtRisk > 0 ? `${formatMoney(moneyAtRisk)} at risk` : "",
+    typeof confidence === "number" ? `${Math.round(confidence * 100)}% decision confidence` : "",
+  ].filter(Boolean);
+  const orchestration: MapBubble = {
+    key: "orchestration",
+    title: "Orchestration",
+    ...ORCHESTRATION_BUBBLE,
+    hex: "#4f46e5",
+    fill: "radial-gradient(circle at 50% 38%, rgb(238 242 255 / 0.95) 0%, rgb(224 231 255 / 0.8) 100%)",
+    titlePlacement: "below",
+    nodes: [
+      {
+        key: "invoice-intake",
+        label: "Invoice intake",
+        title: "Content Understanding",
+        stats: "prebuilt-invoice model",
+        lines: [],
+        active: true,
+        hex: "#475569",
+        icon: HiDocumentText,
+        iconClass: "text-slate-700",
+        ...orchestrationPositions[0],
+      },
+      {
+        key: "assurance-orchestrator",
+        label: "Assurance Orchestrator",
+        title: "Coordinator",
+        stats: `Fanned out to ${activeSources} ${activeSources === 1 ? "source" : "sources"}`,
+        lines: orchestratorLines,
+        badge: { text: decision, className: decisionStyle(decision) },
+        active: true,
+        hex: "#4f46e5",
+        icon: HiCube,
+        iconClass: "text-indigo-600",
+        ...orchestrationPositions[1],
+      },
+    ],
+  };
+
+  const evidence: MapBubble = {
+    key: "evidence",
+    title: `Evidence (${activeSources} of ${evidenceNodes.length})`,
+    ...EVIDENCE_BUBBLE,
+    hex: "#2563eb",
+    fill: "radial-gradient(circle at 50% 38%, rgb(239 246 255 / 0.92) 0%, rgb(219 234 254 / 0.78) 100%)",
+    titlePlacement: "below",
+    nodes: evidenceNodes,
+  };
+
+  const hasAnalysts = analystLanes.length > 0;
+  const recordBubbleShape = hasAnalysts
+    ? { cx: SIDE_CX, cy: 260, r: 140 }
+    : { cx: SIDE_CX, cy: MAP_MID_Y, r: 150 };
+  const record: MapBubble = {
+    key: "record",
+    title: "Governed record",
+    ...recordBubbleShape,
+    hex: "#059669",
+    fill: "radial-gradient(circle at 50% 38%, rgb(236 253 245 / 0.95) 0%, rgb(209 250 229 / 0.78) 100%)",
+    // Keep the title clear of the connector down to the analysts bubble.
+    titlePlacement: hasAnalysts ? "above" : "below",
+    nodes: [
+      {
+        key: "waypoint-recorder",
+        label: "Waypoint Recorder",
+        title: "Sole Waypoint writer",
+        stats: "Writes run · case · recommendation",
+        lines: [],
+        active: true,
+        hex: "#059669",
+        icon: HiDatabase,
+        iconClass: "text-emerald-600",
+        ...layoutAgents(1, recordBubbleShape)[0],
+      },
+    ],
+  };
+
+  const integrationNodes = buildIntegrationNodes(evidenceFanout);
+  const connectedIntegrations = integrationNodes.filter((node) => node.active).length;
+  const integrations: MapBubble = {
+    key: "integrations",
+    title: `Integrations (${connectedIntegrations})`,
+    ...INTEGRATIONS_BUBBLE,
+    hex: connectedIntegrations > 0 ? "#0891b2" : "#94a3b8",
+    fill:
+      connectedIntegrations > 0
+        ? "radial-gradient(circle at 50% 38%, rgb(236 254 255 / 0.95) 0%, rgb(207 250 254 / 0.8) 100%)"
+        : "radial-gradient(circle at 50% 38%, rgb(248 250 252 / 0.95) 0%, rgb(226 232 240 / 0.85) 100%)",
+    titlePlacement: "below",
+    muted: connectedIntegrations === 0,
+    nodes: integrationNodes,
+  };
+
+  const bubbles = [orchestration, evidence, integrations, record];
+  if (hasAnalysts) {
+    const analystShape = { cx: SIDE_CX, cy: 600, r: 130 };
+    const analystPositions = layoutAgents(analystLanes.length, analystShape);
+    bubbles.push({
+      key: "analysts",
+      title: `Analysts (${analystLanes.length})`,
+      ...analystShape,
+      hex: "#7c3aed",
+      fill: "radial-gradient(circle at 50% 38%, rgb(245 243 255 / 0.95) 0%, rgb(237 233 254 / 0.8) 100%)",
+      titlePlacement: "below",
+      nodes: analystLanes.map((lane, index) => ({
+        key: `analyst-${lane.agent || lane.plane || index}`,
+        label: humanizeIdentifier(lane.agent || lane.plane || "Analyst"),
+        title: "Read-only analyst",
+        stats: "Answers questions over Waypoint",
+        lines: lane.summary ? [lane.summary] : [],
+        active: true,
+        hex: "#7c3aed",
+        icon: HiChatAlt2,
+        iconClass: "text-violet-600",
+        ...analystPositions[index],
+      })),
+    });
+  }
+  return bubbles;
+}
+
+// Point on a bubble's edge facing (tx, ty).
+function edgePoint(bubble: MapBubble, tx: number, ty: number) {
+  const dx = tx - bubble.cx;
+  const dy = ty - bubble.cy;
+  const length = Math.hypot(dx, dy) || 1;
+  return { x: bubble.cx + (dx / length) * bubble.r, y: bubble.cy + (dy / length) * bubble.r };
+}
+
+function connectorPath(from: MapBubble, to: MapBubble): string {
+  const a = edgePoint(from, to.cx, to.cy);
+  const b = edgePoint(to, from.cx, from.cy);
+  const bend = (b.x - a.x) * 0.45;
+  if (Math.abs(bend) < 1) {
+    return `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
+  }
+  return `M ${a.x} ${a.y} C ${a.x + bend} ${a.y}, ${b.x - bend} ${b.y}, ${b.x} ${b.y}`;
+}
+
+function prefersReducedMotion(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
+  );
+}
+
+function useMapView() {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<ViewTransform>({ scale: 1, x: 0, y: 0 });
+  const [fitScale, setFitScale] = useState(1);
+  const fitScaleRef = useRef(1);
   const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    ox: number;
+    oy: number;
+    pointerId: number;
+    active: boolean;
+  } | null>(null);
   const didFit = useRef(false);
+  const animTimer = useRef<number | undefined>(undefined);
 
-  const fitToViewport = useCallback(() => {
+  const startAnimation = useCallback(() => {
+    if (prefersReducedMotion()) return;
+    setIsAnimating(true);
+    window.clearTimeout(animTimer.current);
+    animTimer.current = window.setTimeout(() => setIsAnimating(false), MAP_ANIM_MS);
+  }, []);
+
+  useEffect(() => () => window.clearTimeout(animTimer.current), []);
+
+  const computeFit = useCallback((): ViewTransform | null => {
     const el = viewportRef.current;
-    if (!el) return;
+    if (!el || !el.clientWidth || !el.clientHeight) return null;
     const w = el.clientWidth;
     const h = el.clientHeight;
-    if (!w || !h) return;
-    const scale = Math.min(1, w / STAGE_W, h / stageHeight);
-    setView({
-      scale,
-      x: (w - STAGE_W * scale) / 2,
-      y: (h - stageHeight * scale) / 2,
-    });
-  }, [stageHeight]);
+    const scale = Math.min(w / MAP_W, h / MAP_H) * 0.96;
+    return { scale, x: (w - MAP_W * scale) / 2, y: (h - MAP_H * scale) / 2 };
+  }, []);
 
-  // Fit once on mount (and when the viewport first gets a real size).
+  const applyFit = useCallback(
+    (animated: boolean) => {
+      const fit = computeFit();
+      if (!fit) return;
+      fitScaleRef.current = fit.scale;
+      setFitScale(fit.scale);
+      if (animated) startAnimation();
+      setView(fit);
+    },
+    [computeFit, startAnimation],
+  );
+
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
-    const maybeFit = () => {
-      if (didFit.current) return;
-      if (!el.clientWidth || !el.clientHeight) return;
-      fitToViewport();
-      didFit.current = true;
+    const onResize = () => {
+      if (!didFit.current) {
+        if (computeFit()) {
+          applyFit(false);
+          didFit.current = true;
+        }
+        return;
+      }
+      const fit = computeFit();
+      if (fit) {
+        fitScaleRef.current = fit.scale;
+        setFitScale(fit.scale);
+      }
     };
-    maybeFit();
-    const ro = new ResizeObserver(maybeFit);
+    onResize();
+    const ro = new ResizeObserver(onResize);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [fitToViewport]);
+  }, [applyFit, computeFit]);
 
-  // Zoom around a point (px, py) expressed in viewport-local pixels.
-  const zoomAt = useCallback((factor: number, px: number, py: number) => {
-    setView((v) => {
-      const nextScale = clampScale(v.scale * factor);
-      const k = nextScale / v.scale;
-      return {
-        scale: nextScale,
-        x: px - (px - v.x) * k,
-        y: py - (py - v.y) * k,
-      };
-    });
+  const clampZoom = useCallback((scale: number) => {
+    const fit = fitScaleRef.current;
+    return Math.min(fit * MAX_ZOOM, Math.max(fit * MIN_ZOOM, scale));
   }, []);
+
+  const zoomAt = useCallback(
+    (factor: number, px: number, py: number) => {
+      setView((v) => {
+        const nextScale = clampZoom(v.scale * factor);
+        const k = nextScale / v.scale;
+        return { scale: nextScale, x: px - (px - v.x) * k, y: py - (py - v.y) * k };
+      });
+    },
+    [clampZoom],
+  );
 
   const zoomByButton = useCallback(
     (factor: number) => {
       const el = viewportRef.current;
       if (!el) return;
+      startAnimation();
       zoomAt(factor, el.clientWidth / 2, el.clientHeight / 2);
     },
-    [zoomAt],
+    [startAnimation, zoomAt],
   );
 
-  const resetView = useCallback(() => {
-    didFit.current = true;
-    fitToViewport();
-  }, [fitToViewport]);
+  const focusOn = useCallback(
+    (x: number, y: number) => {
+      const el = viewportRef.current;
+      if (!el) return;
+      const scale = clampZoom(fitScaleRef.current * FOCUS_ZOOM);
+      startAnimation();
+      setView({ scale, x: el.clientWidth / 2 - x * scale, y: el.clientHeight / 2 - y * scale });
+    },
+    [clampZoom, startAnimation],
+  );
 
-  // Non-passive wheel listener so we can preventDefault the page scroll.
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const rect = el.getBoundingClientRect();
-      const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
-      zoomAt(factor, e.clientX - rect.left, e.clientY - rect.top);
+      zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - rect.left, e.clientY - rect.top);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
   }, [zoomAt]);
 
+  // Drag only starts past a small threshold so clicks still reach the tiles.
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      dragRef.current = { startX: e.clientX, startY: e.clientY, ox: view.x, oy: view.y };
-      setIsDragging(true);
+      if (e.button !== 0) return;
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        ox: view.x,
+        oy: view.y,
+        pointerId: e.pointerId,
+        active: false,
+      };
     },
     [view.x, view.y],
   );
@@ -1648,17 +2033,22 @@ function usePanZoom(stageHeight: number) {
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
-    setView((v) => ({
-      ...v,
-      x: d.ox + (e.clientX - d.startX),
-      y: d.oy + (e.clientY - d.startY),
-    }));
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.active) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+      d.active = true;
+      (e.currentTarget as HTMLElement).setPointerCapture(d.pointerId);
+      setIsDragging(true);
+    }
+    setView((v) => ({ ...v, x: d.ox + dx, y: d.oy + dy }));
   }, []);
 
   const endDrag = useCallback((e: React.PointerEvent) => {
-    if (dragRef.current) {
+    const d = dragRef.current;
+    if (d?.active) {
       try {
-        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+        (e.currentTarget as HTMLElement).releasePointerCapture(d.pointerId);
       } catch {
         /* pointer may already be released */
       }
@@ -1670,345 +2060,426 @@ function usePanZoom(stageHeight: number) {
   return {
     viewportRef,
     view,
+    fitScale,
     isDragging,
-    zoomIn: () => zoomByButton(1.2),
-    zoomOut: () => zoomByButton(1 / 1.2),
-    resetView,
+    isAnimating,
+    zoomIn: () => zoomByButton(1.35),
+    zoomOut: () => zoomByButton(1 / 1.35),
+    resetView: () => applyFit(true),
+    focusOn,
     onPointerDown,
     onPointerMove,
     endDrag,
   };
 }
 
-function FanoutGraph({
+function EvidenceMap({
   fanout,
+  analystLanes,
   decision,
   moneyAtRisk,
   confidence,
 }: {
   fanout: FanoutLane[];
+  analystLanes: FanoutLane[];
   decision: string;
   moneyAtRisk: number | undefined;
   confidence: number | undefined;
 }) {
-  const experts: ExpertNode[] = useMemo(
+  const bubbles = useMemo(
     () =>
-      fanout.map((lane, index) => {
-        const meta = IQ_META[iqKeyForLane(lane)];
-        const rawLabel = lane.agent || lane.plane || `Evidence expert ${index + 1}`;
-        const humanizedLabel = rawLabel
-          .replace(/[-_]+/g, " ")
-          .replace(/\b\w/g, (letter) => letter.toUpperCase())
-          .replace(/\bIq\b/g, "IQ");
-        return {
-          key: `${lane.agent ?? lane.plane ?? "lane"}-${index}`,
-          meta,
-          agentLabel: meta.key === "other" ? humanizedLabel : meta.agent,
-          planeLabel:
-            meta.key === "other"
-              ? (lane.plane || "Evidence source")
-                  .replace(/[-_]+/g, " ")
-                  .replace(/\b\w/g, (letter) => letter.toUpperCase())
-                  .replace(/\bIq\b/g, "IQ")
-              : meta.label,
-          claims: laneClaimCount(lane),
-          confidence: laneAvgConfidence(lane),
-        };
-      }),
-    [fanout],
+      buildMapBubbles({ evidenceFanout: fanout, analystLanes, decision, moneyAtRisk, confidence }),
+    [fanout, analystLanes, decision, moneyAtRisk, confidence],
   );
+  const bubbleByKey = new Map(bubbles.map((bubble) => [bubble.key, bubble]));
+  const evidenceBubble = bubbleByKey.get("evidence");
+  const evidenceNodes = evidenceBubble?.nodes ?? [];
+  const activeSources = evidenceNodes.filter((node) => node.active);
+  const totalCitations = evidenceFanoutCitations(
+    fanout.filter((lane) => iqKeyForLane(lane) !== "other"),
+  );
+  const agentCount = bubbles
+    .filter((bubble) => bubble.key !== "evidence" && bubble.key !== "integrations")
+    .reduce((acc, bubble) => acc + bubble.nodes.length, 0);
 
-  const stageHeight = Math.max(BASE_STAGE_H, experts.length * EXPERT_ROW_H + 80);
-  const expertY = useMemo(() => {
-    if (experts.length === 0) return [];
-    if (experts.length === 1) return [MID_Y];
-    const edgePadding = 56;
-    const usableHeight = stageHeight - edgePadding * 2;
-    return experts.map(
-      (_, index) => ((edgePadding + (usableHeight * index) / (experts.length - 1)) / stageHeight) * 100,
-    );
-  }, [experts, stageHeight]);
-  const pz = usePanZoom(stageHeight);
-  const expertNames = experts.map((expert) => expert.agentLabel).join(", ");
+  const connectors: { from: string; to: string; label?: string }[] = [
+    { from: "orchestration", to: "evidence" },
+    { from: "evidence", to: "record" },
+    { from: "integrations", to: "record" },
+  ];
+  if (bubbleByKey.has("analysts")) {
+    connectors.push({ from: "record", to: "analysts", label: "reads" });
+  }
+
+  const map = useMapView();
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const relativeZoom = map.view.scale / map.fitScale;
+  const level: MapLevel =
+    relativeZoom < 0.8 || map.view.scale < MIN_LABEL_SCALE
+      ? "compact"
+      : relativeZoom < 1.65
+        ? "label"
+        : "detail";
+  // Tiles start small at the fitted view and grow (sub-linearly) as you zoom in.
+  const tileGrowth = Math.min(
+    MAX_TILE_GROWTH,
+    Math.max(MIN_TILE_GROWTH, Math.sqrt(relativeZoom)),
+  );
+  const counterScale = tileGrowth / map.view.scale;
+  const transition = map.isAnimating ? `transform ${MAP_ANIM_MS}ms ${MAP_EASE}` : undefined;
+  const dotSpacing = 18 * map.view.scale;
+
+  const resetView = () => {
+    setSelectedKey(null);
+    map.resetView();
+  };
+
+  let tileIndex = 0;
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-800">Assurance pipeline</h3>
-        <span className="text-xs text-slate-400">
-          {experts.length === 0
-            ? "No experts contributed cited evidence"
-            : `${experts.length} ${experts.length === 1 ? "expert" : "experts"} contributed evidence`}
-        </span>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h3 className="text-sm font-semibold text-slate-800">Agent map</h3>
+        <p className="text-xs text-slate-500">
+          {agentCount} {agentCount === 1 ? "agent" : "agents"} · {activeSources.length} of{" "}
+          {evidenceNodes.length} evidence sources used
+        </p>
       </div>
 
-      <div className="relative mt-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50/60">
-        {/* Zoom / pan controls */}
-        <div className="absolute right-2 top-2 z-20 flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white/95 shadow-sm">
-          <button
-            type="button"
-            onClick={pz.zoomIn}
-            aria-label="Zoom in"
-            className="flex h-7 w-7 items-center justify-center text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-          >
+      <div className="relative mt-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50/40">
+        <div className="absolute right-2 top-2 z-20 flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_-6px_rgba(15,23,42,0.18)]">
+          <MapControl label="Zoom in" onClick={map.zoomIn}>
             <HiPlus className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={pz.zoomOut}
-            aria-label="Zoom out"
-            className="flex h-7 w-7 items-center justify-center border-t border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-          >
+          </MapControl>
+          <MapControl label="Zoom out" onClick={map.zoomOut} bordered>
             <HiMinus className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            onClick={pz.resetView}
-            aria-label="Reset view"
-            className="flex h-7 w-7 items-center justify-center border-t border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-          >
-            <HiRefresh className="h-3.5 w-3.5" />
-          </button>
+          </MapControl>
+          <MapControl label="Fit map to view" onClick={resetView} bordered>
+            <HiArrowsExpand className="h-3.5 w-3.5" />
+          </MapControl>
         </div>
-        <span className="pointer-events-none absolute bottom-2 left-3 z-20 text-[10px] text-slate-400">
-          scroll to zoom · drag to pan
+        <span className="pointer-events-none absolute bottom-2 left-3 z-20 text-[11px] text-slate-500">
+          Scroll to zoom · drag to pan · select a tile to focus it
         </span>
 
         <div
-          ref={pz.viewportRef}
-          className="relative h-[420px] touch-none select-none"
-          style={{ cursor: pz.isDragging ? "grabbing" : "grab" }}
-          onPointerDown={pz.onPointerDown}
-          onPointerMove={pz.onPointerMove}
-          onPointerUp={pz.endDrag}
-          onPointerCancel={pz.endDrag}
-          role="img"
-          aria-label={`Invoice intake feeds Assurance Orchestrator, which ${
-            experts.length > 0
-              ? `uses cited evidence from ${expertNames}`
-              : "recorded no cited expert evidence"
-          }; Waypoint Recorder writes the governed result to Waypoint`}
+          ref={map.viewportRef}
+          className="relative h-[480px] touch-none select-none"
+          style={{
+            cursor: map.isDragging ? "grabbing" : "grab",
+            backgroundImage: "radial-gradient(circle, rgb(203 213 225) 1px, transparent 1.4px)",
+            backgroundSize: `${dotSpacing}px ${dotSpacing}px`,
+            backgroundPosition: `${map.view.x}px ${map.view.y}px`,
+          }}
+          onPointerDown={map.onPointerDown}
+          onPointerMove={map.onPointerMove}
+          onPointerUp={map.endDrag}
+          onPointerCancel={map.endDrag}
+          role="group"
+          aria-label={`Agent map: ${bubbles
+            .map((bubble) => `${bubble.title} with ${bubble.nodes.map((node) => node.label).join(", ")}`)
+            .join("; ")}`}
         >
+          <style>{`
+            @keyframes em-pop {
+              from { opacity: 0; transform: scale(.6); filter: blur(4px); }
+              to { opacity: 1; transform: scale(1); filter: blur(0); }
+            }
+            @keyframes em-dash { to { stroke-dashoffset: -26; } }
+            @media (prefers-reduced-motion: no-preference) {
+              .em-pop { animation: em-pop 520ms ${MAP_EASE} both; }
+              .em-flow { animation: em-dash 1.2s linear infinite; }
+            }
+          `}</style>
           <div
             className="absolute left-0 top-0 origin-top-left"
             style={{
-              width: STAGE_W,
-              height: stageHeight,
-              transform: `translate(${pz.view.x}px, ${pz.view.y}px) scale(${pz.view.scale})`,
+              width: MAP_W,
+              height: MAP_H,
+              transform: `translate(${map.view.x}px, ${map.view.y}px) scale(${map.view.scale})`,
+              transition,
             }}
           >
-            <style>{`
-            @keyframes fg-dash { to { stroke-dashoffset: -28; } }
-            @keyframes fg-pulse {
-              0%,100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
-              50% { box-shadow: 0 0 0 5px rgba(37,99,235,0.16); }
-            }
-            @keyframes fg-blink { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
-            @media (prefers-reduced-motion: no-preference) {
-              .fg-flow { animation: fg-dash 1.1s linear infinite; }
-              .fg-flow-in { animation-delay: .55s; }
-              .fg-flow-out { animation-delay: 1.1s; }
-              .fg-pulse { animation: fg-pulse 1.9s ease-in-out infinite; }
-              .fg-blink { animation: fg-blink 1.1s ease-in-out infinite; }
-            }
-          `}</style>
+            <svg
+              className="absolute inset-0 overflow-visible"
+              width={MAP_W}
+              height={MAP_H}
+              viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+              aria-hidden="true"
+            >
+              <defs>
+                <marker
+                  id="em-arrow"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+                </marker>
+                <marker
+                  id="em-arrow-muted"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="7"
+                  markerHeight="7"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
+                </marker>
+              </defs>
+              {connectors.map(({ from, to, label }) => {
+                const a = bubbleByKey.get(from);
+                const b = bubbleByKey.get(to);
+                if (!a || !b) return null;
+                const muted = Boolean(a.muted || b.muted);
+                const mid = {
+                  x: (edgePoint(a, b.cx, b.cy).x + edgePoint(b, a.cx, a.cy).x) / 2,
+                  y: (edgePoint(a, b.cx, b.cy).y + edgePoint(b, a.cx, a.cy).y) / 2,
+                };
+                return (
+                  <g key={`${from}-${to}`}>
+                    <path
+                      d={connectorPath(a, b)}
+                      fill="none"
+                      stroke={muted ? "#94a3b8" : "#64748b"}
+                      strokeWidth={3}
+                      strokeDasharray="8 5"
+                      strokeLinecap="round"
+                      markerEnd={muted ? "url(#em-arrow-muted)" : "url(#em-arrow)"}
+                      className={muted ? undefined : "em-flow"}
+                    />
+                    {label ? (
+                      <text
+                        x={mid.x + 12}
+                        y={mid.y + 6}
+                        className="fill-slate-500 text-[18px] font-medium"
+                      >
+                        {label}
+                      </text>
+                    ) : null}
+                  </g>
+                );
+              })}
+            </svg>
 
-          <svg
-            className="absolute inset-0 h-full w-full"
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            {/* invoice intake → orchestrator */}
-            <path
-              d={`M ${INTAKE_X} ${MID_Y} L ${ORCHESTRATOR_X} ${MID_Y}`}
-              fill="none"
-              stroke={BACKBONE}
-              strokeWidth={2}
-              strokeOpacity={0.85}
-              strokeDasharray="5 7"
-              vectorEffect="non-scaling-stroke"
-              className="fg-flow"
-            />
-            {/* orchestrator → evidence experts → recorder */}
-            {experts.map((expert, index) => {
-              const ey = expertY[index];
-              return (
-                <g key={expert.key}>
-                  <path
-                    d={`M ${ORCHESTRATOR_X} ${MID_Y} C 42 ${MID_Y}, 43 ${ey}, ${EXPERT_X} ${ey}`}
-                    fill="none"
-                    stroke={expert.meta.hex}
-                    strokeWidth={2}
-                    strokeOpacity={0.9}
-                    strokeDasharray="5 7"
-                    vectorEffect="non-scaling-stroke"
-                    className="fg-flow"
-                  />
-                  <path
-                    d={`M ${EXPERT_X} ${ey} C 73 ${ey}, 76 ${MID_Y}, ${RECORDER_X} ${MID_Y}`}
-                    fill="none"
-                    stroke={expert.meta.hex}
-                    strokeWidth={2}
-                    strokeOpacity={0.9}
-                    strokeDasharray="5 7"
-                    vectorEffect="non-scaling-stroke"
-                    className="fg-flow fg-flow-in"
-                  />
-                </g>
-              );
-            })}
-            {experts.length === 0 ? (
-              <path
-                d={`M ${ORCHESTRATOR_X} ${MID_Y} L ${RECORDER_X} ${MID_Y}`}
-                fill="none"
-                stroke={BACKBONE}
-                strokeWidth={2}
-                strokeOpacity={0.85}
-                strokeDasharray="5 7"
-                vectorEffect="non-scaling-stroke"
-                className="fg-flow fg-flow-out"
-              />
-            ) : null}
-          </svg>
+            {bubbles.map((bubble) => (
+              <div key={bubble.key}>
+                <div
+                  className="absolute rounded-full"
+                  style={{
+                    left: bubble.cx - bubble.r,
+                    top: bubble.cy - bubble.r,
+                    width: bubble.r * 2,
+                    height: bubble.r * 2,
+                    background: bubble.fill,
+                    border: `5px ${bubble.muted ? "dashed" : "solid"} ${bubble.hex}`,
+                    boxShadow: bubble.muted
+                      ? "inset 0 0 0 7px rgb(255 255 255 / 0.9)"
+                      : `inset 0 0 0 7px rgb(255 255 255 / 0.9), 0 24px 48px -28px ${bubble.hex}8c`,
+                  }}
+                  aria-hidden="true"
+                />
+                <div
+                  className={`pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[26px] font-semibold leading-none tracking-tight ${bubble.muted ? "text-slate-400" : "text-slate-800"} ${
+                    bubble.titlePlacement === "above" ? "-translate-y-full" : ""
+                  }`}
+                  style={{
+                    left: bubble.cx,
+                    top:
+                      bubble.titlePlacement === "above"
+                        ? bubble.cy - bubble.r - 18
+                        : bubble.cy + bubble.r + 18,
+                  }}
+                >
+                  {bubble.title}
+                </div>
+              </div>
+            ))}
 
-          {/* invoice intake */}
-          <GraphNodePositioned x={INTAKE_X} y={MID_Y}>
-            <div className="flex w-[134px] flex-col items-center gap-1 rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-center shadow-sm">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                <HiDocumentText className="h-5 w-5" />
-              </span>
-              <span className="text-xs font-semibold leading-tight text-slate-800">Invoice intake</span>
-              <span className="text-[10px] uppercase tracking-wide text-slate-400">
-                Content Understanding
-              </span>
-              <span className="text-[10px] text-slate-400">prebuilt-invoice</span>
-            </div>
-          </GraphNodePositioned>
-
-          {/* Assurance Orchestrator coordinator */}
-          <GraphNodePositioned x={ORCHESTRATOR_X} y={MID_Y}>
-            <div className="fg-pulse flex w-[154px] flex-col items-center gap-1 rounded-lg border border-blue-200 bg-white px-2.5 py-2 text-center shadow-sm ring-1 ring-blue-100">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-                <HiCube className="h-5 w-5" />
-              </span>
-              <span className="text-xs font-semibold leading-tight text-slate-800">
-                Assurance Orchestrator
-              </span>
-              <span className="text-[10px] uppercase tracking-wide text-blue-700">coordinator</span>
-              <span
-                className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase capitalize ring-1 ${decisionStyle(decision)}`}
+            {evidenceBubble ? (
+              <div
+                className="pointer-events-none absolute flex w-[300px] -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center"
+                style={{ left: evidenceBubble.cx, top: evidenceBubble.cy }}
               >
-                {decision}
-              </span>
-              {typeof moneyAtRisk === "number" && moneyAtRisk > 0 ? (
-                <span className="text-[11px] font-semibold text-emerald-700">
-                  {formatMoney(moneyAtRisk)} at risk
+                <span className="text-[38px] font-semibold tracking-tight text-slate-900">
+                  Microsoft IQ
                 </span>
-              ) : null}
-              {typeof confidence === "number" ? (
-                <span className="text-[10px] text-slate-400">
-                  {Math.round(confidence * 100)}% confidence
+                <span className="text-[96px] font-semibold leading-[0.95] tracking-[-0.03em] tabular-nums text-slate-900">
+                  {totalCitations}
                 </span>
-              ) : null}
-            </div>
-          </GraphNodePositioned>
+                <span className="mt-1 text-[21px] text-slate-600">
+                  {totalCitations === 1 ? "citation" : "citations"}
+                  {typeof confidence === "number"
+                    ? ` · ${Math.round(confidence * 100)}% confidence`
+                    : ""}
+                </span>
+              </div>
+            ) : null}
 
-          {/* Evidence experts */}
-          {experts.map((expert, index) => (
-            <GraphNodePositioned key={expert.key} x={EXPERT_X} y={expertY[index]}>
-              <ExpertGraphNode expert={expert} />
-            </GraphNodePositioned>
-          ))}
-
-          {/* Waypoint Recorder — sole Waypoint writer */}
-          <GraphNodePositioned x={RECORDER_X} y={MID_Y}>
-            <div className="flex w-[142px] flex-col items-center gap-1 rounded-lg border border-emerald-200 bg-white px-2.5 py-2 text-center shadow-sm ring-1 ring-emerald-100">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-                <HiDatabase className="h-5 w-5" />
-              </span>
-              <span className="text-xs font-semibold leading-tight text-slate-800">
-                Waypoint Recorder
-              </span>
-              <span className="text-[10px] uppercase tracking-wide text-emerald-700">
-                sole Waypoint writer
-              </span>
-              <span className="text-[10px] leading-tight text-slate-400">
-                run · case · recommendation
-              </span>
-            </div>
-          </GraphNodePositioned>
+            {bubbles.flatMap((bubble) =>
+              bubble.nodes.map((node) => {
+                const delay = 120 + tileIndex++ * 60;
+                return (
+                  <div key={node.key} className="absolute h-0 w-0" style={{ left: node.x, top: node.y }}>
+                    {/* Anchor on the icon's centre so labels and detail hang below it. */}
+                    <div
+                      className="absolute left-0 top-0"
+                      style={{
+                        transform: `scale(${counterScale}) translate(-50%, ${
+                          level === "compact" ? -14 : -21
+                        }px)`,
+                        transformOrigin: "0 0",
+                        transition,
+                      }}
+                    >
+                      <div className="em-pop" style={{ animationDelay: `${delay}ms` }}>
+                        <MapTile
+                          node={node}
+                          level={node.key === selectedKey && level !== "compact" ? "detail" : level}
+                          selected={node.key === selectedKey}
+                          onSelect={() => {
+                            setSelectedKey(node.key);
+                            map.focusOn(node.x, node.y);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              }),
+            )}
           </div>
         </div>
       </div>
-      <p className="mt-1.5 text-xs leading-5 text-slate-400">
-        This diagram reflects cited evidence recorded for this run. Invoice intake is coordinated by
-        Assurance Orchestrator, which uses the experts shown above to gather evidence and fuse a
-        decision. Waypoint Recorder is the sole writer of the governed run, case, and recommendation.
-        Experts without cited run evidence are not shown.
+      <p className="mt-1.5 text-xs leading-5 text-slate-500">
+        Each bubble groups agents by their role in this run. Evidence-source tiles in colour cited
+        evidence; grey tiles weren't used. Waypoint Recorder remains the sole writer of the governed
+        run, case, and recommendation.
       </p>
     </div>
   );
 }
 
-function GraphNodePositioned({
-  x,
-  y,
+function evidenceFanoutCitations(fanout: FanoutLane[]): number {
+  return fanout.reduce((acc, lane) => acc + laneClaimCount(lane), 0);
+}
+
+function MapControl({
+  label,
+  onClick,
+  bordered,
   children,
 }: {
-  x: number;
-  y: number;
+  label: string;
+  onClick: () => void;
+  bordered?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div
-      className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
-      style={{ left: `${x}%`, top: `${y}%` }}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`flex h-8 w-8 items-center justify-center text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
+        bordered ? "border-t border-slate-200" : ""
+      }`}
     >
       {children}
-    </div>
+    </button>
   );
 }
 
-function ExpertGraphNode({ expert }: { expert: ExpertNode }) {
-  const { meta } = expert;
+
+function MapTile({
+  node,
+  level,
+  selected,
+  onSelect,
+}: {
+  node: MapNode;
+  level: MapLevel;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const Icon = node.icon;
+  const tileSize =
+    level === "compact" ? "h-5 w-5 rounded-[5px] p-0.5" : "h-[34px] w-[34px] rounded-lg p-1";
+
   return (
-    <div
-      className={`flex w-[224px] flex-col gap-1.5 rounded-lg border bg-white px-2.5 py-2 shadow-sm ring-1 ${meta.ring}`}
-      style={{ borderColor: meta.hex }}
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-label={`${node.label} (${node.title}): ${node.stats}`}
+      aria-pressed={selected}
+      className="group flex flex-col items-center gap-1.5 rounded-xl p-1 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
     >
-      {/* Agent (forge expert persona) */}
-      <div className="flex items-center gap-2">
-        <span className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-          <HiUserGroup className="h-4 w-4" />
-          <span
-            className="fg-blink absolute -right-1 -top-1 h-2 w-2 rounded-full ring-2 ring-white"
-            style={{ backgroundColor: meta.hex }}
-          />
-        </span>
-        <div className="min-w-0">
-          <div className="text-xs font-semibold leading-snug text-slate-800">{expert.agentLabel}</div>
-          <div className="text-[10px] uppercase tracking-wide text-slate-400">expert</div>
-        </div>
-      </div>
-
-      {/* Connected tool (IQ plane) */}
-      <div
-        className="flex items-center gap-1.5 rounded-md border border-slate-100 bg-slate-50/70 px-1.5 py-1"
-        title={`Connected to ${meta.tool || expert.planeLabel}`}
+      <span
+        className={`relative inline-flex ${tileSize} items-center justify-center bg-white transition-[transform,box-shadow] duration-200 ease-out group-hover:-translate-y-0.5 ${
+          node.active ? "" : "opacity-50 grayscale"
+        }`}
+        style={{
+          border: node.active ? `1.5px solid ${node.hex}` : "1.5px dashed rgb(148 163 184)",
+          boxShadow: selected
+            ? `0 0 0 4px ${node.hex}33, 0 6px 16px -6px rgb(15 23 42 / 0.35)`
+            : "0 1px 2px rgb(15 23 42 / 0.08), 0 4px 10px -4px rgb(15 23 42 / 0.18)",
+        }}
       >
-        <IqLogo meta={meta} size="h-5 w-5" />
-        <div className="min-w-0 leading-tight">
-          <div className={`text-[11px] font-semibold ${meta.text}`}>{expert.planeLabel}</div>
-          <div className="truncate text-[10px] text-slate-400">
-            {expert.claims} {expert.claims === 1 ? "citation" : "citations"}
-            {expert.confidence !== null ? ` · ${Math.round(expert.confidence * 100)}%` : ""}
-          </div>
-        </div>
-      </div>
-    </div>
+        {node.img ? (
+          <img src={node.img} alt="" loading="lazy" className="h-full w-full object-contain" />
+        ) : (
+          <Icon className={`h-full w-full ${node.iconClass}`} />
+        )}
+      </span>
+
+      {level !== "compact" ? (
+        <span
+          className={`line-clamp-2 max-w-[120px] text-[12px] font-semibold leading-tight ${
+            node.active ? "text-slate-800" : "text-slate-500"
+          }`}
+        >
+          {node.label}
+        </span>
+      ) : null}
+
+      {level !== "compact" && node.badge ? (
+        <span
+          className={`rounded px-1.5 py-px text-[10px] font-semibold uppercase ring-1 ${node.badge.className}`}
+        >
+          {node.badge.text}
+        </span>
+      ) : null}
+
+      {level === "detail" ? (
+        <span className="w-[220px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-12px_rgba(15,23,42,0.35)]">
+          <span className="block text-xs font-semibold text-slate-800">{node.title}</span>
+          <span className={`block text-[11px] ${node.active ? node.iconClass : "text-slate-500"}`}>
+            {node.stats}
+          </span>
+          {node.lines.length > 0 ? (
+            <span className="mt-1.5 block space-y-1 border-t border-slate-100 pt-1.5">
+              {node.lines.slice(0, 3).map((line) => (
+                <span key={line} className="block truncate text-[11px] text-slate-600" title={line}>
+                  {line}
+                </span>
+              ))}
+              {node.lines.length > 3 ? (
+                <span className="block text-[11px] text-slate-500">
+                  +{node.lines.length - 3} more
+                </span>
+              ) : null}
+            </span>
+          ) : null}
+        </span>
+      ) : null}
+    </button>
   );
 }
+
 
 function ExpertLane({ lane }: { lane: FanoutLane }) {
   const evidence = citedEvidence(lane);
