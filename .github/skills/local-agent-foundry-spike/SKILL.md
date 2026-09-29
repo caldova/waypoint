@@ -133,6 +133,19 @@ When the user asks to run it:
    collection path. Do not ask for the Foundry project endpoint in chat.
 4. Do not deploy to Foundry unless the user explicitly asks for deployment.
 
+If the canvas asks for local setup values, phrase the handoff warmly:
+
+```text
+The local runner needs the Foundry project endpoint and model deployment name.
+Please paste those non-secret setup values from your snippet tool into the
+canvas prompt. Don't paste keys, tokens, client secrets, or credential
+connection strings.
+```
+
+It is okay for the user to call this a "project connection string" in the live
+story, but keep the implementation language precise: the canvas collects a
+project endpoint and model deployment name, not secrets.
+
 Local command, only when a shell run is needed outside the canvas:
 
 ```powershell
