@@ -142,6 +142,11 @@ canvas prompt. Don't paste keys, tokens, client secrets, or credential
 connection strings.
 ```
 
+After asking, stop and wait. Do not send the Aster Ridge prompt, run shell
+fallbacks, or ask for the endpoint in chat while the canvas setup dialog is
+open. Continue only after the canvas reports that setup is complete or that the
+local agent is ready.
+
 It is okay for the user to call this a "project connection string" in the live
 story, but keep the implementation language precise: the canvas collects a
 project endpoint and model deployment name, not secrets.
