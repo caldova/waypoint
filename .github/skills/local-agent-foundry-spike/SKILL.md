@@ -147,6 +147,10 @@ fallbacks, or ask for the endpoint in chat while the canvas setup dialog is
 open. Continue only after the canvas reports that setup is complete or that the
 local agent is ready.
 
+When the canvas reports ready, continue without requiring another user prompt:
+confirm briefly that the local agent is running, then send the Aster Ridge
+executive-review prompt from the next section into the canvas.
+
 It is okay for the user to call this a "project connection string" in the live
 story, but keep the implementation language precise: the canvas collects a
 project endpoint and model deployment name, not secrets.
