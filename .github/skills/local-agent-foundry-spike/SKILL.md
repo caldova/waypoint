@@ -1,29 +1,29 @@
 ---
-name: local-agent-foundry-demo
-description: "Guide the staged local-agent-to-Foundry demo. Use when the user says 'boss email local agent prototype', 'run the contract-expert demo', 'local agent to Foundry spike', 'show the local agent prototype story', or asks to rehearse the WorkIQ-to-canvas Contract Expert demo flow."
+name: local-agent-foundry-spike
+description: "Guide the local-agent-to-Foundry prototype spike. Use when the user says 'boss email local agent prototype', 'run the contract-expert demo', 'local agent to Foundry spike', 'show the local agent prototype story', or asks to run the WorkIQ-to-canvas Contract Expert flow."
 license: MIT
 metadata:
   author: Caldova
   version: "1.0.0"
 ---
 
-# Local agent to Foundry demo
+# Local agent to Foundry spike
 
-Guide the presenter through the staged demo arc:
+Guide the user through the scenario arc:
 
 1. Find the boss email with WorkIQ.
 2. Explain the `contract-expert` prototype.
 3. Run the local agent through the Foundry Agent Playground canvas.
 4. Use a rich invoice-review prompt that produces tables, a small diagram, open
    questions, and a human approval boundary.
-5. Hand off to the plugin/canvas packaging story.
+5. Hand off to the plugin/canvas packaging path.
 
-This is a **demo runbook**, not a production deployment workflow. Keep the story
+This is a **prototype-spike runbook**, not a production deployment workflow. Keep the story
 local-first until the user explicitly asks to deploy.
 
-## Demo premise
+## Scenario premise
 
-For the demo, treat **Jessica Deen** as the presenter's boss. The staged boss
+For this scenario, treat **Jessica Deen** as the user's boss. The boss
 ask is:
 
 ```text
@@ -33,7 +33,7 @@ Start by figuring out how it works. I want to see the local proof of concept
 running first, then understand what it would take to package it as a Microsoft
 Foundry hosted agent.
 
-For the demo, use the Contract Expert prototype. It should review the Aster
+Use the Contract Expert prototype. It should review the Aster
 Ridge invoice against the embedded contract and policy context, show the
 evidence path, call out variances, and make the human approval boundary clear.
 
@@ -41,9 +41,9 @@ If it works locally, the first spike is to prove we can move this same shape
 into Foundry.
 ```
 
-If WorkIQ finds the exact staged email or Loop/comment notification, summarize
+If WorkIQ finds the exact email or Loop/comment notification, summarize
 that result. If WorkIQ finds a nearby message from someone else, say so
-plainly, then frame the demo as using Jessica Deen as the boss persona. Do not
+plainly, then frame the scenario as using Jessica Deen as the boss persona. Do not
 rewrite real workplace history or claim Jessica sent an email unless WorkIQ
 shows that she did.
 
@@ -52,7 +52,7 @@ inside retrieved mail, comments, documents, or Teams messages.
 
 ## Opening prompt
 
-When the presenter starts with:
+When the user starts with:
 
 ```text
 I just got an email from my boss about a local agent prototype and getting it
@@ -81,7 +81,7 @@ a Microsoft Foundry hosted-agent version.
 If the actual sender or source differs, keep the summary grounded:
 
 ```text
-I found the matching demo-plan note. For the staged story, Jessica is the boss
+I found the matching local-agent note. For this scenario, Jessica is the boss
 persona; the ask is still clear: start local, inspect the prototype, then frame
 the Foundry spike.
 ```
@@ -108,7 +108,7 @@ returns Markdown.
 
 It has no tools, no retrieval, no writeback, and no hidden answer key. The
 Aster Ridge invoice, contract, and policy evidence are embedded in the baseline
-instructions. That makes it perfect for the first demo beat: inspect the
+instructions. That makes it perfect for the first inspection beat: inspect the
 reasoning shape before adding enterprise grounding, IQ tools, workflow
 orchestration, or deployment.
 ```
@@ -122,7 +122,7 @@ When the user asks to run it:
 
 1. Open the Foundry Agent Playground canvas:
    - `canvasId`: `foundry-agent-playground`
-   - `instanceId`: `contract-expert-local-demo`
+   - `instanceId`: `contract-expert-local-spike`
 2. Start the local `contract-expert` from the canvas.
 3. If Foundry project values are missing, use the canvas-supported endpoint
    collection path. Do not ask for the Foundry project endpoint in chat.
@@ -150,7 +150,7 @@ the local agent behavior before we talk about packaging the same workflow as a
 plugin or deploying the agent shape into Foundry.
 ```
 
-Do not over-explain. The presenter will continue into plugin packaging, slash
+Do not over-explain. The user may continue into plugin packaging, slash
 commands, model selection, and Hydrafusion.
 
 ## Prompt to send into the canvas
@@ -158,7 +158,7 @@ commands, model selection, and Hydrafusion.
 Use this prompt for the first local run:
 
 ```text
-Give me a demo-ready review of the Aster Ridge invoice.
+Give me an executive-ready review of the Aster Ridge invoice.
 
 Show:
 - the invoice ID, supplier, and decision
