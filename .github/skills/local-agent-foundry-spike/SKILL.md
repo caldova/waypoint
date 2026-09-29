@@ -101,10 +101,10 @@ When the user asks how the prototype works, explain this code path:
 Talk track:
 
 ```text
-`contract-expert` is intentionally simple. It is a prompt-grounded Castia agent
-that exposes the Foundry Responses protocol. The Python entrypoint loads a
-baseline agent config, connects to the configured Foundry model deployment, and
-returns Markdown.
+`contract-expert` is intentionally simple. It is a prompt-grounded local agent
+that exposes the Foundry Responses protocol shape. The Python entrypoint loads
+the baseline instructions, connects to the configured Foundry model deployment,
+and returns Markdown.
 
 It has no tools, no retrieval, no writeback, and no hidden answer key. The
 Aster Ridge invoice, contract, and policy evidence are embedded in the baseline
