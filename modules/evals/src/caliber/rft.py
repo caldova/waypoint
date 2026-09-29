@@ -79,8 +79,8 @@ def package_rft_assets(
 
     if not agent.strip():
         raise ValueError("agent is required")
-    if pass_threshold is not None and (pass_threshold < 0.0 or pass_threshold > 1.0):
-        raise ValueError(f"pass_threshold must be between 0.0 and 1.0: {pass_threshold}")
+    if pass_threshold is not None and (pass_threshold < 0.0 or pass_threshold > 5.0):
+        raise ValueError(f"pass_threshold must be between 0.0 and 5.0: {pass_threshold}")
 
     train = _package_split(source_path=train_path, split="train")
     validation = _package_split(source_path=validation_path, split="validation")
@@ -137,6 +137,11 @@ def package_rft_assets(
                     "type": "python",
                     "name": f"{_safe_name(agent)}_evidence_grader",
                     "source": rft_grader_source,
+                    **(
+                        {"pass_threshold": pass_threshold}
+                        if pass_threshold is not None
+                        else {}
+                    ),
                 },
                 "endpoint_grader_fallback": {
                     "type": "endpoint",

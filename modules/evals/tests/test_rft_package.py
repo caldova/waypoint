@@ -50,9 +50,10 @@ def test_rft_package_emits_python_grader_endpoint_fallback_and_response_schema(
 
     job_spec = json.loads(job_spec_path.read_text(encoding="utf-8"))
     grader_config = job_spec["method"]["reinforcement"]["grader"]
-    assert job_spec["method"]["reinforcement"]["pass_threshold"] == 0.5
-    assert manifest["pass_threshold"] == 0.5
+    assert job_spec["method"]["reinforcement"]["pass_threshold"] == 4.5
+    assert manifest["pass_threshold"] == 4.5
     assert grader_config["type"] == "python"
+    assert grader_config["pass_threshold"] == 4.5
     assert "def grade(" in grader_config["source"]
     fallback_config = job_spec["method"]["reinforcement"]["endpoint_grader_fallback"]
     assert fallback_config["type"] == "endpoint"
@@ -128,7 +129,9 @@ def test_rft_package_can_omit_response_format_for_mai_diagnostic(tmp_path: Path)
 
     train_rows = [
         json.loads(line)
-        for line in Path(manifest["artifacts"]["train"]["path"]).read_text(encoding="utf-8").splitlines()
+        for line in Path(manifest["artifacts"]["train"]["path"])
+        .read_text(encoding="utf-8")
+        .splitlines()
     ]
     developer_message = train_rows[0]["messages"][0]
     assert developer_message["role"] == "developer"
@@ -422,7 +425,7 @@ def _package_rows(tmp_path: Path, rows: list[dict[str, Any]]) -> dict[str, Any]:
         agent="contract-policy-expert",
         base_model="MAI-Code-1-Flash",
         suffix="contract-policy-expert-v2-mai",
-        pass_threshold=0.5,
+        pass_threshold=4.5,
     )
 
 
