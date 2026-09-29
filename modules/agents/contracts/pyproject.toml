@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "Waypoint Contracts — Teams-first contract intake and evidence autopilot stub."
 requires-python = ">=3.11"
 dependencies = [
-    "azure-identity>=1.19.0",
-    "castia[optimize]==0.7.7",
+    "azure-identity>=1.26.0b2",
+    "castia[optimize]==0.13.0",
     "httpx>=0.28.1",
     "python-docx>=1.2.0",
     "python-dotenv>=1.0",

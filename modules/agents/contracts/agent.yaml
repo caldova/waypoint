@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
 kind: hosted
 name: contracts
+description: Teams-first contract intake and evidence autopilot for Waypoint.
 protocols:
   - protocol: responses
     version: 2.0.0
@@ -20,6 +21,14 @@ environment_variables:
     value: ${WAYPOINT_API_SCOPE}
   - name: CONTRACTS_INBOX_ADDRESS
     value: ${CONTRACTS_INBOX_ADDRESS}
+  - name: CONTRACTS_FOUNDRY_AGENT_VERSION
+    value: ${AGENT_CONTRACTS_VERSION}
+  - name: CONTRACTS_FOUNDRY_AGENT_ENDPOINT
+    value: ${AGENT_CONTRACTS_ENDPOINT}
+  - name: CONTRACTS_FOUNDRY_PROJECT_ENDPOINT
+    value: ${AGENT_CONTRACTS_PROJECT_ENDPOINT}
+  - name: CONTRACTS_M365_APP_VERSION
+    value: "1.0.7"
   - name: CONTRACTS_AGENT_BUILD_ID
     value: ${CONTRACTS_AGENT_BUILD_ID}
   - name: CONTRACTS_AGENT_DEPLOYMENT_STAGE

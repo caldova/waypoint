@@ -81,7 +81,8 @@ services:
     language: docker
     kind: hosted
     name: contracts
-    description: Teams-first contract intake and evidence autopilot stub for Waypoint.
+    displayName: Contracts
+    description: Teams-first contract intake and evidence autopilot for Waypoint.
     docker:
       remoteBuild: true
     container:
@@ -135,6 +136,14 @@ services:
         value: contract-toolbox
       - name: TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT
         value: ${TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT}
+      - name: CONTRACTS_FOUNDRY_AGENT_VERSION
+        value: ${AGENT_CONTRACTS_VERSION}
+      - name: CONTRACTS_FOUNDRY_AGENT_ENDPOINT
+        value: ${AGENT_CONTRACTS_ENDPOINT}
+      - name: CONTRACTS_FOUNDRY_PROJECT_ENDPOINT
+        value: ${AGENT_CONTRACTS_PROJECT_ENDPOINT}
+      - name: CONTRACTS_M365_APP_VERSION
+        value: "1.0.7"
     protocols:
       - protocol: activity
         version: 2.0.0
@@ -142,12 +151,39 @@ services:
         version: 2.0.0
       - protocol: invocations
         version: 2.0.0
-
+    activity:
+      digitalWorkerType: m365
+      publish:
+        publishScope: tenant
+        canRespondWithoutMention: true
+        appVersion: 1.0.7
+        agentDisplayName: Contracts
+        shortDescription: Contract intake autopilot for mailbox-driven contract review.
+        fullDescription: >
+          Contracts monitors the contracts inbox, registers contract artifacts,
+          drafts review briefs, and writes approved reports to SharePoint for
+          Caldova's Waypoint contract operations.
+        developerName: Caldova
+        developerWebsiteUrl: https://github.com/caldova/waypoint
+        privacyUrl: https://github.com/caldova/waypoint/blob/main/SECURITY.md
+        termsOfUseUrl: https://github.com/caldova/waypoint/blob/main/LICENSE
+        optionalPermissionScopes:
+          - resourceAppId: 00000003-0000-0000-c000-000000000000
+            scopes:
+              - Mail.Read
+              - Mail.Send
+              - Files.ReadWrite
+        agenticUserTemplate:
+          id: digitalWorkerTemplate
+          file: agenticUserTemplateManifest.json
+          schemaVersion: 0.1.0-preview
+          communicationProtocol: activityProtocol
 infra:
   provider: bicep
   path: ./infra
 
 requiredVersions:
+  azd: ">=1.31.2"
   extensions:
     # the azd ai agent extension is required for this template
-    "azure.ai.agents": ">=0.1.0-preview"
+    "azure.ai.agents": ">=1.0.0-beta.13"

@@ -1,0 +1,1 @@
+"""Invocations protocol adapter."""
