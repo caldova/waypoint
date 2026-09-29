@@ -55,7 +55,7 @@ gaps for FoundryIQ, toolbox publishing, RBAC, and acceptance.
 The Waypoint app (Aspire AppHost, FastAPI API, React web, PostgreSQL, auth, and
 telemetry) lives in `apps/waypoint` and is deployed to the Caldova tenant by the
 [Deploy Waypoint app workflow](../.github/workflows/deploy-app.yml). It runs on
-every push to `v2` that touches `apps/waypoint/**` and on demand from
+every push to `main` that touches `apps/waypoint/**` and on demand from
 **Actions → Deploy Waypoint app**.
 
 The workflow runs `aspire deploy` (via `tools/deploy/scripts/aspire_deploy.sh`)
@@ -67,7 +67,7 @@ deploy it checks API `/health` (200), unauthenticated `/api/runs` (401), and the
 web root (200).
 
 All target values live in the `caldova` GitHub Environment (deployments limited
-to the `v2` branch), so the repository-level `AZURE_*` variables used by the
+to the `main` branch), so the repository-level `AZURE_*` variables used by the
 agent workflow are not affected:
 
 | Name | Kind | Purpose |
@@ -110,3 +110,10 @@ Use `contract-policy-expert` for FoundryIQ-only answer quality and
 `contract-agent` for workflow/writeback correctness, backed by the datasets and graders in
 [modules/evals](../modules/evals/README.md) and the Agent Optimizer / RFT assets
 in [modules/optimization](../modules/optimization/README.md).
+
+## Versions
+
+`main` is the only long-lived branch. Earlier lines are kept as tags:
+[`v1`](https://github.com/caldova/waypoint/tree/v1) (the original `main`) and
+[`v2`](https://github.com/caldova/waypoint/tree/v2) (the former `v2` branch,
+now merged into `main`).

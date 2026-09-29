@@ -14,7 +14,7 @@ name: Deploy Waypoint app
 
 on:
   push:
-    branches: [v2]
+    branches: [main]
     paths:
       - apps/waypoint/**
       - .github/workflows/deploy-app.yml
