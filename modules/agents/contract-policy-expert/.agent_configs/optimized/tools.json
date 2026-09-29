@@ -8,18 +8,14 @@
         "type": "object",
         "properties": {
           "query": {
-            "type": null,
-            "description": "A concise, targeted search phrase describing the exact contract or policy evidence needed. Include supplier name or supplier ID, issue category, governing document type, clause topic, invoice ID, line ID, PO ID, batch/lot ID, packaging order ID, QA/release packet ID, service period, invoice date, and support identifiers when helpful. Prefer searches that ask for evidence sources, clauses, prerequisites, or support-document contents rather than decisions or conclusions. Do not ask the tool to approve, reject, reconcile, dispute, write back to Waypoint, create cases, contact suppliers, or make payment decisions. Effective examples include: cmo-001 Aster Ridge packaging authorization blister packaging purchase order written change authorization; Aster Ridge SOW section 3.2 packaging authorization blister surcharge standard bottle included unit production price; cmo-001 INV-CMO-001-2026-10-L004 PO-CMO-001-2026-10 PKG-AR-BLISTER-1026 blister packaging surcharge authorization pricing; invoice reconciliation policy minimum evidence for approval authorized source document supplier product SKU batch milestone material capacity period shipment line-level linkage; off_contract_packaging blister surcharge PO authorization pricing support PKG-AR-BLISTER-1026; cmo-002 Northstar Fill Finish quality agreement pending batches may not be invoiced batch manufacturing QA release line clearance; quality-release billability policy pending batches informational statements payment approval release contract-defined milestone; Northstar pending QA status batch fee release certificate line clearance deviation record billability; cmo-002 INV-CMO-002-2026-10-L004 BATCH-NS-1026-02 NFF-REL-1026 LC-NFF-1026 DEV-NFF-1026-07 pending release status support linkage; and pricing rate card SOW batch manufacturing QA release fee Northstar 348000 service period 2026-10.",
-            "enum": null,
-            "default": null,
-            "items": null,
-            "properties": null,
-            "required": null,
-            "additionalProperties": null
+            "type": "string",
+            "description": "A concise, targeted search phrase describing the exact contract or policy evidence needed. Include supplier name or supplier ID, issue category, governing document type, clause topic, invoice ID, line ID, PO ID, batch/lot ID, packaging order ID, QA/release packet ID, service period, invoice date, and support identifiers when helpful. Prefer searches that ask for evidence sources, clauses, prerequisites, or support-document contents rather than decisions or conclusions. Do not ask the tool to approve, reject, reconcile, dispute, write back to Waypoint, create cases, contact suppliers, or make payment decisions. Effective examples include: cmo-001 Aster Ridge packaging authorization blister packaging purchase order written change authorization; Aster Ridge SOW section 3.2 packaging authorization blister surcharge standard bottle included unit production price; cmo-001 INV-CMO-001-2026-10-L004 PO-CMO-001-2026-10 PKG-AR-BLISTER-1026 blister packaging surcharge authorization pricing; invoice reconciliation policy minimum evidence for approval authorized source document supplier product SKU batch milestone material capacity period shipment line-level linkage; off_contract_packaging blister surcharge PO authorization pricing support PKG-AR-BLISTER-1026; cmo-002 Northstar Fill Finish quality agreement pending batches may not be invoiced batch manufacturing QA release line clearance; quality-release billability policy pending batches informational statements payment approval release contract-defined milestone; Northstar pending QA status batch fee release certificate line clearance deviation record billability; cmo-002 INV-CMO-002-2026-10-L004 BATCH-NS-1026-02 NFF-REL-1026 LC-NFF-1026 DEV-NFF-1026-07 pending release status support linkage; and pricing rate card SOW batch manufacturing QA release fee Northstar 348000 service period 2026-10."
           }
         },
-        "required": [],
-        "additionalProperties": true
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
       },
       "strict": null
     }

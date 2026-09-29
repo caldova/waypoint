@@ -13,9 +13,8 @@ from typing import Any
 #
 # It returns a score from 0.0 to 1.0. Higher is better.
 #
-# Hard fail:
-# - The answer is not in the expected evidence format.
-# - The answer misses the required evidence-contract structure.
+# The score is intentionally dense enough for RFT: wrong-but-near answers should
+# usually earn partial credit instead of collapsing every rollout to zero.
 
 # The top-level score is a 100-point scorecard.
 # Is the answer shaped like the contract we asked for?
@@ -86,7 +85,8 @@ def grade(sample: Any, item: dict[str, Any]) -> float:
 
     `sample` is the agent answer. Local Caliber callers pass
     `{"output_text": ...}`; Foundry grader-run validation passes the model
-    sample string directly.
+    sample string directly. Foundry RFT with response_format may pass
+    structured generations as `{"output_json": ...}`.
     `item` supplies the expected JSON, ground truth citations, and metadata.
     """
     output_text = _output_text(sample)
@@ -97,13 +97,11 @@ def grade(sample: Any, item: dict[str, Any]) -> float:
     try:
         output = json.loads(output_text)
     except json.JSONDecodeError:
-        return 0.0
+        return 0.02 if output_text else 0.0
     if not isinstance(output, dict):
         return 0.0
 
     schema_score = _score_schema(output)
-    if schema_score == 0.0:
-        return 0.0
 
     points = 0.0
     points += _award(SCHEMA_POINTS, schema_score)
@@ -205,7 +203,7 @@ def _score_evidence(output: dict[str, Any], ground_truth: dict[str, Any]) -> flo
         )
         row_score += _award(
             EVIDENCE_ROW_ALLOWED_SOURCE_POINTS,
-            _yes(evidence_row.get("source_ref") in allowed_refs),
+            _score_source_ref(evidence_row.get("source_ref"), allowed_refs),
         )
         row_score += _award(
             EVIDENCE_ROW_EXPECTED_OUTCOME_POINTS,
@@ -231,6 +229,34 @@ def _score_evidence(output: dict[str, Any], ground_truth: dict[str, Any]) -> flo
     recall_score = len(seen_allowed_refs) / len(allowed_refs) if allowed_refs else 1.0
     evidence_points = _award(60, precision_score) + _award(40, recall_score)
     return _as_fraction(evidence_points)
+
+
+def _score_source_ref(source_ref: Any, allowed_refs: set[str]) -> float:
+    """Reward exact citations most, but preserve signal for near citations."""
+    if not isinstance(source_ref, str) or not source_ref.strip():
+        return 0.0
+    if source_ref in allowed_refs:
+        return 1.0
+
+    source_doc = source_ref.split("#", 1)[0]
+    allowed_docs = {allowed.split("#", 1)[0] for allowed in allowed_refs}
+    if source_doc in allowed_docs:
+        return 0.65
+
+    source_family = _source_family(source_doc)
+    allowed_families = {_source_family(allowed_doc) for allowed_doc in allowed_docs}
+    if source_family and source_family in allowed_families:
+        return 0.35
+    return 0.0
+
+
+def _source_family(path: str) -> str:
+    normalized = path.replace("\\", "/")
+    if "/contracts/" in normalized:
+        return "contracts"
+    if "/policies/" in normalized:
+        return "policies"
+    return ""
 
 
 def _score_unsupported_claims(output: dict[str, Any], item: dict[str, Any]) -> float:
@@ -317,8 +343,51 @@ def _is_valid_confidence(value: Any) -> bool:
 
 def _output_text(sample: Any) -> str:
     if isinstance(sample, dict):
-        return str(sample.get("output_text", "") or "").strip()
+        output_json = sample.get("output_json")
+        if output_json is not None:
+            if isinstance(output_json, str):
+                return output_json.strip()
+            return json.dumps(output_json, sort_keys=True)
+        output_text = sample.get("output_text")
+        if output_text is not None:
+            return str(output_text or "").strip()
+        output = sample.get("output")
+        if isinstance(output, str):
+            return output.strip()
+        if isinstance(output, dict):
+            if "text" in output:
+                return str(output.get("text") or "").strip()
+            if "content" in output:
+                return _content_text(output.get("content"))
+        response = sample.get("response")
+        if isinstance(response, str):
+            return response.strip()
+        choices = sample.get("choices")
+        if isinstance(choices, list) and choices:
+            first = choices[0]
+            if isinstance(first, dict):
+                message = first.get("message")
+                if isinstance(message, dict):
+                    return _content_text(message.get("content"))
+                if "text" in first:
+                    return str(first.get("text") or "").strip()
     return str(sample or "").strip()
+
+
+def _content_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                value = item.get("text") or item.get("content")
+                if value is not None:
+                    parts.append(str(value))
+        return "\n".join(parts).strip()
+    return str(content or "").strip()
 
 
 def _award(points_available: int, earned_fraction: float) -> float:

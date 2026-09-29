@@ -15,7 +15,7 @@ from castia import (
 )
 from dotenv import load_dotenv
 
-from toolbox import foundryiq_specs, foundryiq_toolbox_tools
+from toolbox import foundryiq_runtime_tools, foundryiq_toolbox_tools
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
@@ -35,28 +35,26 @@ app.tools(foundryiq_toolbox_tools)
 
 @app.responses()
 async def reply(text: str, model: Model = _CHAT_MODEL_DEPENDENCY) -> str:
-    specs = await foundryiq_specs(_config.tool_definitions)
-    if not specs:
+    tools = foundryiq_runtime_tools(_config.tool_definitions)
+    if not tools:
         return (
             "FoundryIQ is not configured. Set TOOLBOX_NAME and the matching "
             "TOOLBOX_<NAME>_MCP_ENDPOINT."
         )
-    return await model.respond_with_tools(text, tools=[], activity=None, extra_specs=specs)
+    return await model.respond_with_tools(text, tools=tools, activity=None)
 
 
 @app.activity(Teams.direct, Teams.group, Teams.channel_mention)
 async def ask(msg: Message, model: Model = _CHAT_MODEL_DEPENDENCY) -> None:
-    specs = await foundryiq_specs(_config.tool_definitions)
-    if not specs:
+    tools = foundryiq_runtime_tools(_config.tool_definitions)
+    if not tools:
         await msg.say(
             "FoundryIQ is not configured. Set TOOLBOX_NAME and the matching "
             "TOOLBOX_<NAME>_MCP_ENDPOINT.",
             ai_generated=True,
         )
         return
-    answer = await model.respond_with_tools(
-        msg.text, tools=[], activity=None, extra_specs=specs
-    )
+    answer = await model.respond_with_tools(msg.text, tools=tools, activity=None)
     await msg.say(answer, ai_generated=True, attachments=[action_chips(*_FOLLOWUPS)])
 
 

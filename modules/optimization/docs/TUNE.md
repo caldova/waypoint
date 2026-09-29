@@ -26,7 +26,8 @@ $Forge = "<path-to-forge>"
 $ProjectEndpoint = "<foundry-project-endpoint>"
 $EvalModel = "gpt-6-astra"
 $OptimizationModel = "gpt-5.5"
-$RftBaseModel = "MAI-Code-1-Flash"
+$RftBaseModel = "mai-code-1.1-flash-2026-08-27"
+$MaiBaseBenchmarkDeployment = "mai-code-1-1-flash-base"
 $Agent = "contract-policy-expert"
 $DatasetDir = "$Caliber\datasets\$Agent"
 $RunDir = "$Caliber\runs\eval-results\$Agent"
@@ -85,7 +86,7 @@ submission:
 | V2 source alignment | Expected `agent`, `plane`, `output_type`, citation refs, classifications, and correlation fields must reflect the current v2 `contract-policy-expert` datasets and deployed teacher behavior. |
 | Retrieval/tool discipline checks | Add penalties for answers that ignore provided/retrieved evidence, cite unavailable sources, or invent retrieval/write actions. |
 | Score diagnostics | Keep per-dimension diagnostics in local and fallback endpoint tests so failed rows can explain whether the problem is schema, citations, unsupported gaps, boundary violations, or summary mismatch. |
-| Calibration threshold | Recalibrate `pass_threshold` against current v2 baseline/teacher outputs; do not inherit the historical threshold. |
+| Calibration threshold | Recalibrate `pass_threshold` against current v2 baseline/teacher outputs; do not inherit historical thresholds. Numeric Python graders must declare explicit pass semantics; keep the grader reward and selected threshold on Foundry's 0-1 scale, and carry the threshold into both the reinforcement config and the grader config. |
 | Grader-run validation | Before file upload or job creation, POST the packaged Python grader and a gold validation row to the grader-run validation route and require the expected score. |
 
 Live RFT remains blocked until the v2 Python grader passes local golden tests
@@ -105,17 +106,17 @@ all possible validation before the irreversible API call:
 | Reference grader package | The deterministic grader packages as a self-contained file with strict evidence-schema checks. | Passed for `runs\rft\contract-policy-expert-v2-mai\contract-policy-expert-rft-grader.py`. |
 | Gold-answer parity | Score the known corpus answers from train/validation against the packaged grader. | Passed. All 96 packaged gold answers scored `1.0` with zero failures. |
 | Gold-answer ceiling output | Emit answer-key output-items for validation rows and score them through the normal calibration path. | Passed. `runs\eval-results\contract-policy-expert\contract-policy-expert-validation-gold-output-items.jsonl` scored 16/16 at `1.0`; pass rates are 1.0 for thresholds 0.5-0.95. This is a ceiling, not the pass-threshold source. |
-| Model-output calibration plan | Score available gold/teacher output-items and record why MAI/base output capture is not applicable when the base model is only available as an RFT target. | Passed for pre-submit threshold selection. Gold ceiling and strict-contract `gpt-6-astra` teacher outputs are scored; `MAI-Code-1-Flash` base outputs are explicitly waived because the model is available as an RFT target, not as a serving deployment. |
+| Model-output calibration plan | Score available gold, teacher, and MAI base serving output-items before choosing a threshold. | Passed. Gold ceiling, strict-contract `gpt-6-astra` teacher outputs, and MAI base serving outputs from deployment `mai-code-1-1-flash-base` are scored. |
 | No-submit integration preflight | Check Azure auth, package artifacts, project endpoint, Python grader source, and base-model naming without upload/import/job submission. | Passed for the Python-grader path. Azure auth can mint an `https://ai.azure.com` bearer token, the target project endpoint is configured, the files/jobs list routes are reachable, package artifacts are present, and `BLOSSOM_GRADER_ENDPOINT` / `BLOSSOM_GRADER_SECRET` are not required unless falling back to an endpoint grader. Saved in `runs\rft\contract-policy-expert-v2-mai\integration-preflight.json`. |
 | Live-submit gate | Package manifest must stay `ready_for_live_submit: false` until current lineage, Python grader validation, model support, and spend approval are complete. | Correctly blocked. |
 | Python grader | Package the deterministic grader as inline `grader.type: python` source with `grade(sample, item) -> float`; validate it through the Foundry grader-run route before any upload or job submit. | Passed. Packaged as the primary dry-run payload; local tests cover exact contract parity, committed dataset target parity, bad citations, fake action penalties, and generated grader-run request shape. The project grader-run POST returned reward `1.0`. |
 | Endpoint grader fallback | Keep an endpoint wrapper available only if the preview RFT route rejects `grader.type: python`. | Scaffold packaged as `contract-policy-expert-rft-blossom-endpoint-grader.py`; not an active blocker for the Python-grader path. |
-| Response schema | Generate the exact `response_format.json_schema` for `expert_evidence` and verify it matches grader expectations. | Passed for the packaged strict `expert_evidence` schema. |
+| Response schema | Generate the exact `response_format.json_schema` for `expert_evidence` and verify it matches grader expectations. | Passed for the packaged strict `expert_evidence` schema. After repeated zero-token MAI failures, the next diagnostic package should intentionally omit `response_format` to match the historical `o4-mini` job shape more closely while keeping the JSON contract in the prompt/reference output and grader. |
 | Grader-run what-if | Build a request for `POST /openai/v1/fine_tuning/alpha/graders/run` using the packaged Python grader, first validation item, and gold expected answer as the `model_sample` string. | Passed. Saved request and result in `runs\rft\contract-policy-expert-v2-mai\`; Foundry returned HTTP 200 with reward `1.0` and no grader errors. |
-| Current teacher evidence | Capture current v2 teacher outputs for the 16-row RFT validation split using the same strict `expert_evidence` response format as the dry-run RFT payload. | Passed for `gpt-6-astra`. `runs\eval-results\contract-policy-expert\contract-policy-expert-validation-optimized-teacher-output-items.jsonl` has 16 matched rows; calibration avg `0.915`, min `0.889`, max `0.969`, and candidate threshold `0.9`. A separate 24-row optimized Foundry eval export exists as held-out context only because it has zero ID overlap with the RFT validation split. |
-| Frozen dry-run payload | Regenerate the package with the provisional `pass_threshold` included in the exact no-submit job spec. | Passed. `contract-policy-expert-rft-job.dry-run.json` now includes `model: MAI-Code-1-Flash`, `grader.type: python`, inline grader source, strict `expert_evidence` response schema, and `pass_threshold: 0.9`; file fields remain upload placeholders. |
+| Current teacher evidence | Capture current v2 teacher outputs for the 16-row RFT validation split using the same strict `expert_evidence` response format as the dry-run RFT payload. | Passed for `gpt-6-astra`. `runs\eval-results\contract-policy-expert\contract-policy-expert-validation-optimized-teacher-output-items.jsonl` has 16 matched rows; calibration avg `0.915`, min `0.889`, max `0.969`. A separate 24-row optimized Foundry eval export exists as held-out context only because it has zero ID overlap with the RFT validation split. |
+| Frozen dry-run payload | Regenerate the package with the exact no-submit job spec. | Passed for the MAI diagnostic package. `contract-policy-expert-rft-job.dry-run.json` now includes `model: mai-code-1.1-flash-2026-08-27`, `grader.type: python`, inline 0-5 grader source, and upload placeholders, but no schema-constrained `response_format`. Packaged train/validation messages append the explicit `expert_evidence` JSON shape that made `mai-code-1-1-flash-base` score cleanly. |
 | File registration | Upload/import train and validation JSONL, poll both `file-...` IDs to `processed`, and capture status details. | Passed. Training file `file-b7a342162cc7477c8e71da1bc5486e9c` and validation file `file-8aeb467e8a304099895df211c06bb738` are both `processed`; saved in `contract-policy-expert-rft-file-upload-result.json`. |
-| Exact Blossom payload | Generate and review the final `POST /openai/v1/fine_tuning/jobs` JSON with model, file IDs, Python grader source, `pass_threshold`, and response schema. | Submitted after explicit approval. The clean submit payload removes review-only status/metadata and endpoint fallback, adds `trainingType: globalStandard`, and leaves epochs unset so Foundry uses its RFT defaults. Submit and status responses are stored only in ignored `runs\` artifacts. |
+| Exact Blossom payload | Generate and review the final `POST /openai/v1/fine_tuning/jobs` JSON with model, file IDs, Python grader source, hyperparameters, pass threshold placement, and response schema mode. | Current corrected shape omits strict `response_format`, keeps `trainingType: DeveloperTier`, the dense 0-1 Python grader, and explicit conservative hyperparameters, and sets `pass_threshold: 0.9` both on `method.reinforcement` and inside `method.reinforcement.grader`. Submit and status responses are stored only in ignored `runs\` artifacts. |
 
 Current offline dry-run package:
 
@@ -137,20 +138,27 @@ runs\rft\contract-policy-expert-v2-mai\
   manifest.json                                 # ready_for_live_submit: false
 ```
 
-The allowlisted lower-cost model for this lane is `MAI-Code-1-Flash`. Keep this
-exact model name in the dry-run package and final Blossom payload unless the
-target project allowlist changes.
+The allowlisted lower-cost fine-tuning model for this lane is
+`mai-code-1.1-flash-2026-08-27`. Use that exact model name when submitting
+fine-tuning jobs unless the target project allowlist changes. For pre-submit
+serving calibration, use deployment `mai-code-1-1-flash-base`.
 
 The dry-run job spec now uses the Python-grader shape:
 
 ```json
 {
-  "grader": {
-    "type": "python",
-    "name": "contract_policy_expert_evidence_grader",
-    "source": "def grade(sample, item) -> float: ..."
-  },
-  "pass_threshold": 0.9
+  "method": {
+    "type": "reinforcement",
+    "reinforcement": {
+      "pass_threshold": 0.9,
+      "grader": {
+        "type": "python",
+        "name": "contract_policy_expert_evidence_grader",
+        "source": "def grade(sample, item) -> float: ...",
+        "pass_threshold": 0.9
+      }
+    }
+  }
 }
 ```
 
@@ -219,16 +227,17 @@ uv run caliber grader model-output-plan `
   --json
 ```
 
-Current status: the plan is ready for pre-submit threshold selection with an
-explicit MAI/base-output waiver. `MAI-Code-1-Flash` is available to us as an RFT
-target, not as a deployable serving model, so pre-RFT base-output capture is not
-applicable. The captured evidence is:
+Current status: the plan is ready for pre-submit threshold selection without an
+MAI/base-output waiver. The base serving deployment is
+`mai-code-1-1-flash-base`; fine-tuning job submissions should use model
+`mai-code-1.1-flash-2026-08-27`. The captured evidence is:
 
 ```text
 runs\eval-results\contract-policy-expert\contract-policy-expert-validation-gold-output-items.jsonl
 runs\eval-results\contract-policy-expert\contract-policy-expert-validation-optimized-teacher-output-items.jsonl
 runs\eval-results\contract-policy-expert\contract-policy-expert-validation-optimized-teacher-calibration.json
-runs\eval-results\contract-policy-expert\contract-policy-expert-validation-mai-base-capture-blocker.json
+runs\eval-results\contract-policy-expert\mai-base-benchmark\mai-base-validation-schema-prompt-output-items-8192.jsonl
+runs\eval-results\contract-policy-expert\mai-base-benchmark\mai-base-validation-schema-prompt-summary-8192.json
 runs\eval-results\contract-policy-expert\contract-policy-expert-validation-model-output-plan.json
 ```
 
@@ -257,18 +266,167 @@ and adds unsupported-gap caveats while the gold target expects `recover`
 provided.`). This is useful semantic signal, not a parser or response-shape
 problem.
 
-Use `0.9` as the provisional `pass_threshold` candidate if the goal is to teach
-the lower-cost model the current gold recovery stance. A lower threshold such as
-`0.85` would pass all strict teacher rows and would not pressure this behavior.
-The base-model comparison moves to post-RFT checkpoint/model evaluation because
-the untuned MAI base is not directly callable in this project.
+The first MAI job with `pass_threshold: 0.9` failed with zero billed training
+tokens and no usable learning signal. The later dense-grader and 0-5 reward
+retries reached training/eval setup but still failed with zero billed tokens.
+The historical-shape retry `ftjob-b766020193b040b7be4c909017353024` removed
+strict `response_format`, `pass_threshold`, and the endpoint-grader fallback
+while keeping the earlier MAI model alias, `DeveloperTier`, the processed 80/16
+train-validation files, dense inline 0-5 Python grader, and conservative
+hyperparameters. After Alicia and Srujan's clarification, future submissions
+should use explicit model `mai-code-1.1-flash-2026-08-27`. The historical-shape
+retry reached retry, training restart, and validation eval creation
+(`eval_6abac2aca43c81919f62d56b95bfd10c`) before the same terminal gate:
+`Training tokens billed: 0` and `Training data validation failed.
+Training stopped after the training data was exhausted because no training
+example produced usable learning signal...`.
+
+That result rules out strict `response_format` as the sole failure mode.
+Engineering later diagnosed the misleading system failure as a deterministic
+grader configuration defect: a non-boolean numeric grader needs an explicit
+`pass_threshold` so the trainer can decide whether a reward is correct. Without
+that pass semantic, every sample-grade attempt can fail before producing usable
+learning signal, and the service may surface the user/config error as a generic
+system failure. Harsh clarified the successful shape: the Python grader must
+return scores on the 0-1 range and `pass_threshold` must be in the same range.
+The corrected MAI RFT payload uses the native 0-1 dense reward and sets
+`pass_threshold: 0.9` in both reinforcement-level config and the Python grader
+config.
+The committed canonical train/validation files match `main` exactly
+(`80` train rows and `16` validation rows), and `main` records the successful
+historical `o4-mini` RFT job `ftjob-0265d673736e496dbd360530958c6149` for this
+agent lineage. The grader is the same scorecard family, but the current branch
+is deliberately more permissive for diagnostics: broader sample-shape parsing,
+partial credit for malformed nonempty output, near-citation credit, and a
+packaged 0-5 reward wrapper. The old raw submit payload was not committed, so
+only lineage/data/grader-family parity can be asserted, not byte-for-byte live
+request parity.
+The MAI serving benchmark requested after Alicia's guidance is now captured in
+ignored local artifacts:
+
+```text
+runs\eval-results\contract-policy-expert\mai-base-benchmark\mai-validation-output-items-8192.jsonl
+runs\eval-results\contract-policy-expert\mai-base-benchmark\mai-validation-summary-8192.json
+```
+
+The first full run with `max_completion_tokens: 2048` returned HTTP 200 for all
+16 rows but produced empty visible outputs because the model spent the whole
+budget on hidden reasoning. It is not quality evidence. The valid rerun used
+`max_completion_tokens: 8192`, Entra auth with the Microsoft tenant verified,
+and the chat-completions route. It produced visible output for all 16 rows:
+
+```text
+rows: 16
+http_status_counts: 200 => 16
+score_summary: min 0.100, avg 0.1766, median 0.1365, max 0.331
+pass_rates: 0.15 => 0.500, 0.20 => 0.3125, 0.25 => 0.3125, 0.50 => 0.0
+```
+
+This initial run was useful, but the score was artificially low: the validation
+prompt only said "FoundryIQ evidence contract JSON" and did not spell out the
+required `expert_evidence` keys. The model cited the right sources but invented
+alternate JSON shapes. Dimension diagnostics showed the problem:
+
+```text
+schema avg: 0.042
+identity avg: 0.094
+correlation avg: 0.000
+evidence avg: 0.172
+boundary avg: 1.000
+```
+
+A follow-up serving benchmark appended the exact `expert_evidence` shape to the
+developer message while keeping the same rows, route, deployment, Entra tenant,
+and `max_completion_tokens: 8192`:
+
+```text
+runs\eval-results\contract-policy-expert\mai-base-benchmark\mai-validation-schema-prompt-output-items-8192.jsonl
+runs\eval-results\contract-policy-expert\mai-base-benchmark\mai-validation-schema-prompt-summary-8192.json
+```
+
+That corrected prompt produced strong scores:
+
+```text
+rows: 16
+http_status_counts: 200 => 16
+visible_outputs: 16
+score_summary: min 0.904, avg 0.9599, median 0.966, max 0.988
+pass_rates: 0.90 => 1.000, 0.95 => 0.8125
+dimension_averages: schema 1.000, identity 1.000, correlation 1.000,
+  evidence 0.960, unsupported 0.9062, summary 0.5859, boundary 1.000
+```
+
+Conclusion: the `0.1766` run should not drive threshold selection. It diagnoses
+an underspecified prompt/schema contract. MAI-family serving can satisfy the
+current grader when the expected JSON object is made explicit, and the
+teacher-style threshold band around `0.9` remains plausible for schema-explicit
+outputs. The zero-token RFT failure is therefore more likely a live trainer
+rollout / sample-shape / completion-budget issue than a too-strict grader or
+incapable MAI-family model. That corrected run was against the wrong serving deployment,
+however: Alicia clarified that `mai-code-1-1-flash-base` is the base deployment
+in the resource.
+
+The clean base-deployment rerun used `mai-code-1-1-flash-base`, the same exact
+schema-explicit prompt, the same 16 validation rows, Entra auth, and
+`max_completion_tokens: 8192`:
+
+```text
+runs\eval-results\contract-policy-expert\mai-base-benchmark\mai-base-validation-schema-prompt-output-items-8192.jsonl
+runs\eval-results\contract-policy-expert\mai-base-benchmark\mai-base-validation-schema-prompt-summary-8192.json
+```
+
+Clean base result:
+
+```text
+observed_response_model: mai-2-coding-fast
+rows: 16
+http_status_counts: 200 => 16
+visible_outputs: 16
+score_summary: min 0.916, avg 0.9674, median 0.966, max 0.988
+pass_rates: 0.90 => 1.000, 0.95 => 0.9375
+dimension_averages: schema 1.000, identity 1.000, correlation 1.000,
+  evidence 0.955, unsupported 0.9688, summary 0.6328, boundary 1.000
+```
+
+Conclusion after Alicia's clarification: the clean base deployment can satisfy
+the current grader when the expected JSON contract is explicit. Keep the
+teacher-style threshold band around `0.9`; do not lower the threshold based on
+the earlier underspecified prompt or the accidental fine-tuned-looking serving
+deployment.
+
+The first corrected RFT retry with the schema-explicit prompt failed during
+training-file preprocessing with `unsafe_file`. The platform did not identify a
+row, phrase, or policy category, so the exact trigger is unknown. To avoid
+guessing, the package prompt was neutralized: it keeps the same required
+`expert_evidence` keys but removes repeated placeholder language such as
+`missing or unproven claim`, `withheld`, `recovered`, and `not billable`.
+
+The neutral schema prompt still scored cleanly against `mai-code-1-1-flash-base`:
+
+```text
+rows: 16
+score_summary: min 0.945, avg 0.9597, median 0.9545, max 0.981
+pass_rates: 0.90 => 1.000, 0.95 => 0.750
+```
+
+As a no-job side-effect check, the neutral package files were uploaded for
+fine-tune preprocessing only. Both files processed successfully:
+
+```text
+training_file: file-428ff8967e2740629c558a060af471d3
+validation_file: file-6cce073d49ac4c6bafb04849025a764a
+```
+
+This does not prove which phrase caused the earlier `unsafe_file`, but it proves
+the neutralized 80/16 package can pass file processing before any new job
+submission.
 
 No-submit integration preflight:
 
 ```powershell
 uv run caliber rft integration-preflight `
   --package-dir runs\rft\contract-policy-expert-v2-mai `
-  --base-model MAI-Code-1-Flash `
+  --base-model mai-code-1.1-flash-2026-08-27 `
   --json
 ```
 
@@ -284,7 +442,7 @@ Resource group: rg-caldova
 Region: swedencentral
 Account endpoint: https://aif-caldova.cognitiveservices.azure.com/
 Public network access: Enabled
-RFT base model: MAI-Code-1-Flash
+RFT base model: mai-code-1.1-flash-2026-08-27
 ```
 
 Read-only probes against this project succeeded for:
@@ -313,8 +471,9 @@ When all pre-work gates are green, execute in this order:
 4. Poll `/openai/v1/files/{file_id}` until both files are `processed`; stop on
    any `error` and inspect `status_details`.
 5. Review the exact `POST /openai/v1/fine_tuning/jobs` payload, including
-   `trainingType: globalStandard`, `method.type: reinforcement`, grader config,
-   `pass_threshold`, and strict `response_format`.
+   `trainingType: DeveloperTier`, `method.type: reinforcement`, grader config,
+   hyperparameters, and whether `response_format` is intentionally present or
+   omitted.
 6. Get explicit spend approval with the exact payload and expected monitoring
    plan visible.
 7. Submit once, capture the returned job ID, then monitor bounded
@@ -325,12 +484,27 @@ When all pre-work gates are green, execute in this order:
 
 Live submission note: the first POST without `trainingType` was rejected before
 job creation because the MAI target does not support the default Standard
-training type. The accepted payload uses `trainingType: globalStandard`.
-Epochs were intentionally left unset; the accepted job response shows Foundry's
-RFT defaults, including `n_epochs: -1` (automatic/default), `eval_interval: 5`,
-`eval_samples: 1`, `compute_multiplier: 1`, and
-`learning_rate_multiplier: 2`. The current job status is recorded in ignored run
-state, not committed documentation.
+training type. `globalStandard` accepted syntactically but showed severe queue
+and stall behavior. After the non-MSIT subscription configuration was fixed,
+`DeveloperTier` became the cleaner path. Use explicit conservative
+hyperparameters (`n_epochs: 2`, `batch_size: 8`,
+`learning_rate_multiplier: 1`, `compute_multiplier: 1`, `eval_interval: 5`,
+`eval_samples: 1`) until a successful MAI run gives better evidence. The current
+job status is recorded in ignored run state, not committed documentation.
+
+If `response_format` is present, the Python grader must support structured
+samples as `sample.output_json` as well as string samples as
+`sample.output_text`. A grader that only reads `output_text` can receive no
+usable learning signal even when local string-sample validation passes.
+Also support common chat-completion wrappers such as `choices[0].message.content`
+in local diagnostics so live payload-shape drift does not collapse every sample
+to zero.
+
+If `response_format` is omitted, preserve the JSON contract in the developer
+prompt and `reference_output`, and verify the grader gives partial credit to
+malformed-but-nonempty output, near citations, and correct advisory boundaries.
+This is the closest MAI diagnostic to the successful historical `o4-mini` path,
+whose committed dry-run package did not include a `response_format` field.
 
 After the live job reaches a terminal succeeded state:
 

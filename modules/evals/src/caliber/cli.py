@@ -358,6 +358,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional provisional grader pass threshold for the dry-run RFT payload.",
     )
     package.add_argument(
+        "--omit-response-format",
+        action="store_true",
+        help=(
+            "Omit the strict response_format schema from the dry-run payload. Use only for "
+            "diagnosing MAI/Blossom reward-signal failures against the historical RFT shape."
+        ),
+    )
+    package.add_argument(
         "--out-dir",
         type=Path,
         default=Path("runs") / "rft" / "contract-policy-expert",
@@ -386,6 +394,7 @@ def _build_parser() -> argparse.ArgumentParser:
             optimizer_job_id=args.optimizer_job_id or None,
             optimizer_candidate_id=args.optimizer_candidate_id or None,
             pass_threshold=args.pass_threshold,
+            include_response_format=not args.omit_response_format,
         )
     )
 

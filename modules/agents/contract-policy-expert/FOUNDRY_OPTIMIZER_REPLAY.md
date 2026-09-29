@@ -12,8 +12,10 @@ The story is intentionally simple:
 5. Deploy the winning candidate.
 6. Run five deployed-agent optimized evals against the same held-out test data.
 
-Do not mix this with the fine-tuning workstream. This story tunes agent assets
-only: instructions and tool descriptions.
+Keep the optimizer replay distinct from the fine-tuning workstream. The
+optimizer story tunes agent assets only: instructions and tool descriptions. The
+RFT comparison can then reuse the optimized assets with a fine-tuned model as a
+third, separately labeled eval group.
 
 ## Source layout
 
@@ -45,6 +47,9 @@ only for the deployment step, then restore `.agent_configs\baseline` afterward.
 | Winning candidate eval run | `evalrun_8f66da78b917482682045dcdc6c39951` |
 | Optimized hosted-agent version | `7` |
 | Optimized eval group | `contract-policy-expert-optimized` / `eval_9421539dcd754815b8c5443bca0e971c` |
+| Tuned model deployment | `contract-policy-expert-mai-rft-v2-pt09` |
+| Tuned hosted-agent version | `10` |
+| Tuned eval group | `contract-policy-expert-tuned` / `eval_4031396f93ac47418b78477ab712fd7e` |
 
 The optimizer train score improved from `0.455684` to
 `0.8000013333333332`. The deployed held-out eval story improved from a noisy
@@ -54,8 +59,11 @@ mediocre baseline to consistently perfect optimized runs:
 | --- | --- |
 | `contract-policy-expert-baseline` | 16/24, 15/24, 11/24, 14/24, 18/24 |
 | `contract-policy-expert-optimized` | 24/24, 24/24, 24/24, 24/24, 24/24 |
+| `contract-policy-expert-tuned` | 24/24, 24/24, 24/24, 23/24, 24/24 |
 
-All final baseline and optimized runs had `0` errored rows.
+All final baseline, optimized, and tuned runs had `0` errored rows. The tuned
+23/24 row was a rubric-quality failure on an Evergreen escalation-cap item, not
+an infrastructure failure.
 
 ## Dataset scope
 
@@ -105,6 +113,9 @@ tenant, subscription, azd environment, and Foundry project.
 9. Restore `.agent_configs\baseline` to the mediocre baseline in source.
 10. Run five sequential optimized evals in `contract-policy-expert-optimized`
     against the same rubric and held-out dataset.
+11. For the RFT comparison, deploy the optimized assets with the fine-tuned
+    model deployment and run five sequential evals in
+    `contract-policy-expert-tuned`.
 
 ## Native eval REST shape
 
@@ -162,7 +173,26 @@ optimized = best candidate
 
 Concurrent native eval runs caused errored rows during the production replay.
 Sequential runs completed cleanly and produced the final stage evidence. For
-demo-quality artifacts, run baseline and optimized repeats one at a time.
+demo-quality artifacts, run baseline, optimized, and tuned repeats one at a
+time.
+
+### Dispatch the KB tool locally for the tuned MAI model
+
+The tuned MAI deployment handled ordinary Responses function tools, but the
+server-side MCP toolbox spec failed through the hosted-agent path. The runtime
+therefore exposes the same model-visible KB tool as a normal function tool and
+dispatches it to the FoundryIQ toolbox MCP endpoint from the agent process.
+
+Keep `app.tools(foundryiq_toolbox_tools)` for optimizer discovery, but use
+`foundryiq_runtime_tools(...)` in runtime handlers. The runtime tool maps model
+argument `query` to the live toolbox schema:
+
+```json
+{"query_variants": ["<one natural-language query, max 400 chars>"]}
+```
+
+The live Caldova toolbox tool name is
+`contracts-kb-mcp___knowledge_base_retrieve`.
 
 ### Set `--max-candidates` when submitting the job
 
@@ -233,10 +263,10 @@ Lead with the like-for-like deployed-agent comparison:
 ```text
 Same generated rubric.
 Same held-out dataset.
-Same agent model.
 Same generated-rubric judge/eval model.
 Fresh deployed-agent responses in every repeat.
-Changed assets: instructions and tool descriptions.
+Changed assets for optimized: instructions and tool descriptions.
+Changed asset for tuned: the model deployment, with optimized assets held fixed.
 ```
 
 Then show:
@@ -245,3 +275,5 @@ Then show:
 2. `opt_2fb58fc1723e461d9a1496907d029ac8`: optimizer process and winning
    candidate.
 3. `contract-policy-expert-optimized`: five clean 24/24 runs.
+4. `contract-policy-expert-tuned`: five clean infrastructure runs with
+   119/120 passed rows.
