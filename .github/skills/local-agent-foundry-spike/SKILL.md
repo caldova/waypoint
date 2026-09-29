@@ -213,6 +213,17 @@ Expected response shape:
 - Do not present the prompt-grounded prototype as enterprise-grounded retrieval.
 - Do not claim the local agent can approve invoices or write to Caldova systems.
 
+## Rehearsal and validation mode
+
+When another agent or operator is validating this runbook rather than running
+the live scenario, inspect the WorkIQ wording but do **not** call WorkIQ. The
+WorkIQ lookup is part of the real user-facing flow only. A validation pass
+should check that the lookup language is scoped, grounded, and non-mutating;
+then continue with local file inspection and the canvas/local-run path.
+
+If a validation prompt explicitly says to avoid M365, do not make read-only
+WorkIQ calls either.
+
 ## Hand-off line
 
 After the canvas output lands, use a short handoff:
