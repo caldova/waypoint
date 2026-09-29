@@ -86,7 +86,7 @@ submission:
 | V2 source alignment | Expected `agent`, `plane`, `output_type`, citation refs, classifications, and correlation fields must reflect the current v2 `contract-policy-expert` datasets and deployed teacher behavior. |
 | Retrieval/tool discipline checks | Add penalties for answers that ignore provided/retrieved evidence, cite unavailable sources, or invent retrieval/write actions. |
 | Score diagnostics | Keep per-dimension diagnostics in local and fallback endpoint tests so failed rows can explain whether the problem is schema, citations, unsupported gaps, boundary violations, or summary mismatch. |
-| Calibration threshold | Recalibrate `pass_threshold` against current v2 baseline/teacher outputs; do not inherit historical thresholds. Numeric Python graders must declare explicit pass semantics; for the packaged 0-5 reward wrapper, carry the selected threshold into both the reinforcement config and the grader config. |
+| Calibration threshold | Recalibrate `pass_threshold` against current v2 baseline/teacher outputs; do not inherit historical thresholds. Numeric Python graders must declare explicit pass semantics; keep the grader reward and selected threshold on Foundry's 0-1 scale, and carry the threshold into both the reinforcement config and the grader config. |
 | Grader-run validation | Before file upload or job creation, POST the packaged Python grader and a gold validation row to the grader-run validation route and require the expected score. |
 
 Live RFT remains blocked until the v2 Python grader passes local golden tests
@@ -116,7 +116,7 @@ all possible validation before the irreversible API call:
 | Current teacher evidence | Capture current v2 teacher outputs for the 16-row RFT validation split using the same strict `expert_evidence` response format as the dry-run RFT payload. | Passed for `gpt-6-astra`. `runs\eval-results\contract-policy-expert\contract-policy-expert-validation-optimized-teacher-output-items.jsonl` has 16 matched rows; calibration avg `0.915`, min `0.889`, max `0.969`. A separate 24-row optimized Foundry eval export exists as held-out context only because it has zero ID overlap with the RFT validation split. |
 | Frozen dry-run payload | Regenerate the package with the exact no-submit job spec. | Passed for the MAI diagnostic package. `contract-policy-expert-rft-job.dry-run.json` now includes `model: mai-code-1.1-flash-2026-08-27`, `grader.type: python`, inline 0-5 grader source, and upload placeholders, but no schema-constrained `response_format`. Packaged train/validation messages append the explicit `expert_evidence` JSON shape that made `mai-code-1-1-flash-base` score cleanly. |
 | File registration | Upload/import train and validation JSONL, poll both `file-...` IDs to `processed`, and capture status details. | Passed. Training file `file-b7a342162cc7477c8e71da1bc5486e9c` and validation file `file-8aeb467e8a304099895df211c06bb738` are both `processed`; saved in `contract-policy-expert-rft-file-upload-result.json`. |
-| Exact Blossom payload | Generate and review the final `POST /openai/v1/fine_tuning/jobs` JSON with model, file IDs, Python grader source, hyperparameters, pass threshold placement, and response schema mode. | Current corrected shape omits strict `response_format`, keeps `trainingType: DeveloperTier`, the dense 0-5 Python grader, and explicit conservative hyperparameters, and sets `pass_threshold: 4.5` both on `method.reinforcement` and inside `method.reinforcement.grader`. Submit and status responses are stored only in ignored `runs\` artifacts. |
+| Exact Blossom payload | Generate and review the final `POST /openai/v1/fine_tuning/jobs` JSON with model, file IDs, Python grader source, hyperparameters, pass threshold placement, and response schema mode. | Current corrected shape omits strict `response_format`, keeps `trainingType: DeveloperTier`, the dense 0-1 Python grader, and explicit conservative hyperparameters, and sets `pass_threshold: 0.9` both on `method.reinforcement` and inside `method.reinforcement.grader`. Submit and status responses are stored only in ignored `runs\` artifacts. |
 
 Current offline dry-run package:
 
@@ -150,12 +150,12 @@ The dry-run job spec now uses the Python-grader shape:
   "method": {
     "type": "reinforcement",
     "reinforcement": {
-      "pass_threshold": 4.5,
+      "pass_threshold": 0.9,
       "grader": {
         "type": "python",
         "name": "contract_policy_expert_evidence_grader",
         "source": "def grade(sample, item) -> float: ...",
-        "pass_threshold": 4.5
+        "pass_threshold": 0.9
       }
     }
   }
@@ -287,9 +287,11 @@ grader configuration defect: a non-boolean numeric grader needs an explicit
 `pass_threshold` so the trainer can decide whether a reward is correct. Without
 that pass semantic, every sample-grade attempt can fail before producing usable
 learning signal, and the service may surface the user/config error as a generic
-system failure. The corrected MAI RFT payload keeps the 0-5 dense reward wrapper
-and sets `pass_threshold: 4.5` in both reinforcement-level config and the Python
-grader config.
+system failure. Harsh clarified the successful shape: the Python grader must
+return scores on the 0-1 range and `pass_threshold` must be in the same range.
+The corrected MAI RFT payload uses the native 0-1 dense reward and sets
+`pass_threshold: 0.9` in both reinforcement-level config and the Python grader
+config.
 The committed canonical train/validation files match `main` exactly
 (`80` train rows and `16` validation rows), and `main` records the successful
 historical `o4-mini` RFT job `ftjob-0265d673736e496dbd360530958c6149` for this

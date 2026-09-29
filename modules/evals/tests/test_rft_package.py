@@ -50,10 +50,10 @@ def test_rft_package_emits_python_grader_endpoint_fallback_and_response_schema(
 
     job_spec = json.loads(job_spec_path.read_text(encoding="utf-8"))
     grader_config = job_spec["method"]["reinforcement"]["grader"]
-    assert job_spec["method"]["reinforcement"]["pass_threshold"] == 4.5
-    assert manifest["pass_threshold"] == 4.5
+    assert job_spec["method"]["reinforcement"]["pass_threshold"] == 0.9
+    assert manifest["pass_threshold"] == 0.9
     assert grader_config["type"] == "python"
-    assert grader_config["pass_threshold"] == 4.5
+    assert grader_config["pass_threshold"] == 0.9
     assert "def grade(" in grader_config["source"]
     fallback_config = job_spec["method"]["reinforcement"]["endpoint_grader_fallback"]
     assert fallback_config["type"] == "endpoint"
@@ -64,7 +64,7 @@ def test_rft_package_emits_python_grader_endpoint_fallback_and_response_schema(
     assert grader_module.grade(
         {"output_json": row["expected_output_json"]},
         row,
-    ) == 5.0
+    ) == 1.0
     assert grader_module.grade(
         {
             "choices": [
@@ -76,7 +76,7 @@ def test_rft_package_emits_python_grader_endpoint_fallback_and_response_schema(
             ],
         },
         row,
-    ) == 5.0
+    ) == 1.0
 
     endpoint_module = _load_module(endpoint_path)
     monkeypatch.setenv("BLOSSOM_GRADER_SECRET", "local-secret")
@@ -186,7 +186,7 @@ def test_contract_policy_grader_preserves_signal_for_near_misses(tmp_path: Path)
 
     near_miss = json.loads(json.dumps(row["expected_output_json"]))
     near_miss["evidence"][0]["source_ref"] = "contract.md#nearby-section"
-    assert 2.5 <= grader_module.grade({"output_json": near_miss}, row) < 5.0
+    assert 0.5 <= grader_module.grade({"output_json": near_miss}, row) < 1.0
 
     malformed = grader_module.grade({"output_text": "not json"}, row)
     assert 0.0 < malformed < 0.5
@@ -425,7 +425,7 @@ def _package_rows(tmp_path: Path, rows: list[dict[str, Any]]) -> dict[str, Any]:
         agent="contract-policy-expert",
         base_model="MAI-Code-1-Flash",
         suffix="contract-policy-expert-v2-mai",
-        pass_threshold=4.5,
+        pass_threshold=0.9,
     )
 
 

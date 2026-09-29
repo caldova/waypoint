@@ -79,8 +79,8 @@ def package_rft_assets(
 
     if not agent.strip():
         raise ValueError("agent is required")
-    if pass_threshold is not None and (pass_threshold < 0.0 or pass_threshold > 5.0):
-        raise ValueError(f"pass_threshold must be between 0.0 and 5.0: {pass_threshold}")
+    if pass_threshold is not None and (pass_threshold < 0.0 or pass_threshold > 1.0):
+        raise ValueError(f"pass_threshold must be between 0.0 and 1.0: {pass_threshold}")
 
     train = _package_split(source_path=train_path, split="train")
     validation = _package_split(source_path=validation_path, split="validation")
@@ -102,7 +102,7 @@ def package_rft_assets(
     _write_jsonl(train_out, train["rows"])
     _write_jsonl(validation_out, validation["rows"])
     grader_source = _self_contained_grader_source(grader_path)
-    rft_grader_source = _rft_reward_scaled_grader_source(grader_source)
+    rft_grader_source = _rft_reward_grader_source(grader_source)
     grader_out.write_text(rft_grader_source, encoding="utf-8")
     gold_answer_parity = _gold_answer_parity(
         train_rows=train["rows"],
@@ -595,18 +595,18 @@ def _self_contained_grader_source(grader_path: Path) -> str:
     )
 
 
-def _rft_reward_scaled_grader_source(grader_source: str) -> str:
-    """Scale Caliber's 0-1 grader to the 0-5 range used in Foundry RFT samples."""
+def _rft_reward_grader_source(grader_source: str) -> str:
+    """Expose Caliber's 0-1 grader for Foundry RFT."""
     marker = "\ndef grade("
     if marker not in grader_source:
         raise ValueError("grader source must define def grade(sample, item)")
-    scaled_source = grader_source.replace(marker, "\ndef _grade_unit(", 1)
+    reward_source = grader_source.replace(marker, "\ndef _grade_unit(", 1)
     return (
-        scaled_source.rstrip()
+        reward_source.rstrip()
         + "\n\n"
         + "def grade(sample: Any, item: dict[str, Any]) -> float:\n"
         + "    unit_score = float(_grade_unit(sample, item))\n"
-        + "    return round(max(0.0, min(unit_score, 1.0)) * 5.0, 3)\n"
+        + "    return round(max(0.0, min(unit_score, 1.0)), 3)\n"
     )
 
 
