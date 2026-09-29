@@ -39,6 +39,11 @@ evidence path, call out variances, and make the human approval boundary clear.
 
 If it works locally, the first spike is to prove we can move this same shape
 into Foundry.
+
+Target the existing Caldova Foundry project and standard hosted-agent model
+deployment. If local setup is missing the project endpoint or model deployment
+name, the runner should collect those through the setup surface rather than
+hard-coding them or sending them through email.
 ```
 
 If WorkIQ finds the exact email or Loop/comment notification, summarize
