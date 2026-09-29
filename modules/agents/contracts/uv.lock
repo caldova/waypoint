@@ -290,7 +290,7 @@ wheels = [
 
 [[package]]
 name = "castia"
-version = "0.7.7"
+version = "0.13.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-ai-projects", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -301,9 +301,9 @@ dependencies = [
     { name = "pyjwt", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "uvicorn", extra = ["standard"], marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b5/81/99033e5f636b01fbac40a7e639b1b6c4134eaa006d3d1917440fa473da81/castia-0.7.7.tar.gz", hash = "sha256:2c01aeb2fe7d6abe4dcbfc65722c2bb5555efa3a175de3c7770906d175b86e00", size = 260344, upload-time = "2026-09-19T08:58:01.915Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/df/49/62f962ab74600865d22abe5efbef955f1ec70d40a0b2362ca1f239c33e28/castia-0.13.0.tar.gz", hash = "sha256:8fc21e5b2d2617219d1738d7d23844779164245ae8a7510f46e5fbd3259d28e0", size = 344090, upload-time = "2026-09-28T18:51:10.692Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f6/53/dd07a2a0ce4891701ee5caee0d844ee1db0dfd064c1f70e1e815f38eb4a3/castia-0.7.7-py3-none-any.whl", hash = "sha256:17218c9833673b06eed137e4c8fef6bd3bc5431c4e4944c6212f0716b87b15f9", size = 208678, upload-time = "2026-09-19T08:58:00.224Z" },
+    { url = "https://files.pythonhosted.org/packages/14/f2/220dc4de1752272ddb84a1aee1d16e37b62c28130641c4cf775d2e62f805/castia-0.13.0-py3-none-any.whl", hash = "sha256:bf9d6448d87ba85cd71bca457e9ad73a4685802d59d0e94d40c30614ef8f37e9", size = 251575, upload-time = "2026-09-28T18:51:08.713Z" },
 ]
 
 [package.optional-dependencies]
@@ -554,13 +554,17 @@ name = "contracts"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "azure-identity", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "castia", extra = ["optimize"], marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+    { name = "httpx", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "python-dotenv", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "castia", extras = ["optimize"], specifier = "==0.7.7" },
+    { name = "azure-identity", specifier = ">=1.26.0b2" },
+    { name = "castia", extras = ["optimize"], specifier = "==0.13.0" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "python-dotenv", specifier = ">=1.0" },
 ]
 

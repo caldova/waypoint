@@ -1,0 +1,2 @@
+"""Responses protocol adapter."""
+
