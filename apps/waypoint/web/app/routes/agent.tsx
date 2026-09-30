@@ -1614,20 +1614,34 @@ const INTEGRATIONS_BUBBLE: Circle = {
 const SIDE_CX = 1470;
 // Below this on-screen scale, labels (fixed pixel size) would collide.
 const MIN_LABEL_SCALE = 0.45;
-const MIN_TILE_GROWTH = 0.85;
-const MAX_TILE_GROWTH = 1.4;
+const MIN_TILE_GROWTH = 0.9;
+const MAX_TILE_GROWTH = 1.2;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 4;
-const FOCUS_ZOOM = 2.1;
-// Relative zoom at which Caldova IQ's children (1) and their tiles (2) reveal.
-const REVEAL_CHILDREN_ZOOM = 1.25;
-const REVEAL_TILES_ZOOM = 1.9;
+const MAX_ZOOM = 3;
+const FOCUS_ZOOM = 1.9;
+// Relative-zoom windows over which Caldova IQ's children, then their tile
+// labels, crossfade in while scrolling. Clicking a bubble jumps straight in.
+const CHILDREN_FADE: [number, number] = [1.1, 1.45];
+const TILES_FADE: [number, number] = [1.5, 1.85];
 // Zooming back out past this clears a clicked focus.
-const CLEAR_FOCUS_ZOOM = 1.12;
+const CLEAR_FOCUS_ZOOM = 1.08;
+// A zoomed-in bubble fills this share of the viewport's short side, but a
+// click never zooms past MAX_BUBBLE_ZOOM × the fitted view.
+const BUBBLE_FILL = 0.9;
+const MAX_BUBBLE_ZOOM = 2.2;
+// Scroll zoom: scale change per pixel of wheel delta, capped per event so a
+// fast trackpad flick can't leap several levels at once.
+const WHEEL_ZOOM_PER_PX = 0.0018;
+const WHEEL_ZOOM_MAX_STEP = 0.12;
 const DRAG_THRESHOLD_PX = 4;
-const MAP_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
-const MAP_ANIM_MS = 520;
+const MAP_EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
+const MAP_ANIM_MS = 700;
+
+function smoothstep([from, to]: [number, number], value: number): number {
+  const t = Math.min(1, Math.max(0, (value - from) / (to - from)));
+  return t * t * (3 - 2 * t);
+}
 
 const CALDOVA_BACKGROUND = [
   "radial-gradient(circle at 30% 20%, rgb(255 255 255 / 0.22) 0%, transparent 32%)",
@@ -1874,7 +1888,7 @@ function buildMapBubbles({
     background: CALDOVA_BACKGROUND,
     border: "3px solid rgb(255 255 255 / 0.35)",
     shadow:
-      "inset 0 0 80px rgb(255 255 255 / 0.10), inset 0 -40px 90px -40px rgb(34 211 238 / 0.35), 0 44px 90px -40px rgb(91 33 182 / 0.85)",
+      "inset 0 0 80px rgb(255 255 255 / 0.10), inset 0 -40px 90px -40px rgb(34 211 238 / 0.35), 0 40px 70px -30px rgb(76 29 149 / 0.6), 0 14px 28px -14px rgb(30 27 75 / 0.4)",
     titlePlacement: "below",
     titleTone: "dark",
     nodes: [],
@@ -2109,13 +2123,16 @@ function useMapView() {
     [clampZoom, startAnimation],
   );
 
-  // d3 "zoomable pack" style: fit a whole bubble (plus a small margin) in view.
+  // d3 "zoomable pack" style: fit a whole bubble in view with breathing room.
   const zoomToCircle = useCallback(
     ({ cx, cy, r }: Circle) => {
       const el = viewportRef.current;
       if (!el) return;
       const scale = clampZoom(
-        Math.min(el.clientWidth, el.clientHeight) / (2 * r * 1.04),
+        Math.min(
+          fitScaleRef.current * MAX_BUBBLE_ZOOM,
+          (Math.min(el.clientWidth, el.clientHeight) * BUBBLE_FILL) / (2 * r),
+        ),
       );
       startAnimation();
       setView({ scale, x: el.clientWidth / 2 - cx * scale, y: el.clientHeight / 2 - cy * scale });
@@ -2129,7 +2146,13 @@ function useMapView() {
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const rect = el.getBoundingClientRect();
-      zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - rect.left, e.clientY - rect.top);
+      // Line/page deltas (mouse wheels, some browsers) are normalised to pixels.
+      const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1);
+      const step = Math.max(
+        -WHEEL_ZOOM_MAX_STEP,
+        Math.min(WHEEL_ZOOM_MAX_STEP, -px * WHEEL_ZOOM_PER_PX),
+      );
+      zoomAt(Math.exp(step), e.clientX - rect.left, e.clientY - rect.top);
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
@@ -2186,8 +2209,8 @@ function useMapView() {
     fitScale,
     isDragging,
     isAnimating,
-    zoomIn: () => zoomByButton(1.35),
-    zoomOut: () => zoomByButton(1 / 1.35),
+    zoomIn: () => zoomByButton(1.25),
+    zoomOut: () => zoomByButton(1 / 1.25),
     resetView: () => applyFit(true),
     focusOn,
     zoomToCircle,
@@ -2267,16 +2290,17 @@ function EvidenceMap({
     }
   }, [focusKey, relativeZoom]);
 
-  // How far into Caldova IQ we are: 0 = one bubble, 1 = its children, 2 = their tiles.
+  // How far into Caldova IQ a click has taken us: 0 = one bubble, 1 = its
+  // children, 2 = their tiles. Scrolling crossfades the same levels gradually.
   const focusDepth =
     focusKey === "microsoft" || focusKey === "integrations" ? 2 : focusKey === "caldova" ? 1 : 0;
-  const zoomDepth =
-    relativeZoom >= REVEAL_TILES_ZOOM ? 2 : relativeZoom >= REVEAL_CHILDREN_ZOOM ? 1 : 0;
-  const reveal = Math.max(focusDepth, zoomDepth);
+  const childReveal = focusDepth >= 1 ? 1 : smoothstep(CHILDREN_FADE, relativeZoom);
+  const tileReveal = focusDepth >= 2 ? 1 : smoothstep(TILES_FADE, relativeZoom);
+  const childrenInteractive = childReveal > 0.5;
 
   const outerLevel: MapLevel =
     relativeZoom < 0.8 || map.view.scale < MIN_LABEL_SCALE ? "compact" : "label";
-  const innerLevel: MapLevel = reveal >= 2 ? "label" : "compact";
+  const innerLevel: MapLevel = tileReveal > 0.5 ? "label" : "compact";
   // Tiles start small at the fitted view and grow (sub-linearly) as you zoom in.
   const tileGrowth = Math.min(
     MAX_TILE_GROWTH,
@@ -2284,7 +2308,7 @@ function EvidenceMap({
   );
   const counterScale = tileGrowth / map.view.scale;
   const transition = map.isAnimating ? `transform ${MAP_ANIM_MS}ms ${MAP_EASE}` : undefined;
-  const fade = `opacity 380ms ${MAP_EASE}`;
+  const fade = `opacity 450ms ${MAP_EASE}, transform 450ms ${MAP_EASE}`;
   const dotSpacing = 18 * map.view.scale;
 
   const resetView = () => {
@@ -2405,17 +2429,12 @@ function EvidenceMap({
               to { opacity: 1; transform: scale(1); filter: blur(0); }
             }
             @keyframes em-dash { to { stroke-dashoffset: -26; } }
-            @keyframes em-breathe {
-              0%, 100% { box-shadow: 0 0 0 0 rgb(139 92 246 / 0), 0 0 60px 6px rgb(139 92 246 / 0.28); }
-              50% { box-shadow: 0 0 0 0 rgb(139 92 246 / 0), 0 0 90px 16px rgb(34 211 238 / 0.32); }
-            }
-            .em-bubble { transition: filter 200ms ease-out, opacity 380ms ${MAP_EASE}; }
+            .em-bubble { transition: filter 200ms ease-out, opacity 450ms ${MAP_EASE}, transform 450ms ${MAP_EASE}; }
             .em-bubble:hover { filter: brightness(1.04) saturate(1.08); }
             .em-bubble:focus-visible { outline: 4px solid #7c3aed; outline-offset: 6px; }
             @media (prefers-reduced-motion: no-preference) {
               .em-pop { animation: em-pop 520ms ${MAP_EASE} both; }
               .em-flow { animation: em-dash 1.2s linear infinite; }
-              .em-halo { animation: em-breathe 6s ease-in-out infinite; }
             }
           `}</style>
           <div
@@ -2483,7 +2502,8 @@ function EvidenceMap({
 
             {bubbles.map((bubble) => {
               const isChild = Boolean(bubble.parent);
-              const visible = !isChild || reveal >= 1;
+              const visible = !isChild || childrenInteractive;
+              const opacity = isChild ? childReveal : 1;
               const circle = {
                 left: bubble.cx - bubble.r,
                 top: bubble.cy - bubble.r,
@@ -2492,19 +2512,6 @@ function EvidenceMap({
               };
               return (
                 <div key={bubble.key}>
-                  {isChild ? (
-                    <div
-                      className="pointer-events-none absolute rounded-full"
-                      style={{
-                        ...circle,
-                        border: "2px solid rgb(255 255 255 / 0.4)",
-                        background: "rgb(255 255 255 / 0.07)",
-                        opacity: visible ? 0 : 1,
-                        transition: fade,
-                      }}
-                      aria-hidden="true"
-                    />
-                  ) : null}
                   <button
                     type="button"
                     tabIndex={visible ? 0 : -1}
@@ -2514,26 +2521,18 @@ function EvidenceMap({
                       event.stopPropagation();
                       if (!map.wasDragged()) zoomInto(bubble);
                     }}
-                    className={`em-bubble absolute cursor-zoom-in rounded-full ${
-                      bubble.key === "caldova" ? "em-halo" : ""
-                    }`}
+                    className="em-bubble absolute cursor-zoom-in rounded-full"
                     style={{
                       ...circle,
                       background: bubble.background,
                       border: bubble.border,
-                      boxShadow: bubble.key === "caldova" ? undefined : bubble.shadow,
-                      opacity: visible ? 1 : 0,
+                      boxShadow: bubble.shadow,
+                      opacity,
+                      // Children settle into place as they fade in.
+                      transform: isChild ? `scale(${0.9 + 0.1 * childReveal})` : undefined,
                       pointerEvents: visible ? "auto" : "none",
                     }}
-                  >
-                    {bubble.key === "caldova" ? (
-                      <span
-                        className="pointer-events-none absolute inset-0 rounded-full"
-                        style={{ boxShadow: bubble.shadow }}
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                  </button>
+                  />
                   {bubble.titlePlacement !== "none" ? (
                     <div
                       className={`pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[26px] font-semibold leading-none tracking-tight ${
@@ -2547,7 +2546,7 @@ function EvidenceMap({
                           bubble.titlePlacement === "above"
                             ? bubble.cy - bubble.r - (isChild ? 12 : 18)
                             : bubble.cy + bubble.r + 18,
-                        opacity: visible ? 1 : 0,
+                        opacity,
                         transition: fade,
                       }}
                     >
@@ -2561,38 +2560,47 @@ function EvidenceMap({
             {caldovaBubble ? (
               <>
                 <div
-                  className="pointer-events-none absolute flex w-[380px] -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center text-white [text-shadow:0_2px_24px_rgb(30_27_75/0.55)]"
+                  className="pointer-events-none absolute flex w-[420px] flex-col items-center text-center text-white"
                   style={{
                     left: caldovaBubble.cx,
                     top: caldovaBubble.cy,
-                    opacity: reveal === 0 ? 1 : 0,
+                    opacity: 1 - childReveal,
+                    transform: `translate(-50%, -50%) scale(${1 + 0.06 * childReveal})`,
                     transition: fade,
                   }}
-                  aria-hidden={reveal === 0 ? undefined : true}
+                  aria-hidden={childrenInteractive ? true : undefined}
                 >
-                  <span className="text-[24px] font-semibold uppercase tracking-[0.3em] text-white/80">
+                  <span className="text-[34px] font-semibold leading-tight tracking-tight">
                     Caldova IQ
                   </span>
-                  <span className="mt-1 text-[112px] font-semibold leading-[0.95] tracking-[-0.03em] tabular-nums">
+                  <span className="mt-1 text-[104px] font-semibold leading-none tracking-[-0.035em] tabular-nums [text-shadow:0_4px_18px_rgb(30_27_75/0.35)]">
                     {allCitations}
                   </span>
-                  <span className="mt-1 text-[22px] text-white/85">
+                  <span className="mt-2 text-[21px] text-violet-100">
                     {allCitations === 1 ? "citation" : "citations"}
                     {typeof confidence === "number"
                       ? ` · ${Math.round(confidence * 100)}% confidence`
                       : ""}
                   </span>
-                  <span className="mt-6 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-5 py-2 text-[18px] font-medium text-white ring-1 ring-white/35 [text-shadow:none]">
+                  <span className="mt-7 flex items-center gap-2.5 text-[17px] font-medium">
+                    <PackChip dot="#60a5fa" label="Microsoft IQ" value={iqCitations} />
+                    <PackChip
+                      dot="#67e8f9"
+                      label="Integrations"
+                      value={allCitations - iqCitations}
+                    />
+                  </span>
+                  <span className="mt-4 inline-flex items-center gap-1 text-[16px] font-medium text-violet-100">
                     Click to explore
-                    <HiChevronRight className="h-5 w-5" aria-hidden="true" />
+                    <HiChevronRight className="h-4 w-4" aria-hidden="true" />
                   </span>
                 </div>
                 <div
-                  className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[18px] font-semibold uppercase tracking-[0.3em] text-white/75"
+                  className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[22px] font-semibold tracking-tight text-white"
                   style={{
                     left: caldovaBubble.cx,
-                    top: caldovaBubble.cy - caldovaBubble.r + 34,
-                    opacity: reveal >= 1 ? 1 : 0,
+                    top: caldovaBubble.cy - caldovaBubble.r + 30,
+                    opacity: childReveal,
                     transition: fade,
                   }}
                   aria-hidden="true"
@@ -2604,22 +2612,23 @@ function EvidenceMap({
 
             {microsoftBubble ? (
               <div
-                className="pointer-events-none absolute flex w-[170px] -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center"
+                className="pointer-events-none absolute flex w-[190px] flex-col items-center text-center"
                 style={{
                   left: microsoftBubble.cx,
                   top: microsoftBubble.cy,
-                  opacity: reveal >= 1 ? 1 : 0,
+                  opacity: childReveal,
+                  transform: `translate(-50%, -50%) scale(${0.9 + 0.1 * childReveal})`,
                   transition: fade,
                 }}
-                aria-hidden={reveal >= 1 ? undefined : true}
+                aria-hidden={childrenInteractive ? undefined : true}
               >
-                <span className="bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-[16px] font-bold uppercase tracking-[0.18em] text-transparent">
+                <span className="text-[16px] font-semibold tracking-tight text-slate-900">
                   Microsoft IQ
                 </span>
-                <span className="text-[60px] font-semibold leading-[0.95] tracking-[-0.03em] tabular-nums text-slate-900">
+                <span className="mt-0.5 text-[38px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-slate-900">
                   {iqCitations}
                 </span>
-                <span className="mt-0.5 text-[14px] text-slate-600">
+                <span className="mt-1 text-[12px] text-slate-600">
                   {iqCitations === 1 ? "citation" : "citations"} · {activeIq} of {iqNodes.length}{" "}
                   sources
                 </span>
@@ -2628,7 +2637,7 @@ function EvidenceMap({
 
             {bubbles.flatMap((bubble) => {
               const isChild = Boolean(bubble.parent);
-              const visible = !isChild || reveal >= 1;
+              const visible = !isChild || childrenInteractive;
               const level = isChild ? innerLevel : outerLevel;
               return bubble.nodes.map((node) => {
                 const delay = 120 + tileIndex++ * 60;
@@ -2641,7 +2650,7 @@ function EvidenceMap({
                       left: node.x,
                       top: node.y,
                       zIndex: selected ? 10 : undefined,
-                      opacity: visible ? 1 : 0,
+                      opacity: isChild ? childReveal : 1,
                       pointerEvents: visible ? undefined : "none",
                       transition: fade,
                     }}
@@ -2692,6 +2701,16 @@ function EvidenceMap({
 
 function evidenceFanoutCitations(fanout: FanoutLane[]): number {
   return fanout.reduce((acc, lane) => acc + laneClaimCount(lane), 0);
+}
+
+function PackChip({ dot, label, value }: { dot: string; label: string; value: number }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.12] py-1.5 pl-3 pr-3.5 ring-1 ring-inset ring-white/25">
+      <span className="h-2.5 w-2.5 rounded-full" style={{ background: dot }} aria-hidden="true" />
+      {label}
+      <span className="tabular-nums text-violet-100">{value}</span>
+    </span>
+  );
 }
 
 function MapControl({
