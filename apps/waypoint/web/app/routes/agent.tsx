@@ -1536,9 +1536,10 @@ function TelemetryRow({ label, value }: { label: string; value: string }) {
 
 // ---------------------------------------------------------------------------
 // Agent map — each group of agents lives in its own bubble (orchestration,
-// evidence sources, governed record, analysts). The evidence bubble holds every
-// integration the orchestrator can call: the IQ planes today, third-party
-// connectors later. Zooming spreads tiles apart and reveals more detail.
+// Caldova IQ, governed record, analysts). Caldova IQ is a zoomable circle pack:
+// it holds a Microsoft IQ bubble (the four IQ planes) and an Integrations bubble
+// (third-party connectors). Click a bubble to zoom into it; click outside to
+// zoom back out.
 // ---------------------------------------------------------------------------
 
 type MapLevel = "compact" | "label" | "detail";
@@ -1551,6 +1552,8 @@ interface MapNode {
   lines: string[];
   badge?: { text: string; className: string };
   active: boolean;
+  /** Placeholder slot: shown softly in its accent colour rather than greyed out. */
+  ghost?: boolean;
   hex: string;
   img?: string;
   icon: ComponentType<{ className?: string }>;
@@ -1559,38 +1562,85 @@ interface MapNode {
   y: number;
 }
 
+type BubbleKey =
+  | "orchestration"
+  | "caldova"
+  | "microsoft"
+  | "integrations"
+  | "record"
+  | "analysts";
+
 interface MapBubble {
-  key: string;
+  key: BubbleKey;
+  /** Enclosing bubble in the circle pack; top-level bubbles have none. */
+  parent?: BubbleKey;
   title: string;
   cx: number;
   cy: number;
   r: number;
   hex: string;
-  fill: string;
-  titlePlacement: "above" | "below";
+  background: string;
+  border: string;
+  shadow: string;
+  titlePlacement: "above" | "below" | "none";
+  titleTone: "dark" | "light";
   muted?: boolean;
   nodes: MapNode[];
 }
 
-const MAP_W = 1840;
+type Circle = { cx: number; cy: number; r: number };
+
+const MAP_W = 1700;
 const MAP_H = 800;
-const MAP_MID_Y = 390;
-const EVIDENCE_BUBBLE = { cx: 870, cy: MAP_MID_Y, r: 330 };
-const ORCHESTRATION_BUBBLE = { cx: 260, cy: MAP_MID_Y, r: 230 };
-const SIDE_CX = 1640;
-const INTEGRATIONS_BUBBLE = { cx: 1300, cy: 115, r: 100 };
+const MAP_MID_Y = 400;
+const ORCHESTRATION_BUBBLE: Circle = { cx: 250, cy: MAP_MID_Y, r: 200 };
+const CALDOVA_BUBBLE: Circle = { cx: 850, cy: MAP_MID_Y, r: 300 };
+const PACK_PADDING = 16;
+const MICROSOFT_R = 188;
+const INTEGRATIONS_R = 90;
+// Pack the two children tangent to Caldova IQ's rim along one tilted axis:
+// Microsoft IQ low-left, Integrations high-right.
+const PACK_AXIS = { x: Math.cos((-25 * Math.PI) / 180), y: Math.sin((-25 * Math.PI) / 180) };
+const MICROSOFT_BUBBLE: Circle = {
+  cx: CALDOVA_BUBBLE.cx - PACK_AXIS.x * (CALDOVA_BUBBLE.r - MICROSOFT_R - PACK_PADDING),
+  cy: CALDOVA_BUBBLE.cy - PACK_AXIS.y * (CALDOVA_BUBBLE.r - MICROSOFT_R - PACK_PADDING),
+  r: MICROSOFT_R,
+};
+const INTEGRATIONS_BUBBLE: Circle = {
+  cx: CALDOVA_BUBBLE.cx + PACK_AXIS.x * (CALDOVA_BUBBLE.r - INTEGRATIONS_R - PACK_PADDING),
+  cy: CALDOVA_BUBBLE.cy + PACK_AXIS.y * (CALDOVA_BUBBLE.r - INTEGRATIONS_R - PACK_PADDING),
+  r: INTEGRATIONS_R,
+};
+const SIDE_CX = 1470;
 // Below this on-screen scale, labels (fixed pixel size) would collide.
 const MIN_LABEL_SCALE = 0.45;
 const MIN_TILE_GROWTH = 0.85;
 const MAX_TILE_GROWTH = 1.4;
-const CORE_R = 128;
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 4;
 const FOCUS_ZOOM = 2.1;
+// Relative zoom at which Caldova IQ's children (1) and their tiles (2) reveal.
+const REVEAL_CHILDREN_ZOOM = 1.25;
+const REVEAL_TILES_ZOOM = 1.9;
+// Zooming back out past this clears a clicked focus.
+const CLEAR_FOCUS_ZOOM = 1.12;
 const DRAG_THRESHOLD_PX = 4;
 const MAP_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
-const MAP_ANIM_MS = 420;
+const MAP_ANIM_MS = 520;
+
+const CALDOVA_BACKGROUND = [
+  "radial-gradient(circle at 30% 20%, rgb(255 255 255 / 0.22) 0%, transparent 32%)",
+  "radial-gradient(circle at 24% 30%, rgb(167 139 250 / 0.85) 0%, transparent 48%)",
+  "radial-gradient(circle at 80% 76%, rgb(34 211 238 / 0.6) 0%, transparent 46%)",
+  "radial-gradient(circle at 72% 18%, rgb(244 114 182 / 0.45) 0%, transparent 40%)",
+  "radial-gradient(circle at 50% 50%, #4c1d95 0%, #312e81 62%, #1e1b4b 100%)",
+].join(", ");
+
+const MICROSOFT_BACKGROUND = [
+  "radial-gradient(circle at 50% 30%, #ffffff 0%, #f5f7ff 55%, #e8ecff 100%) padding-box",
+  `conic-gradient(from 210deg, ${IQ_META.fabriciq.hex}, ${IQ_META.foundryiq.hex}, ${IQ_META.webiq.hex}, ${IQ_META.workiq.hex}, ${IQ_META.fabriciq.hex}) border-box`,
+].join(", ");
 
 type ViewTransform = { scale: number; x: number; y: number };
 
@@ -1601,21 +1651,29 @@ function humanizeIdentifier(value: string): string {
     .replace(/\bIq\b/g, "IQ");
 }
 
-// Few integrations sit on a single ring (diagonals first so the centre label
-// stays clear); larger catalogs spread with a sunflower layout.
-function layoutEvidence(count: number): { x: number; y: number }[] {
-  const { cx, cy, r } = EVIDENCE_BUBBLE;
+// Few sources sit on a single ring (diagonals first so the centre label stays
+// clear); larger catalogs spread with a sunflower layout.
+function layoutEvidence(count: number, bubble: Circle): { x: number; y: number }[] {
+  const { cx, cy, r } = bubble;
   if (count === 0) return [];
   if (count <= 6) {
-    const radius = (CORE_R + r) / 2 + 14;
-    const start = -Math.PI / 2 - Math.PI / count;
-    return Array.from({ length: count }, (_, index) => {
-      const angle = start + (index * 2 * Math.PI) / count;
-      return { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
-    });
+    const radius = r * 0.66;
+    // Four sources sit high and low (not on the diagonals) so their labels
+    // clear the centre heading.
+    const angles =
+      count === 4
+        ? [(-2 * Math.PI) / 3, -Math.PI / 3, Math.PI / 3, (2 * Math.PI) / 3]
+        : Array.from(
+            { length: count },
+            (_, index) => -Math.PI / 2 - Math.PI / count + (index * 2 * Math.PI) / count,
+          );
+    return angles.map((angle) => ({
+      x: cx + radius * Math.cos(angle),
+      y: cy + radius * Math.sin(angle),
+    }));
   }
-  const inner = CORE_R + 36;
-  const outer = r - 64;
+  const inner = r * 0.42;
+  const outer = r * 0.8;
   return Array.from({ length: count }, (_, index) => {
     const radius = inner + (outer - inner) * Math.sqrt((index + 0.5) / count);
     const angle = index * GOLDEN_ANGLE - Math.PI / 4;
@@ -1669,25 +1727,31 @@ function buildIntegrationNodes(fanout: FanoutLane[]): MapNode[] {
     return [
       {
         key: "integrations-placeholder",
+        ghost: true,
         label: "None connected",
         title: "Third-party integrations",
         stats: "No integrations are connected yet",
         lines: [],
         active: false,
-        hex: "#94a3b8",
+        hex: "#0891b2",
         icon: HiPuzzle,
-        iconClass: "text-slate-500",
+        iconClass: "text-cyan-700",
         ...positions[0],
       },
     ];
   }
-  return keys.map((key, index) => evidenceNodeFor(key, groups.get(key), positions[index]));
+  return keys.map((key, index) => ({
+    ...evidenceNodeFor(key, groups.get(key), positions[index]),
+    hex: "#0891b2",
+    icon: HiPuzzle,
+    iconClass: "text-cyan-700",
+  }));
 }
 
 function buildEvidenceNodes(fanout: FanoutLane[]): MapNode[] {
   const groups = groupEvidenceLanes(fanout);
   // Keep every IQ plane on the map so positions stay stable run to run.
-  const positions = layoutEvidence(IQ_ORDER.length);
+  const positions = layoutEvidence(IQ_ORDER.length, MICROSOFT_BUBBLE);
   return IQ_ORDER.map((key, index) => evidenceNodeFor(key, groups.get(key), positions[index]));
 }
 
@@ -1730,6 +1794,16 @@ function evidenceNodeFor(
   };
 }
 
+function glassBubble(hex: string, tint: string, tintDeep: string) {
+  return {
+    hex,
+    background: `radial-gradient(circle at 38% 26%, #ffffff 0%, ${tint} 58%, ${tintDeep} 100%)`,
+    border: `4px solid ${hex}`,
+    shadow: `inset 0 0 0 6px rgb(255 255 255 / 0.85), 0 28px 56px -32px ${hex}b3`,
+    titleTone: "dark" as const,
+  };
+}
+
 function buildMapBubbles({
   evidenceFanout,
   analystLanes,
@@ -1744,7 +1818,13 @@ function buildMapBubbles({
   confidence: number | undefined;
 }): MapBubble[] {
   const evidenceNodes = buildEvidenceNodes(evidenceFanout);
-  const activeSources = evidenceNodes.filter((node) => node.active).length;
+  const integrationNodes = buildIntegrationNodes(evidenceFanout);
+  const activeIq = evidenceNodes.filter((node) => node.active).length;
+  const connectedIntegrations = integrationNodes.filter((node) => node.active).length;
+  const activeSources = activeIq + connectedIntegrations;
+  const totalSources =
+    evidenceNodes.length +
+    integrationNodes.filter((node) => node.key !== "integrations-placeholder").length;
 
   const orchestrationPositions = layoutAgents(2, ORCHESTRATION_BUBBLE);
   const orchestratorLines = [
@@ -1755,8 +1835,7 @@ function buildMapBubbles({
     key: "orchestration",
     title: "Orchestration",
     ...ORCHESTRATION_BUBBLE,
-    hex: "#4f46e5",
-    fill: "radial-gradient(circle at 50% 38%, rgb(238 242 255 / 0.95) 0%, rgb(224 231 255 / 0.8) 100%)",
+    ...glassBubble("#4f46e5", "#eef2ff", "#dfe4ff"),
     titlePlacement: "below",
     nodes: [
       {
@@ -1787,26 +1866,62 @@ function buildMapBubbles({
     ],
   };
 
-  const evidence: MapBubble = {
-    key: "evidence",
-    title: `Evidence (${activeSources} of ${evidenceNodes.length})`,
-    ...EVIDENCE_BUBBLE,
-    hex: "#2563eb",
-    fill: "radial-gradient(circle at 50% 38%, rgb(239 246 255 / 0.92) 0%, rgb(219 234 254 / 0.78) 100%)",
+  const caldova: MapBubble = {
+    key: "caldova",
+    title: `Evidence (${activeSources} of ${totalSources} sources)`,
+    ...CALDOVA_BUBBLE,
+    hex: "#6d28d9",
+    background: CALDOVA_BACKGROUND,
+    border: "3px solid rgb(255 255 255 / 0.35)",
+    shadow:
+      "inset 0 0 80px rgb(255 255 255 / 0.10), inset 0 -40px 90px -40px rgb(34 211 238 / 0.35), 0 44px 90px -40px rgb(91 33 182 / 0.85)",
     titlePlacement: "below",
+    titleTone: "dark",
+    nodes: [],
+  };
+
+  const microsoft: MapBubble = {
+    key: "microsoft",
+    parent: "caldova",
+    title: "Microsoft IQ",
+    ...MICROSOFT_BUBBLE,
+    hex: "#2e6cfc",
+    background: MICROSOFT_BACKGROUND,
+    border: "5px solid transparent",
+    shadow: "0 0 0 6px rgb(255 255 255 / 0.12), 0 24px 60px -24px rgb(15 23 42 / 0.55)",
+    titlePlacement: "none",
+    titleTone: "dark",
     nodes: evidenceNodes,
   };
 
+  const integrations: MapBubble = {
+    key: "integrations",
+    parent: "caldova",
+    title: `Integrations (${connectedIntegrations})`,
+    ...INTEGRATIONS_BUBBLE,
+    hex: "#06b6d4",
+    background:
+      connectedIntegrations > 0
+        ? "radial-gradient(circle at 40% 28%, #ffffff 0%, #ecfeff 55%, #cffafe 100%)"
+        : "radial-gradient(circle at 40% 28%, rgb(255 255 255 / 0.95) 0%, rgb(236 254 255 / 0.85) 60%, rgb(207 250 254 / 0.75) 100%)",
+    border:
+      connectedIntegrations > 0 ? "4px solid #22d3ee" : "3px dashed rgb(165 243 252 / 0.95)",
+    shadow: "0 0 0 6px rgb(255 255 255 / 0.10), 0 18px 40px -20px rgb(8 145 178 / 0.7)",
+    titlePlacement: "above",
+    titleTone: "light",
+    muted: connectedIntegrations === 0,
+    nodes: integrationNodes,
+  };
+
   const hasAnalysts = analystLanes.length > 0;
-  const recordBubbleShape = hasAnalysts
+  const recordBubbleShape: Circle = hasAnalysts
     ? { cx: SIDE_CX, cy: 260, r: 140 }
     : { cx: SIDE_CX, cy: MAP_MID_Y, r: 150 };
   const record: MapBubble = {
     key: "record",
     title: "Governed record",
     ...recordBubbleShape,
-    hex: "#059669",
-    fill: "radial-gradient(circle at 50% 38%, rgb(236 253 245 / 0.95) 0%, rgb(209 250 229 / 0.78) 100%)",
+    ...glassBubble("#059669", "#ecfdf5", "#d1fae5"),
     // Keep the title clear of the connector down to the analysts bubble.
     titlePlacement: hasAnalysts ? "above" : "below",
     nodes: [
@@ -1825,32 +1940,15 @@ function buildMapBubbles({
     ],
   };
 
-  const integrationNodes = buildIntegrationNodes(evidenceFanout);
-  const connectedIntegrations = integrationNodes.filter((node) => node.active).length;
-  const integrations: MapBubble = {
-    key: "integrations",
-    title: `Integrations (${connectedIntegrations})`,
-    ...INTEGRATIONS_BUBBLE,
-    hex: connectedIntegrations > 0 ? "#0891b2" : "#94a3b8",
-    fill:
-      connectedIntegrations > 0
-        ? "radial-gradient(circle at 50% 38%, rgb(236 254 255 / 0.95) 0%, rgb(207 250 254 / 0.8) 100%)"
-        : "radial-gradient(circle at 50% 38%, rgb(248 250 252 / 0.95) 0%, rgb(226 232 240 / 0.85) 100%)",
-    titlePlacement: "below",
-    muted: connectedIntegrations === 0,
-    nodes: integrationNodes,
-  };
-
-  const bubbles = [orchestration, evidence, integrations, record];
+  const bubbles = [orchestration, caldova, microsoft, integrations, record];
   if (hasAnalysts) {
-    const analystShape = { cx: SIDE_CX, cy: 600, r: 130 };
+    const analystShape: Circle = { cx: SIDE_CX, cy: 600, r: 130 };
     const analystPositions = layoutAgents(analystLanes.length, analystShape);
     bubbles.push({
       key: "analysts",
       title: `Analysts (${analystLanes.length})`,
       ...analystShape,
-      hex: "#7c3aed",
-      fill: "radial-gradient(circle at 50% 38%, rgb(245 243 255 / 0.95) 0%, rgb(237 233 254 / 0.8) 100%)",
+      ...glassBubble("#7c3aed", "#f5f3ff", "#ede9fe"),
       titlePlacement: "below",
       nodes: analystLanes.map((lane, index) => ({
         key: `analyst-${lane.agent || lane.plane || index}`,
@@ -1910,6 +2008,8 @@ function useMapView() {
     active: boolean;
   } | null>(null);
   const didFit = useRef(false);
+  // Set when a pointer gesture turned into a pan, so the trailing click is ignored.
+  const draggedRef = useRef(false);
   const animTimer = useRef<number | undefined>(undefined);
 
   const startAnimation = useCallback(() => {
@@ -1991,13 +2091,34 @@ function useMapView() {
     [startAnimation, zoomAt],
   );
 
+  // Tiles hang their detail card below the icon, so centre a little above it.
   const focusOn = useCallback(
-    (x: number, y: number) => {
+    (x: number, y: number, liftPx = 0) => {
       const el = viewportRef.current;
       if (!el) return;
-      const scale = clampZoom(fitScaleRef.current * FOCUS_ZOOM);
       startAnimation();
-      setView({ scale, x: el.clientWidth / 2 - x * scale, y: el.clientHeight / 2 - y * scale });
+      setView((v) => {
+        const scale = clampZoom(Math.max(v.scale, fitScaleRef.current * FOCUS_ZOOM));
+        return {
+          scale,
+          x: el.clientWidth / 2 - x * scale,
+          y: el.clientHeight / 2 - y * scale - liftPx,
+        };
+      });
+    },
+    [clampZoom, startAnimation],
+  );
+
+  // d3 "zoomable pack" style: fit a whole bubble (plus a small margin) in view.
+  const zoomToCircle = useCallback(
+    ({ cx, cy, r }: Circle) => {
+      const el = viewportRef.current;
+      if (!el) return;
+      const scale = clampZoom(
+        Math.min(el.clientWidth, el.clientHeight) / (2 * r * 1.04),
+      );
+      startAnimation();
+      setView({ scale, x: el.clientWidth / 2 - cx * scale, y: el.clientHeight / 2 - cy * scale });
     },
     [clampZoom, startAnimation],
   );
@@ -2018,6 +2139,7 @@ function useMapView() {
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
       if (e.button !== 0) return;
+      draggedRef.current = false;
       dragRef.current = {
         startX: e.clientX,
         startY: e.clientY,
@@ -2038,6 +2160,7 @@ function useMapView() {
     if (!d.active) {
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
       d.active = true;
+      draggedRef.current = true;
       (e.currentTarget as HTMLElement).setPointerCapture(d.pointerId);
       setIsDragging(true);
     }
@@ -2067,11 +2190,24 @@ function useMapView() {
     zoomOut: () => zoomByButton(1 / 1.35),
     resetView: () => applyFit(true),
     focusOn,
+    zoomToCircle,
+    wasDragged: () => draggedRef.current,
     onPointerDown,
     onPointerMove,
     endDrag,
   };
 }
+
+const BUBBLE_NAMES: Record<BubbleKey, string> = {
+  orchestration: "Orchestration",
+  caldova: "Caldova IQ",
+  microsoft: "Microsoft IQ",
+  integrations: "Integrations",
+  record: "Governed record",
+  analysts: "Analysts",
+};
+
+const PACKED_KEYS: BubbleKey[] = ["caldova", "microsoft", "integrations"];
 
 function EvidenceMap({
   fanout,
@@ -2092,20 +2228,28 @@ function EvidenceMap({
     [fanout, analystLanes, decision, moneyAtRisk, confidence],
   );
   const bubbleByKey = new Map(bubbles.map((bubble) => [bubble.key, bubble]));
-  const evidenceBubble = bubbleByKey.get("evidence");
-  const evidenceNodes = evidenceBubble?.nodes ?? [];
-  const activeSources = evidenceNodes.filter((node) => node.active);
-  const totalCitations = evidenceFanoutCitations(
+  const caldovaBubble = bubbleByKey.get("caldova");
+  const microsoftBubble = bubbleByKey.get("microsoft");
+  const iqNodes = microsoftBubble?.nodes ?? [];
+  const sourceNodes = [
+    ...iqNodes,
+    ...(bubbleByKey.get("integrations")?.nodes ?? []).filter(
+      (node) => node.key !== "integrations-placeholder",
+    ),
+  ];
+  const activeSources = sourceNodes.filter((node) => node.active).length;
+  const activeIq = iqNodes.filter((node) => node.active).length;
+  const iqCitations = evidenceFanoutCitations(
     fanout.filter((lane) => iqKeyForLane(lane) !== "other"),
   );
+  const allCitations = evidenceFanoutCitations(fanout);
   const agentCount = bubbles
-    .filter((bubble) => bubble.key !== "evidence" && bubble.key !== "integrations")
+    .filter((bubble) => !PACKED_KEYS.includes(bubble.key))
     .reduce((acc, bubble) => acc + bubble.nodes.length, 0);
 
-  const connectors: { from: string; to: string; label?: string }[] = [
-    { from: "orchestration", to: "evidence" },
-    { from: "evidence", to: "record" },
-    { from: "integrations", to: "record" },
+  const connectors: { from: BubbleKey; to: BubbleKey; label?: string }[] = [
+    { from: "orchestration", to: "caldova" },
+    { from: "caldova", to: "record" },
   ];
   if (bubbleByKey.has("analysts")) {
     connectors.push({ from: "record", to: "analysts", label: "reads" });
@@ -2113,13 +2257,26 @@ function EvidenceMap({
 
   const map = useMapView();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [focusKey, setFocusKey] = useState<BubbleKey | null>(null);
   const relativeZoom = map.view.scale / map.fitScale;
-  const level: MapLevel =
-    relativeZoom < 0.8 || map.view.scale < MIN_LABEL_SCALE
-      ? "compact"
-      : relativeZoom < 1.65
-        ? "label"
-        : "detail";
+
+  useEffect(() => {
+    if (focusKey && relativeZoom < CLEAR_FOCUS_ZOOM) {
+      setFocusKey(null);
+      setSelectedKey(null);
+    }
+  }, [focusKey, relativeZoom]);
+
+  // How far into Caldova IQ we are: 0 = one bubble, 1 = its children, 2 = their tiles.
+  const focusDepth =
+    focusKey === "microsoft" || focusKey === "integrations" ? 2 : focusKey === "caldova" ? 1 : 0;
+  const zoomDepth =
+    relativeZoom >= REVEAL_TILES_ZOOM ? 2 : relativeZoom >= REVEAL_CHILDREN_ZOOM ? 1 : 0;
+  const reveal = Math.max(focusDepth, zoomDepth);
+
+  const outerLevel: MapLevel =
+    relativeZoom < 0.8 || map.view.scale < MIN_LABEL_SCALE ? "compact" : "label";
+  const innerLevel: MapLevel = reveal >= 2 ? "label" : "compact";
   // Tiles start small at the fitted view and grow (sub-linearly) as you zoom in.
   const tileGrowth = Math.min(
     MAX_TILE_GROWTH,
@@ -2127,12 +2284,33 @@ function EvidenceMap({
   );
   const counterScale = tileGrowth / map.view.scale;
   const transition = map.isAnimating ? `transform ${MAP_ANIM_MS}ms ${MAP_EASE}` : undefined;
+  const fade = `opacity 380ms ${MAP_EASE}`;
   const dotSpacing = 18 * map.view.scale;
 
   const resetView = () => {
     setSelectedKey(null);
+    setFocusKey(null);
     map.resetView();
   };
+
+  const zoomInto = (bubble: MapBubble) => {
+    setSelectedKey(null);
+    setFocusKey(bubble.key);
+    map.zoomToCircle(bubble);
+  };
+
+  const zoomOut = () => {
+    const current = focusKey ? bubbleByKey.get(focusKey) : undefined;
+    const parent = current?.parent ? bubbleByKey.get(current.parent) : undefined;
+    if (parent) zoomInto(parent);
+    else resetView();
+  };
+
+  const trail: BubbleKey[] = [];
+  for (let key: BubbleKey | undefined = focusKey ?? undefined; key; ) {
+    trail.unshift(key);
+    key = bubbleByKey.get(key)?.parent;
+  }
 
   let tileIndex = 0;
 
@@ -2141,12 +2319,45 @@ function EvidenceMap({
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h3 className="text-sm font-semibold text-slate-800">Agent map</h3>
         <p className="text-xs text-slate-500">
-          {agentCount} {agentCount === 1 ? "agent" : "agents"} · {activeSources.length} of{" "}
-          {evidenceNodes.length} evidence sources used
+          {agentCount} {agentCount === 1 ? "agent" : "agents"} · {activeSources} of{" "}
+          {sourceNodes.length} evidence sources used
         </p>
       </div>
 
-      <div className="relative mt-2 overflow-hidden rounded-lg border border-slate-200 bg-slate-50/40">
+      <div className="relative mt-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+        <nav
+          aria-label="Map zoom level"
+          className="absolute left-2 top-2 z-20 flex items-center gap-0.5 rounded-md border border-slate-200 bg-white/90 px-1 py-0.5 text-xs shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_-6px_rgba(15,23,42,0.18)] backdrop-blur"
+        >
+          <button
+            type="button"
+            onClick={resetView}
+            className={`rounded px-1.5 py-1 font-medium transition hover:bg-slate-100 ${
+              trail.length === 0 ? "text-slate-900" : "text-slate-500"
+            }`}
+          >
+            All agents
+          </button>
+          {trail.map((key, index) => {
+            const bubble = bubbleByKey.get(key);
+            const last = index === trail.length - 1;
+            return (
+              <span key={key} className="flex items-center gap-0.5">
+                <HiChevronRight className="h-3 w-3 text-slate-400" aria-hidden="true" />
+                <button
+                  type="button"
+                  onClick={() => bubble && zoomInto(bubble)}
+                  aria-current={last ? "location" : undefined}
+                  className={`rounded px-1.5 py-1 font-medium transition hover:bg-slate-100 ${
+                    last ? "text-violet-700" : "text-slate-500"
+                  }`}
+                >
+                  {BUBBLE_NAMES[key]}
+                </button>
+              </span>
+            );
+          })}
+        </nav>
         <div className="absolute right-2 top-2 z-20 flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_-6px_rgba(15,23,42,0.18)]">
           <MapControl label="Zoom in" onClick={map.zoomIn}>
             <HiPlus className="h-4 w-4" />
@@ -2159,25 +2370,33 @@ function EvidenceMap({
           </MapControl>
         </div>
         <span className="pointer-events-none absolute bottom-2 left-3 z-20 text-[11px] text-slate-500">
-          Scroll to zoom · drag to pan · select a tile to focus it
+          Click a bubble to zoom in · click empty space to zoom out · scroll to zoom · drag to pan
         </span>
 
         <div
           ref={map.viewportRef}
-          className="relative h-[480px] touch-none select-none"
+          className="relative h-[500px] touch-none select-none"
           style={{
             cursor: map.isDragging ? "grabbing" : "grab",
-            backgroundImage: "radial-gradient(circle, rgb(203 213 225) 1px, transparent 1.4px)",
-            backgroundSize: `${dotSpacing}px ${dotSpacing}px`,
-            backgroundPosition: `${map.view.x}px ${map.view.y}px`,
+            backgroundImage: [
+              "radial-gradient(circle, rgb(203 213 225 / 0.75) 1px, transparent 1.4px)",
+              "radial-gradient(ellipse 60% 70% at 50% 50%, rgb(237 233 254 / 0.8), transparent 70%)",
+              "linear-gradient(180deg, #f8fafc, #f1f5f9)",
+            ].join(", "),
+            backgroundSize: `${dotSpacing}px ${dotSpacing}px, 100% 100%, 100% 100%`,
+            backgroundPosition: `${map.view.x}px ${map.view.y}px, 0 0, 0 0`,
           }}
           onPointerDown={map.onPointerDown}
           onPointerMove={map.onPointerMove}
           onPointerUp={map.endDrag}
           onPointerCancel={map.endDrag}
+          onClick={() => {
+            if (!map.wasDragged()) zoomOut();
+          }}
           role="group"
           aria-label={`Agent map: ${bubbles
-            .map((bubble) => `${bubble.title} with ${bubble.nodes.map((node) => node.label).join(", ")}`)
+            .filter((bubble) => bubble.nodes.length > 0)
+            .map((bubble) => `${BUBBLE_NAMES[bubble.key]} with ${bubble.nodes.map((node) => node.label).join(", ")}`)
             .join("; ")}`}
         >
           <style>{`
@@ -2186,9 +2405,17 @@ function EvidenceMap({
               to { opacity: 1; transform: scale(1); filter: blur(0); }
             }
             @keyframes em-dash { to { stroke-dashoffset: -26; } }
+            @keyframes em-breathe {
+              0%, 100% { box-shadow: 0 0 0 0 rgb(139 92 246 / 0), 0 0 60px 6px rgb(139 92 246 / 0.28); }
+              50% { box-shadow: 0 0 0 0 rgb(139 92 246 / 0), 0 0 90px 16px rgb(34 211 238 / 0.32); }
+            }
+            .em-bubble { transition: filter 200ms ease-out, opacity 380ms ${MAP_EASE}; }
+            .em-bubble:hover { filter: brightness(1.04) saturate(1.08); }
+            .em-bubble:focus-visible { outline: 4px solid #7c3aed; outline-offset: 6px; }
             @media (prefers-reduced-motion: no-preference) {
               .em-pop { animation: em-pop 520ms ${MAP_EASE} both; }
               .em-flow { animation: em-dash 1.2s linear infinite; }
+              .em-halo { animation: em-breathe 6s ease-in-out infinite; }
             }
           `}</style>
           <div
@@ -2219,23 +2446,11 @@ function EvidenceMap({
                 >
                   <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
                 </marker>
-                <marker
-                  id="em-arrow-muted"
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="7"
-                  markerHeight="7"
-                  orient="auto-start-reverse"
-                >
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
-                </marker>
               </defs>
               {connectors.map(({ from, to, label }) => {
                 const a = bubbleByKey.get(from);
                 const b = bubbleByKey.get(to);
                 if (!a || !b) return null;
-                const muted = Boolean(a.muted || b.muted);
                 const mid = {
                   x: (edgePoint(a, b.cx, b.cy).x + edgePoint(b, a.cx, a.cy).x) / 2,
                   y: (edgePoint(a, b.cx, b.cy).y + edgePoint(b, a.cx, a.cy).y) / 2,
@@ -2245,12 +2460,12 @@ function EvidenceMap({
                     <path
                       d={connectorPath(a, b)}
                       fill="none"
-                      stroke={muted ? "#94a3b8" : "#64748b"}
+                      stroke="#64748b"
                       strokeWidth={3}
                       strokeDasharray="8 5"
                       strokeLinecap="round"
-                      markerEnd={muted ? "url(#em-arrow-muted)" : "url(#em-arrow)"}
-                      className={muted ? undefined : "em-flow"}
+                      markerEnd="url(#em-arrow)"
+                      className="em-flow"
                     />
                     {label ? (
                       <text
@@ -2266,65 +2481,173 @@ function EvidenceMap({
               })}
             </svg>
 
-            {bubbles.map((bubble) => (
-              <div key={bubble.key}>
+            {bubbles.map((bubble) => {
+              const isChild = Boolean(bubble.parent);
+              const visible = !isChild || reveal >= 1;
+              const circle = {
+                left: bubble.cx - bubble.r,
+                top: bubble.cy - bubble.r,
+                width: bubble.r * 2,
+                height: bubble.r * 2,
+              };
+              return (
+                <div key={bubble.key}>
+                  {isChild ? (
+                    <div
+                      className="pointer-events-none absolute rounded-full"
+                      style={{
+                        ...circle,
+                        border: "2px solid rgb(255 255 255 / 0.4)",
+                        background: "rgb(255 255 255 / 0.07)",
+                        opacity: visible ? 0 : 1,
+                        transition: fade,
+                      }}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    tabIndex={visible ? 0 : -1}
+                    aria-hidden={visible ? undefined : true}
+                    aria-label={`Zoom into ${BUBBLE_NAMES[bubble.key]}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (!map.wasDragged()) zoomInto(bubble);
+                    }}
+                    className={`em-bubble absolute cursor-zoom-in rounded-full ${
+                      bubble.key === "caldova" ? "em-halo" : ""
+                    }`}
+                    style={{
+                      ...circle,
+                      background: bubble.background,
+                      border: bubble.border,
+                      boxShadow: bubble.key === "caldova" ? undefined : bubble.shadow,
+                      opacity: visible ? 1 : 0,
+                      pointerEvents: visible ? "auto" : "none",
+                    }}
+                  >
+                    {bubble.key === "caldova" ? (
+                      <span
+                        className="pointer-events-none absolute inset-0 rounded-full"
+                        style={{ boxShadow: bubble.shadow }}
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </button>
+                  {bubble.titlePlacement !== "none" ? (
+                    <div
+                      className={`pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[26px] font-semibold leading-none tracking-tight ${
+                        bubble.titleTone === "light"
+                          ? "text-white [text-shadow:0_1px_12px_rgb(30_27_75/0.6)]"
+                          : "text-slate-800"
+                      } ${bubble.titlePlacement === "above" ? "-translate-y-full" : ""}`}
+                      style={{
+                        left: bubble.cx,
+                        top:
+                          bubble.titlePlacement === "above"
+                            ? bubble.cy - bubble.r - (isChild ? 12 : 18)
+                            : bubble.cy + bubble.r + 18,
+                        opacity: visible ? 1 : 0,
+                        transition: fade,
+                      }}
+                    >
+                      {bubble.title}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+
+            {caldovaBubble ? (
+              <>
                 <div
-                  className="absolute rounded-full"
+                  className="pointer-events-none absolute flex w-[380px] -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center text-white [text-shadow:0_2px_24px_rgb(30_27_75/0.55)]"
                   style={{
-                    left: bubble.cx - bubble.r,
-                    top: bubble.cy - bubble.r,
-                    width: bubble.r * 2,
-                    height: bubble.r * 2,
-                    background: bubble.fill,
-                    border: `5px ${bubble.muted ? "dashed" : "solid"} ${bubble.hex}`,
-                    boxShadow: bubble.muted
-                      ? "inset 0 0 0 7px rgb(255 255 255 / 0.9)"
-                      : `inset 0 0 0 7px rgb(255 255 255 / 0.9), 0 24px 48px -28px ${bubble.hex}8c`,
+                    left: caldovaBubble.cx,
+                    top: caldovaBubble.cy,
+                    opacity: reveal === 0 ? 1 : 0,
+                    transition: fade,
+                  }}
+                  aria-hidden={reveal === 0 ? undefined : true}
+                >
+                  <span className="text-[24px] font-semibold uppercase tracking-[0.3em] text-white/80">
+                    Caldova IQ
+                  </span>
+                  <span className="mt-1 text-[112px] font-semibold leading-[0.95] tracking-[-0.03em] tabular-nums">
+                    {allCitations}
+                  </span>
+                  <span className="mt-1 text-[22px] text-white/85">
+                    {allCitations === 1 ? "citation" : "citations"}
+                    {typeof confidence === "number"
+                      ? ` · ${Math.round(confidence * 100)}% confidence`
+                      : ""}
+                  </span>
+                  <span className="mt-6 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-5 py-2 text-[18px] font-medium text-white ring-1 ring-white/35 [text-shadow:none]">
+                    Click to explore
+                    <HiChevronRight className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <div
+                  className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[18px] font-semibold uppercase tracking-[0.3em] text-white/75"
+                  style={{
+                    left: caldovaBubble.cx,
+                    top: caldovaBubble.cy - caldovaBubble.r + 34,
+                    opacity: reveal >= 1 ? 1 : 0,
+                    transition: fade,
                   }}
                   aria-hidden="true"
-                />
-                <div
-                  className={`pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[26px] font-semibold leading-none tracking-tight ${bubble.muted ? "text-slate-400" : "text-slate-800"} ${
-                    bubble.titlePlacement === "above" ? "-translate-y-full" : ""
-                  }`}
-                  style={{
-                    left: bubble.cx,
-                    top:
-                      bubble.titlePlacement === "above"
-                        ? bubble.cy - bubble.r - 18
-                        : bubble.cy + bubble.r + 18,
-                  }}
                 >
-                  {bubble.title}
+                  Caldova IQ
                 </div>
-              </div>
-            ))}
+              </>
+            ) : null}
 
-            {evidenceBubble ? (
+            {microsoftBubble ? (
               <div
-                className="pointer-events-none absolute flex w-[300px] -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center"
-                style={{ left: evidenceBubble.cx, top: evidenceBubble.cy }}
+                className="pointer-events-none absolute flex w-[170px] -translate-x-1/2 -translate-y-1/2 flex-col items-center text-center"
+                style={{
+                  left: microsoftBubble.cx,
+                  top: microsoftBubble.cy,
+                  opacity: reveal >= 1 ? 1 : 0,
+                  transition: fade,
+                }}
+                aria-hidden={reveal >= 1 ? undefined : true}
               >
-                <span className="text-[38px] font-semibold tracking-tight text-slate-900">
+                <span className="bg-gradient-to-r from-blue-600 to-violet-600 bg-clip-text text-[16px] font-bold uppercase tracking-[0.18em] text-transparent">
                   Microsoft IQ
                 </span>
-                <span className="text-[96px] font-semibold leading-[0.95] tracking-[-0.03em] tabular-nums text-slate-900">
-                  {totalCitations}
+                <span className="text-[60px] font-semibold leading-[0.95] tracking-[-0.03em] tabular-nums text-slate-900">
+                  {iqCitations}
                 </span>
-                <span className="mt-1 text-[21px] text-slate-600">
-                  {totalCitations === 1 ? "citation" : "citations"}
-                  {typeof confidence === "number"
-                    ? ` · ${Math.round(confidence * 100)}% confidence`
-                    : ""}
+                <span className="mt-0.5 text-[14px] text-slate-600">
+                  {iqCitations === 1 ? "citation" : "citations"} · {activeIq} of {iqNodes.length}{" "}
+                  sources
                 </span>
               </div>
             ) : null}
 
-            {bubbles.flatMap((bubble) =>
-              bubble.nodes.map((node) => {
+            {bubbles.flatMap((bubble) => {
+              const isChild = Boolean(bubble.parent);
+              const visible = !isChild || reveal >= 1;
+              const level = isChild ? innerLevel : outerLevel;
+              return bubble.nodes.map((node) => {
                 const delay = 120 + tileIndex++ * 60;
+                const selected = node.key === selectedKey;
                 return (
-                  <div key={node.key} className="absolute h-0 w-0" style={{ left: node.x, top: node.y }}>
+                  <div
+                    key={node.key}
+                    className="absolute h-0 w-0"
+                    style={{
+                      left: node.x,
+                      top: node.y,
+                      zIndex: selected ? 10 : undefined,
+                      opacity: visible ? 1 : 0,
+                      pointerEvents: visible ? undefined : "none",
+                      transition: fade,
+                    }}
+                    inert={!visible}
+                    onClick={(event) => event.stopPropagation()}
+                  >
                     {/* Anchor on the icon's centre so labels and detail hang below it. */}
                     <div
                       className="absolute left-0 top-0"
@@ -2339,26 +2662,29 @@ function EvidenceMap({
                       <div className="em-pop" style={{ animationDelay: `${delay}ms` }}>
                         <MapTile
                           node={node}
-                          level={node.key === selectedKey && level !== "compact" ? "detail" : level}
-                          selected={node.key === selectedKey}
+                          level={selected && level !== "compact" ? "detail" : level}
+                          selected={selected}
                           onSelect={() => {
+                            if (map.wasDragged()) return;
                             setSelectedKey(node.key);
-                            map.focusOn(node.x, node.y);
+                            setFocusKey(bubble.key);
+                            map.focusOn(node.x, node.y, 110);
                           }}
                         />
                       </div>
                     </div>
                   </div>
                 );
-              }),
-            )}
+              });
+            })}
           </div>
         </div>
       </div>
       <p className="mt-1.5 text-xs leading-5 text-slate-500">
-        Each bubble groups agents by their role in this run. Evidence-source tiles in colour cited
-        evidence; grey tiles weren't used. Waypoint Recorder remains the sole writer of the governed
-        run, case, and recommendation.
+        Caldova IQ holds every evidence source the orchestrator can call: Microsoft IQ (FabricIQ,
+        FoundryIQ, WebIQ, WorkIQ) and third-party integrations. Click it to zoom in. Tiles in
+        colour cited evidence in this run; faded tiles weren't used. Waypoint Recorder remains the
+        sole writer of the governed run, case, and recommendation.
       </p>
     </div>
   );
@@ -2420,10 +2746,12 @@ function MapTile({
     >
       <span
         className={`relative inline-flex ${tileSize} items-center justify-center bg-white transition-[transform,box-shadow] duration-200 ease-out group-hover:-translate-y-0.5 ${
-          node.active ? "" : "opacity-50 grayscale"
+          node.active ? "" : node.ghost ? "opacity-80" : "opacity-50 grayscale"
         }`}
         style={{
-          border: node.active ? `1.5px solid ${node.hex}` : "1.5px dashed rgb(148 163 184)",
+          border: node.active
+            ? `1.5px solid ${node.hex}`
+            : `1.5px dashed ${node.ghost ? node.hex : "rgb(148 163 184)"}`,
           boxShadow: selected
             ? `0 0 0 4px ${node.hex}33, 0 6px 16px -6px rgb(15 23 42 / 0.35)`
             : "0 1px 2px rgb(15 23 42 / 0.08), 0 4px 10px -4px rgb(15 23 42 / 0.18)",
