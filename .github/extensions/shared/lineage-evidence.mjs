@@ -135,7 +135,7 @@ export function lineageBadge(status) {
 /** Small inline-styled HTML pill for a lineage status, safe to embed directly. */
 export function lineageBadgeHtml(status, extraLabel) {
     const badge = lineageBadge(status);
-    const label = extraLabel ? `${badge.label} \u2014 ${extraLabel}` : badge.label;
+    const label = extraLabel ? `${badge.label} (${extraLabel})` : badge.label;
     return (
         `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 9px;` +
         `border-radius:999px;border:1px solid ${badge.color};color:${badge.color};` +

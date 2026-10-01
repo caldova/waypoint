@@ -10,149 +10,142 @@ import { lineageBadgeHtml, resolveLineageStatus } from "../shared/lineage-eviden
 const servers = new Map();
 const extensionDir = dirname(fileURLToPath(import.meta.url));
 const agentName = "contract-policy-expert";
-// The RFT serving deployment was cloned from the golden optimizer candidate
-// (agent version 178); the surviving fixture config for that candidate is
-// committed beside the optimizer-diff-canvas, so it is what we re-hash here.
+// The MAI RFT serving deployment reuses the accepted candidate_14 optimized
+// assets; the committed fixture config is what we re-hash here.
 const goldenConfigPath = join(
     extensionDir,
     "..",
     "optimizer-diff-canvas",
     "fixtures",
-    "opt_994a956b2d6e49939506323a15dfc5d2",
-    "candidate_4-config.json",
+    "opt_2fb58fc1723e461d9a1496907d029ac8",
+    "candidate_14-config.json",
 );
 
 const metrics = {
-    headline:
-        "Golden GPT-5.5 and golden RFT perform side by side.",
+    headline: "RFT moves the optimized agent from gpt-6-astra to MAI.",
     talkTrack:
-        "Across five full Foundry agent eval runs, golden gpt-5.5 averaged 81.7% and golden RFT o4-mini averaged 82.5%. On the observed 24-row golden model-swap token profile, RFT lowers estimated inference cost by 69.6% even though it emits more output tokens.",
-    goldenGptFoundryMean: "81.7%",
-    goldenRftFoundryMean: "82.5%",
-    goldenGptAgentVersion: "178",
-    goldenRftAgentVersion: "180",
-    goldenGptFoundryEvalId: "eval_f5c6c2353d394846a4509b6c4c79bc94",
-    goldenRftFoundryEvalId: "eval_d7e99889495f4400a89412d0650acd92",
-    goldenGptPassCounts: "19/24, 21/24, 19/24, 20/24, 19/24",
-    goldenRftPassCounts: "19/24, 20/24, 20/24, 19/24, 21/24",
-    optimizerCandidateScore: 0.8521,
-    optimizerCandidatePassRate: "100%",
-    optimizedAssetsFoundryPass: "23/24",
-    optimizedAssetsFoundryPassPercent: "95.8%",
-    sameHarnessLargeScore: 0.95033,
-    sameHarnessRftScore: 0.94433,
-    sameHarnessDelta: 0.006,
-    rftLocalPass: "24/24",
-    averageGraderScore: 0.94433,
-    estimatedSavingsPercent: 69.6,
-    observedRequestCount: 24,
-    usageUnitSize: 10000,
+        "The fresh Foundry replay starts from a deliberately mediocre baseline, applies candidate_14, then swaps only the model deployment to the MAI RFT model. Optimized passed 120/120 rows. Tuned MAI passed 119/120; the miss was a rubric-quality item, not infrastructure.",
+    baselineFoundryMean: "61.7%",
+    optimizedFoundryMean: "100%",
+    tunedFoundryMean: "99.2%",
+    baselineAgentVersion: "6",
+    optimizedAgentVersion: "7",
+    tunedAgentVersion: "10",
+    baselineFoundryEvalId: "eval_2d5a13a976c14355aee3317f87e5e171",
+    optimizedFoundryEvalId: "eval_9421539dcd754815b8c5443bca0e971c",
+    tunedFoundryEvalId: "eval_4031396f93ac47418b78477ab712fd7e",
+    baselinePassCounts: "16/24, 15/24, 11/24, 14/24, 18/24",
+    optimizedPassCounts: "24/24, 24/24, 24/24, 24/24, 24/24",
+    tunedPassCounts: "24/24, 24/24, 24/24, 23/24, 24/24",
+    optimizerCandidateScore: 0.8000013333333332,
+    optimizerBaselineScore: 0.455684,
+    optimizerCandidatePassRate: "winner by score",
     tokenCostBasis:
-        "Observed target model usage from the same 24-row golden model-swap runs. The slider shows actual evidence-request volume from 10k to 5M in 10k increments, using observed average input/output tokens per request for each model.",
+        "Estimated cost using published Azure Global Standard token rates: GPT-6 Astra at $10 input / $50 output per 1M tokens and Microsoft Code 1.1 Flash at $0.20 input / $1.20 output per 1M tokens. Foundry hosted-agent eval usage fields reported zero, so token volume uses local o200k_base counts from actual eval input text and final assistant output text across five 24-row runs. This is an estimate before discounts, taxes, cache effects, tools, hosting, and provisioned-capacity charges.",
     artifactArchiveNote:
-        "Raw output-items and run payloads are archived in private durable storage; ask Seth for the location if row-level re-analysis is needed.",
-    optimizerJob: "opt_994a956b2d6e49939506323a15dfc5d2",
-    optimizerCandidate: "candidate_4 / cand_6bf6980ed16f4538ba0faf8935d93c01",
-    optimizedFoundryEvalId: "eval_0e045fa812ca4f0d8401b5a0865a63fa",
-    optimizedFoundryRunId: "evalrun_08926c405acc464a8e0079aede3a49b2",
-    optimizedForgeVersion: "178",
-    rftJob: "ftjob-0265d673736e496dbd360530958c6149",
-    rftDeployment: "contract-policy-expert-rft-o4-mini",
-    fineTunedModel: "o4-mini-2025-04-16.ft-0265d673736e496dbd360530958c6149",
-    costOptions: [
+        "Raw eval output-items and run payloads are archived outside the repo; this canvas keeps commit-safe IDs and aggregate counts.",
+    optimizerJob: "opt_2fb58fc1723e461d9a1496907d029ac8",
+    optimizerCandidate: "candidate_14 / cand_opt_2fb58fc1723e461d9a1496907d029ac8_0014",
+    optimizedFoundryRunId: "five sequential native Foundry eval runs",
+    optimizedForgeVersion: "7",
+    rftJob: "ftjob-44f31c01823d4e13a213dddf0d22fb55",
+    rftDeployment: "contract-policy-expert-mai-rft-v2-pt09",
+    fineTunedModel: "mai-code-1.1-flash-2026-08-27.ft-44f31c01823d4e13a213dddf0d22fb55-cpe-v2-pt09",
+    costStatus: "Token estimate",
+    observedRequestCount: 120,
+    usageUnitSize: 10000,
+    tokenOptions: [
         {
-            id: "large",
-            label: "Golden assets + large model",
-            model: "gpt-5.5",
-            inputTokens: 117842,
-            outputTokens: 18984,
-            totalTokens: 136826,
-            inputPricePerMillion: 5.0,
-            outputPricePerMillion: 30.0,
-            costPerRun: 1.15873,
-            quality: "Foundry agent mean 81.7%; token-costed 24-row run",
-            role: "Quality reference",
+            id: "optimized",
+            label: "Astra",
+            model: "gpt-6-astra",
+            inputTokens: 118530,
+            outputTokens: 164282,
+            inputPricePerMillion: 10.0,
+            outputPricePerMillion: 50.0,
+            quality: "120/120 passed rows",
         },
         {
-            id: "rft",
-            label: "Golden assets + RFT model",
-            model: "o4-mini-2025-04-16 RFT",
-            inputTokens: 117842,
-            outputTokens: 50640,
-            totalTokens: 168482,
-            inputPricePerMillion: 1.1,
-            outputPricePerMillion: 4.4,
-            costPerRun: 0.352442,
-            quality: "Foundry agent mean 82.5%; token-costed 24-row run",
-            role: "Cost-optimized serving candidate",
+            id: "tuned",
+            label: "Tuned MAI",
+            model: "contract-policy-expert-mai-rft-v2-pt09",
+            inputTokens: 118530,
+            outputTokens: 178656,
+            inputPricePerMillion: 0.2,
+            outputPricePerMillion: 1.2,
+            quality: "119/120 passed rows",
         },
     ],
     comparisonRows: [
         {
             area: "Foundry agent mean",
-            original: "Golden gpt-5.5: 81.7% mean over five 24-row runs",
-            rft: "Golden RFT o4-mini: 82.5% mean over five 24-row runs",
-            takeaway: "RFT maintains mean accuracy while using the cheaper model",
+            baseline: "61.7% over five 24-row runs",
+            optimized: "100% over five 24-row runs",
+            tuned: "99.2% over five 24-row runs",
+            takeaway: "Tuned MAI stays within one row of optimized.",
         },
         {
             area: "Run spread",
-            original: "Golden gpt-5.5: 79%-88% across five runs",
-            rft: "Golden RFT: 79%-88% across five runs",
-            takeaway: "Repeated runs smooth stochastic variation and keep the comparison side by side",
+            baseline: "11/24 to 18/24",
+            optimized: "24/24 every run",
+            tuned: "23/24 to 24/24",
+            takeaway: "The optimized assets remove the noisy baseline behavior.",
         },
         {
             area: "Optimizer candidate",
-            original: "candidate_4 cand_6bf..., optimizer score 0.8521, 100% optimizer pass",
-            rft: "Trained to preserve this candidate's evidence contract behavior",
-            takeaway: "Candidate 4 is the golden Foundry-optimized target",
+            baseline: "Optimizer train score 0.456",
+            optimized: "candidate_14 train score 0.800",
+            tuned: "Same optimized assets",
+            takeaway: "Optimizer changed instructions and the retrieval tool contract.",
         },
         {
             area: "Applied assets eval",
-            original: "Forge v178 Foundry eval group: eval_f5c6...",
-            rft: "Forge v180 RFT Foundry eval group: eval_d7e9...",
-            takeaway: "Both are actual hosted agent evals with tools, not model-only completions",
+            baseline: "Agent v6, eval_2d5a...",
+            optimized: "Agent v7, eval_9421...",
+            tuned: "Agent v10, eval_4031...",
+            takeaway: "All three are hosted-agent evals with the same held-out dataset and rubric.",
         },
         {
             area: "Behavior target",
-            original: "Candidate 4 system prompt + skills from opt_994",
-            rft: "Same candidate 4 instructions with RFT o4-mini deployment",
-            takeaway: "Optimizer found the behavior; RFT compressed the economics",
+            baseline: "Loose triage evidence behavior",
+            optimized: "Strict evidence JSON from candidate_14",
+            tuned: "Same behavior target",
+            takeaway: "RFT is a model swap after the optimizer fixed the behavior.",
         },
         {
             area: "Model",
-            original: "gpt-5.5",
-            rft: "o4-mini-2025-04-16 fine-tuned with RFT",
-            takeaway: "Same expert pattern on a smaller serving model",
+            baseline: "gpt-6-astra",
+            optimized: "gpt-6-astra",
+            tuned: "MAI fine-tuned deployment",
+            takeaway: "The tuned run swaps the model from gpt-6-astra to the MAI RFT deployment.",
         },
         {
             area: "RFT job",
-            original: "Not applicable",
-            rft: "ftjob-0265d673736e496dbd360530958c6149",
-            takeaway: "Training completed successfully",
+            baseline: "Not applicable",
+            optimized: "Not applicable",
+            tuned: "ftjob-44f31c01823d4e13a213dddf0d22fb55",
+            takeaway: "This is the preserved successful MAI RFT job.",
         },
         {
             area: "Fine-tuned model",
-            original: "Not applicable",
-            rft: "o4-mini-2025-04-16.ft-0265d673736e496dbd360530958c6149",
-            takeaway: "Deployable cheaper expert model",
+            baseline: "Not applicable",
+            optimized: "Not applicable",
+            tuned: "mai-code-1.1-flash-2026-08-27.ft-44f31...-cpe-v2-pt09",
+            takeaway: "Deployable MAI contract-policy expert model.",
         },
         {
             area: "RFT deployment",
-            original: "Not applicable",
-            rft: "contract-policy-expert-rft-o4-mini",
-            takeaway: "Fine-tuned model is deployed for serving comparisons",
+            baseline: "Not applicable",
+            optimized: "Not applicable",
+            tuned: "contract-policy-expert-mai-rft-v2-pt09",
+            takeaway: "Serving comparison uses the tuned deployment.",
         },
         {
-            area: "Raw RFT prompt",
-            original: "Not applicable",
-            rft: "0.353 avg, 0/24 without golden candidate context",
-            takeaway: "The story is RFT inside the optimized agent assets, not raw standalone prompting",
-        },
-        {
-            area: "Estimated inference cost",
-            original: "$1.16 per observed 24-row token-costed run",
-            rft: "$0.35 per observed 24-row token-costed run",
-            takeaway: "Cost comparison shows 69.6% estimated savings from consumed tokens",
+            area: "Cost evidence",
+            baseline: "Not modeled",
+            optimized: "~988 input + ~1,369 output tokens/request",
+            tuned: "~988 input + ~1,489 output tokens/request",
+            takeaway: "Uses published Global Standard token rates; actual bill can differ by discount, cache, tools, hosting, or capacity model.",
         },
     ],
 };
@@ -180,6 +173,20 @@ function rftLineageStatus() {
     });
 }
 
+function renderDecisionStrip(lineage) {
+    return `<section class="decision-strip" aria-label="RFT result summary">
+        <div class="strip-score"><i class="mark mark-blue" aria-hidden="true"></i><span>Baseline</span><strong>${escapeHtml(metrics.baselineFoundryMean)}</strong></div>
+        <div class="strip-lift"><i class="mark mark-green" aria-hidden="true"></i><span>Optimized</span><strong>${escapeHtml(metrics.optimizedFoundryMean)}</strong></div>
+        <div class="strip-state"><i class="mark mark-yellow" aria-hidden="true"></i><span>Tuned MAI</span><strong>${escapeHtml(metrics.tunedFoundryMean)}</strong></div>
+        <div class="strip-proof"><i class="mark mark-purple" aria-hidden="true"></i><span>Cost</span><strong>${escapeHtml(metrics.costStatus)}</strong></div>
+      </section>
+      <details class="lineage-note">
+        <summary>What lineage means</summary>
+        <p>Reference-only means this is a saved review artifact, not proof of what is deployed now. Hash match means the rendered optimized config matches the recorded snapshot.</p>
+        <p>Snapshot <code>${escapeHtml(lineage.snapshotId ? lineage.snapshotId.slice(0, 12) : "not found")}</code>. Evidence file <code>${escapeHtml(lineage.referencePath ?? "not found")}</code>.</p>
+      </details>`;
+}
+
 function sendJson(res, value) {
     res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
@@ -197,26 +204,40 @@ function renderHtml(instanceId) {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RFT Cost Quality</title>
   <style>
+    :root {
+      color-scheme: light dark;
+      --surface: var(--background-color-default, #fff);
+      --surface-muted: color-mix(in srgb, var(--background-color-default, #fff) 92%, var(--text-color-default, #1f2328));
+      --border: var(--border-color-default, #d0d7de);
+      --text: var(--text-color-default, #1f2328);
+      --muted: var(--text-color-muted, #57606a);
+      --blue: var(--true-color-blue, #0969da);
+      --green: var(--true-color-green, #1a7f37);
+      --yellow: var(--true-color-yellow, #9a6700);
+      --purple: #8250df;
+    }
     * {
       box-sizing: border-box;
     }
     body {
       margin: 0;
       min-height: 100vh;
-      background: var(--background-color-default);
-      color: var(--text-color-default);
-      font-family: var(--font-sans);
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
       font-size: var(--text-body-medium, 14px);
       line-height: var(--leading-body-medium, 20px);
     }
     main {
-      width: min(920px, 100%);
+      width: min(1180px, 100%);
       margin: 0 auto;
-      padding: 12px;
+      padding: 20px 24px 36px;
     }
     .hero {
       display: grid;
       gap: 6px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
       margin-bottom: 12px;
     }
     .eyebrow {
@@ -230,10 +251,10 @@ function renderHtml(instanceId) {
       margin: 0;
       max-width: 980px;
       font-family: var(--font-sans-display, var(--font-sans));
-      font-size: clamp(24px, 3vw, 36px);
+      font-size: 20px;
       font-weight: var(--font-weight-semibold, 700);
-      letter-spacing: -0.04em;
-      line-height: 1.02;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
     }
     .hero p {
       max-width: 960px;
@@ -353,13 +374,19 @@ function renderHtml(instanceId) {
       grid-template-columns: repeat(2, minmax(140px, 1fr));
       gap: 8px;
     }
+    .compare-grid.three-up {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
     .agent-card,
     .performance-card {
-      border: 1px solid var(--border-color-default);
-      border-radius: 16px;
-      background: var(--background-color-muted);
-      padding: 10px;
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--border);
+      background: var(--surface);
+      padding: 10px 12px;
     }
+    .compare-grid article:nth-child(1) { border-top-color: var(--blue); }
+    .compare-grid article:nth-child(2) { border-top-color: var(--green); }
+    .compare-grid article:nth-child(3) { border-top-color: var(--yellow); }
     .agent-label,
     .metric-label {
       color: var(--text-color-muted);
@@ -378,8 +405,7 @@ function renderHtml(instanceId) {
       display: inline-block;
       margin: 0 0 8px;
       padding: 3px 6px;
-      border: 1px solid var(--border-color-default);
-      border-radius: 0.625rem;
+      border: 1px solid var(--border);
       background: var(--control-transparent-bg-rest);
       font-family: var(--font-mono);
       font-size: var(--text-code-inline, 12px);
@@ -415,9 +441,8 @@ function renderHtml(instanceId) {
     .card,
     .table-wrap,
     .callout {
-      border: 1px solid var(--border-color-default);
-      border-radius: 16px;
-      background: var(--background-color-muted);
+      border: 1px solid var(--border);
+      background: var(--surface);
     }
     .card {
       padding: 12px;
@@ -482,8 +507,8 @@ function renderHtml(instanceId) {
       text-overflow: ellipsis;
     }
     td:not(:first-child) {
-      max-width: 0;
-      white-space: nowrap;
+      max-width: none;
+      white-space: normal;
     }
     .takeaway {
       color: var(--text-color-muted);
@@ -493,9 +518,9 @@ function renderHtml(instanceId) {
       gap: 16px;
     }
     .slider-card {
-      border: 1px solid var(--border-color-default);
-      border-radius: 16px;
-      background: var(--background-color-muted);
+      border: 1px solid var(--border);
+      border-top: 3px solid var(--purple);
+      background: var(--surface);
       padding: 12px;
       margin: 12px 0;
     }
@@ -552,19 +577,6 @@ function renderHtml(instanceId) {
       gap: 12px;
       align-items: start;
     }
-    .bar {
-      height: 12px;
-      overflow: hidden;
-      border-radius: 0.625rem;
-      background: var(--background-color-default);
-      border: 1px solid var(--border-color-default);
-    }
-    .bar span {
-      display: block;
-      height: 100%;
-      border-radius: 0.625rem;
-      background: var(--color-focus-outline);
-    }
     .cost-name {
       font-weight: 700;
     }
@@ -575,6 +587,48 @@ function renderHtml(instanceId) {
       font-size: 22px;
       letter-spacing: -0.04em;
       line-height: 26px;
+    }
+    .rate-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .rate-card {
+      border: 1px solid var(--border);
+      background: var(--surface);
+      padding: 10px;
+    }
+    .rate-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .assumption-note {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .rate-fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .rate-fields label {
+      display: grid;
+      gap: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .rate-fields input {
+      width: 100%;
+      padding: 5px 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      font-family: var(--font-mono);
     }
     .cost-subvalue {
       color: var(--text-color-muted);
@@ -587,15 +641,14 @@ function renderHtml(instanceId) {
     .savings {
       margin-top: 10px;
       padding: 10px;
-      border-radius: 0.625rem;
       background: var(--control-transparent-bg-rest);
       color: var(--text-color-default);
       font-weight: 700;
     }
     .callout {
       padding: 12px;
-      border-color: var(--border-color-default);
-      background: var(--background-color-muted);
+      border-color: var(--border);
+      background: var(--surface);
     }
     .callout h2 {
       margin: 0 0 8px;
@@ -623,9 +676,70 @@ function renderHtml(instanceId) {
       color: var(--text-color-muted);
       font-size: 12px;
     }
+    .decision-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-top: 14px;
+      border: 1px solid var(--border);
+    }
+    .decision-strip div {
+      position: relative;
+      padding: 10px 12px;
+      border-right: 1px solid var(--border);
+      border-top: 3px solid var(--border);
+    }
+    .decision-strip div:last-child { border-right: 0; }
+    .decision-strip .strip-score { border-top-color: var(--blue); }
+    .decision-strip .strip-lift { border-top-color: var(--green); }
+    .decision-strip .strip-state { border-top-color: var(--yellow); }
+    .decision-strip .strip-proof { border-top-color: var(--purple); }
+    .decision-strip span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      padding-left: 18px;
+    }
+    .decision-strip strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 17px;
+      font-weight: 650;
+      padding-left: 18px;
+    }
+    .mark {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 8px;
+      border: 2px solid currentColor;
+      vertical-align: -1px;
+    }
+    .decision-strip .mark {
+      position: absolute;
+      top: 13px;
+      left: 12px;
+      margin-right: 0;
+    }
+    .mark-blue { color: var(--blue); border-radius: 50%; }
+    .mark-green { color: var(--green); border-radius: 2px; }
+    .mark-yellow { color: var(--yellow); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 11px solid currentColor; border-top: 0; }
+    .mark-purple { color: var(--purple); transform: rotate(45deg); border-radius: 2px; }
+    .lineage-note {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .lineage-note summary {
+      cursor: pointer;
+      color: var(--text);
+      font-weight: 600;
+    }
+    .lineage-note p { margin: 6px 0 0; }
     @media (max-width: 640px) {
       main {
-        padding: 10px;
+        padding: 12px;
       }
       .slider-head {
         align-items: start;
@@ -635,6 +749,12 @@ function renderHtml(instanceId) {
       .evidence-grid {
         grid-template-columns: 1fr;
       }
+      .decision-strip,
+      .compare-grid.three-up {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .decision-strip div:nth-child(2) { border-right: 0; }
+      .decision-strip div:nth-child(-n + 2) { border-bottom: 1px solid var(--border); }
       thead {
         display: none;
       }
@@ -685,59 +805,68 @@ function renderHtml(instanceId) {
 <body>
   <main>
     <section class="hero" aria-labelledby="page-title">
-      <div class="eyebrow">Contract-policy expert RFT payoff</div>
+      <div class="eyebrow">Contract-policy expert MAI RFT payoff</div>
       <h1 id="page-title">${escapeHtml(metrics.headline)}</h1>
-      <p>These are full Foundry hosted-agent evals for <code>contract-policy-expert</code>, not model-only completions. The side-by-side metric is the mean over five full 24-row runs per golden agent version.</p>
+      <p>These are full Foundry hosted-agent evals for <code>contract-policy-expert</code>, not model-only completions. Each stage uses five sequential 24-row runs against the same held-out dataset and rubric.</p>
     </section>
 
     <section aria-label="Evidence and lineage">
       <div class="link-row">
-        <span class="meta">Golden GPT-5.5 eval: <code>${escapeHtml(metrics.goldenGptFoundryEvalId)}</code></span>
-        <span class="meta">Golden RFT eval: <code>${escapeHtml(metrics.goldenRftFoundryEvalId)}</code></span>
+        <span class="meta">Baseline eval: <code>${escapeHtml(metrics.baselineFoundryEvalId)}</code></span>
+        <span class="meta">Optimized eval: <code>${escapeHtml(metrics.optimizedFoundryEvalId)}</code></span>
+        <span class="meta">Tuned eval: <code>${escapeHtml(metrics.tunedFoundryEvalId)}</code></span>
         <span class="meta">${lineageBadgeHtml(lineage.status, lineage.reviewStatus ? `review: ${lineage.reviewStatus}` : undefined)}</span>
         <span class="meta">${escapeHtml(metrics.artifactArchiveNote)}</span>
       </div>
     </section>
+    ${renderDecisionStrip(lineage)}
 
     <section class="section-block" aria-label="Agent and model comparison">
       <div class="section-label">Agent + model</div>
       <div class="compare-grid">
         <article class="agent-card">
-          <div class="agent-label">Golden assets + large model</div>
+          <div class="agent-label">Optimized assets</div>
           <h2>Contract-policy expert</h2>
-          <div class="agent-model">gpt-5.5</div>
-          <p>Candidate 4 instructions and skills from <code>opt_994</code>, served by the larger model.</p>
+          <div class="agent-model">gpt-6-astra</div>
+          <p>candidate_14 instructions and retrieval-tool contract from <code>opt_2fb58...</code>.</p>
         </article>
         <article class="agent-card">
-          <div class="agent-label">Golden assets + RFT model</div>
+          <div class="agent-label">Same assets + tuned model</div>
           <h2>Contract-policy expert</h2>
-          <div class="agent-model">o4-mini-2025-04-16 RFT</div>
-          <p>The same optimized assets, swapping only to the fine-tuned cheaper model.</p>
+          <div class="agent-model">${escapeHtml(metrics.rftDeployment)}</div>
+          <p>The same optimized assets, swapping only to the MAI fine-tuned model deployment.</p>
+          <div class="source"><span class="mono-truncate" title="${escapeHtml(metrics.fineTunedModel)}">${escapeHtml(metrics.fineTunedModel)}</span></div>
         </article>
       </div>
     </section>
 
     <section class="section-block" aria-label="Performance comparison">
       <div class="section-label">Performance</div>
-      <div class="compare-grid">
+      <div class="compare-grid three-up">
         <article class="performance-card">
-          <div class="metric-label">Golden GPT-5.5 agent mean</div>
-          <div class="metric-value">${escapeHtml(metrics.goldenGptFoundryMean)}</div>
-          <p>Version ${escapeHtml(metrics.goldenGptAgentVersion)} with candidate 4 golden assets; actual hosted agent + tools.</p>
-          <div class="source"><span class="mono-truncate" title="${escapeHtml(metrics.goldenGptFoundryEvalId)}">${escapeHtml(metrics.goldenGptFoundryEvalId)}</span><br /><span class="mono-truncate" title="${escapeHtml(metrics.goldenGptPassCounts)}">${escapeHtml(metrics.goldenGptPassCounts)}</span></div>
+          <div class="metric-label">Baseline mean</div>
+          <div class="metric-value">${escapeHtml(metrics.baselineFoundryMean)}</div>
+          <p>Version ${escapeHtml(metrics.baselineAgentVersion)} with the intentionally weak baseline assets.</p>
+          <div class="source"><span class="mono-truncate" title="${escapeHtml(metrics.baselineFoundryEvalId)}">${escapeHtml(metrics.baselineFoundryEvalId)}</span><br /><span class="mono-truncate" title="${escapeHtml(metrics.baselinePassCounts)}">${escapeHtml(metrics.baselinePassCounts)}</span></div>
         </article>
         <article class="performance-card">
-          <div class="metric-label">Golden RFT agent mean</div>
-          <div class="metric-value">${escapeHtml(metrics.goldenRftFoundryMean)}</div>
-          <p>Version ${escapeHtml(metrics.goldenRftAgentVersion)} swaps only to the RFT model deployment while preserving tools.</p>
-          <div class="source"><span class="mono-truncate" title="${escapeHtml(metrics.goldenRftFoundryEvalId)}">${escapeHtml(metrics.goldenRftFoundryEvalId)}</span><br /><span class="mono-truncate" title="${escapeHtml(metrics.goldenRftPassCounts)}">${escapeHtml(metrics.goldenRftPassCounts)}</span></div>
+          <div class="metric-label">Optimized mean</div>
+          <div class="metric-value">${escapeHtml(metrics.optimizedFoundryMean)}</div>
+          <p>Version ${escapeHtml(metrics.optimizedAgentVersion)} with candidate_14 assets on gpt-6-astra.</p>
+          <div class="source"><span class="mono-truncate" title="${escapeHtml(metrics.optimizedFoundryEvalId)}">${escapeHtml(metrics.optimizedFoundryEvalId)}</span><br /><span class="mono-truncate" title="${escapeHtml(metrics.optimizedPassCounts)}">${escapeHtml(metrics.optimizedPassCounts)}</span></div>
+        </article>
+        <article class="performance-card">
+          <div class="metric-label">Tuned MAI mean</div>
+          <div class="metric-value">${escapeHtml(metrics.tunedFoundryMean)}</div>
+          <p>Version ${escapeHtml(metrics.tunedAgentVersion)} changes only the model deployment.</p>
+          <div class="source"><span class="mono-truncate" title="${escapeHtml(metrics.tunedFoundryEvalId)}">${escapeHtml(metrics.tunedFoundryEvalId)}</span><br /><span class="mono-truncate" title="${escapeHtml(metrics.tunedPassCounts)}">${escapeHtml(metrics.tunedPassCounts)}</span></div>
         </article>
       </div>
     </section>
 
     <section class="slider-card" aria-labelledby="cost-title">
       <div class="slider-head">
-        <h2 id="cost-title">Token cost comparison</h2>
+        <h2 id="cost-title">Estimated cost: Astra vs RFT MAI</h2>
         <div class="volume"><span id="volume-label"></span> evidence requests</div>
       </div>
       <input id="volume-slider" type="range" min="10000" max="5000000" step="10000" value="10000" aria-label="Evidence request volume" />
@@ -745,9 +874,11 @@ function renderHtml(instanceId) {
         <span>10k</span>
         <span>5M</span>
       </div>
-      <div id="cost-cards" class="cost-row"></div>
-      <div id="savings" class="savings"></div>
-      <p class="meta">Cost is computed from observed average input/output tokens per evidence request, then scaled by usage volume in 10k-request increments. ${escapeHtml(metrics.tokenCostBasis)}</p>
+      <div id="rate-fields" class="rate-grid" aria-label="Price assumptions"></div>
+      <p class="assumption-note">Defaults use published Azure Global Standard rates. Edit them if this deployment uses a different meter, discount, or capacity model.</p>
+      <div id="token-cards" class="cost-row"></div>
+      <div id="token-delta" class="savings"></div>
+      <p class="meta">${escapeHtml(metrics.tokenCostBasis)}</p>
     </section>
 
     <section class="layout" aria-label="Detailed comparison">
@@ -756,9 +887,10 @@ function renderHtml(instanceId) {
           <thead>
             <tr>
               <th>Area</th>
-              <th>gpt-5.5 + golden assets</th>
-              <th>RFT o4-mini + golden assets</th>
-              <th>Demo takeaway</th>
+              <th>Baseline</th>
+              <th>Optimized</th>
+              <th>Tuned MAI</th>
+              <th>Takeaway</th>
             </tr>
           </thead>
           <tbody id="comparison-body"></tbody>
@@ -784,21 +916,19 @@ function renderHtml(instanceId) {
     const metrics = ${jsonScript(metrics)};
 
     const formatter = new Intl.NumberFormat("en-US");
-    const currencyFormatter = new Intl.NumberFormat("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
     const comparisonBody = document.getElementById("comparison-body");
     const volumeSlider = document.getElementById("volume-slider");
     const volumeLabel = document.getElementById("volume-label");
-    const costCards = document.getElementById("cost-cards");
-    const savings = document.getElementById("savings");
+    const rateFields = document.getElementById("rate-fields");
+    const tokenCards = document.getElementById("token-cards");
+    const tokenDelta = document.getElementById("token-delta");
 
     comparisonBody.innerHTML = metrics.comparisonRows.map((row) => (
       "<tr>" +
       "<td data-label=\\"Area\\" title=\\"" + escapeHtml(row.area) + "\\">" + escapeHtml(row.area) + "</td>" +
-      "<td data-label=\\"Original\\" title=\\"" + escapeHtml(row.original) + "\\">" + escapeHtml(row.original) + "</td>" +
-      "<td data-label=\\"RFT\\" title=\\"" + escapeHtml(row.rft) + "\\">" + escapeHtml(row.rft) + "</td>" +
+      "<td data-label=\\"Baseline\\" title=\\"" + escapeHtml(row.baseline) + "\\">" + escapeHtml(row.baseline) + "</td>" +
+      "<td data-label=\\"Optimized\\" title=\\"" + escapeHtml(row.optimized) + "\\">" + escapeHtml(row.optimized) + "</td>" +
+      "<td data-label=\\"Tuned MAI\\" title=\\"" + escapeHtml(row.tuned) + "\\">" + escapeHtml(row.tuned) + "</td>" +
       "<td data-label=\\"Takeaway\\" class=\\"takeaway\\" title=\\"" + escapeHtml(row.takeaway) + "\\">" + escapeHtml(row.takeaway) + "</td>" +
       "</tr>"
     )).join("");
@@ -812,25 +942,57 @@ function renderHtml(instanceId) {
         .replaceAll("'", "&#39;");
     }
 
-    function renderCosts() {
+    const currencyFormatter = new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    rateFields.innerHTML = metrics.tokenOptions.map((option) => (
+      "<section class=\\"rate-card\\">" +
+        "<strong>" + escapeHtml(option.label) + "</strong>" +
+        "<div class=\\"rate-fields\\">" +
+          "<label>Input $/1M<input data-rate=\\"" + option.id + "-input\\" type=\\"number\\" min=\\"0\\" step=\\"0.01\\" value=\\"" + option.inputPricePerMillion + "\\" /></label>" +
+          "<label>Output $/1M<input data-rate=\\"" + option.id + "-output\\" type=\\"number\\" min=\\"0\\" step=\\"0.01\\" value=\\"" + option.outputPricePerMillion + "\\" /></label>" +
+        "</div>" +
+      "</section>"
+    )).join("");
+
+    function readPrice(option, kind) {
+      const input = document.querySelector("[data-rate='" + option.id + "-" + kind + "']");
+      return Number(input && input.value ? input.value : 0);
+    }
+
+    function renderTokenVolume() {
       const requestVolume = Number(volumeSlider.value);
-      const estimateCost = (option, requests) => {
+      const estimateTokens = (option, requests) => {
         const inputTokenVolume = Math.round((option.inputTokens / metrics.observedRequestCount) * requests);
         const outputTokenVolume = Math.round((option.outputTokens / metrics.observedRequestCount) * requests);
-        const cost = ((inputTokenVolume * option.inputPricePerMillion) + (outputTokenVolume * option.outputPricePerMillion)) / 1000000;
-        return { cost, inputTokenVolume, outputTokenVolume };
+        const inputPrice = readPrice(option, "input");
+        const outputPrice = readPrice(option, "output");
+        const cost = ((inputTokenVolume * inputPrice) + (outputTokenVolume * outputPrice)) / 1000000;
+        return {
+          inputTokenVolume,
+          outputTokenVolume,
+          totalTokenVolume: inputTokenVolume + outputTokenVolume,
+          inputPrice,
+          outputPrice,
+          cost,
+        };
       };
-      const estimateCurrentCost = (option) => estimateCost(option, requestVolume);
-      const large = estimateCurrentCost(metrics.costOptions[0]);
-      const rft = estimateCurrentCost(metrics.costOptions[1]);
-      const maxCost = Math.max(...metrics.costOptions.map((option) => estimateCurrentCost(option).cost));
+      const estimates = metrics.tokenOptions.map((option) => ({ option, estimate: estimateTokens(option, requestVolume) }));
+      const maxTokens = Math.max(...estimates.map(({ estimate }) => estimate.totalTokenVolume));
+      const optimized = estimates.find(({ option }) => option.id === "optimized").estimate;
+      const tuned = estimates.find(({ option }) => option.id === "tuned").estimate;
+      const extraOutput = tuned.outputTokenVolume - optimized.outputTokenVolume;
+      const outputDeltaPct = (extraOutput / optimized.outputTokenVolume) * 100;
+      const costDelta = optimized.cost - tuned.cost;
+      const hasPrices = estimates.some(({ estimate }) => estimate.inputPrice > 0 || estimate.outputPrice > 0);
       volumeLabel.textContent = formatter.format(requestVolume);
-      costCards.innerHTML = metrics.costOptions.map((option) => {
-        const estimate = estimateCurrentCost(option);
-        const cost = estimate.cost;
-        const width = Math.max(2, Math.round((cost / maxCost) * 100));
-        const extraClass = option.id === "rft" ? " is-rft" : "";
-        const costPerUsageUnit = estimateCost(option, metrics.usageUnitSize).cost;
+      tokenCards.innerHTML = estimates.map(({ option, estimate }) => {
+        const extraClass = option.id === "tuned" ? " is-rft" : "";
+        const perRequestInput = Math.round(option.inputTokens / metrics.observedRequestCount);
+        const perRequestOutput = Math.round(option.outputTokens / metrics.observedRequestCount);
+        const per10kCost = estimateTokens(option, metrics.usageUnitSize).cost;
         return (
           "<article class=\\"cost-card" + extraClass + "\\">" +
             "<div class=\\"cost-card-head\\">" +
@@ -838,19 +1000,27 @@ function renderHtml(instanceId) {
                 "<div class=\\"cost-name\\">" + escapeHtml(option.label) + "</div>" +
                 "<div class=\\"meta\\">" + escapeHtml(option.model) + "</div>" +
               "</div>" +
-              "<div class=\\"cost-subvalue\\">$" + currencyFormatter.format(costPerUsageUnit) + " / 10k requests</div>" +
+              "<div class=\\"cost-subvalue\\">$" + currencyFormatter.format(per10kCost) + " / 10k requests</div>" +
             "</div>" +
-            "<div class=\\"cost-value\\">$" + currencyFormatter.format(cost) + "</div>" +
+            "<div class=\\"cost-value\\">$" + currencyFormatter.format(estimate.cost) + "</div>" +
+            "<div class=\\"cost-subvalue\\">" + formatter.format(perRequestInput) + " in + " + formatter.format(perRequestOutput) + " out / request</div>" +
             "<div class=\\"cost-subvalue\\">" + formatter.format(estimate.inputTokenVolume) + " input + " + formatter.format(estimate.outputTokenVolume) + " output tokens</div>" +
-            "<div class=\\"bar\\" aria-hidden=\\"true\\"><span style=\\"width: " + width + "%\\"></span></div>" +
           "</article>"
         );
       }).join("");
-      savings.textContent = metrics.estimatedSavingsPercent + "% estimated savings; $" + currencyFormatter.format(large.cost - rft.cost) + " avoided across " + formatter.format(requestVolume) + " evidence requests.";
+      if (!hasPrices) {
+        tokenDelta.textContent = "Enter input/output prices per 1M tokens above to calculate cost. Token volume: RFT MAI emits " + formatter.format(extraOutput) + " more output tokens than Astra (" + outputDeltaPct.toFixed(1) + "%).";
+      } else if (costDelta >= 0) {
+        tokenDelta.textContent = "At " + formatter.format(requestVolume) + " requests, RFT MAI is $" + currencyFormatter.format(costDelta) + " lower than Astra under these price assumptions.";
+      } else {
+        tokenDelta.textContent = "At " + formatter.format(requestVolume) + " requests, RFT MAI is $" + currencyFormatter.format(Math.abs(costDelta)) + " higher than Astra under these price assumptions.";
+      }
     }
 
-    volumeSlider.addEventListener("input", renderCosts);
-    renderCosts();
+    volumeSlider.addEventListener("input", renderTokenVolume);
+    rateFields.addEventListener("input", renderTokenVolume);
+    renderTokenVolume();
+
   </script>
 </body>
 </html>`;
@@ -886,7 +1056,7 @@ await joinSession({
             id: "rft-cost-quality",
             displayName: "RFT Cost Quality",
             description:
-                "Interactive RFT cost and quality comparison with a token-cost savings slider.",
+                "RFT quality comparison for the current MAI tuned model, with cost evidence marked pending until measured usage is captured.",
             actions: [
                 {
                     name: "get_metrics",
