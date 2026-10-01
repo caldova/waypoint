@@ -6,6 +6,8 @@
  *   Ice Blue  #F4F7FC  (light fill)      -> blue-50
  *   Royal Blue #2E6CFC (core accent)     -> blue-600
  *   Navy      #16234B  (primary/brand)   -> blue-900
+ * Solid buttons with white text use blue-700 (6.5:1), hovering to blue-800.
+ * Royal Blue (4.5:1 with white) stays for links, icons and accents.
  */
 @theme {
   --color-blue-50: #f4f7fc;
@@ -54,6 +56,25 @@ html {
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
+}
+
+/*
+ * Reduced motion: decorative ping/pulse stop; spinners keep turning (they
+ * signal loading) but slowly.
+ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    transition: none;
+  }
+
+  .animate-ping,
+  .animate-pulse {
+    animation: none;
+  }
+
+  .animate-spin {
+    animation-duration: 2.4s;
+  }
 }
 
 /* Focus ring styles */

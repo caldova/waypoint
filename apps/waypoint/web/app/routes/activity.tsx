@@ -2,6 +2,8 @@ import type { MetaFunction } from "react-router";
 import { Link, useSearchParams } from "react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  HiChevronDown,
+  HiChevronRight,
   HiOutlineRefresh,
   HiOutlineClock,
   HiOutlineChip,
@@ -267,7 +269,7 @@ export default function Activity() {
               <h1 className="text-2xl font-semibold tracking-tight">
                 Active &amp; pending runs
               </h1>
-              <p className="mt-1 max-w-2xl text-sm text-slate-600">
+              <p className="mt-1 max-w-[65ch] text-sm leading-6 text-slate-600">
                 Live runs opened by the assurance pipeline, refreshed automatically. Open a
                 run to inspect the full expert fan-out in Agent Details.
               </p>
@@ -281,9 +283,12 @@ export default function Activity() {
               <button
                 type="button"
                 onClick={() => void fetchRuns()}
-                className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                className="inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 max-md:min-h-11"
               >
-                <HiOutlineRefresh className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                <HiOutlineRefresh
+                  className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
                 Refresh
               </button>
             </div>
@@ -317,10 +322,39 @@ export default function Activity() {
           {/* Active */}
           <Section title="Active" count={active.length} accent="blue">
             {active.length === 0 ? (
-              <EmptyRow
-                loading={loading}
-                message="No runs are executing right now."
-              />
+              <EmptyRow loading={loading} message="No runs are executing right now.">
+                <p className="mt-1">
+                  Runs start from the{" "}
+                  <Link
+                    to="/invoices"
+                    className="font-semibold text-blue-700 underline-offset-2 hover:underline"
+                  >
+                    invoice queue
+                  </Link>
+                  .
+                  {done.length > 0 ? (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDone(true);
+                          requestAnimationFrame(() =>
+                            document
+                              .getElementById("activity-completed-runs")
+                              ?.scrollIntoView({ block: "nearest" }),
+                          );
+                        }}
+                        className="font-semibold text-blue-700 underline-offset-2 hover:underline"
+                      >
+                        Review the {done.length} recently completed
+                        {done.length === 1 ? " run" : " runs"}
+                      </button>
+                      .
+                    </>
+                  ) : null}
+                </p>
+              </EmptyRow>
             ) : (
               <div className="grid gap-2">
                 {active.map((run) => (
@@ -362,12 +396,19 @@ export default function Activity() {
               <button
                 type="button"
                 onClick={() => setShowDone((v) => !v)}
-                className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+                aria-expanded={showDone}
+                aria-controls="activity-completed-runs"
+                className="-mx-2 inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-sm font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-950 max-md:min-h-11"
               >
+                {showDone ? (
+                  <HiChevronDown className="h-4 w-4" aria-hidden="true" />
+                ) : (
+                  <HiChevronRight className="h-4 w-4" aria-hidden="true" />
+                )}
                 {showDone ? "Hide" : "Show"} recently completed ({done.length})
               </button>
               {showDone ? (
-                <div className="mt-2 grid gap-2">
+                <div id="activity-completed-runs" className="mt-2 grid gap-2">
                   {done.slice(0, 25).map((run) => (
                     <RunCard
                       key={run.id}
@@ -451,10 +492,25 @@ function Section({
   );
 }
 
-function EmptyRow({ loading, message }: { loading: boolean; message: string }) {
+function EmptyRow({
+  loading,
+  message,
+  children,
+}: {
+  loading: boolean;
+  message: string;
+  children?: React.ReactNode;
+}) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
-      {loading ? "Loading…" : message}
+    <div className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-600">
+      {loading ? (
+        "Loading…"
+      ) : (
+        <>
+          <p className="font-medium text-slate-700">{message}</p>
+          {children}
+        </>
+      )}
     </div>
   );
 }
@@ -536,26 +592,26 @@ function RunCard({
         <div className="flex items-center gap-3">
           {typeof meta.money_at_risk === "number" && meta.money_at_risk > 0 ? (
             <span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-700">
-              <HiOutlineCurrencyDollar className="h-4 w-4 text-slate-400" />
+              <HiOutlineCurrencyDollar className="h-4 w-4 text-slate-500" aria-hidden="true" />
               {formatMoney(meta.money_at_risk)}
             </span>
           ) : null}
           <Link
             to="/agent"
-            className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 max-md:min-h-11 max-md:px-3"
           >
             Details
-            <HiOutlineExternalLink className="h-3.5 w-3.5" />
+            <HiOutlineExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
           {traceLink ? (
             <a
               href={traceLink}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 max-md:min-h-11 max-md:px-3"
             >
               Open trace
-              <HiOutlineExternalLink className="h-3.5 w-3.5" />
+              <HiOutlineExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
             </a>
           ) : null}
         </div>

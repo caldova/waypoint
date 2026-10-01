@@ -63,7 +63,7 @@ export default function Login() {
           {auth.status === "authenticated" ? (
             <Link
               to={returnTo}
-              className="flex min-h-10 w-full items-center justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+              className="flex min-h-11 w-full items-center justify-center rounded-md bg-blue-700 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800"
             >
               Continue
             </Link>
@@ -72,7 +72,7 @@ export default function Login() {
               type="button"
               onClick={handleSignIn}
               disabled={signInDisabled}
-              className="flex min-h-10 w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {auth.isSigningOut
                 ? "Finishing sign-out..."

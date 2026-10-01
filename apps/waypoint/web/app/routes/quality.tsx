@@ -230,7 +230,7 @@ export default function Quality() {
     <RequireAuth>
       <div className="min-h-screen bg-slate-50 text-slate-950">
         <AppHeader />
-        <main id="main-content" className="mx-auto max-w-[1400px] px-4 py-6 lg:px-8">
+        <main id="main-content" className="mx-auto max-w-[1500px] px-3 py-4 2xl:px-4">
           {error ? <QualityError message={error} /> : null}
           {!manifest && !error ? <QualitySkeleton /> : null}
           {manifest ? (
@@ -282,10 +282,10 @@ function Hero({
               Schema v{manifest.schemaVersion}
             </span>
           </div>
-          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950">
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">
             Quality &amp; optimization
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+          <p className="mt-2 max-w-[65ch] text-sm leading-6 text-slate-600">
             Follow one controlled loop: generate invoice evidence, inspect its trace, measure the
             agent, improve it, and require approval before release. GitHub Actions and Foundry own
             the work; this browser only explains the path and links to it.
@@ -315,7 +315,7 @@ function GovernanceStrip({ environment }: { environment: string }) {
       </span>
       <div>
         <h2 className="text-sm font-semibold text-blue-950">Why these operations are guarded</h2>
-        <p className="mt-1 text-sm leading-6 text-blue-800">
+        <p className="mt-1 max-w-[80ch] text-sm leading-6 text-blue-800">
           Every cloud action runs in GitHub Actions so inputs, credentials, evidence, and
           approvals stay auditable. This page never runs cloud commands in your browser.
         </p>
@@ -695,7 +695,7 @@ function ExternalAction({
         "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-sm font-semibold transition",
         href ? "active:translate-y-px" : "cursor-not-allowed opacity-50",
         primary
-          ? "bg-blue-600 text-white shadow-sm hover:bg-blue-700"
+          ? "bg-blue-700 text-white shadow-sm hover:bg-blue-800"
           : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
       ].join(" ")}
     >
@@ -716,7 +716,7 @@ function PolicyLink({ href, children }: { href: string | null; children: ReactNo
         "flex min-h-11 items-center justify-between rounded-lg border border-slate-200 px-3 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500",
         href
           ? "text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-          : "cursor-not-allowed text-slate-400",
+          : "cursor-not-allowed text-slate-500",
       ].join(" ")}
     >
       {children}

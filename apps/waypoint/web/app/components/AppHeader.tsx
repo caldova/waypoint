@@ -1,8 +1,8 @@
 import { NavLink } from "react-router";
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useOutletContext } from "react-router";
+import { useLocation, useNavigate, useOutletContext } from "react-router";
 import type { ReactNode } from "react";
-import { HiChevronDown, HiLogout } from "react-icons/hi";
+import { HiChevronDown, HiLogout, HiMenu, HiX } from "react-icons/hi";
 import { useAuth, type UserProfile } from "./AuthProvider";
 
 interface RootOutletContext {
@@ -17,8 +17,31 @@ export function AppHeader() {
   const auth = useAuth();
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isNavOpen, setIsNavOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const navToggleRef = useRef<HTMLButtonElement>(null);
+  const { pathname } = useLocation();
   const user = auth.user;
+
+  useEffect(() => {
+    setIsNavOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isNavOpen) {
+      return;
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsNavOpen(false);
+        navToggleRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [isNavOpen]);
 
   useEffect(() => {
     if (!isUserMenuOpen) {
@@ -60,7 +83,7 @@ export function AppHeader() {
         Skip to main content
       </a>
       <header className="relative z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center justify-between gap-3 px-3 py-1.5 2xl:px-4">
+        <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-3 py-1.5 2xl:px-4">
           <div className="flex items-center gap-3">
             <img
               src="/caldova-logo.png"
@@ -73,15 +96,17 @@ export function AppHeader() {
             />
             <p className="text-sm font-semibold text-blue-900">Waypoint</p>
           </div>
-          <nav
-            className="flex flex-wrap items-center gap-1.5"
-            aria-label="Primary navigation"
-          >
-            <AppNavLink to="/">Overview</AppNavLink>
-            <AppNavLink to="/invoices">Invoices</AppNavLink>
-            <AppNavLink to="/activity">Activity</AppNavLink>
-            <AppNavLink to="/agent">Agent Details</AppNavLink>
-            <AppNavLink to="/quality">Quality</AppNavLink>
+          <div className="flex items-center gap-1.5">
+            <nav
+              className="hidden items-center gap-1.5 lg:flex"
+              aria-label="Primary navigation"
+            >
+              {NAV_ITEMS.map((item) => (
+                <AppNavLink key={item.to} to={item.to}>
+                  {item.label}
+                </AppNavLink>
+              ))}
+            </nav>
             {user ? (
               <UserMenu
                 user={user}
@@ -93,12 +118,51 @@ export function AppHeader() {
                 ref={userMenuRef}
               />
             ) : null}
-          </nav>
+            <button
+              ref={navToggleRef}
+              type="button"
+              onClick={() => setIsNavOpen((value) => !value)}
+              aria-expanded={isNavOpen}
+              aria-controls="app-nav-menu"
+              className="flex h-11 w-11 items-center justify-center rounded-md text-slate-700 hover:bg-slate-100 lg:hidden"
+            >
+              {isNavOpen ? (
+                <HiX className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <HiMenu className="h-5 w-5" aria-hidden="true" />
+              )}
+              <span className="sr-only">Menu</span>
+            </button>
+          </div>
         </div>
+        <nav
+          id="app-nav-menu"
+          hidden={!isNavOpen}
+          className="border-t border-slate-200 px-3 py-2 lg:hidden"
+          aria-label="Primary navigation"
+        >
+          <ul className="mx-auto grid max-w-[1500px] gap-1 sm:grid-cols-2">
+            {NAV_ITEMS.map((item) => (
+              <li key={item.to}>
+                <AppNavLink to={item.to} block>
+                  {item.label}
+                </AppNavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </header>
     </>
   );
 }
+
+const NAV_ITEMS = [
+  { to: "/", label: "Overview" },
+  { to: "/invoices", label: "Invoices" },
+  { to: "/activity", label: "Activity" },
+  { to: "/agent", label: "Agent Details" },
+  { to: "/quality", label: "Quality" },
+];
 
 function UserMenu({
   user,
@@ -129,7 +193,7 @@ function UserMenu({
       <button
         type="button"
         onClick={onToggle}
-        className="flex items-center gap-2 rounded-md px-1.5 py-0.5 text-left hover:bg-slate-50"
+        className="flex items-center gap-2 rounded-md px-1.5 py-0.5 text-left hover:bg-slate-50 max-lg:min-h-11"
         aria-haspopup="menu"
         aria-expanded={isOpen}
       >
@@ -186,14 +250,24 @@ function UserMenu({
   );
 }
 
-function AppNavLink({ to, children }: { to: string; children: ReactNode }) {
+function AppNavLink({
+  to,
+  block = false,
+  children,
+}: {
+  to: string;
+  block?: boolean;
+  children: ReactNode;
+}) {
   return (
     <NavLink
       to={to}
       end={to === "/"}
       className={({ isActive }) =>
         [
-          "rounded-md px-2.5 py-1 text-sm font-medium transition",
+          block
+            ? "flex min-h-11 items-center rounded-md px-3 text-base font-medium transition"
+            : "rounded-md px-2.5 py-1 text-sm font-medium transition",
           isActive
             ? "bg-blue-100 text-blue-900 ring-1 ring-blue-200"
             : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
