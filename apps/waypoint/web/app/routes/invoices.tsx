@@ -19,6 +19,7 @@ import { authFetch } from "../../lib/msalAuth";
 import { AppHeader } from "../components/AppHeader";
 import { useAuth } from "../components/AuthProvider";
 import { RequireAuth } from "../components/RequireAuth";
+import { useModalDialog } from "../hooks/useModalDialog";
 
 export const meta: MetaFunction = () => [
   { title: "Invoices - Waypoint" },
@@ -481,17 +482,7 @@ export default function Invoices() {
   useEffect(() => {
     if (!selectedDecision) {
       setInvoiceDetail(null);
-      return;
     }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setSelectedDecision(null);
-      }
-    }
-
-    document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
   }, [selectedDecision]);
 
   const openDocumentPreview = useCallback(
@@ -1492,19 +1483,13 @@ function BatchAssuranceConfirmation({
     (sum, row) => sum + overpaymentAmount(row),
     0,
   );
-
-  useEffect(() => {
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape" && !loading) {
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [loading, onClose]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  useModalDialog(dialogRef, { onClose, initialFocusRef: confirmRef, canClose: !loading });
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
@@ -1583,9 +1568,9 @@ function BatchAssuranceConfirmation({
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+            ref={confirmRef}
             onClick={onConfirm}
             disabled={loading}
-            autoFocus
           >
             {loading ? (
               <HiRefresh className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -2337,25 +2322,39 @@ function DecisionDrawer({
 
   const hasDecision = decision.has_agent_decision;
   const activeRun = decision.has_active_run;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useModalDialog(dialogRef, { onClose, initialFocusRef: headingRef });
 
   return (
-    <div className="absolute inset-0 z-30 flex justify-end">
-      <button
-        type="button"
+    <div
+      ref={dialogRef}
+      className="absolute inset-0 z-30 flex justify-end"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="decision-drawer-title"
+      aria-describedby="decision-drawer-subtitle"
+    >
+      {/* Pointer-only backdrop; keyboard users close with Escape or the Close button. */}
+      <div
         className="absolute inset-0 cursor-default bg-slate-950/20"
-        aria-label="Close decision context"
+        aria-hidden="true"
         onClick={onClose}
       />
-      <aside
-        className="relative z-10 flex h-full w-full max-w-[520px] flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl"
-        aria-label={`Decision context for ${decision.invoice_number}`}
-      >
+      {/* An unnamed <section> keeps the header/footer below from becoming page landmarks. */}
+      <section className="relative z-10 flex h-full w-full max-w-[520px] flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-3">
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold text-slate-950">
+            <h2
+              ref={headingRef}
+              id="decision-drawer-title"
+              tabIndex={-1}
+              className="truncate rounded-sm text-lg font-semibold text-slate-950 focus-visible:outline-offset-0"
+            >
+              <span className="sr-only">Decision context for invoice </span>
               {decision.invoice_number}
             </h2>
-            <p className="truncate text-sm text-slate-600">
+            <p id="decision-drawer-subtitle" className="truncate text-sm text-slate-600">
               {decision.supplier_name}
               {invoiceTotal ? ` · ${invoiceTotal} invoiced` : ""}
             </p>
@@ -2546,7 +2545,7 @@ function DecisionDrawer({
             )}
           </footer>
         ) : null}
-      </aside>
+      </section>
     </div>
   );
 }
@@ -3426,37 +3425,13 @@ function RunAssuranceConfirmation({
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  // Captured during the first render, before focus moves into the dialog.
-  const [opener] = useState(() =>
-    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
-  );
+  const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    cancelRef.current?.focus();
-    // Return focus to whatever opened the dialog (the run button) when it closes.
-    return () => {
-      if (opener && document.contains(opener)) {
-        opener.focus();
-      }
-    };
-  }, [opener]);
-
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        // Capture + stop so Escape closes this dialog without also closing the drawer.
-        event.stopPropagation();
-        if (!triggering) {
-          onClose();
-        }
-      }
-    }
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [triggering, onClose]);
+  useModalDialog(dialogRef, { onClose, initialFocusRef: cancelRef, canClose: !triggering });
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-4 sm:items-center"
       role="dialog"
       aria-modal="true"
@@ -3947,21 +3922,13 @@ function LightboxShell({
   dense?: boolean;
   children: ReactNode;
 }) {
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        // Capture phase + stop propagation so ESC closes the viewer first, without also
-        // closing the decision drawer underneath it.
-        event.stopPropagation();
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useModalDialog(dialogRef, { onClose, initialFocusRef: headingRef });
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm sm:p-6"
       role="dialog"
       aria-modal="true"
@@ -3981,14 +3948,16 @@ function LightboxShell({
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-700">
               {subtitle}
             </p>
-            <h2 className="mt-1 text-xl font-semibold">{title}</h2>
+            <h2 ref={headingRef} tabIndex={-1} className="mt-1 rounded-sm text-xl font-semibold">
+              {title}
+            </h2>
           </div>
           <button
             type="button"
             className="rounded-md p-1 text-slate-400 hover:bg-slate-50"
             onClick={onClose}
           >
-            <HiX className="h-5 w-5" />
+            <HiX className="h-5 w-5" aria-hidden="true" />
             <span className="sr-only">Close preview</span>
           </button>
         </div>

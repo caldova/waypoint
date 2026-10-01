@@ -1,6 +1,6 @@
 import type { MetaFunction } from "react-router";
 import type { ComponentType, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   HiArrowsExpand,
   HiChatAlt2,
@@ -23,6 +23,8 @@ import { authFetch } from "../../lib/msalAuth";
 import { AppHeader } from "../components/AppHeader";
 import { useAuth } from "../components/AuthProvider";
 import { RequireAuth } from "../components/RequireAuth";
+import { useModalDialog } from "../hooks/useModalDialog";
+import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 
 export const meta: MetaFunction = () => [
   { title: "Runs - Waypoint" },
@@ -1390,16 +1392,13 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
   );
   const invoiceLabel = meta.invoice_number || meta.invoice_id || run.name;
 
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useModalDialog(dialogRef, { onClose, initialFocusRef: headingRef });
 
   return (
     <div
+      ref={dialogRef}
       className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/40 p-4"
       role="dialog"
       aria-modal="true"
@@ -1415,7 +1414,11 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-700">
               Agent run · what it found
             </p>
-            <h2 className="mt-1 flex flex-wrap items-center gap-2 text-xl font-semibold">
+            <h2
+              ref={headingRef}
+              tabIndex={-1}
+              className="mt-1 flex flex-wrap items-center gap-2 rounded-sm text-xl font-semibold"
+            >
               {invoiceLabel}
               <span
                 className={`rounded-md px-2 py-0.5 text-xs font-semibold uppercase capitalize ring-1 ${decisionStyle(
@@ -1434,7 +1437,7 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
             className="rounded-md p-1 text-slate-400 hover:bg-slate-50"
             onClick={onClose}
           >
-            <HiX className="h-5 w-5" />
+            <HiX className="h-5 w-5" aria-hidden="true" />
             <span className="sr-only">Close run detail</span>
           </button>
         </div>
@@ -1554,6 +1557,9 @@ interface MapNode {
   active: boolean;
   /** Placeholder slot: shown softly in its accent colour rather than greyed out. */
   ghost?: boolean;
+  /** Evidence sources only: cited claims and their mean confidence (0-1). */
+  citations?: number;
+  avgConfidence?: number | null;
   hex: string;
   img?: string;
   icon: ComponentType<{ className?: string }>;
@@ -1800,6 +1806,8 @@ function evidenceNodeFor(
       ...new Set(evidence.map((item) => cleanSourceRef(item.source_ref ?? "")).filter(Boolean)),
     ],
     active,
+    citations: evidence.length,
+    avgConfidence: avg,
     hex: meta.hex,
     img: meta.img,
     icon: meta.icon,
@@ -2123,6 +2131,30 @@ function useMapView() {
     [clampZoom, startAnimation],
   );
 
+  // Pan (without zooming) so a keyboard-focused bubble or tile that sits
+  // partly outside the viewport comes fully into view.
+  const revealElement = useCallback(
+    (target: HTMLElement) => {
+      const el = viewportRef.current;
+      if (!el) return;
+      const box = el.getBoundingClientRect();
+      const rect = target.getBoundingClientRect();
+      const margin = 16;
+      const shift = (start: number, size: number, min: number, max: number) => {
+        if (size > max - min - 2 * margin) return (min + max) / 2 - (start + size / 2);
+        if (start < min + margin) return min + margin - start;
+        if (start + size > max - margin) return max - margin - (start + size);
+        return 0;
+      };
+      const dx = shift(rect.left, rect.width, box.left, box.right);
+      const dy = shift(rect.top, rect.height, box.top, box.bottom);
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+      startAnimation();
+      setView((v) => ({ ...v, x: v.x + dx, y: v.y + dy }));
+    },
+    [startAnimation],
+  );
+
   // d3 "zoomable pack" style: fit a whole bubble in view with breathing room.
   const zoomToCircle = useCallback(
     ({ cx, cy, r }: Circle) => {
@@ -2209,10 +2241,13 @@ function useMapView() {
     fitScale,
     isDragging,
     isAnimating,
+    canZoomIn: view.scale < fitScale * MAX_ZOOM - 1e-6,
+    canZoomOut: view.scale > fitScale * MIN_ZOOM + 1e-6,
     zoomIn: () => zoomByButton(1.25),
     zoomOut: () => zoomByButton(1 / 1.25),
     resetView: () => applyFit(true),
     focusOn,
+    revealElement,
     zoomToCircle,
     wasDragged: () => draggedRef.current,
     onPointerDown,
@@ -2279,6 +2314,9 @@ function EvidenceMap({
   }
 
   const map = useMapView();
+  const reducedMotion = usePrefersReducedMotion();
+  const [mode, setMode] = useAgentMapMode();
+  const hintId = useId();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [focusKey, setFocusKey] = useState<BubbleKey | null>(null);
   const relativeZoom = map.view.scale / map.fitScale;
@@ -2308,7 +2346,7 @@ function EvidenceMap({
   );
   const counterScale = tileGrowth / map.view.scale;
   const transition = map.isAnimating ? `transform ${MAP_ANIM_MS}ms ${MAP_EASE}` : undefined;
-  const fade = `opacity 450ms ${MAP_EASE}, transform 450ms ${MAP_EASE}`;
+  const fade = reducedMotion ? undefined : `opacity 450ms ${MAP_EASE}, transform 450ms ${MAP_EASE}`;
   const dotSpacing = 18 * map.view.scale;
 
   const resetView = () => {
@@ -2336,365 +2374,590 @@ function EvidenceMap({
     key = bubbleByKey.get(key)?.parent;
   }
 
+  // Keyboard focus on an off-screen bubble or tile pans it into view.
+  const revealOnKeyboardFocus = (event: React.FocusEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement;
+    if (target.matches(":focus-visible")) map.revealElement(target);
+  };
+
   let tileIndex = 0;
 
   return (
     <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
         <h3 className="text-sm font-semibold text-slate-800">Agent map</h3>
-        <p className="text-xs text-slate-500">
-          {agentCount} {agentCount === 1 ? "agent" : "agents"} · {activeSources} of{" "}
-          {sourceNodes.length} evidence sources used
-        </p>
-      </div>
-
-      <div className="relative mt-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-        <nav
-          aria-label="Map zoom level"
-          className="absolute left-2 top-2 z-20 flex items-center gap-0.5 rounded-md border border-slate-200 bg-white/90 px-1 py-0.5 text-xs shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_-6px_rgba(15,23,42,0.18)] backdrop-blur"
-        >
-          <button
-            type="button"
-            onClick={resetView}
-            className={`rounded px-1.5 py-1 font-medium transition hover:bg-slate-100 ${
-              trail.length === 0 ? "text-slate-900" : "text-slate-500"
-            }`}
-          >
-            All agents
-          </button>
-          {trail.map((key, index) => {
-            const bubble = bubbleByKey.get(key);
-            const last = index === trail.length - 1;
-            return (
-              <span key={key} className="flex items-center gap-0.5">
-                <HiChevronRight className="h-3 w-3 text-slate-400" aria-hidden="true" />
-                <button
-                  type="button"
-                  onClick={() => bubble && zoomInto(bubble)}
-                  aria-current={last ? "location" : undefined}
-                  className={`rounded px-1.5 py-1 font-medium transition hover:bg-slate-100 ${
-                    last ? "text-violet-700" : "text-slate-500"
-                  }`}
-                >
-                  {BUBBLE_NAMES[key]}
-                </button>
-              </span>
-            );
-          })}
-        </nav>
-        <div className="absolute right-2 top-2 z-20 flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_-6px_rgba(15,23,42,0.18)]">
-          <MapControl label="Zoom in" onClick={map.zoomIn}>
-            <HiPlus className="h-4 w-4" />
-          </MapControl>
-          <MapControl label="Zoom out" onClick={map.zoomOut} bordered>
-            <HiMinus className="h-4 w-4" />
-          </MapControl>
-          <MapControl label="Fit map to view" onClick={resetView} bordered>
-            <HiArrowsExpand className="h-3.5 w-3.5" />
-          </MapControl>
-        </div>
-        <span className="pointer-events-none absolute bottom-2 left-3 z-20 text-[11px] text-slate-500">
-          Click a bubble to zoom in · click empty space to zoom out · scroll to zoom · drag to pan
-        </span>
-
-        <div
-          ref={map.viewportRef}
-          className="relative h-[500px] touch-none select-none"
-          style={{
-            cursor: map.isDragging ? "grabbing" : "grab",
-            backgroundImage: [
-              "radial-gradient(circle, rgb(203 213 225 / 0.75) 1px, transparent 1.4px)",
-              "radial-gradient(ellipse 60% 70% at 50% 50%, rgb(237 233 254 / 0.8), transparent 70%)",
-              "linear-gradient(180deg, #f8fafc, #f1f5f9)",
-            ].join(", "),
-            backgroundSize: `${dotSpacing}px ${dotSpacing}px, 100% 100%, 100% 100%`,
-            backgroundPosition: `${map.view.x}px ${map.view.y}px, 0 0, 0 0`,
-          }}
-          onPointerDown={map.onPointerDown}
-          onPointerMove={map.onPointerMove}
-          onPointerUp={map.endDrag}
-          onPointerCancel={map.endDrag}
-          onClick={() => {
-            if (!map.wasDragged()) zoomOut();
-          }}
-          role="group"
-          aria-label={`Agent map: ${bubbles
-            .filter((bubble) => bubble.nodes.length > 0)
-            .map((bubble) => `${BUBBLE_NAMES[bubble.key]} with ${bubble.nodes.map((node) => node.label).join(", ")}`)
-            .join("; ")}`}
-        >
-          <style>{`
-            @keyframes em-pop {
-              from { opacity: 0; transform: scale(.6); filter: blur(4px); }
-              to { opacity: 1; transform: scale(1); filter: blur(0); }
-            }
-            @keyframes em-dash { to { stroke-dashoffset: -26; } }
-            .em-bubble { transition: filter 200ms ease-out, opacity 450ms ${MAP_EASE}, transform 450ms ${MAP_EASE}; }
-            .em-bubble:hover { filter: brightness(1.04) saturate(1.08); }
-            .em-bubble:focus-visible { outline: 4px solid #7c3aed; outline-offset: 6px; }
-            @media (prefers-reduced-motion: no-preference) {
-              .em-pop { animation: em-pop 520ms ${MAP_EASE} both; }
-              .em-flow { animation: em-dash 1.2s linear infinite; }
-            }
-          `}</style>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-xs text-slate-600">
+            {agentCount} {agentCount === 1 ? "agent" : "agents"} · {activeSources} of{" "}
+            {sourceNodes.length} evidence sources used
+          </p>
           <div
-            className="absolute left-0 top-0 origin-top-left"
-            style={{
-              width: MAP_W,
-              height: MAP_H,
-              transform: `translate(${map.view.x}px, ${map.view.y}px) scale(${map.view.scale})`,
-              transition,
-            }}
+            role="group"
+            aria-label="Agent map view"
+            className="flex rounded-md border border-slate-200 bg-white p-0.5 text-xs font-medium"
           >
-            <svg
-              className="absolute inset-0 overflow-visible"
-              width={MAP_W}
-              height={MAP_H}
-              viewBox={`0 0 ${MAP_W} ${MAP_H}`}
-              aria-hidden="true"
-            >
-              <defs>
-                <marker
-                  id="em-arrow"
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="7"
-                  markerHeight="7"
-                  orient="auto-start-reverse"
-                >
-                  <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
-                </marker>
-              </defs>
-              {connectors.map(({ from, to, label }) => {
-                const a = bubbleByKey.get(from);
-                const b = bubbleByKey.get(to);
-                if (!a || !b) return null;
-                const mid = {
-                  x: (edgePoint(a, b.cx, b.cy).x + edgePoint(b, a.cx, a.cy).x) / 2,
-                  y: (edgePoint(a, b.cx, b.cy).y + edgePoint(b, a.cx, a.cy).y) / 2,
-                };
-                return (
-                  <g key={`${from}-${to}`}>
-                    <path
-                      d={connectorPath(a, b)}
-                      fill="none"
-                      stroke="#64748b"
-                      strokeWidth={3}
-                      strokeDasharray="8 5"
-                      strokeLinecap="round"
-                      markerEnd="url(#em-arrow)"
-                      className="em-flow"
-                    />
-                    {label ? (
-                      <text
-                        x={mid.x + 12}
-                        y={mid.y + 6}
-                        className="fill-slate-500 text-[18px] font-medium"
-                      >
-                        {label}
-                      </text>
-                    ) : null}
-                  </g>
-                );
-              })}
-            </svg>
-
-            {bubbles.map((bubble) => {
-              const isChild = Boolean(bubble.parent);
-              const visible = !isChild || childrenInteractive;
-              const opacity = isChild ? childReveal : 1;
-              const circle = {
-                left: bubble.cx - bubble.r,
-                top: bubble.cy - bubble.r,
-                width: bubble.r * 2,
-                height: bubble.r * 2,
-              };
-              return (
-                <div key={bubble.key}>
-                  <button
-                    type="button"
-                    tabIndex={visible ? 0 : -1}
-                    aria-hidden={visible ? undefined : true}
-                    aria-label={`Zoom into ${BUBBLE_NAMES[bubble.key]}`}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (!map.wasDragged()) zoomInto(bubble);
-                    }}
-                    className="em-bubble absolute cursor-zoom-in rounded-full"
-                    style={{
-                      ...circle,
-                      background: bubble.background,
-                      border: bubble.border,
-                      boxShadow: bubble.shadow,
-                      opacity,
-                      // Children settle into place as they fade in.
-                      transform: isChild ? `scale(${0.9 + 0.1 * childReveal})` : undefined,
-                      pointerEvents: visible ? "auto" : "none",
-                    }}
-                  />
-                  {bubble.titlePlacement !== "none" ? (
-                    <div
-                      className={`pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[26px] font-semibold leading-none tracking-tight ${
-                        bubble.titleTone === "light"
-                          ? "text-white [text-shadow:0_1px_12px_rgb(30_27_75/0.6)]"
-                          : "text-slate-800"
-                      } ${bubble.titlePlacement === "above" ? "-translate-y-full" : ""}`}
-                      style={{
-                        left: bubble.cx,
-                        top:
-                          bubble.titlePlacement === "above"
-                            ? bubble.cy - bubble.r - (isChild ? 12 : 18)
-                            : bubble.cy + bubble.r + 18,
-                        opacity,
-                        transition: fade,
-                      }}
-                    >
-                      {bubble.title}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-
-            {caldovaBubble ? (
-              <>
-                <div
-                  className="pointer-events-none absolute flex w-[420px] flex-col items-center text-center text-white"
-                  style={{
-                    left: caldovaBubble.cx,
-                    top: caldovaBubble.cy,
-                    opacity: 1 - childReveal,
-                    transform: `translate(-50%, -50%) scale(${1 + 0.06 * childReveal})`,
-                    transition: fade,
-                  }}
-                  aria-hidden={childrenInteractive ? true : undefined}
-                >
-                  <span className="text-[34px] font-semibold leading-tight tracking-tight">
-                    Caldova IQ
-                  </span>
-                  <span className="mt-1 text-[104px] font-semibold leading-none tracking-[-0.035em] tabular-nums [text-shadow:0_4px_18px_rgb(30_27_75/0.35)]">
-                    {allCitations}
-                  </span>
-                  <span className="mt-2 text-[21px] text-violet-100">
-                    {allCitations === 1 ? "citation" : "citations"}
-                    {typeof confidence === "number"
-                      ? ` · ${Math.round(confidence * 100)}% confidence`
-                      : ""}
-                  </span>
-                  <span className="mt-7 flex items-center gap-2.5 text-[17px] font-medium">
-                    <PackChip dot="#60a5fa" label="Microsoft IQ" value={iqCitations} />
-                    <PackChip
-                      dot="#67e8f9"
-                      label="Integrations"
-                      value={allCitations - iqCitations}
-                    />
-                  </span>
-                  <span className="mt-4 inline-flex items-center gap-1 text-[16px] font-medium text-violet-100">
-                    Click to explore
-                    <HiChevronRight className="h-4 w-4" aria-hidden="true" />
-                  </span>
-                </div>
-                <div
-                  className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[22px] font-semibold tracking-tight text-white"
-                  style={{
-                    left: caldovaBubble.cx,
-                    top: caldovaBubble.cy - caldovaBubble.r + 30,
-                    opacity: childReveal,
-                    transition: fade,
-                  }}
-                  aria-hidden="true"
-                >
-                  Caldova IQ
-                </div>
-              </>
-            ) : null}
-
-            {microsoftBubble ? (
-              <div
-                className="pointer-events-none absolute flex w-[190px] flex-col items-center text-center"
-                style={{
-                  left: microsoftBubble.cx,
-                  top: microsoftBubble.cy,
-                  opacity: childReveal,
-                  transform: `translate(-50%, -50%) scale(${0.9 + 0.1 * childReveal})`,
-                  transition: fade,
-                }}
-                aria-hidden={childrenInteractive ? undefined : true}
+            {(["map", "list"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={mode === option}
+                onClick={() => setMode(option)}
+                className={`rounded px-2.5 py-1 transition-colors ${
+                  mode === option
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                }`}
               >
-                <span className="text-[16px] font-semibold tracking-tight text-slate-900">
-                  Microsoft IQ
-                </span>
-                <span className="mt-0.5 text-[38px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-slate-900">
-                  {iqCitations}
-                </span>
-                <span className="mt-1 text-[12px] text-slate-600">
-                  {iqCitations === 1 ? "citation" : "citations"} · {activeIq} of {iqNodes.length}{" "}
-                  sources
-                </span>
-              </div>
-            ) : null}
-
-            {bubbles.flatMap((bubble) => {
-              const isChild = Boolean(bubble.parent);
-              const visible = !isChild || childrenInteractive;
-              const level = isChild ? innerLevel : outerLevel;
-              return bubble.nodes.map((node) => {
-                const delay = 120 + tileIndex++ * 60;
-                const selected = node.key === selectedKey;
-                return (
-                  <div
-                    key={node.key}
-                    className="absolute h-0 w-0"
-                    style={{
-                      left: node.x,
-                      top: node.y,
-                      zIndex: selected ? 10 : undefined,
-                      opacity: isChild ? childReveal : 1,
-                      pointerEvents: visible ? undefined : "none",
-                      transition: fade,
-                    }}
-                    inert={!visible}
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    {/* Anchor on the icon's centre so labels and detail hang below it. */}
-                    <div
-                      className="absolute left-0 top-0"
-                      style={{
-                        transform: `scale(${counterScale}) translate(-50%, ${
-                          level === "compact" ? -14 : -21
-                        }px)`,
-                        transformOrigin: "0 0",
-                        transition,
-                      }}
-                    >
-                      <div className="em-pop" style={{ animationDelay: `${delay}ms` }}>
-                        <MapTile
-                          node={node}
-                          level={selected && level !== "compact" ? "detail" : level}
-                          selected={selected}
-                          onSelect={() => {
-                            if (map.wasDragged()) return;
-                            setSelectedKey(node.key);
-                            setFocusKey(bubble.key);
-                            map.focusOn(node.x, node.y, 110);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              });
-            })}
+                {option === "map" ? "Map" : "List"}
+              </button>
+            ))}
           </div>
         </div>
       </div>
-      <p className="mt-1.5 text-xs leading-5 text-slate-500">
-        Caldova IQ holds every evidence source the orchestrator can call: Microsoft IQ (FabricIQ,
-        FoundryIQ, WebIQ, WorkIQ) and third-party integrations. Click it to zoom in. Tiles in
-        colour cited evidence in this run; faded tiles weren't used. Waypoint Recorder remains the
-        sole writer of the governed run, case, and recommendation.
+
+      {mode === "list" ? (
+        <AgentMapList
+          bubbles={bubbles}
+          allCitations={allCitations}
+          iqCitations={iqCitations}
+          activeSources={activeSources}
+          totalSources={sourceNodes.length}
+          confidence={confidence}
+        />
+      ) : null}
+      {/* Kept mounted while hidden so the map's resize and wheel listeners stay bound. */}
+      <div hidden={mode !== "map"}>
+        <div className="relative mt-2 overflow-clip rounded-xl border border-slate-200 bg-slate-50">
+          <nav
+            aria-label="Map zoom level"
+            className="absolute left-2 top-2 z-20 flex items-center gap-0.5 rounded-md border border-slate-200 bg-white/90 px-1 py-0.5 text-xs shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_-6px_rgba(15,23,42,0.18)] backdrop-blur"
+          >
+            <button
+              type="button"
+              onClick={resetView}
+              aria-current={trail.length === 0 ? "location" : undefined}
+              className={`rounded px-1.5 py-1 font-medium transition-colors hover:bg-slate-100 ${
+                trail.length === 0 ? "text-slate-900" : "text-slate-600"
+              }`}
+            >
+              All agents
+            </button>
+            {trail.map((key, index) => {
+              const bubble = bubbleByKey.get(key);
+              const last = index === trail.length - 1;
+              return (
+                <span key={key} className="flex items-center gap-0.5">
+                  <HiChevronRight className="h-3 w-3 text-slate-400" aria-hidden="true" />
+                  <button
+                    type="button"
+                    onClick={() => bubble && zoomInto(bubble)}
+                    aria-current={last ? "location" : undefined}
+                    className={`rounded px-1.5 py-1 font-medium transition-colors hover:bg-slate-100 ${
+                      last ? "text-violet-700" : "text-slate-600"
+                    }`}
+                  >
+                    {BUBBLE_NAMES[key]}
+                  </button>
+                </span>
+              );
+            })}
+          </nav>
+          <div className="absolute right-2 top-2 z-20 flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_-6px_rgba(15,23,42,0.18)]">
+            <MapControl label="Zoom in" onClick={map.zoomIn} disabled={!map.canZoomIn}>
+              <HiPlus className="h-4 w-4" aria-hidden="true" />
+            </MapControl>
+            <MapControl label="Zoom out" onClick={map.zoomOut} disabled={!map.canZoomOut} bordered>
+              <HiMinus className="h-4 w-4" aria-hidden="true" />
+            </MapControl>
+            <MapControl label="Fit map to view" onClick={resetView} bordered>
+              <HiArrowsExpand className="h-3.5 w-3.5" aria-hidden="true" />
+            </MapControl>
+          </div>
+          <span className="pointer-events-none absolute bottom-2 left-3 z-20 text-[11px] text-slate-500">
+            Click a bubble to zoom in · click empty space to zoom out · scroll to zoom · drag to pan
+          </span>
+
+          <div
+            ref={map.viewportRef}
+            className="relative h-[500px] touch-none select-none"
+            style={{
+              cursor: map.isDragging ? "grabbing" : "grab",
+              backgroundImage: [
+                "radial-gradient(circle, rgb(203 213 225 / 0.75) 1px, transparent 1.4px)",
+                "radial-gradient(ellipse 60% 70% at 50% 50%, rgb(237 233 254 / 0.8), transparent 70%)",
+                "linear-gradient(180deg, #f8fafc, #f1f5f9)",
+              ].join(", "),
+              backgroundSize: `${dotSpacing}px ${dotSpacing}px, 100% 100%, 100% 100%`,
+              backgroundPosition: `${map.view.x}px ${map.view.y}px, 0 0, 0 0`,
+            }}
+            onPointerDown={map.onPointerDown}
+            onPointerMove={map.onPointerMove}
+            onPointerUp={map.endDrag}
+            onPointerCancel={map.endDrag}
+            onClick={() => {
+              if (!map.wasDragged()) zoomOut();
+            }}
+            role="group"
+            aria-label="Zoomable agent map"
+            aria-describedby={hintId}
+          >
+            <p id={hintId} className="sr-only">
+              Tab through the bubbles and agents; press Enter on a bubble to zoom into it. Choose
+              List above for the full structure with citations and sources.
+            </p>
+            <style>{`
+              @keyframes em-pop {
+                from { opacity: 0; transform: scale(.6); filter: blur(4px); }
+                to { opacity: 1; transform: scale(1); filter: blur(0); }
+              }
+              @keyframes em-dash { to { stroke-dashoffset: -26; } }
+              .em-bubble { transition: filter 200ms ease-out, opacity 450ms ${MAP_EASE}, transform 450ms ${MAP_EASE}; }
+              .em-bubble:hover { filter: brightness(1.04) saturate(1.08); }
+              .em-bubble:focus-visible { outline: 4px solid #7c3aed; outline-offset: 6px; }
+              @media (prefers-reduced-motion: reduce) {
+                .em-bubble { transition: none; }
+              }
+              @media (prefers-reduced-motion: no-preference) {
+                .em-pop { animation: em-pop 520ms ${MAP_EASE} both; }
+                .em-flow { animation: em-dash 1.2s linear infinite; }
+              }
+            `}</style>
+            <div
+              className="absolute left-0 top-0 origin-top-left"
+              style={{
+                width: MAP_W,
+                height: MAP_H,
+                transform: `translate(${map.view.x}px, ${map.view.y}px) scale(${map.view.scale})`,
+                transition,
+              }}
+            >
+              <svg
+                className="absolute inset-0 overflow-visible"
+                width={MAP_W}
+                height={MAP_H}
+                viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+                aria-hidden="true"
+              >
+                <defs>
+                  <marker
+                    id="em-arrow"
+                    viewBox="0 0 10 10"
+                    refX="8"
+                    refY="5"
+                    markerWidth="7"
+                    markerHeight="7"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+                  </marker>
+                </defs>
+                {connectors.map(({ from, to, label }) => {
+                  const a = bubbleByKey.get(from);
+                  const b = bubbleByKey.get(to);
+                  if (!a || !b) return null;
+                  const mid = {
+                    x: (edgePoint(a, b.cx, b.cy).x + edgePoint(b, a.cx, a.cy).x) / 2,
+                    y: (edgePoint(a, b.cx, b.cy).y + edgePoint(b, a.cx, a.cy).y) / 2,
+                  };
+                  return (
+                    <g key={`${from}-${to}`}>
+                      <path
+                        d={connectorPath(a, b)}
+                        fill="none"
+                        stroke="#64748b"
+                        strokeWidth={3}
+                        strokeDasharray="8 5"
+                        strokeLinecap="round"
+                        markerEnd="url(#em-arrow)"
+                        className="em-flow"
+                      />
+                      {label ? (
+                        <text
+                          x={mid.x + 12}
+                          y={mid.y + 6}
+                          className="fill-slate-500 text-[18px] font-medium"
+                        >
+                          {label}
+                        </text>
+                      ) : null}
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {bubbles.map((bubble) => {
+                const isChild = Boolean(bubble.parent);
+                const visible = !isChild || childrenInteractive;
+                const opacity = isChild ? childReveal : 1;
+                const circle = {
+                  left: bubble.cx - bubble.r,
+                  top: bubble.cy - bubble.r,
+                  width: bubble.r * 2,
+                  height: bubble.r * 2,
+                };
+                return (
+                  <div key={bubble.key}>
+                    <button
+                      type="button"
+                      inert={!visible}
+                      aria-label={`Zoom into ${BUBBLE_NAMES[bubble.key]}`}
+                      aria-current={focusKey === bubble.key ? "location" : undefined}
+                      onFocus={revealOnKeyboardFocus}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (!map.wasDragged()) zoomInto(bubble);
+                      }}
+                      className="em-bubble absolute cursor-zoom-in rounded-full"
+                      style={{
+                        ...circle,
+                        background: bubble.background,
+                        border: bubble.border,
+                        boxShadow: bubble.shadow,
+                        opacity,
+                        // Children settle into place as they fade in.
+                        transform: isChild ? `scale(${0.9 + 0.1 * childReveal})` : undefined,
+                        pointerEvents: visible ? "auto" : "none",
+                      }}
+                    />
+                    {bubble.titlePlacement !== "none" ? (
+                      <div
+                        className={`pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[26px] font-semibold leading-none tracking-tight ${
+                          bubble.titleTone === "light"
+                            ? "text-white [text-shadow:0_1px_12px_rgb(30_27_75/0.6)]"
+                            : "text-slate-800"
+                        } ${bubble.titlePlacement === "above" ? "-translate-y-full" : ""}`}
+                        style={{
+                          left: bubble.cx,
+                          top:
+                            bubble.titlePlacement === "above"
+                              ? bubble.cy - bubble.r - (isChild ? 12 : 18)
+                              : bubble.cy + bubble.r + 18,
+                          opacity,
+                          transition: fade,
+                        }}
+                      >
+                        {bubble.title}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+
+              {caldovaBubble ? (
+                <>
+                  <div
+                    className="pointer-events-none absolute flex w-[420px] flex-col items-center text-center text-white"
+                    style={{
+                      left: caldovaBubble.cx,
+                      top: caldovaBubble.cy,
+                      opacity: 1 - childReveal,
+                      transform: `translate(-50%, -50%) scale(${1 + 0.06 * childReveal})`,
+                      transition: fade,
+                    }}
+                    aria-hidden={childrenInteractive ? true : undefined}
+                  >
+                    <span className="text-[34px] font-semibold leading-tight tracking-tight">
+                      Caldova IQ
+                    </span>
+                    <span className="mt-1 text-[104px] font-semibold leading-none tracking-[-0.035em] tabular-nums [text-shadow:0_4px_18px_rgb(30_27_75/0.35)]">
+                      {allCitations}
+                    </span>
+                    <span className="mt-2 text-[21px] text-violet-100">
+                      {allCitations === 1 ? "citation" : "citations"}
+                      {typeof confidence === "number"
+                        ? ` · ${Math.round(confidence * 100)}% confidence`
+                        : ""}
+                    </span>
+                    <span className="mt-7 flex items-center gap-2.5 text-[17px] font-medium">
+                      <PackChip dot="#60a5fa" label="Microsoft IQ" value={iqCitations} />
+                      <PackChip
+                        dot="#67e8f9"
+                        label="Integrations"
+                        value={allCitations - iqCitations}
+                      />
+                    </span>
+                    <span className="mt-4 inline-flex items-center gap-1 text-[16px] font-medium text-violet-100">
+                      Click to explore
+                      <HiChevronRight className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                  </div>
+                  <div
+                    className="pointer-events-none absolute -translate-x-1/2 whitespace-nowrap text-[22px] font-semibold tracking-tight text-white"
+                    style={{
+                      left: caldovaBubble.cx,
+                      top: caldovaBubble.cy - caldovaBubble.r + 30,
+                      opacity: childReveal,
+                      transition: fade,
+                    }}
+                    aria-hidden="true"
+                  >
+                    Caldova IQ
+                  </div>
+                </>
+              ) : null}
+
+              {microsoftBubble ? (
+                <div
+                  className="pointer-events-none absolute flex w-[190px] flex-col items-center text-center"
+                  style={{
+                    left: microsoftBubble.cx,
+                    top: microsoftBubble.cy,
+                    opacity: childReveal,
+                    transform: `translate(-50%, -50%) scale(${0.9 + 0.1 * childReveal})`,
+                    transition: fade,
+                  }}
+                  aria-hidden={childrenInteractive ? undefined : true}
+                >
+                  <span className="text-[16px] font-semibold tracking-tight text-slate-900">
+                    Microsoft IQ
+                  </span>
+                  <span className="mt-0.5 text-[38px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-slate-900">
+                    {iqCitations}
+                  </span>
+                  <span className="mt-1 text-[12px] text-slate-600">
+                    {iqCitations === 1 ? "citation" : "citations"} · {activeIq} of {iqNodes.length}{" "}
+                    sources
+                  </span>
+                </div>
+              ) : null}
+
+              {bubbles.flatMap((bubble) => {
+                const isChild = Boolean(bubble.parent);
+                const visible = !isChild || childrenInteractive;
+                const level = isChild ? innerLevel : outerLevel;
+                return bubble.nodes.map((node) => {
+                  const delay = 120 + tileIndex++ * 60;
+                  const selected = node.key === selectedKey;
+                  return (
+                    <div
+                      key={node.key}
+                      className="absolute h-0 w-0"
+                      style={{
+                        left: node.x,
+                        top: node.y,
+                        zIndex: selected ? 10 : undefined,
+                        opacity: isChild ? childReveal : 1,
+                        pointerEvents: visible ? undefined : "none",
+                        transition: fade,
+                      }}
+                      inert={!visible}
+                      onClick={(event) => event.stopPropagation()}
+                      onFocus={revealOnKeyboardFocus}
+                    >
+                      {/* Anchor on the icon's centre so labels and detail hang below it. */}
+                      <div
+                        className="absolute left-0 top-0"
+                        style={{
+                          transform: `scale(${counterScale}) translate(-50%, ${
+                            level === "compact" ? -14 : -21
+                          }px)`,
+                          transformOrigin: "0 0",
+                          transition,
+                        }}
+                      >
+                        <div className="em-pop" style={{ animationDelay: `${delay}ms` }}>
+                          <MapTile
+                            node={node}
+                            level={selected && level !== "compact" ? "detail" : level}
+                            selected={selected}
+                            onSelect={() => {
+                              if (map.wasDragged()) return;
+                              setSelectedKey(node.key);
+                              setFocusKey(bubble.key);
+                              map.focusOn(node.x, node.y, 110);
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                });
+              })}
+            </div>
+          </div>
+        </div>
+        <p className="mt-1.5 text-xs leading-5 text-slate-500">
+          Caldova IQ holds every evidence source the orchestrator can call: Microsoft IQ (FabricIQ,
+          FoundryIQ, WebIQ, WorkIQ) and third-party integrations. Click it to zoom in. Tiles in
+          colour cited evidence in this run; faded tiles weren't used. Waypoint Recorder remains the
+          sole writer of the governed run, case, and recommendation.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+type AgentMapMode = "map" | "list";
+const AGENT_MAP_MODE_KEY = "waypoint.agentMap.view";
+
+// Remember Map vs List across runs so a screen-reader or keyboard user who
+// prefers the list doesn't have to switch on every run.
+function useAgentMapMode(): [AgentMapMode, (mode: AgentMapMode) => void] {
+  const [mode, setMode] = useState<AgentMapMode>(() => {
+    try {
+      return window.localStorage.getItem(AGENT_MAP_MODE_KEY) === "list" ? "list" : "map";
+    } catch {
+      return "map";
+    }
+  });
+  const update = useCallback((next: AgentMapMode) => {
+    setMode(next);
+    try {
+      window.localStorage.setItem(AGENT_MAP_MODE_KEY, next);
+    } catch {
+      // Storage can be unavailable (private mode); the choice just won't persist.
+    }
+  }, []);
+  return [mode, update];
+}
+
+function nodeEvidenceSummary(node: MapNode): string {
+  if (node.citations === undefined) return node.stats;
+  if (!node.active) return "Not used in this run";
+  const parts = [`Used · ${node.citations} ${node.citations === 1 ? "citation" : "citations"}`];
+  if (typeof node.avgConfidence === "number") {
+    parts.push(`${Math.round(node.avgConfidence * 100)}% average confidence`);
+  }
+  return parts.join(" · ");
+}
+
+function AgentMapListNodes({ nodes }: { nodes: MapNode[] }) {
+  return (
+    <ul className="mt-2 space-y-2">
+      {nodes.map((node) => {
+        const isSource = node.citations !== undefined;
+        return (
+          <li key={node.key} className="rounded-md border border-slate-200 bg-white p-2.5">
+            <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
+              <span className={`font-semibold ${node.active ? "text-slate-900" : "text-slate-600"}`}>
+                {node.label}
+              </span>
+              <span className="text-xs text-slate-600">{node.title}</span>
+              {node.badge ? (
+                <span
+                  className={`rounded px-1.5 py-px text-[11px] font-semibold uppercase ring-1 ${node.badge.className}`}
+                >
+                  {node.badge.text}
+                </span>
+              ) : null}
+            </p>
+            <p
+              className={`mt-0.5 text-xs ${
+                isSource && node.active ? "font-medium text-slate-800" : "text-slate-600"
+              }`}
+            >
+              {nodeEvidenceSummary(node)}
+            </p>
+            {node.lines.length > 0 ? (
+              isSource ? (
+                <div className="mt-1.5">
+                  <p className="text-xs text-slate-600">Sources</p>
+                  <ul className="mt-1 flex flex-wrap gap-1.5">
+                    {node.lines.map((line) => (
+                      <li key={line}>
+                        <code className="rounded bg-slate-50 px-1.5 py-0.5 text-xs text-slate-700 ring-1 ring-slate-200">
+                          {line}
+                        </code>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <ul className="mt-1 space-y-0.5 text-xs text-slate-600">
+                  {node.lines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              )
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+// Text equivalent of the circle pack: the same bubbles and agents, in flow
+// order, with each evidence source's use, citations, confidence and refs.
+function AgentMapList({
+  bubbles,
+  allCitations,
+  iqCitations,
+  activeSources,
+  totalSources,
+  confidence,
+}: {
+  bubbles: MapBubble[];
+  allCitations: number;
+  iqCitations: number;
+  activeSources: number;
+  totalSources: number;
+  confidence: number | undefined;
+}) {
+  const byKey = new Map(bubbles.map((bubble) => [bubble.key, bubble]));
+  const children = (key: BubbleKey) => bubbles.filter((bubble) => bubble.parent === key);
+  const topLevel = bubbles.filter((bubble) => !bubble.parent);
+  const microsoft = byKey.get("microsoft");
+  const integrations = byKey.get("integrations");
+  const connectedIntegrations = integrations?.nodes.filter((node) => node.active).length ?? 0;
+  const iqUsed = microsoft?.nodes.filter((node) => node.active).length ?? 0;
+
+  const summaryFor = (bubble: MapBubble): string => {
+    switch (bubble.key) {
+      case "caldova":
+        return `${allCitations} ${allCitations === 1 ? "citation" : "citations"}${
+          typeof confidence === "number" ? ` · ${Math.round(confidence * 100)}% decision confidence` : ""
+        } · ${activeSources} of ${totalSources} evidence sources used`;
+      case "microsoft":
+        return `${iqCitations} ${iqCitations === 1 ? "citation" : "citations"} · ${iqUsed} of ${
+          microsoft?.nodes.length ?? 0
+        } IQ sources used`;
+      case "integrations":
+        return connectedIntegrations > 0
+          ? `${connectedIntegrations} connected`
+          : "No third-party integrations are connected yet";
+      case "orchestration":
+        return "Reads the invoice and fans out to the evidence sources";
+      case "record":
+        return "Writes the governed run, case and recommendation";
+      case "analysts":
+        return "Read the governed record to answer questions";
+      default:
+        return "";
+    }
+  };
+
+  const renderBubble = (bubble: MapBubble, level: number) => {
+    const nested = children(bubble.key);
+    const nodes = bubble.nodes.filter((node) => node.key !== "integrations-placeholder");
+    const Heading = level === 0 ? "h4" : "h5";
+    return (
+      <>
+        <Heading className="text-sm font-semibold text-slate-900">{BUBBLE_NAMES[bubble.key]}</Heading>
+        <p className="mt-0.5 text-xs text-slate-600">{summaryFor(bubble)}</p>
+        {nodes.length > 0 ? <AgentMapListNodes nodes={nodes} /> : null}
+        {nested.length > 0 ? (
+          <ul className="mt-3 space-y-4 border-l-2 border-violet-200 pl-3">
+            {nested.map((child) => (
+              <li key={child.key}>{renderBubble(child, level + 1)}</li>
+            ))}
+          </ul>
+        ) : null}
+      </>
+    );
+  };
+
+  return (
+    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs leading-5 text-slate-600">
+        Work flows from Orchestration through Caldova IQ's evidence sources to the governed
+        record{byKey.has("analysts") ? ", which the analysts then read" : ""}.
       </p>
+      <ol className="mt-3 space-y-4">
+        {topLevel.map((bubble) => (
+          <li key={bubble.key}>{renderBubble(bubble, 0)}</li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -2717,22 +2980,28 @@ function MapControl({
   label,
   onClick,
   bordered,
+  disabled = false,
   children,
 }: {
   label: string;
   onClick: () => void;
   bordered?: boolean;
+  disabled?: boolean;
   children: ReactNode;
 }) {
+  // aria-disabled (not disabled) so a focused control at its zoom limit keeps focus.
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
       aria-label={label}
+      aria-disabled={disabled || undefined}
       title={label}
-      className={`flex h-8 w-8 items-center justify-center text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
-        bordered ? "border-t border-slate-200" : ""
-      }`}
+      className={`flex h-8 w-8 items-center justify-center transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
+        disabled
+          ? "cursor-not-allowed text-slate-300"
+          : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+      } ${bordered ? "border-t border-slate-200" : ""}`}
     >
       {children}
     </button>
@@ -2764,7 +3033,7 @@ function MapTile({
       className="group flex flex-col items-center gap-1.5 rounded-xl p-1 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
     >
       <span
-        className={`relative inline-flex ${tileSize} items-center justify-center bg-white transition-[transform,box-shadow] duration-200 ease-out group-hover:-translate-y-0.5 ${
+        className={`relative inline-flex ${tileSize} items-center justify-center bg-white transition-[transform,box-shadow] duration-200 ease-out group-hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0 ${
           node.active ? "" : node.ghost ? "opacity-80" : "opacity-50 grayscale"
         }`}
         style={{
