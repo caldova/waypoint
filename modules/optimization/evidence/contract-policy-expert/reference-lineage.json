@@ -223,6 +223,105 @@
     {
       "agent": "contract-policy-expert",
       "approvals": [],
+      "created_at": "2026-10-01T21:30:00Z",
+      "environment": "foundry-project-caldova",
+      "hashes": {
+        "dataset": {
+          "available": true,
+          "identifier": "contract-policy-expert-test-foundry-eval:2.0",
+          "label": "dataset"
+        },
+        "grader": {
+          "available": true,
+          "identifier": "contract-policy-expert-generated-rubric:v13",
+          "label": "grader"
+        },
+        "model_deployment": {
+          "available": true,
+          "identifier": "contract-policy-expert-mai-rft-v2-pt09",
+          "label": "model_deployment"
+        },
+        "prompt_config": {
+          "available": true,
+          "identifier": "../optimization/extensions/optimizer-diff-canvas/fixtures/opt_2fb58fc1723e461d9a1496907d029ac8/candidate_14-config.json",
+          "label": "prompt_config",
+          "sha256": "001560f43874f53eb001e7246d8a9672e28d60e016371974c4e818c3259179c5"
+        }
+      },
+      "metrics": {
+        "baseline_agent_version": "6",
+        "baseline_eval_id": "eval_2d5a13a976c14355aee3317f87e5e171",
+        "baseline_pass_counts": [
+          "16/24",
+          "15/24",
+          "11/24",
+          "14/24",
+          "18/24"
+        ],
+        "baseline_pass_rate": 0.6166666666666667,
+        "optimized_agent_version": "7",
+        "optimized_eval_id": "eval_9421539dcd754815b8c5443bca0e971c",
+        "optimized_pass_counts": [
+          "24/24",
+          "24/24",
+          "24/24",
+          "24/24",
+          "24/24"
+        ],
+        "optimized_pass_rate": 1.0,
+        "tuned_agent_version": "10",
+        "tuned_eval_id": "eval_4031396f93ac47418b78477ab712fd7e",
+        "tuned_pass_counts": [
+          "24/24",
+          "24/24",
+          "24/24",
+          "23/24",
+          "24/24"
+        ],
+        "tuned_pass_rate": 0.9916666666666667,
+        "token_estimate": {
+          "method": "o200k_base token count over eval sample input and final assistant output text; Foundry hosted-agent usage fields reported zero.",
+          "optimized_gpt_6_astra": {
+            "input_tokens": 118530,
+            "output_tokens": 164282,
+            "rows": 120
+          },
+          "tuned_mai": {
+            "input_tokens": 118530,
+            "output_tokens": 178656,
+            "rows": 120
+          }
+        },
+        "pricing_per_million_tokens_usd": {
+          "gpt-6-astra_global_standard": {
+            "input": 10.0,
+            "output": 50.0,
+            "source": "azurespeed Azure AI model pricing page for openai-gpt-6-astra"
+          },
+          "microsoft_code_1_1_flash_global_standard": {
+            "input": 0.2,
+            "output": 1.2,
+            "source": "azurespeed Azure AI model pricing page for microsoft-code-1-1-flash"
+          }
+        },
+        "tuned_quality_note": "The one tuned miss was a rubric-quality failure on an Evergreen escalation-cap item, not an infrastructure failure."
+      },
+      "model": {
+        "base_model": "mai-code-1.1-flash-2026-08-27.ft-44f31c01823d4e13a213dddf0d22fb55-cpe-v2-pt09",
+        "deployment": "contract-policy-expert-mai-rft-v2-pt09"
+      },
+      "notes": "Reference-only Caldova MAI RFT lineage for contract-policy-expert. The tuned hosted agent reused candidate_14 optimized assets and changed only the model deployment. Cost telemetry and pricing are not committed in this snapshot.",
+      "operation_id": "ftjob-44f31c01823d4e13a213dddf0d22fb55",
+      "operation_kind": "rft",
+      "reference_only": true,
+      "review_status": "accepted",
+      "schema_version": "1",
+      "snapshot_id": "2d91b9fdc75fbf72f92e8e7ae3d6f81aa1f9076c7f198738f11ab3c92f7be4d5",
+      "source_commit": "working-tree"
+    },
+    {
+      "agent": "contract-policy-expert",
+      "approvals": [],
       "created_at": "2026-10-01T19:49:00Z",
       "environment": "foundry-project-caldova",
       "hashes": {

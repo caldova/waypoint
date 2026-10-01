@@ -1,0 +1,124 @@
+{
+  "id": "opt_2fb58fc1723e461d9a1496907d029ac8",
+  "status": "succeeded",
+  "agent": {
+    "agent_name": "contract-policy-expert",
+    "agent_version": "6"
+  },
+  "created_at": 1790310572,
+  "updated_at": 1790322196,
+  "inputs": {
+    "agent": {
+      "agent_name": "contract-policy-expert",
+      "agent_version": "6"
+    },
+    "train_dataset": {
+      "type": "reference",
+      "name": "opt-inline-73645f9f67154556b5c12640fb3e5b15",
+      "version": "1"
+    },
+    "evaluators": [
+      {
+        "name": "contract-policy-expert-generated-rubric",
+        "version": "13"
+      }
+    ],
+    "options": {
+      "max_candidates": 15,
+      "eval_model": "gpt-6-astra",
+      "optimization_model": "gpt-5.5",
+      "optimization_config": {
+        "skills": [],
+        "system_prompt": "You are Contract Policy Expert, an early prototype assistant for invoice reviewers.\n\nReturn a compact triage note for a single invoice line. When the user asks for\nJSON, return one simple reviewer-card JSON object with practical fields such as:\n- invoice_id\n- line_id\n- recommended_action\n- short_rationale\n- evidence_reference\n- reviewer_next_step\n\nUse only the invoice line and any context already visible in the request. This\nearly prototype does not perform contract or policy retrieval. Cite evidence by\nbroad document or policy labels inferred from the invoice wording, not raw\nsource_ref paths. Do not build a formal evidence packet, quote long clause text,\nlist every missing fact, or reproduce exact passages. Prefer a brief\nbusiness-readable rationale over detailed provenance.\n\nThis prototype is focused on triage. Prefer practical recommendation language\nsuch as \"approve\", \"hold\", \"dispute\", or \"needs review\" when the invoice facts\nseem clear. Do not actually update payment, invoice, case, or reconciliation\nsystems.\n\nFor speed, treat the invoice line description and any obvious policy phrase as\nthe main signal. Do not spend much time resolving contract exceptions,\nprerequisites, timing conditions, calculation details, or whether a supplied\nbusiness expectation is separate from documentary evidence. If a charge sounds\nlike an overage, duplicate, missing approval, disputed amount, or policy\nexception, give the reviewer a practical hold/dispute/needs-review action with a\nshort reason and one broad evidence reference.\n\nKnown prototype gaps:\n- It does not always include exact source_ref values.\n- It does not retrieve or verify the underlying contract/policy clause.\n- It may not distinguish every user-provided fact from documentary evidence.\n- It may over-rely on the invoice description when applying conditional clauses.\n- It may not include formal decision-boundary fields such as decision or\n  business_system_actions_performed.\n- It usually gives one reviewer next step instead of a complete checklist.\n- It may omit detailed uncertainty analysis when a short reviewer action is\n  obvious.",
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "contracts-kb-mcp___knowledge_base_retrieve",
+              "description": "Look up Caldova contract or policy background if needed.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "description": "A short search phrase."
+                  }
+                },
+                "required": [],
+                "additionalProperties": true
+              },
+              "strict": null
+            }
+          }
+        ]
+      }
+    }
+  },
+  "progress": {
+    "candidates_completed": 15,
+    "baseline_score": 0.455684,
+    "best_score": 0.8000013333333332,
+    "elapsed_seconds": 11612.682722604019
+  },
+  "result": {
+    "baseline": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0000",
+    "best": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0014",
+    "candidates": [
+      {
+        "name": "baseline",
+        "avg_score": 0.455684,
+        "avg_tokens": 0,
+        "candidate_id": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0000",
+        "eval_id": "eval_45f1bda7258047c1ae0aaf729d83e03d",
+        "eval_run_id": "evalrun_619cf62c86ba47c59751ccb68e7ba242"
+      },
+      {
+        "name": "candidate_8",
+        "avg_score": 0.796972,
+        "avg_tokens": 0,
+        "candidate_id": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0008",
+        "eval_id": "eval_45f1bda7258047c1ae0aaf729d83e03d",
+        "eval_run_id": "evalrun_e35f6599aac94f6f9f465c1b093fd91f"
+      },
+      {
+        "name": "candidate_9",
+        "avg_score": 0.7909113333333334,
+        "avg_tokens": 0,
+        "candidate_id": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0009",
+        "eval_id": "eval_45f1bda7258047c1ae0aaf729d83e03d",
+        "eval_run_id": "evalrun_2eabbc580be44c469a60d9d28d28014e"
+      },
+      {
+        "name": "candidate_11",
+        "avg_score": 0.79432,
+        "avg_tokens": 0,
+        "candidate_id": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0011",
+        "eval_id": "eval_45f1bda7258047c1ae0aaf729d83e03d",
+        "eval_run_id": "evalrun_d9a6a265604b4dad8bc61467247ca3a1"
+      },
+      {
+        "name": "candidate_12",
+        "avg_score": 0.7901533333333333,
+        "avg_tokens": 0,
+        "candidate_id": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0012",
+        "eval_id": "eval_45f1bda7258047c1ae0aaf729d83e03d",
+        "eval_run_id": "evalrun_068a172529ba4099b43eb50e7ae21baf"
+      },
+      {
+        "name": "candidate_14",
+        "avg_score": 0.8000013333333332,
+        "avg_tokens": 0,
+        "candidate_id": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0014",
+        "eval_id": "eval_45f1bda7258047c1ae0aaf729d83e03d",
+        "eval_run_id": "evalrun_8f66da78b917482682045dcdc6c39951"
+      },
+      {
+        "name": "candidate_15",
+        "avg_score": 0.7946986666666667,
+        "avg_tokens": 0,
+        "candidate_id": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0015",
+        "eval_id": "eval_45f1bda7258047c1ae0aaf729d83e03d",
+        "eval_run_id": "evalrun_97d0b093ce0445d593fbfcf4f7118bcf"
+      }
+    ]
+  }
+}
