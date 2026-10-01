@@ -660,14 +660,11 @@ export default function Agent() {
             >
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-700">
-                    Foundry agent runs
-                  </p>
-                  <h1 id="agent-heading" className="mt-1 text-xl font-semibold tracking-tight">
+                  <h1 id="agent-heading" className="text-2xl font-semibold tracking-tight">
                     Work done by invoice
                   </h1>
                   <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
-                    Every Assurance Orchestrator run is grouped by the invoice it assured. Each row rolls
+                    Every Foundry Assurance Orchestrator run is grouped by the invoice it assured. Each row rolls
                     up how many times the experts ran, the current decision, and money at risk.
                     Open a run to see the IQ-by-IQ evidence trail of what it found.
                   </p>
@@ -740,10 +737,8 @@ export default function Agent() {
 
             <aside className="flex min-h-0 flex-col gap-2 overflow-auto">
               <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Expert usage (IQ)
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-400">
+                <h2 className="type-section">Expert usage (IQ)</h2>
+                <p className="mt-1 type-meta leading-5">
                   How often each expert ran across all work, and the evidence each
                   contributed to the decision.
                 </p>
@@ -761,9 +756,7 @@ export default function Agent() {
               </section>
 
               <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Across all runs
-                </p>
+                <h2 className="type-section">Across all runs</h2>
                 <dl className="mt-2 grid grid-cols-3 gap-2">
                   <Stat label="Invoices" value={String(totals.invoices)} />
                   <Stat label="Runs" value={String(totals.runs)} />
@@ -777,8 +770,8 @@ export default function Agent() {
                 </dl>
                 {moneyTrend.length > 1 ? (
                   <div className="mt-2.5 rounded-md border border-slate-200 p-2">
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span className="uppercase tracking-wide">Money at risk over time</span>
+                    <div className="flex items-center justify-between type-meta">
+                      <span className="font-medium text-slate-600">Money at risk over time</span>
                       <span>{moneyTrend.length} days</span>
                     </div>
                     <Sparkline points={moneyTrend} className="mt-1.5" />
@@ -819,14 +812,14 @@ function Stat({
         title={hint}
         className="group rounded-md border border-slate-200 p-2 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
       >
-        <span className="block text-[11px] uppercase tracking-wide text-slate-400">{label}</span>
+        <span className="block type-meta">{label}</span>
         <span className={`mt-0.5 block text-sm font-semibold ${tone ?? ""}`}>{value}</span>
       </button>
     );
   }
   return (
     <div className="rounded-md border border-slate-200 p-2">
-      <dt className="text-[11px] uppercase tracking-wide text-slate-400">{label}</dt>
+      <dt className="type-meta">{label}</dt>
       <dd className={`mt-0.5 text-sm font-semibold ${tone ?? ""}`}>{value}</dd>
     </div>
   );
@@ -866,9 +859,7 @@ function FilterBar({
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 pb-3">
       <div className="flex items-center gap-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          When
-        </span>
+        <span className="type-label">When</span>
         <div className="inline-flex rounded-md border border-slate-200 p-0.5">
           {TIME_RANGES.map((range) => {
             const active = monthFilter === "all" && timeRange === range.key;
@@ -905,9 +896,7 @@ function FilterBar({
 
       {decisions.length > 1 ? (
         <div className="flex items-center gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            Decision
-          </span>
+          <span className="type-label">Decision</span>
           <div className="flex flex-wrap items-center gap-1">
             <DecisionChip
               label="All"
@@ -929,7 +918,7 @@ function FilterBar({
       <div className="ml-auto flex items-center gap-2">
         <div className="relative">
           <HiSearch
-            className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+            className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500"
             aria-hidden="true"
           />
           <input
@@ -937,7 +926,7 @@ function FilterBar({
             value={query}
             onChange={(event) => onQuery(event.target.value)}
             placeholder="Search invoice…"
-            className="min-h-8 w-44 rounded-md border border-slate-200 bg-white pl-7 pr-2 py-1 text-xs text-slate-700 placeholder:text-slate-400 focus:border-blue-300 focus:outline-none"
+            className="min-h-8 w-44 rounded-md border border-slate-200 bg-white pl-7 pr-2 py-1 text-xs text-slate-700 placeholder:text-slate-500 focus:border-blue-300 focus:outline-none"
             aria-label="Search invoices"
           />
         </div>
@@ -971,7 +960,7 @@ function DecisionChip({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize ring-1 transition-colors ${
+      className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ring-1 transition-colors ${
         active
           ? "bg-slate-900 text-white ring-slate-900"
           : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
@@ -1170,7 +1159,7 @@ function IqUsageTile({ stat }: { stat: IqStat }) {
               {meta.agent}
             </span>
             {meta.stub ? (
-              <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-600 ring-1 ring-amber-200">
+              <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
                 Stub
               </span>
             ) : null}
@@ -1180,7 +1169,7 @@ function IqUsageTile({ stat }: { stat: IqStat }) {
           </span>
         </div>
         {meta.tool ? (
-          <p className="mt-0.5 truncate text-[11px] text-slate-400">
+          <p className="mt-0.5 truncate type-meta">
             Connected to {meta.tool}
           </p>
         ) : null}
@@ -1195,7 +1184,7 @@ function IqUsageTile({ stat }: { stat: IqStat }) {
                 style={{ width: `${Math.round(Math.min(Math.max(stat.avgConfidence, 0), 1) * 100)}%` }}
               />
             </div>
-            <span className="text-[11px] tabular-nums text-slate-400">
+            <span className="type-meta tabular-nums">
               {Math.round(stat.avgConfidence * 100)}%
             </span>
           </div>
@@ -1209,7 +1198,7 @@ function IqChip({ iqKey }: { iqKey: IqKey }) {
   const meta = IQ_META[iqKey];
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ${meta.ring} ${meta.badge}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${meta.ring} ${meta.badge}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden="true" />
       {meta.label}
@@ -1243,7 +1232,7 @@ function InvoiceCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`rounded-md px-2 py-0.5 text-xs font-semibold uppercase capitalize ring-1 ${decisionStyle(
+              className={`rounded-md px-2 py-0.5 text-xs font-semibold capitalize ring-1 ${decisionStyle(
                 group.decision,
               )}`}
             >
@@ -1277,10 +1266,10 @@ function InvoiceCard({
             {group.iqKeys.length > 0 ? (
               group.iqKeys.map((iqKey) => <IqChip key={iqKey} iqKey={iqKey} />)
             ) : (
-              <span className="text-xs text-slate-400">No expert evidence recorded.</span>
+              <span className="type-meta">No expert evidence recorded.</span>
             )}
           </div>
-          <p className="mt-1.5 flex items-center gap-1 text-xs text-slate-400">
+          <p className="mt-1.5 flex items-center gap-1 type-meta">
             <HiClock className="h-3.5 w-3.5" aria-hidden="true" />
             Last run {formatTimestamp(group.lastRunAt)}
             {group.findingCount > 0 ? (
@@ -1291,7 +1280,7 @@ function InvoiceCard({
             ) : null}
           </p>
         </div>
-        <span className="mt-1 shrink-0 text-slate-400">
+        <span className="mt-1 shrink-0 text-slate-500">
           {expanded ? (
             <HiChevronDown className="h-5 w-5" aria-hidden="true" />
           ) : (
@@ -1302,9 +1291,7 @@ function InvoiceCard({
 
       {expanded ? (
         <div className="border-t border-slate-100 px-3 py-2.5">
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Run history
-          </p>
+          <h4 className="mb-1.5 type-label">Run history</h4>
           <ol className="space-y-1.5">
             {group.runs.map((run, index) => (
               <RunRow
@@ -1349,18 +1336,18 @@ function RunRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span
-              className={`rounded px-1.5 py-0.5 text-[11px] font-semibold capitalize ring-1 ${decisionStyle(
+              className={`rounded px-1.5 py-0.5 text-xs font-semibold capitalize ring-1 ${decisionStyle(
                 meta.decision || run.status,
               )}`}
             >
               {meta.decision || run.status}
             </span>
             {latest ? (
-              <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-100">
+              <span className="rounded bg-blue-50 px-1.5 py-0.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
                 Latest
               </span>
             ) : null}
-            <span className="truncate text-xs text-slate-400">{formatTimestamp(run.created_at)}</span>
+            <span className="truncate type-meta">{formatTimestamp(run.created_at)}</span>
           </div>
           <p className="mt-0.5 line-clamp-1 text-sm text-slate-600">
             {run.summary || "No summary recorded."}
@@ -1411,30 +1398,27 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
       >
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-4">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-700">
-              Agent run · what it found
-            </p>
             <h2
               ref={headingRef}
               tabIndex={-1}
-              className="mt-1 flex flex-wrap items-center gap-2 rounded-sm text-xl font-semibold"
+              className="flex flex-wrap items-center gap-2 rounded-sm text-xl font-semibold"
             >
               {invoiceLabel}
               <span
-                className={`rounded-md px-2 py-0.5 text-xs font-semibold uppercase capitalize ring-1 ${decisionStyle(
+                className={`rounded-md px-2 py-0.5 text-xs font-semibold capitalize ring-1 ${decisionStyle(
                   meta.decision || run.status,
                 )}`}
               >
                 {meta.decision || run.status}
               </span>
             </h2>
-            <p className="mt-1 text-xs text-slate-400">
-              {formatTimestamp(run.created_at)} · {run.created_by}
+            <p className="mt-0.5 text-sm text-slate-600">
+              Agent run on {formatTimestamp(run.created_at)} · {run.created_by}
             </p>
           </div>
           <button
             type="button"
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-50"
+            className="rounded-md p-1 text-slate-500 hover:bg-slate-50"
             onClick={onClose}
           >
             <HiX className="h-5 w-5" aria-hidden="true" />
@@ -1501,10 +1485,8 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
           run.foundry_conversation_id ||
           run.app_insights_operation_id ? (
             <div className="rounded-md border border-slate-200 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                Telemetry
-              </p>
-              <dl className="mt-1.5 space-y-1 text-xs text-slate-500">
+              <h3 className="type-label">Telemetry</h3>
+              <dl className="mt-1.5 space-y-1 text-xs text-slate-600">
                 {run.foundry_agent_name ? (
                   <TelemetryRow label="Foundry agent" value={run.foundry_agent_name} />
                 ) : null}
@@ -1527,9 +1509,9 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
 function TelemetryRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="text-slate-400">{label}</dt>
+      <dt className="text-slate-500">{label}</dt>
       <dd>
-        <code className="rounded bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-600 ring-1 ring-slate-200">
+        <code className="rounded bg-slate-50 px-1.5 py-0.5 text-xs text-slate-600 ring-1 ring-slate-200">
           {value}
         </code>
       </dd>
@@ -2473,7 +2455,7 @@ function EvidenceMap({
               <HiArrowsExpand className="h-3.5 w-3.5" aria-hidden="true" />
             </MapControl>
           </div>
-          <span className="pointer-events-none absolute bottom-2 left-3 z-20 text-[11px] text-slate-500">
+          <span className="pointer-events-none absolute bottom-2 left-3 z-20 text-xs text-slate-600">
             Click a bubble to zoom in · click empty space to zoom out · scroll to zoom · drag to pan
           </span>
 
@@ -2575,7 +2557,7 @@ function EvidenceMap({
                         <text
                           x={mid.x + 12}
                           y={mid.y + 6}
-                          className="fill-slate-500 text-[18px] font-medium"
+                          className="fill-slate-600 text-[20px] font-medium"
                         >
                           {label}
                         </text>
@@ -2668,7 +2650,7 @@ function EvidenceMap({
                         ? ` · ${Math.round(confidence * 100)}% confidence`
                         : ""}
                     </span>
-                    <span className="mt-7 flex items-center gap-2.5 text-[17px] font-medium">
+                    <span className="mt-7 flex items-center gap-2.5 text-[20px] font-medium">
                       <PackChip dot="#60a5fa" label="Microsoft IQ" value={iqCitations} />
                       <PackChip
                         dot="#67e8f9"
@@ -2676,7 +2658,7 @@ function EvidenceMap({
                         value={allCitations - iqCitations}
                       />
                     </span>
-                    <span className="mt-4 inline-flex items-center gap-1 text-[16px] font-medium text-violet-100">
+                    <span className="mt-4 inline-flex items-center gap-1 text-[20px] font-medium text-violet-100">
                       Click to explore
                       <HiChevronRight className="h-4 w-4" aria-hidden="true" />
                     </span>
@@ -2714,9 +2696,11 @@ function EvidenceMap({
                   <span className="mt-0.5 text-[38px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-slate-900">
                     {iqCitations}
                   </span>
-                  <span className="mt-1 text-[12px] text-slate-600">
-                    {iqCitations === 1 ? "citation" : "citations"} · {activeIq} of {iqNodes.length}{" "}
-                    sources
+                  <span className="mt-1 text-[16px] leading-snug text-slate-600">
+                    {iqCitations === 1 ? "citation" : "citations"}
+                    <span className="block">
+                      {activeIq} of {iqNodes.length} sources
+                    </span>
                   </span>
                 </div>
               ) : null}
@@ -2835,7 +2819,7 @@ function AgentMapListNodes({ nodes }: { nodes: MapNode[] }) {
               <span className="text-xs text-slate-600">{node.title}</span>
               {node.badge ? (
                 <span
-                  className={`rounded px-1.5 py-px text-[11px] font-semibold uppercase ring-1 ${node.badge.className}`}
+                  className={`rounded px-1.5 py-px text-xs font-semibold capitalize ring-1 ${node.badge.className}`}
                 >
                   {node.badge.text}
                 </span>
@@ -3064,7 +3048,7 @@ function MapTile({
 
       {level !== "compact" && node.badge ? (
         <span
-          className={`rounded px-1.5 py-px text-[10px] font-semibold uppercase ring-1 ${node.badge.className}`}
+          className={`rounded px-1.5 py-px text-xs font-semibold capitalize ring-1 ${node.badge.className}`}
         >
           {node.badge.text}
         </span>
@@ -3073,18 +3057,18 @@ function MapTile({
       {level === "detail" ? (
         <span className="w-[220px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-left shadow-[0_1px_2px_rgba(15,23,42,0.06),0_8px_20px_-12px_rgba(15,23,42,0.35)]">
           <span className="block text-xs font-semibold text-slate-800">{node.title}</span>
-          <span className={`block text-[11px] ${node.active ? node.iconClass : "text-slate-500"}`}>
+          <span className={`block text-xs ${node.active ? node.iconClass : "text-slate-500"}`}>
             {node.stats}
           </span>
           {node.lines.length > 0 ? (
             <span className="mt-1.5 block space-y-1 border-t border-slate-100 pt-1.5">
               {node.lines.slice(0, 3).map((line) => (
-                <span key={line} className="block truncate text-[11px] text-slate-600" title={line}>
+                <span key={line} className="block truncate text-xs text-slate-600" title={line}>
                   {line}
                 </span>
               ))}
               {node.lines.length > 3 ? (
-                <span className="block text-[11px] text-slate-500">
+                <span className="block text-xs text-slate-500">
                   +{node.lines.length - 3} more
                 </span>
               ) : null}
@@ -3105,7 +3089,7 @@ function ExpertLane({ lane }: { lane: FanoutLane }) {
       <div className="flex items-center gap-2 font-semibold">
         <IqLogo meta={meta} size="h-7 w-7" />
         <span>{meta.key === "other" ? lane.agent || lane.plane || "Expert" : meta.label}</span>
-        <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+        <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600">
           {evidence.length} {evidence.length === 1 ? "citation" : "citations"}
         </span>
       </div>
@@ -3115,9 +3099,9 @@ function ExpertLane({ lane }: { lane: FanoutLane }) {
           {evidence.map((item, index) => (
             <li key={index} className="text-sm text-slate-600">
               <span className="block">{item.claim || "(no citation text)"}</span>
-              <span className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+              <span className="mt-0.5 flex flex-wrap items-center gap-2 type-meta">
                 {item.source_ref ? (
-                  <code className="rounded bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-600 ring-1 ring-slate-200">
+                  <code className="rounded bg-slate-50 px-1.5 py-0.5 text-xs text-slate-600 ring-1 ring-slate-200">
                     {cleanSourceRef(item.source_ref)}
                   </code>
                 ) : null}

@@ -71,9 +71,7 @@ export function AppHeader() {
               className="h-7 w-px bg-slate-200"
               aria-hidden="true"
             />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-blue-700">
-              Waypoint
-            </p>
+            <p className="text-sm font-semibold text-blue-900">Waypoint</p>
           </div>
           <nav
             className="flex flex-wrap items-center gap-1.5"
@@ -131,7 +129,7 @@ function UserMenu({
       <button
         type="button"
         onClick={onToggle}
-        className="flex items-center gap-2 rounded-md px-1.5 py-1 text-left hover:bg-slate-50"
+        className="flex items-center gap-2 rounded-md px-1.5 py-0.5 text-left hover:bg-slate-50"
         aria-haspopup="menu"
         aria-expanded={isOpen}
       >
@@ -139,11 +137,11 @@ function UserMenu({
           <span className="block max-w-44 truncate text-xs font-semibold leading-4 text-slate-900">
             {user.name}
           </span>
-          <span className="block max-w-44 truncate text-[11px] leading-3 text-slate-500">
+          <span className="block max-w-44 truncate type-meta">
             {user.email}
           </span>
         </span>
-        <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-[10px] font-semibold text-blue-700">
+        <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-xs font-semibold text-blue-800">
           {user.avatarUrl ? (
             <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
           ) : (
@@ -163,9 +161,7 @@ function UserMenu({
             <p className="truncate text-xs text-slate-500">{user.email}</p>
             {isLocalMode ? (
               <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-800">
-                  Dev mode
-                </p>
+                <p className="text-xs font-semibold text-emerald-800">Dev mode</p>
                 <p className="text-xs text-emerald-700">
                   Authentication is bypassed locally.
                 </p>
@@ -181,7 +177,7 @@ function UserMenu({
             <HiLogout className="h-4 w-4 text-slate-500" aria-hidden="true" />
             {isLocalMode ? "Back to login" : "Sign out"}
           </button>
-          <p className="border-t border-slate-100 pr-2 pt-1.5 text-right text-[9px] text-slate-400/40">
+          <p className="border-t border-slate-100 pr-2 pt-1.5 text-right type-meta">
             {buildVersion}
           </p>
         </div>
