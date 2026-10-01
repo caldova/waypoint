@@ -950,7 +950,7 @@ export default function Invoices() {
                     <h1 className="text-2xl font-semibold tracking-tight">
                       Supplier invoices
                     </h1>
-                    <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+                    <p className="mt-1 max-w-[65ch] text-sm leading-6 text-slate-600">
                       The complete invoice work queue. Select any unreviewed invoices to run
                       assurance, then inspect recorded decisions, evidence, and recovery.
                     </p>
@@ -992,7 +992,7 @@ export default function Invoices() {
                     />
                   </div>
                 </div>
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 max-md:items-start">
+                <p className="mt-2 flex max-w-[90ch] items-center gap-1.5 text-xs text-slate-500 max-md:items-start">
                   <HiSparkles className="h-3.5 w-3.5 shrink-0 text-blue-600 max-md:mt-px" aria-hidden="true" />
                   {loading
                     ? "Loading supplier invoice decisions from the Waypoint API…"
@@ -1270,7 +1270,7 @@ export default function Invoices() {
                           </td>
                           <td className="px-3 py-2.5 font-semibold text-emerald-700">
                             {!row.has_agent_decision
-                              ? <span className="text-slate-500">—</span>
+                              ? <EmptyValue />
                               : row.overpayment_display}
                           </td>
                         </tr>
@@ -1464,7 +1464,7 @@ function BatchAssuranceBar({
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-11"
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-11"
               onClick={onReview}
               disabled={selectionTooLarge}
             >
@@ -1602,7 +1602,7 @@ function BatchAssuranceConfirmation({
           </button>
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md bg-blue-700 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:cursor-wait disabled:opacity-60"
             ref={confirmRef}
             onClick={onConfirm}
             disabled={loading}
@@ -1704,13 +1704,13 @@ function FilterBar({
         <select
           value={severityFilter}
           onChange={(event) => onSeverityFilter(event.target.value)}
-          className={`capitalize ${selectClass}`}
+          className={selectClass}
           aria-label="Filter by severity"
         >
           <option value="all">Any severity</option>
           {severities.map((severity) => (
             <option key={severity} value={severity}>
-              {severity}
+              {sentenceCase(severity)}
             </option>
           ))}
         </select>
@@ -1839,7 +1839,7 @@ function MobileFilters({
   if (severityFilter !== "all") {
     chips.push({
       key: "severity",
-      label: `${severityFilter.charAt(0).toUpperCase()}${severityFilter.slice(1)} severity`,
+      label: `${sentenceCase(severityFilter)} severity`,
       removeLabel: `Remove severity filter: ${severityFilter}`,
       onRemove: () => onSeverityFilter("all"),
     });
@@ -1996,12 +1996,12 @@ function MobileFilters({
               <select
                 value={severityFilter}
                 onChange={(event) => onSeverityFilter(event.target.value)}
-                className={`mt-1 capitalize ${fieldClass}`}
+                className={`mt-1 ${fieldClass}`}
               >
                 <option value="all">Any severity</option>
                 {severities.map((severity) => (
                   <option key={severity} value={severity}>
-                    {severity}
+                    {sentenceCase(severity)}
                   </option>
                 ))}
               </select>
@@ -2046,7 +2046,7 @@ function MobileFilters({
             setOpen(false);
             toggleRef.current?.focus();
           }}
-          className="min-h-11 w-full rounded-md bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm active:bg-blue-700"
+          className="min-h-11 w-full rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm active:bg-blue-800"
         >
           Show {resultCount} invoice{resultCount === 1 ? "" : "s"}
         </button>
@@ -2198,7 +2198,7 @@ function DecisionChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ring-1 transition-colors ${
+      className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 transition-colors ${
         active
           ? "bg-slate-900 text-white ring-slate-900"
           : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
@@ -2214,7 +2214,7 @@ function NoMatches({ onReset }: { onReset: () => void }) {
     <div className="flex flex-col items-center justify-center gap-2 px-3 py-10 text-center">
       <p className="text-sm font-semibold text-slate-700">No invoices match these filters</p>
       <p className="max-w-sm text-xs text-slate-500">
-        Try widening the decision, severity, or supplier filters — or clear them to see the full
+        Try widening the decision, severity, or supplier filters, or clear them to see the full
         register.
       </p>
       <button
@@ -2401,8 +2401,9 @@ function InsightsSidebar({
                   <span
                     className="h-2 w-2 rounded-full"
                     style={{ backgroundColor: severityColor(item.severity) }}
+                    aria-hidden="true"
                   />
-                  {item.severity}
+                  {sentenceCase(item.severity)}
                 </span>
                 <span className="tabular-nums text-slate-500">{item.count}</span>
               </li>
@@ -2420,7 +2421,7 @@ function InsightsSidebar({
                 <button
                   type="button"
                   onClick={() => onSelect(row)}
-                  className="flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1 text-left text-xs hover:bg-slate-50"
+                  className="flex w-full items-center justify-between gap-2 rounded-md px-1.5 py-1 text-left text-xs hover:bg-slate-50 max-md:min-h-11"
                 >
                   <span className="min-w-0">
                     <span className="block truncate font-medium text-slate-700">
@@ -2610,9 +2611,9 @@ function formatRunDateTime(iso: string): string {
 }
 
 const primaryButton =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60";
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md max-md:min-h-11 bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60";
 const secondaryButton =
-  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md max-md:min-h-11 border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
 
 interface BasisDocument {
   type: "contract" | "policy";
@@ -3083,7 +3084,7 @@ function RunSwitcher({
               onClick={() => onSelectCase(entry.case.id)}
               title={formatRunDateTime(entry.case.created_at)}
               className={[
-                "inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors",
+                "inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors max-md:min-h-11",
                 active
                   ? "border-blue-300 bg-white text-blue-900 ring-1 ring-blue-200"
                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100",
@@ -4200,7 +4201,7 @@ function PreviewDocumentButton({
   return (
     <button
       type="button"
-      className="inline-flex max-w-full flex-wrap items-center gap-1 break-all rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-left text-xs font-medium text-blue-800 hover:border-blue-200 hover:bg-blue-100"
+      className="inline-flex max-w-full flex-wrap items-center gap-1 break-all rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-left text-xs font-medium text-blue-800 hover:border-blue-200 hover:bg-blue-100 max-md:min-h-11"
       onClick={() => onOpen(uri)}
     >
       {label}: {cleanDocumentPath(uri)}
@@ -4232,26 +4233,29 @@ function DecisionPill({ decision }: { decision: string }) {
   }
   if (decision === "Not run") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-        <span className="h-2 w-2 rounded-full bg-slate-400" aria-hidden="true" />
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+        <span className="h-2 w-2 rounded-full bg-slate-500" aria-hidden="true" />
         Not run
       </span>
     );
   }
+  // Same stoplight as decisionColor() and the Agent Details chips.
   const className =
     decision === "Escalate"
-      ? "bg-rose-50 text-rose-800"
+      ? "bg-red-50 text-red-800"
       : decision === "Recover"
-        ? "bg-emerald-50 text-emerald-800"
+        ? "bg-orange-50 text-orange-800"
         : decision === "Approve"
-          ? "bg-blue-50 text-blue-800"
-          : decision === "Closed"
-            ? "bg-slate-100 text-slate-700"
-            : "bg-amber-50 text-amber-800";
+          ? "bg-emerald-50 text-emerald-800"
+          : decision === "Review"
+            ? "bg-blue-50 text-blue-800"
+            : decision === "Closed"
+              ? "bg-slate-100 text-slate-700"
+              : "bg-amber-50 text-amber-800";
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold ${className}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold ${className}`}
     >
       <span
         className="inline-block h-2 w-2 shrink-0 rounded-full"
@@ -4284,7 +4288,7 @@ function ConfidenceBadge({
         </span>
       );
     }
-    return <span className="type-meta">—</span>;
+    return <EmptyValue />;
   }
   if (!calibrated) {
     return (
@@ -4306,6 +4310,14 @@ function ConfidenceBadge({
   );
 }
 
+function EmptyValue() {
+  return (
+    <span className="type-meta" role="img" aria-label="None">
+      —
+    </span>
+  );
+}
+
 function SourceCount({ sources, planes }: { sources: number; planes: number }) {
   if (sources <= 0 && planes <= 0) {
     return (
@@ -4315,15 +4327,15 @@ function SourceCount({ sources, planes }: { sources: number; planes: number }) {
     );
   }
   const expertWord = planes === 1 ? "expert" : "experts";
-  const sourceWord = sources === 1 ? "source" : "sources";
+  const citationWord = sources === 1 ? "citation" : "citations";
   const tooltip =
     planes > 0
-      ? `${sources} evidence ${sourceWord} corroborated across ${planes} independent ${expertWord} (e.g. WorkIQ, FabricIQ). Open the row to see each expert's citations.`
-      : `${sources} evidence ${sourceWord} recorded. Open the row to see the details.`;
+      ? `${sources} ${citationWord} corroborated across ${planes} independent ${expertWord} (e.g. WorkIQ, FabricIQ). Open the row to see each expert's citations.`
+      : `${sources} ${citationWord} recorded. Open the row to see the details.`;
   if (planes <= 0) {
     return (
       <span className="text-xs text-slate-600" title={tooltip}>
-        <span className="font-semibold text-slate-700">{sources}</span> {sourceWord}
+        <span className="font-semibold text-slate-700">{sources}</span> {citationWord}
       </span>
     );
   }
@@ -4334,7 +4346,7 @@ function SourceCount({ sources, planes }: { sources: number; planes: number }) {
       </span>
       {sources > 0 ? (
         <span className="type-meta">
-          {sources} {sourceWord} cited
+          {sources} {citationWord}
         </span>
       ) : null}
     </span>
@@ -4703,10 +4715,20 @@ function formatCurrency(value: string, currency = "USD") {
   }).format(amount);
 }
 
+const CATEGORY_ACRONYMS = new Set(["api", "gmp", "ip", "msa", "po", "qa", "qc", "sku", "sow"]);
+
 function formatCategory(value: string) {
   return value
     .replace(/[_-]+/g, " ")
-    .replace(/\b\w/g, (match) => match.toUpperCase());
+    .replace(/\b\w+/g, (word) =>
+      CATEGORY_ACRONYMS.has(word.toLowerCase())
+        ? word.toUpperCase()
+        : word.charAt(0).toUpperCase() + word.slice(1),
+    );
+}
+
+function sentenceCase(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function formatMetadataValue(value: unknown) {

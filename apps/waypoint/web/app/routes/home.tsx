@@ -97,13 +97,13 @@ export default function Home() {
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link
                   to="/invoices"
-                  className="inline-flex min-h-9 items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-md bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 max-md:min-h-11"
                 >
                   Review invoices
                 </Link>
                 <Link
                   to="/agent"
-                  className="inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 max-md:min-h-11"
                 >
                   View agent runs
                 </Link>

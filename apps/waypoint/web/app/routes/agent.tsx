@@ -122,6 +122,11 @@ function decisionStyle(decision: string | undefined): string {
   return DECISION_STYLES[(decision ?? "").toLowerCase()] ?? "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
+/** Same wording as the invoice panel: only a calibrated score is "confidence". */
+function scoreText(value: number, calibrated: boolean): string {
+  return `${Math.round(value * 100)}% ${calibrated ? "confidence" : "evidence score"}`;
+}
+
 // ---------------------------------------------------------------------------
 // IQ planes ("the IQ logos")
 // ---------------------------------------------------------------------------
@@ -352,10 +357,7 @@ function buildInvoiceGroups(runs: AgentRun[]): InvoiceGroup[] {
       runCount: sorted.length,
       decision: latestMeta.decision || latestRun.status,
       moneyAtRisk: typeof latestMeta.money_at_risk === "number" ? latestMeta.money_at_risk : 0,
-      findingCount:
-        typeof latestMeta.finding_count === "number"
-          ? latestMeta.finding_count
-          : fanout.reduce((acc, lane) => acc + laneClaimCount(lane), 0),
+      findingCount: typeof latestMeta.finding_count === "number" ? latestMeta.finding_count : 0,
       confidence: groupConfidence(latestMeta, fanout),
       confidenceCalibrated: latestMeta.confidence_calibrated === true,
       iqKeys,
@@ -646,7 +648,9 @@ export default function Agent() {
 
   return (
     <RequireAuth>
-      <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-950">
+      {/* Below xl the run list and sidebar stack, so the page scrolls as a document; at xl
+          they sit side by side and each pane scrolls on its own. */}
+      <div className="flex min-h-screen bg-slate-50 text-slate-950 xl:h-screen xl:overflow-hidden">
         <div className="flex min-h-0 w-full flex-col">
           <AppHeader />
 
@@ -655,7 +659,7 @@ export default function Agent() {
             className="relative mx-auto grid min-h-0 w-full max-w-[1500px] flex-1 grid-cols-1 gap-2 px-3 py-3 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:px-4"
           >
             <section
-              className="flex min-h-0 flex-col rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
+              className="flex flex-col rounded-lg border border-slate-200 bg-white p-3 shadow-sm xl:min-h-0"
               aria-labelledby="agent-heading"
             >
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
@@ -663,7 +667,7 @@ export default function Agent() {
                   <h1 id="agent-heading" className="text-2xl font-semibold tracking-tight">
                     Work done by invoice
                   </h1>
-                  <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+                  <p className="mt-1 max-w-[65ch] text-sm leading-6 text-slate-600">
                     Every Foundry Assurance Orchestrator run is grouped by the invoice it assured. Each row rolls
                     up how many times the experts ran, the current decision, and money at risk.
                     Open a run to see the IQ-by-IQ evidence trail of what it found.
@@ -673,7 +677,7 @@ export default function Agent() {
                   <button
                     type="button"
                     onClick={() => void fetchRuns()}
-                    className="inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    className="inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 max-md:min-h-11"
                   >
                     <HiRefresh className="h-4 w-4" aria-hidden="true" />
                     Refresh
@@ -712,7 +716,7 @@ export default function Agent() {
                 />
               ) : null}
 
-              <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="mt-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
                 {loading ? (
                   <p className="px-1 py-6 text-sm text-slate-500">Loading runs…</p>
                 ) : runs.length === 0 ? (
@@ -720,6 +724,8 @@ export default function Agent() {
                 ) : groups.length === 0 ? (
                   <NoMatches onReset={resetFilters} />
                 ) : (
+                  <>
+                  <h2 className="sr-only">Invoices</h2>
                   <ol className="space-y-3">
                     {groups.map((group) => (
                       <InvoiceCard
@@ -731,11 +737,12 @@ export default function Agent() {
                       />
                     ))}
                   </ol>
+                  </>
                 )}
               </div>
             </section>
 
-            <aside className="flex min-h-0 flex-col gap-2 overflow-auto">
+            <aside className="flex flex-col gap-2 xl:min-h-0 xl:overflow-auto">
               <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
                 <h2 className="type-section">Expert usage (IQ)</h2>
                 <p className="mt-1 type-meta leading-5">
@@ -873,8 +880,9 @@ function FilterBar({
                 key={range.key}
                 type="button"
                 onClick={() => onTimeRange(range.key)}
-                className={`rounded px-2 py-1 text-xs font-semibold transition-colors ${
-                  active ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                aria-pressed={active}
+                className={`rounded px-2 py-1 text-xs font-semibold transition-colors max-md:min-h-11 max-md:min-w-11 ${
+                  active ? "bg-blue-700 text-white" : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
                 {range.label}
@@ -886,7 +894,7 @@ function FilterBar({
           <select
             value={monthFilter}
             onChange={(event) => onMonthFilter(event.target.value)}
-            className="min-h-8 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-blue-300 focus:outline-none"
+            className="min-h-8 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-blue-300 focus:outline-none max-md:min-h-11 max-md:text-base"
             aria-label="Filter by month"
           >
             <option value="all">Any month</option>
@@ -920,8 +928,8 @@ function FilterBar({
         </div>
       ) : null}
 
-      <div className="ml-auto flex items-center gap-2">
-        <div className="relative">
+      <div className="ml-auto flex items-center gap-2 max-md:ml-0 max-md:w-full">
+        <div className="relative max-md:min-w-0 max-md:flex-1">
           <HiSearch
             className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500"
             aria-hidden="true"
@@ -931,14 +939,14 @@ function FilterBar({
             value={query}
             onChange={(event) => onQuery(event.target.value)}
             placeholder="Search invoice…"
-            className="min-h-8 w-44 rounded-md border border-slate-200 bg-white pl-7 pr-2 py-1 text-xs text-slate-700 placeholder:text-slate-500 focus:border-blue-300 focus:outline-none"
+            className="min-h-8 w-44 max-md:w-full rounded-md border border-slate-200 bg-white pl-7 pr-2 py-1 text-xs text-slate-700 placeholder:text-slate-500 focus:border-blue-300 focus:outline-none max-md:min-h-11 max-md:text-base"
             aria-label="Search invoices"
           />
         </div>
         <select
           value={sort}
           onChange={(event) => onSort(event.target.value as SortKey)}
-          className="min-h-8 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-blue-300 focus:outline-none"
+          className="min-h-8 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-blue-300 focus:outline-none max-md:min-h-11 max-md:text-base"
           aria-label="Sort invoices"
         >
           {SORT_OPTIONS.map((option) => (
@@ -965,7 +973,8 @@ function DecisionChip({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ring-1 transition-colors ${
+      aria-pressed={active}
+      className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ring-1 transition-colors max-md:min-h-11 max-md:px-3.5 ${
         active
           ? "bg-slate-900 text-white ring-slate-900"
           : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
@@ -1262,8 +1271,7 @@ function InvoiceCard({
                     : "Uncalibrated evidence score; not calibrated decision accuracy."
                 }
               >
-                {Math.round(group.confidence * 100)}%{" "}
-                {group.confidenceCalibrated ? "confidence" : "evidence score"}
+                {scoreText(group.confidence, group.confidenceCalibrated)}
               </span>
             ) : null}
           </div>
@@ -1339,7 +1347,7 @@ function RunRow({
           #{index}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span
               className={`rounded px-1.5 py-0.5 text-xs font-semibold capitalize ring-1 ${decisionStyle(
                 meta.decision || run.status,
@@ -1352,7 +1360,7 @@ function RunRow({
                 Latest
               </span>
             ) : null}
-            <span className="truncate type-meta">{formatTimestamp(run.created_at)}</span>
+            <span className="max-w-full truncate type-meta">{formatTimestamp(run.created_at)}</span>
           </div>
           <p className="mt-0.5 line-clamp-1 text-sm text-slate-600">
             {run.summary || "No summary recorded."}
@@ -1388,10 +1396,20 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useModalDialog(dialogRef, { onClose, initialFocusRef: headingRef });
 
+  // Below xl the page scrolls as a document; stop it scrolling behind the dialog.
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = previous;
+    };
+  }, []);
+
   return (
     <div
       ref={dialogRef}
-      className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/40 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 max-md:p-2 xl:absolute xl:z-30"
       role="dialog"
       aria-modal="true"
       aria-label={`Run detail for ${invoiceLabel}`}
@@ -1423,7 +1441,7 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
           </div>
           <button
             type="button"
-            className="rounded-md p-1 text-slate-500 hover:bg-slate-50"
+            className="rounded-md p-1 text-slate-500 hover:bg-slate-50 max-md:flex max-md:h-11 max-md:w-11 max-md:items-center max-md:justify-center"
             onClick={onClose}
           >
             <HiX className="h-5 w-5" aria-hidden="true" />
@@ -1440,7 +1458,7 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
               size="lg"
             />
             <Stat
-              label="Confidence"
+              label={meta.confidence_calibrated === true ? "Confidence" : "Evidence score"}
               value={
                 typeof meta.confidence === "number"
                   ? `${Math.round(meta.confidence * 100)}%`
@@ -1452,11 +1470,7 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
             <Stat
               label="Findings"
               size="lg"
-              value={String(
-                typeof meta.finding_count === "number"
-                  ? meta.finding_count
-                  : fanout.reduce((acc, lane) => acc + laneClaimCount(lane), 0),
-              )}
+              value={typeof meta.finding_count === "number" ? String(meta.finding_count) : "—"}
             />
           </dl>
 
@@ -1472,6 +1486,7 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
             decision={meta.decision || run.status}
             moneyAtRisk={meta.money_at_risk}
             confidence={meta.confidence}
+            confidenceCalibrated={meta.confidence_calibrated === true}
           />
 
           <div>
@@ -1822,12 +1837,14 @@ function buildMapBubbles({
   decision,
   moneyAtRisk,
   confidence,
+  confidenceCalibrated,
 }: {
   evidenceFanout: FanoutLane[];
   analystLanes: FanoutLane[];
   decision: string;
   moneyAtRisk: number | undefined;
   confidence: number | undefined;
+  confidenceCalibrated: boolean;
 }): MapBubble[] {
   const evidenceNodes = buildEvidenceNodes(evidenceFanout);
   const integrationNodes = buildIntegrationNodes(evidenceFanout);
@@ -1841,7 +1858,7 @@ function buildMapBubbles({
   const orchestrationPositions = layoutAgents(2, ORCHESTRATION_BUBBLE);
   const orchestratorLines = [
     typeof moneyAtRisk === "number" && moneyAtRisk > 0 ? `${formatMoney(moneyAtRisk)} at risk` : "",
-    typeof confidence === "number" ? `${Math.round(confidence * 100)}% decision confidence` : "",
+    typeof confidence === "number" ? scoreText(confidence, confidenceCalibrated) : "",
   ].filter(Boolean);
   const orchestration: MapBubble = {
     key: "orchestration",
@@ -2263,17 +2280,26 @@ function EvidenceMap({
   decision,
   moneyAtRisk,
   confidence,
+  confidenceCalibrated,
 }: {
   fanout: FanoutLane[];
   analystLanes: FanoutLane[];
   decision: string;
   moneyAtRisk: number | undefined;
   confidence: number | undefined;
+  confidenceCalibrated: boolean;
 }) {
   const bubbles = useMemo(
     () =>
-      buildMapBubbles({ evidenceFanout: fanout, analystLanes, decision, moneyAtRisk, confidence }),
-    [fanout, analystLanes, decision, moneyAtRisk, confidence],
+      buildMapBubbles({
+        evidenceFanout: fanout,
+        analystLanes,
+        decision,
+        moneyAtRisk,
+        confidence,
+        confidenceCalibrated,
+      }),
+    [fanout, analystLanes, decision, moneyAtRisk, confidence, confidenceCalibrated],
   );
   const bubbleByKey = new Map(bubbles.map((bubble) => [bubble.key, bubble]));
   const caldovaBubble = bubbleByKey.get("caldova");
@@ -2392,7 +2418,7 @@ function EvidenceMap({
                 type="button"
                 aria-pressed={mode === option}
                 onClick={() => setMode(option)}
-                className={`rounded px-2.5 py-1 transition-colors ${
+                className={`rounded px-2.5 py-1 transition-colors max-md:min-h-11 max-md:px-3.5 ${
                   mode === option
                     ? "bg-slate-900 text-white"
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -2413,6 +2439,7 @@ function EvidenceMap({
           activeSources={activeSources}
           totalSources={sourceNodes.length}
           confidence={confidence}
+          confidenceCalibrated={confidenceCalibrated}
         />
       ) : null}
       {/* Kept mounted while hidden so the map's resize and wheel listeners stay bound. */}
@@ -2655,7 +2682,7 @@ function EvidenceMap({
                     <span className="mt-2 text-[21px] text-violet-100">
                       {allCitations === 1 ? "citation" : "citations"}
                       {typeof confidence === "number"
-                        ? ` · ${Math.round(confidence * 100)}% confidence`
+                        ? ` · ${scoreText(confidence, confidenceCalibrated)}`
                         : ""}
                     </span>
                     <span className="mt-7 flex items-center gap-2.5 text-[20px] font-medium">
@@ -2768,7 +2795,7 @@ function EvidenceMap({
             </div>
           </div>
         </div>
-        <p className="mt-1.5 text-xs leading-5 text-slate-500">
+        <p className="mt-1.5 max-w-[100ch] text-xs leading-5 text-slate-600">
           Caldova IQ holds every evidence source the orchestrator can call: Microsoft IQ (FabricIQ,
           FoundryIQ, WebIQ, WorkIQ) and third-party integrations. Click it to zoom in. Tiles in
           colour cited evidence in this run; faded tiles weren't used. Waypoint Recorder remains the
@@ -2878,6 +2905,7 @@ function AgentMapList({
   activeSources,
   totalSources,
   confidence,
+  confidenceCalibrated,
 }: {
   bubbles: MapBubble[];
   allCitations: number;
@@ -2885,6 +2913,7 @@ function AgentMapList({
   activeSources: number;
   totalSources: number;
   confidence: number | undefined;
+  confidenceCalibrated: boolean;
 }) {
   const byKey = new Map(bubbles.map((bubble) => [bubble.key, bubble]));
   const children = (key: BubbleKey) => bubbles.filter((bubble) => bubble.parent === key);
@@ -2898,7 +2927,7 @@ function AgentMapList({
     switch (bubble.key) {
       case "caldova":
         return `${allCitations} ${allCitations === 1 ? "citation" : "citations"}${
-          typeof confidence === "number" ? ` · ${Math.round(confidence * 100)}% decision confidence` : ""
+          typeof confidence === "number" ? ` · ${scoreText(confidence, confidenceCalibrated)}` : ""
         } · ${activeSources} of ${totalSources} evidence sources used`;
       case "microsoft":
         return `${iqCitations} ${iqCitations === 1 ? "citation" : "citations"} · ${iqUsed} of ${
@@ -2989,7 +3018,7 @@ function MapControl({
       aria-label={label}
       aria-disabled={disabled || undefined}
       title={label}
-      className={`flex h-8 w-8 items-center justify-center transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
+      className={`flex h-8 w-8 items-center justify-center transition-colors max-md:h-11 max-md:w-11 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-600 ${
         disabled
           ? "cursor-not-allowed text-slate-300"
           : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
