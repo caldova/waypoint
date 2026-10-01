@@ -1,10 +1,12 @@
 import type { MetaFunction } from "react-router";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
+  HiAdjustments,
   HiCheck,
   HiCheckCircle,
+  HiChevronDown,
   HiChevronRight,
   HiClipboardCopy,
   HiDocumentText,
@@ -930,7 +932,9 @@ export default function Invoices() {
 
   return (
     <RequireAuth>
-      <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-950">
+      {/* Below xl the register and insights stack, so the page scrolls as a document; at xl
+          they sit side by side and each pane scrolls on its own. */}
+      <div className="flex min-h-screen bg-slate-50 text-slate-950 xl:h-screen xl:overflow-hidden">
         <div className="flex min-h-0 w-full flex-col">
           <AppHeader />
 
@@ -939,7 +943,7 @@ export default function Invoices() {
             id="main-content"
             className="mx-auto grid min-h-0 w-full max-w-[1500px] flex-1 grid-cols-1 gap-2 px-3 py-3 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:px-4"
           >
-            <section className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <section className="flex min-w-0 flex-col overflow-clip rounded-lg border border-slate-200 bg-white shadow-sm xl:min-h-0 xl:overflow-hidden">
               <div className="border-b border-slate-100 px-3 py-2.5">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
@@ -952,7 +956,7 @@ export default function Invoices() {
                     </p>
                   </div>
                   <div
-                    className={`grid ${pendingCount > 0 ? "grid-cols-4" : "grid-cols-3"} gap-2 text-right text-sm`}
+                    className={`grid w-full sm:w-auto ${pendingCount > 0 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"} gap-2 text-right text-sm`}
                   >
                     <InfoTile
                       label={filtersActive ? "Shown" : "Invoices"}
@@ -988,8 +992,8 @@ export default function Invoices() {
                     />
                   </div>
                 </div>
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-                  <HiSparkles className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 max-md:items-start">
+                  <HiSparkles className="h-3.5 w-3.5 shrink-0 text-blue-600 max-md:mt-px" aria-hidden="true" />
                   {loading
                     ? "Loading supplier invoice decisions from the Waypoint API…"
                     : `${formatMoney(totalOverpayment)} recoverable across ${reviewedCount} reviewed invoice${
@@ -1012,6 +1016,29 @@ export default function Invoices() {
                 <div className="m-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
                   {error}
                 </div>
+              ) : null}
+
+              {!loading && decisions.length > 0 ? (
+                <MobileFilters
+                  decisions={decisionOptions}
+                  decisionFilter={decisionFilter}
+                  onDecisionFilter={setDecisionFilter}
+                  severities={severityOptions}
+                  severityFilter={severityFilter}
+                  onSeverityFilter={setSeverityFilter}
+                  suppliers={supplierOptions}
+                  supplierFilter={supplierFilter}
+                  onSupplierFilter={setSupplierFilter}
+                  categories={categoryOptions}
+                  categoryFilter={categoryFilter}
+                  onCategoryFilter={setCategoryFilter}
+                  query={query}
+                  onQuery={setQuery}
+                  sort={sort}
+                  onSort={setSort}
+                  onReset={resetFilters}
+                  resultCount={visible.length}
+                />
               ) : null}
 
               {!loading && decisions.length > 0 ? (
@@ -1047,7 +1074,7 @@ export default function Invoices() {
                   {!loading && visible.length > 0 ? (
                     <button
                       type="button"
-                      className="min-h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+                      className="min-h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 max-md:min-h-11"
                       onClick={toggleVisibleSelection}
                     >
                       {allVisibleSelected ? "Clear visible" : "Select visible"}
@@ -1055,7 +1082,7 @@ export default function Invoices() {
                   ) : null}
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 max-md:min-h-11"
                     onClick={fetchDecisions}
                     disabled={loading || auth.status !== "authenticated"}
                   >
@@ -1065,7 +1092,7 @@ export default function Invoices() {
                 </div>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-auto">
+              <div className="overflow-x-auto xl:min-h-0 xl:flex-1 xl:overflow-auto">
                 {loading ? (
                   <p className="px-3 py-6 text-sm text-slate-500">Loading invoices…</p>
                 ) : decisions.length === 0 ? (
@@ -1075,7 +1102,20 @@ export default function Invoices() {
                 ) : visible.length === 0 ? (
                   <NoMatches onReset={resetFilters} />
                 ) : (
-                  <table className="w-full table-fixed text-left text-[13px]">
+                  <>
+                  <ul className="divide-y divide-slate-100 md:hidden" aria-label="Invoices">
+                    {visible.map((row) => (
+                      <InvoiceCard
+                        key={row.invoice_id}
+                        row={row}
+                        selected={selectedInvoiceIds.has(row.invoice_id)}
+                        open={selectedDecision?.invoice_id === row.invoice_id}
+                        onToggleSelected={() => toggleInvoiceSelection(row.invoice_id)}
+                        onOpen={() => openRow(row)}
+                      />
+                    ))}
+                  </ul>
+                  <table className="hidden w-full table-fixed text-left text-[13px] md:table">
                     <colgroup>
                       <col className="w-[44px]" />
                       <col className="w-[170px]" />
@@ -1237,6 +1277,7 @@ export default function Invoices() {
                       ))}
                     </tbody>
                   </table>
+                  </>
                 )}
               </div>
               {selectedRows.length > 0 || batchResult || batchError ? (
@@ -1252,7 +1293,7 @@ export default function Invoices() {
               ) : null}
             </section>
 
-            <aside className="flex min-h-0 flex-col gap-2 overflow-auto">
+            <aside className="flex flex-col gap-2 xl:min-h-0 xl:overflow-auto">
               {loading ? (
                 <section className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500 shadow-sm">
                   Loading insights…
@@ -1416,14 +1457,14 @@ function BatchAssuranceBar({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="rounded-md px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+              className="rounded-md px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 max-md:min-h-11"
               onClick={onClear}
             >
               Clear
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-11"
               onClick={onReview}
               disabled={selectionTooLarge}
             >
@@ -1446,7 +1487,7 @@ function BatchAssuranceBar({
           </div>
           <button
             type="button"
-            className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50 max-md:min-h-11"
             onClick={onViewActivity}
             disabled={!hasActivityRuns}
           >
@@ -1621,7 +1662,7 @@ function FilterBar({
   const selectClass =
     "min-h-8 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-blue-300 focus:outline-none";
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-100 px-3 py-2.5">
+    <div className="hidden flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-100 px-3 py-2.5 md:flex">
       {decisions.length > 1 ? (
         <div className="flex items-center gap-1.5">
           <span className="type-label">Decision</span>
@@ -1723,24 +1764,445 @@ function FilterBar({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Phone layout: filter disclosure and invoice cards. Both read the same state
+// and the same `visible` list as the desktop filter row and table.
+// ---------------------------------------------------------------------------
+
+interface ActiveFilterChip {
+  key: string;
+  label: string;
+  removeLabel: string;
+  onRemove: () => void;
+}
+
+function MobileFilters({
+  decisions,
+  decisionFilter,
+  onDecisionFilter,
+  severities,
+  severityFilter,
+  onSeverityFilter,
+  suppliers,
+  supplierFilter,
+  onSupplierFilter,
+  categories,
+  categoryFilter,
+  onCategoryFilter,
+  query,
+  onQuery,
+  sort,
+  onSort,
+  onReset,
+  resultCount,
+}: {
+  decisions: string[];
+  decisionFilter: string;
+  onDecisionFilter: (key: string) => void;
+  severities: string[];
+  severityFilter: string;
+  onSeverityFilter: (key: string) => void;
+  suppliers: string[];
+  supplierFilter: string;
+  onSupplierFilter: (key: string) => void;
+  categories: string[];
+  categoryFilter: string;
+  onCategoryFilter: (key: string) => void;
+  query: string;
+  onQuery: (value: string) => void;
+  sort: SortKey;
+  onSort: (key: SortKey) => void;
+  onReset: () => void;
+  resultCount: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  const toggleRef = useRef<HTMLButtonElement>(null);
+
+  const chips: ActiveFilterChip[] = [];
+  if (decisionFilter !== "all") {
+    chips.push({
+      key: "decision",
+      label: decisionFilter,
+      removeLabel: `Remove decision filter: ${decisionFilter}`,
+      onRemove: () => onDecisionFilter("all"),
+    });
+  }
+  if (categoryFilter !== "all") {
+    chips.push({
+      key: "category",
+      label: formatCategory(categoryFilter),
+      removeLabel: `Remove category filter: ${formatCategory(categoryFilter)}`,
+      onRemove: () => onCategoryFilter("all"),
+    });
+  }
+  if (severityFilter !== "all") {
+    chips.push({
+      key: "severity",
+      label: `${severityFilter.charAt(0).toUpperCase()}${severityFilter.slice(1)} severity`,
+      removeLabel: `Remove severity filter: ${severityFilter}`,
+      onRemove: () => onSeverityFilter("all"),
+    });
+  }
+  if (supplierFilter !== "all") {
+    chips.push({
+      key: "supplier",
+      label: supplierFilter,
+      removeLabel: `Remove supplier filter: ${supplierFilter}`,
+      onRemove: () => onSupplierFilter("all"),
+    });
+  }
+  const activeCount = chips.length;
+  const sortLabel = SORT_OPTIONS.find((option) => option.key === sort)?.label;
+  if (sort !== "recent" && sortLabel) {
+    chips.push({
+      key: "sort",
+      label: `Sorted: ${sortLabel}`,
+      removeLabel: `Reset sort to ${SORT_OPTIONS[0].label}`,
+      onRemove: () => onSort("recent"),
+    });
+  }
+
+  // 16px fields stop iOS Safari zooming the page on focus.
+  const fieldClass =
+    "min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 text-base text-slate-800 focus:border-blue-300 focus:outline-none";
+
+  return (
+    <div className="border-b border-slate-100 px-3 py-2.5 md:hidden">
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <HiSearch
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => onQuery(event.target.value)}
+            placeholder="Search invoices"
+            className={`${fieldClass} pl-9 placeholder:text-slate-500`}
+            aria-label="Search invoices"
+          />
+        </div>
+        <button
+          ref={toggleRef}
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((value) => !value)}
+          className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-md border px-3 text-sm font-semibold shadow-sm transition-colors ${
+            open || activeCount > 0
+              ? "border-slate-900 bg-slate-900 text-white"
+              : "border-slate-200 bg-white text-slate-700 active:bg-slate-100"
+          }`}
+        >
+          <HiAdjustments className="h-4 w-4" aria-hidden="true" />
+          Filters
+          {activeCount > 0 ? (
+            <>
+              <span
+                className="min-w-5 rounded-full bg-white px-1.5 text-center text-xs font-semibold tabular-nums text-slate-900"
+                aria-hidden="true"
+              >
+                {activeCount}
+              </span>
+              <span className="sr-only">, {activeCount} active</span>
+            </>
+          ) : null}
+          <HiChevronDown
+            className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+      </div>
+
+      {chips.length > 0 ? (
+        <ul className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-3" aria-label="Active filters">
+          {chips.map((chip) => (
+            <li key={chip.key} className="min-w-0 max-w-full">
+              <button
+                type="button"
+                onClick={chip.onRemove}
+                aria-label={chip.removeLabel}
+                className="relative inline-flex h-8 max-w-full items-center gap-1 rounded-full bg-slate-100 pl-3 pr-2 text-xs font-semibold text-slate-800 ring-1 ring-inset ring-slate-200 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-[''] active:bg-slate-200"
+              >
+                <span className="truncate">{chip.label}</span>
+                <HiX className="h-3.5 w-3.5 shrink-0 text-slate-600" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+          {chips.length > 1 ? (
+            <li>
+              <button
+                type="button"
+                onClick={() => {
+                  onReset();
+                  onSort("recent");
+                }}
+                className="relative inline-flex h-8 items-center rounded-md px-2 text-xs font-semibold text-blue-700 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-[''] active:bg-blue-50"
+              >
+                Clear all
+              </button>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+
+      <div id={panelId} hidden={!open} className="mt-3 space-y-4">
+        {decisions.length > 1 ? (
+          <fieldset>
+            <legend className="type-label">Decision</legend>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              <DecisionChip
+                label="All"
+                active={decisionFilter === "all"}
+                onClick={() => onDecisionFilter("all")}
+                className="min-h-11 px-4"
+              />
+              {decisions.map((decision) => (
+                <DecisionChip
+                  key={decision}
+                  label={decision}
+                  active={decisionFilter === decision}
+                  onClick={() => onDecisionFilter(decision)}
+                  className="min-h-11 px-4"
+                />
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
+
+        <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
+          {categories.length > 1 ? (
+            <label className="block min-w-0">
+              <span className="type-label">Category</span>
+              <select
+                value={categoryFilter}
+                onChange={(event) => onCategoryFilter(event.target.value)}
+                className={`mt-1 ${fieldClass}`}
+              >
+                <option value="all">All categories</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {formatCategory(category)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {severities.length > 1 ? (
+            <label className="block min-w-0">
+              <span className="type-label">Severity</span>
+              <select
+                value={severityFilter}
+                onChange={(event) => onSeverityFilter(event.target.value)}
+                className={`mt-1 capitalize ${fieldClass}`}
+              >
+                <option value="all">Any severity</option>
+                {severities.map((severity) => (
+                  <option key={severity} value={severity}>
+                    {severity}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {suppliers.length > 1 ? (
+            <label className="block min-w-0">
+              <span className="type-label">Supplier</span>
+              <select
+                value={supplierFilter}
+                onChange={(event) => onSupplierFilter(event.target.value)}
+                className={`mt-1 ${fieldClass}`}
+              >
+                <option value="all">All suppliers</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier} value={supplier}>
+                    {supplier}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <label className="block min-w-0">
+            <span className="type-label">Sort by</span>
+            <select
+              value={sort}
+              onChange={(event) => onSort(event.target.value as SortKey)}
+              className={`mt-1 ${fieldClass}`}
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false);
+            toggleRef.current?.focus();
+          }}
+          className="min-h-11 w-full rounded-md bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm active:bg-blue-700"
+        >
+          Show {resultCount} invoice{resultCount === 1 ? "" : "s"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InvoiceCard({
+  row,
+  selected,
+  open,
+  onToggleSelected,
+  onOpen,
+}: {
+  row: InvoiceDecision;
+  selected: boolean;
+  open: boolean;
+  onToggleSelected: () => void;
+  onOpen: () => void;
+}) {
+  const id = useId();
+  const pending = row.has_active_run && !row.has_agent_decision;
+  const amount = overpaymentAmount(row);
+  const summary = row.agent_title ?? row.reasoning;
+
+  let amountLabel: string | null = null;
+  if (row.has_agent_decision) {
+    amountLabel = amount <= 0 ? "No overpayment" : row.decision === "Recover" ? "Recoverable" : "At risk";
+  }
+
+  // Not-run cards already say so in the decision chip.
+  let evidence: string | null = null;
+  if (pending) {
+    evidence = "Agents working…";
+  } else if (!row.has_agent_decision) {
+    evidence = null;
+  } else if (row.agent_plane_count > 0) {
+    const experts = `${row.agent_plane_count} expert${row.agent_plane_count === 1 ? "" : "s"}`;
+    evidence =
+      row.agent_source_count > 0
+        ? `${experts} · ${row.agent_source_count} source${row.agent_source_count === 1 ? "" : "s"} cited`
+        : experts;
+  } else if (row.agent_source_count > 0) {
+    evidence = `${row.agent_source_count} source${row.agent_source_count === 1 ? "" : "s"} cited`;
+  } else {
+    evidence = "No evidence";
+  }
+
+  return (
+    <li
+      className={`flex items-start ${
+        open ? "bg-blue-50/70" : selected ? "bg-indigo-50/60" : ""
+      }`}
+    >
+      <label className="mt-1.5 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
+        <SelectionCheckbox
+          checked={selected}
+          label={`Select invoice ${row.invoice_number}`}
+          onChange={onToggleSelected}
+        />
+      </label>
+      <button
+        type="button"
+        onClick={(event) => {
+          // Safari doesn't focus buttons on tap; the dialog returns focus to whatever had it.
+          event.currentTarget.focus();
+          onOpen();
+        }}
+        aria-labelledby={`${id}-title`}
+        aria-describedby={`${id}-details`}
+        className="flex min-h-11 min-w-0 flex-1 items-center gap-2 py-3 pr-3 text-left focus-visible:-outline-offset-2 active:bg-slate-100/70"
+      >
+        <span className="block min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-3">
+            <span id={`${id}-title`} className="block min-w-0">
+              <span className="block truncate text-sm font-semibold text-slate-950">
+                {row.invoice_number}
+              </span>
+              {row.supplier_name ? (
+                <span className="block truncate text-xs text-slate-600">{row.supplier_name}</span>
+              ) : null}
+            </span>
+            <span className="shrink-0">
+              <DecisionPill decision={pending ? "Pending" : row.decision} />
+            </span>
+          </span>
+          <span id={`${id}-details`} className="block">
+            {summary ? (
+              <span className="mt-1.5 line-clamp-2 block text-[13px] leading-5 text-slate-700">
+                {summary}
+              </span>
+            ) : null}
+            {amountLabel || evidence ? (
+            <span className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              {amountLabel ? (
+                <span className="text-xs text-slate-600">
+                  {amountLabel}
+                  {amount > 0 ? (
+                    <span
+                      className={`ml-1.5 text-sm font-semibold tabular-nums ${
+                        row.decision === "Recover" ? "text-emerald-700" : "text-slate-950"
+                      }`}
+                    >
+                      {row.overpayment_display}
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
+              <span
+                className={`text-xs ${
+                  pending ? "font-medium text-indigo-700" : "text-slate-600"
+                }`}
+              >
+                {evidence}
+              </span>
+            </span>
+            ) : null}
+            {row.has_agent_decision && row.agent_run_at ? (
+              <span className="mt-1 flex items-center gap-1 type-meta">
+                <HiSparkles className="h-3 w-3 shrink-0 text-blue-600" aria-hidden="true" />
+                {formatRunDateTime(row.agent_run_at)}
+                {row.agent_run_count > 1
+                  ? ` · Run ${row.agent_run_index ?? row.agent_run_count} of ${row.agent_run_count}`
+                  : ""}
+              </span>
+            ) : null}
+          </span>
+        </span>
+        <HiChevronRight className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+      </button>
+    </li>
+  );
+}
+
 function DecisionChip({
   label,
   active,
   onClick,
+  className = "",
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
+  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ring-1 transition-colors ${
         active
           ? "bg-slate-900 text-white ring-slate-900"
           : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
-      }`}
+      } ${className}`}
     >
       {label}
     </button>
@@ -2308,10 +2770,20 @@ function DecisionDrawer({
   const headingRef = useRef<HTMLHeadingElement>(null);
   useModalDialog(dialogRef, { onClose, initialFocusRef: headingRef });
 
+  // Below xl the page scrolls as a document; stop it scrolling behind the panel.
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.style.overflow;
+    root.style.overflow = "hidden";
+    return () => {
+      root.style.overflow = previous;
+    };
+  }, []);
+
   return (
     <div
       ref={dialogRef}
-      className="absolute inset-0 z-30 flex justify-end"
+      className="fixed inset-0 z-50 flex justify-end xl:absolute xl:z-30"
       role="dialog"
       aria-modal="true"
       aria-labelledby="decision-drawer-title"
@@ -2342,7 +2814,7 @@ function DecisionDrawer({
             </p>
           </div>
           <button
-            className="-mr-1.5 shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            className="-mr-1.5 shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 max-md:-mr-3 max-md:-mt-1.5 max-md:p-3"
             type="button"
             onClick={onClose}
           >
