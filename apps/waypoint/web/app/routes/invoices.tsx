@@ -3,8 +3,10 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
+  HiCheck,
   HiCheckCircle,
   HiChevronRight,
+  HiClipboardCopy,
   HiDocumentText,
   HiDownload,
   HiExternalLink,
@@ -120,6 +122,7 @@ interface EvidenceReference {
 
 interface FanoutEvidenceItem {
   claim?: string;
+  supports?: string;
   source_ref?: string;
   classification?: string;
   confidence?: number;
@@ -371,6 +374,7 @@ export default function Invoices() {
   const [agentLoading, setAgentLoading] = useState(false);
   const [triggeringInvoiceId, setTriggeringInvoiceId] = useState<string | null>(null);
   const [triggerError, setTriggerError] = useState<string | null>(null);
+  const [runConfirmOpen, setRunConfirmOpen] = useState(false);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -469,6 +473,10 @@ export default function Invoices() {
       cancelled = true;
     };
   }, [auth.status, loading, decisions, searchParams]);
+
+  useEffect(() => {
+    setRunConfirmOpen(false);
+  }, [selectedDecision?.invoice_id]);
 
   useEffect(() => {
     if (!selectedDecision) {
@@ -1275,8 +1283,10 @@ export default function Invoices() {
                 agentContext={agentContext}
                 agentLoading={agentLoading}
                 triggering={triggeringInvoiceId === selectedDecision.invoice_id}
-                triggerError={triggerError}
-                onRunAssurance={() => void triggerAssurance(selectedDecision)}
+                onRunAssurance={() => {
+                  setTriggerError(null);
+                  setRunConfirmOpen(true);
+                }}
                 onViewActivity={() =>
                   navigate(
                     `/activity?invoice=${encodeURIComponent(
@@ -1294,6 +1304,17 @@ export default function Invoices() {
                   })
                 }
                 onClose={() => setSelectedDecision(null)}
+              />
+            ) : null}
+
+            {selectedDecision && runConfirmOpen ? (
+              <RunAssuranceConfirmation
+                decision={selectedDecision}
+                runCount={agentContext?.entries.length || selectedDecision.agent_run_count}
+                triggering={triggeringInvoiceId === selectedDecision.invoice_id}
+                error={triggerError}
+                onConfirm={() => void triggerAssurance(selectedDecision)}
+                onClose={() => setRunConfirmOpen(false)}
               />
             ) : null}
 
@@ -2044,374 +2065,7 @@ function Sparkline({ points, className }: { points: TrendPoint[]; className?: st
   );
 }
 
-type TabKey = "decision" | "evidence" | "trail" | "documents";
-
-function DecisionDrawer({
-  decision,
-  detail,
-  loading,
-  agentContext,
-  agentLoading,
-  triggering,
-  triggerError,
-  onRunAssurance,
-  onViewActivity,
-  onOpenDocument,
-  onOpenPdf,
-  onClose,
-}: {
-  decision: InvoiceDecision;
-  detail: InvoiceDetail | null;
-  loading: boolean;
-  agentContext: AgentContext | null;
-  agentLoading: boolean;
-  triggering: boolean;
-  triggerError: string | null;
-  onRunAssurance: () => void;
-  onViewActivity: () => void;
-  onOpenDocument: (type: "contract" | "policy", id: string) => void;
-  onOpenPdf: (uri: string) => void;
-  onClose: () => void;
-}) {
-  const [tab, setTab] = useState<TabKey>("decision");
-  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
-  useEffect(() => {
-    setTab("decision");
-    setSelectedCaseId(null);
-  }, [decision.invoice_id]);
-
-  const finding = decision.has_agent_decision ? detail?.findings[0] : undefined;
-  const entries = agentContext?.entries ?? [];
-  const selectedEntry =
-    entries.find((entry) => entry.case.id === selectedCaseId) ?? entries[0] ?? null;
-  const fanout = selectedEntry?.fanout ?? [];
-
-  // The drawer header reflects the NEWEST agent run (the canonical/current decision) so it
-  // always agrees with the lead of the Agent-decision card and the list row. The switcher
-  // inside the card lets the reviewer inspect older runs without moving the header.
-  const newestEntry = entries[0] ?? null;
-  const newestRecommendation = newestEntry?.recommendation ?? null;
-  const moneyAtRisk = newestRecommendation
-    ? formatAgentMoney(newestRecommendation.money_at_risk)
-    : decision.overpayment_display;
-  const newestConfidence = parseConfidenceScore(newestRecommendation?.confidence);
-  const newestConfidenceCalibrated =
-    newestRecommendation?.metadata.confidence_calibrated === true;
-  const headerDecision = newestRecommendation
-    ? agentDecisionToLabel(newestRecommendation.decision)
-    : decision.decision;
-
-  return (
-    <div className="absolute inset-0 z-30 flex justify-end">
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default bg-slate-950/20"
-        aria-label="Close decision context"
-        onClick={onClose}
-      />
-      <aside
-        className="relative z-10 flex h-full w-full max-w-[440px] flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl"
-        aria-label={`Decision context for ${decision.invoice_number}`}
-      >
-        <div className="border-b border-slate-100 bg-white p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="truncate text-lg font-semibold">{decision.invoice_number}</h2>
-              <p className="mt-0.5 truncate text-sm text-slate-500">{decision.supplier_name}</p>
-            </div>
-            <button
-              className="-mr-1 shrink-0 rounded-md p-1 text-slate-400 hover:bg-slate-50"
-              type="button"
-              onClick={onClose}
-            >
-              <HiX className="h-5 w-5" />
-              <span className="sr-only">Close decision context</span>
-            </button>
-          </div>
-          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-            <DecisionPill decision={headerDecision} />
-            {decision.has_agent_decision ? (
-              <>
-                <SummaryChip tone="emerald">{moneyAtRisk} at risk</SummaryChip>
-                {newestConfidence !== null ? (
-                  <SummaryChip
-                    tone="slate"
-                    title={confidenceTitle(newestConfidenceCalibrated)}
-                  >
-                    {confidenceText(newestConfidence, newestConfidenceCalibrated)}
-                  </SummaryChip>
-                ) : (
-                  <SummaryChip tone="slate">Confidence not available</SummaryChip>
-                )}
-                <SummaryChip tone="slate">{decision.category}</SummaryChip>
-                <SummaryChip tone="slate">{decision.evidence_count} evidence</SummaryChip>
-              </>
-            ) : null}
-          </div>
-          <div className="mt-3">
-            <button
-              type="button"
-              onClick={decision.has_active_run ? onViewActivity : onRunAssurance}
-              disabled={triggering}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
-            >
-              <HiSparkles className={triggering ? "h-4 w-4 animate-pulse" : "h-4 w-4"} />
-              {triggering
-                ? "Starting assurance…"
-                : decision.has_active_run
-                  ? "View active run"
-                  : "Run assurance"}
-            </button>
-            {triggerError ? (
-              <p className="mt-2 text-sm text-rose-700" role="alert">
-                {triggerError}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        <SegmentedTabs tab={tab} onChange={setTab} evidenceCount={fanout.length} />
-
-        <div className="min-h-0 flex-1 overflow-auto">
-          {tab === "decision" ? (
-            <div className="space-y-5 p-4">
-              {decision.has_agent_decision ? (
-                <>
-                  <AgentDecisionSummary
-                    entries={entries}
-                    selectedEntry={selectedEntry}
-                    onSelectCase={setSelectedCaseId}
-                    loading={agentLoading}
-                  />
-
-                  <section>
-                    <h3 className="font-semibold">Finding</h3>
-                    <p className="mt-2 text-sm leading-6 text-slate-700">
-                      {finding?.summary ?? decision.reasoning}
-                    </p>
-                  </section>
-
-                  <BasisGlance
-                    decision={decision}
-                    finding={finding}
-                    onViewDocuments={() => setTab("documents")}
-                  />
-                </>
-              ) : (
-                <section className="rounded-md border border-blue-100 bg-blue-50/60 p-4">
-                  <h3 className="font-semibold text-slate-900">Ready for assurance</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Run assurance to generate a governed decision, grounded evidence, and any
-                    recoverable amount for this invoice.
-                  </p>
-                </section>
-              )}
-            </div>
-          ) : null}
-
-          {tab === "evidence" ? (
-            <div className="space-y-5 p-4">
-              <section>
-                <h3 className="font-semibold">Per-expert evidence</h3>
-                {fanout.length > 0 ? (
-                  <ol className="mt-2 space-y-2">
-                    {(() => {
-                      const topLane = topConfidenceLaneIndex(fanout);
-                      return fanout.map((lane, index) => (
-                        <ExpertLane
-                          key={`${lane.agent ?? lane.plane ?? "lane"}-${index}`}
-                          lane={lane}
-                          defaultOpen={index === topLane}
-                        />
-                      ));
-                    })()}
-                  </ol>
-                ) : (
-                  <p className="mt-2 text-sm text-slate-500">
-                    No per-expert evidence has been recorded for this invoice yet.
-                  </p>
-                )}
-              </section>
-
-              {loading ? (
-                <p className="text-sm text-slate-500">Loading invoice detail…</p>
-              ) : (
-                <>
-                  <section>
-                    <h3 className="font-semibold">Evidence references</h3>
-                    <ol className="mt-2 space-y-2">
-                      {(decision.has_agent_decision ? detail?.evidence ?? [] : []).map((item) => (
-                        <li
-                          key={item.id}
-                          className="rounded-md border border-slate-100 p-2 text-sm"
-                        >
-                          <div className="flex items-start gap-2">
-                            <HiDocumentText className="mt-0.5 h-4 w-4 text-blue-700" />
-                            <div>
-                              <p className="font-medium">{item.title}</p>
-                              <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
-                                {item.evidence_type}
-                              </p>
-                              {item.excerpt ? (
-                                <p className="mt-1 text-sm leading-5 text-slate-600">
-                                  {item.excerpt}
-                                </p>
-                              ) : null}
-                              <DocumentLink label="Open evidence" uri={item.uri} compact />
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
-                  </section>
-
-                  <section>
-                    <h3 className="font-semibold">Invoice lines</h3>
-                    <div className="mt-2 divide-y divide-slate-100 rounded-md border border-slate-100">
-                      {(detail?.lines ?? []).map((line) => (
-                        <div key={line.id} className="p-2 text-sm">
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="font-medium">{line.description}</p>
-                            <p className="font-semibold">
-                              {formatCurrency(line.amount, detail?.currency)}
-                            </p>
-                          </div>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {line.sku ? `SKU ${line.sku}` : "No SKU"}
-                            {line.purchase_order ? ` · ${line.purchase_order}` : ""}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                </>
-              )}
-            </div>
-          ) : null}
-
-          {tab === "trail" ? (
-            <div className="p-4">
-              <section>
-                <h3 className="font-semibold">Decision trail</h3>
-                <ol className="mt-2 space-y-0">
-                  {decisionTrail(decision, detail).map((item) => (
-                    <li key={item.title} className="grid grid-cols-[20px_minmax(0,1fr)] gap-3">
-                      <div className="relative flex justify-center">
-                        <span className="relative z-10 mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-700 ring-4 ring-white">
-                          <HiCheckCircle className="h-4 w-4" />
-                        </span>
-                        <span className="absolute bottom-0 top-7 w-px bg-slate-200" />
-                      </div>
-                      <div className="pb-5">
-                        <p className="font-semibold">{item.title}</p>
-                        <p className="mt-1 text-sm leading-6 text-slate-600">{item.detail}</p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              </section>
-            </div>
-          ) : null}
-
-          {tab === "documents" ? (
-            <div className="space-y-4 p-4">
-              <div className="flex items-center gap-2 rounded-md border border-slate-100 bg-slate-50/80 px-3 py-2">
-                <OneLakeIcon className="h-4 w-4 shrink-0" />
-                <p className="text-xs font-medium text-slate-600">
-                  Documents sourced from Microsoft OneLake
-                </p>
-              </div>
-              <BasisSummary
-                decision={decision}
-                finding={finding}
-                onOpenDocument={onOpenDocument}
-              />
-              <div className="flex flex-wrap gap-2">
-                <PreviewDocumentButton
-                  label="Invoice PDF"
-                  uri={decision.pdf_uri}
-                  onOpen={onOpenPdf}
-                />
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </aside>
-    </div>
-  );
-}
-
-function SummaryChip({
-  tone,
-  title,
-  children,
-}: {
-  tone: "emerald" | "slate";
-  title?: string;
-  children: ReactNode;
-}) {
-  const cls =
-    tone === "emerald"
-      ? "bg-emerald-50 text-emerald-800 ring-emerald-100"
-      : "bg-slate-50 text-slate-600 ring-slate-200";
-  return (
-    <span
-      className={`rounded-md px-2 py-0.5 text-xs font-medium ring-1 ${cls}`}
-      title={title}
-    >
-      {children}
-    </span>
-  );
-}
-
-function SegmentedTabs({
-  tab,
-  onChange,
-  evidenceCount,
-}: {
-  tab: TabKey;
-  onChange: (tab: TabKey) => void;
-  evidenceCount: number;
-}) {
-  const tabs: Array<{ key: TabKey; label: string; count?: number }> = [
-    { key: "decision", label: "Decision" },
-    { key: "evidence", label: "Evidence", count: evidenceCount },
-    { key: "trail", label: "Trail" },
-    { key: "documents", label: "Documents" },
-  ];
-  return (
-    <div className="border-b border-slate-100 px-3">
-      <div className="flex gap-1" role="tablist" aria-label="Invoice detail sections">
-        {tabs.map((entry) => {
-          const active = entry.key === tab;
-          return (
-            <button
-              key={entry.key}
-              type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => onChange(entry.key)}
-              className={[
-                "relative flex items-center gap-1 px-2.5 py-2 text-xs font-semibold transition-colors",
-                active ? "text-blue-700" : "text-slate-500 hover:text-slate-700",
-              ].join(" ")}
-            >
-              {entry.label}
-              {entry.count ? (
-                <span className="rounded bg-slate-100 px-1 text-[10px] font-medium text-slate-500">
-                  {entry.count}
-                </span>
-              ) : null}
-              {active ? (
-                <span className="absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-blue-600" />
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+type PlaneKey = "foundryiq" | "fabriciq" | "workiq" | "webiq";
 
 const PLANE_LABELS: Record<string, string> = {
   workiq: "WorkIQ",
@@ -2420,33 +2074,41 @@ const PLANE_LABELS: Record<string, string> = {
   fabriciq: "FabricIQ",
 };
 
+// The four IQ planes in the order an auditor reads them: terms first, then the
+// operational record, then people, then the outside world.
+const IQ_PLANES: Array<{ key: PlaneKey; label: string; scope: string }> = [
+  { key: "foundryiq", label: "FoundryIQ", scope: "Contract terms and finance policy" },
+  { key: "fabriciq", label: "FabricIQ", scope: "PO, batch and release data in OneLake" },
+  { key: "workiq", label: "WorkIQ", scope: "Your Microsoft 365 mail, Teams and files" },
+  { key: "webiq", label: "WebIQ", scope: "Public market and regulatory sources" },
+];
+
+const AGENT_PLANES: Record<string, PlaneKey> = {
+  "contract-policy-expert": "foundryiq",
+  "operations-data-expert": "fabriciq",
+  "collaboration-evidence-expert": "workiq",
+  "market-evidence-expert": "webiq",
+  contract: "foundryiq",
+  policy: "foundryiq",
+};
+
 function planeLabel(lane: FanoutLane): string {
   const key = (lane.plane ?? lane.agent ?? "").toLowerCase().replace(/-expert$/, "");
   return PLANE_LABELS[key] ?? formatCategory(lane.agent || lane.plane || "Expert");
 }
 
-function laneAvgConfidence(lane: FanoutLane): number | null {
-  const items = (lane.evidence ?? []).filter(
-    (item) => typeof item.confidence === "number",
-  );
-  if (items.length === 0) {
-    return null;
+function lanePlaneKey(lane: FanoutLane): PlaneKey | null {
+  const plane = (lane.plane ?? "").toLowerCase();
+  if (plane in PLANE_LABELS) {
+    return plane as PlaneKey;
   }
-  const sum = items.reduce((acc, item) => acc + (item.confidence ?? 0), 0);
-  return sum / items.length;
-}
-
-function topConfidenceLaneIndex(lanes: FanoutLane[]): number {
-  let best = 0;
-  let bestScore = -Infinity;
-  lanes.forEach((lane, index) => {
-    const score = laneAvgConfidence(lane) ?? -1;
-    if (score > bestScore) {
-      bestScore = score;
-      best = index;
-    }
-  });
-  return best;
+  const agent = (lane.agent ?? "").toLowerCase();
+  const mapped = AGENT_PLANES[agent] ?? AGENT_PLANES[plane];
+  if (mapped) {
+    return mapped;
+  }
+  const stripped = agent.replace(/-expert$/, "");
+  return stripped in PLANE_LABELS ? (stripped as PlaneKey) : null;
 }
 
 function confidenceTone(score: number): string {
@@ -2473,107 +2135,6 @@ function confidenceTitle(calibrated: boolean): string {
     : "Uncalibrated evidence score; not calibrated decision accuracy.";
 }
 
-function confidenceText(score: number, calibrated: boolean): string {
-  const pct = `${Math.round(score * 100)}%`;
-  return calibrated ? `${pct} confidence` : `${pct} evidence score`;
-}
-
-function ExpertLane({
-  lane,
-  defaultOpen = false,
-}: {
-  lane: FanoutLane;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  const evidence = lane.evidence ?? [];
-  const avg = laneAvgConfidence(lane);
-  return (
-    <li className="overflow-hidden rounded-md border border-slate-200 bg-white text-sm">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-2 p-2 text-left hover:bg-slate-50"
-      >
-        <HiChevronRight
-          className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`}
-        />
-        <span className="font-semibold capitalize">{planeLabel(lane)}</span>
-        <span className="rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">
-          {evidence.length} {evidence.length === 1 ? "citation" : "citations"}
-        </span>
-        {avg !== null ? (
-          <span
-            className={`ml-auto rounded-md px-1.5 py-0.5 text-[11px] font-semibold ring-1 ${confidenceTone(avg)}`}
-          >
-            {Math.round(avg * 100)}%
-          </span>
-        ) : null}
-      </button>
-      {open ? (
-        <div className="border-t border-slate-100 p-2">
-          {lane.summary ? <p className="text-sm text-slate-600">{lane.summary}</p> : null}
-          {evidence.length > 0 ? (
-            <ul className="mt-1.5 space-y-1.5 border-l border-slate-200 pl-3">
-              {evidence.map((item, itemIndex) => (
-                <li key={itemIndex} className="text-sm text-slate-600">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="block">{item.claim || "(no citation text)"}</span>
-                    {typeof item.confidence === "number" ? (
-                      <span className="shrink-0 text-[11px] font-medium text-slate-400">
-                        {Math.round(item.confidence * 100)}%
-                      </span>
-                    ) : null}
-                  </div>
-                  {item.source_ref ? (
-                    <code className="mt-0.5 inline-block rounded bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-600 ring-1 ring-slate-200">
-                      {cleanSourceRef(item.source_ref)}
-                    </code>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
-    </li>
-  );
-}
-
-function BasisGlance({
-  decision,
-  finding,
-  onViewDocuments,
-}: {
-  decision: InvoiceDecision;
-  finding: Finding | undefined;
-  onViewDocuments: () => void;
-}) {
-  const summary = finding?.basis_summary ?? decision.basis_summary;
-  return (
-    <section className="rounded-md border border-indigo-100 bg-indigo-50/60 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-800">
-          Contract / policy basis
-        </p>
-        <BasisPills basisTypes={decision.basis_types} />
-      </div>
-      <p className="mt-2 text-sm leading-6 text-slate-700">
-        {summary ?? "No contract or policy basis is attached to this finding."}
-      </p>
-      <button
-        type="button"
-        onClick={onViewDocuments}
-        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900"
-      >
-        View documents
-        <HiChevronRight className="h-3.5 w-3.5" />
-      </button>
-    </section>
-  );
-}
-
 function formatAgentMoney(value: string | undefined): string {
   const amount = Number(value ?? 0);
   return `$${(Number.isFinite(amount) ? amount : 0).toLocaleString(undefined, {
@@ -2582,14 +2143,6 @@ function formatAgentMoney(value: string | undefined): string {
   })}`;
 }
 
-const AGENT_DECISION_STYLES: Record<string, string> = {
-  recover: "bg-emerald-50 text-emerald-800 ring-emerald-100",
-  recovery: "bg-emerald-50 text-emerald-800 ring-emerald-100",
-  escalate: "bg-red-50 text-red-800 ring-red-100",
-  review: "bg-amber-50 text-amber-800 ring-amber-100",
-  approve: "bg-slate-100 text-slate-700 ring-slate-200",
-};
-
 function agentDecisionToLabel(decision: string): string {
   const normalized = decision.toLowerCase();
   if (normalized === "recover" || normalized === "recovery") return "Recover";
@@ -2597,6 +2150,20 @@ function agentDecisionToLabel(decision: string): string {
   if (normalized === "approve") return "Approve";
   if (normalized === "review") return "Review";
   return decision ? decision.charAt(0).toUpperCase() + decision.slice(1) : decision;
+}
+
+function formatRunDate(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function formatRunTime(iso: string): string {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
 function formatRunDateTime(iso: string): string {
@@ -2613,35 +2180,447 @@ function formatRunDateTime(iso: string): string {
   });
 }
 
-function CaseSwitcher({
+const primaryButton =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-blue-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60";
+const secondaryButton =
+  "inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+
+interface BasisDocument {
+  type: "contract" | "policy";
+  id: string;
+  title: string;
+}
+
+function fallbackDocumentTitle(id: string): string {
+  return formatCategory(id.replace(/^(contract|policy)-(sup-\d+-)?/, ""));
+}
+
+function matchBasisDocument(ref: string, documents: BasisDocument[]): BasisDocument | null {
+  const haystack = ref.toLowerCase();
+  return (
+    documents.find(
+      (document) =>
+        haystack.includes(document.id.toLowerCase()) ||
+        haystack.includes(document.title.toLowerCase()),
+    ) ?? null
+  );
+}
+
+function DecisionDrawer({
+  decision,
+  detail,
+  loading,
+  agentContext,
+  agentLoading,
+  triggering,
+  onRunAssurance,
+  onViewActivity,
+  onOpenDocument,
+  onOpenPdf,
+  onClose,
+}: {
+  decision: InvoiceDecision;
+  detail: InvoiceDetail | null;
+  loading: boolean;
+  agentContext: AgentContext | null;
+  agentLoading: boolean;
+  triggering: boolean;
+  onRunAssurance: () => void;
+  onViewActivity: () => void;
+  onOpenDocument: (type: "contract" | "policy", id: string) => void;
+  onOpenPdf: (uri: string) => void;
+  onClose: () => void;
+}) {
+  const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  useEffect(() => {
+    setSelectedCaseId(null);
+  }, [decision.invoice_id]);
+
+  const finding = decision.has_agent_decision ? detail?.findings[0] : undefined;
+  const contractIds = finding?.contract_document_ids ?? decision.contract_document_ids;
+  const policyIds = finding?.policy_ids ?? decision.policy_ids;
+  const basisKey = `${contractIds.join("|")}::${policyIds.join("|")}`;
+  const [documentTitles, setDocumentTitles] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const requests: Array<["contract" | "policy", string]> = [
+      ...contractIds.map((id): ["contract", string] => ["contract", id]),
+      ...policyIds.map((id): ["policy", string] => ["policy", id]),
+    ];
+    if (requests.length === 0) {
+      setDocumentTitles({});
+      return;
+    }
+    let cancelled = false;
+    void Promise.all(
+      requests.map(async ([type, id]) => {
+        try {
+          const response = await tracedFetch(
+            "fetchBasisDocumentTitle",
+            type === "contract"
+              ? `/api/contract-documents/${encodeURIComponent(id)}`
+              : `/api/policies/${encodeURIComponent(id)}`,
+          );
+          if (!response.ok) {
+            return null;
+          }
+          const body = (await response.json()) as { title?: string; name?: string };
+          const title = type === "contract" ? body.title : body.name;
+          return title ? ([id, title] as const) : null;
+        } catch {
+          return null;
+        }
+      }),
+    ).then((results) => {
+      if (!cancelled) {
+        setDocumentTitles(
+          Object.fromEntries(
+            results.filter((entry): entry is readonly [string, string] => entry !== null),
+          ),
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // basisKey captures the id lists; the arrays themselves are rebuilt every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [basisKey]);
+
+  const basisDocuments: BasisDocument[] = [
+    ...contractIds.map((id) => ({
+      type: "contract" as const,
+      id,
+      title: documentTitles[id] ?? fallbackDocumentTitle(id),
+    })),
+    ...policyIds.map((id) => ({
+      type: "policy" as const,
+      id,
+      title: documentTitles[id] ?? fallbackDocumentTitle(id),
+    })),
+  ];
+
+  const entries = agentContext?.entries ?? [];
+  const selectedEntry =
+    entries.find((entry) => entry.case.id === selectedCaseId) ?? entries[0] ?? null;
+  const newestEntry = entries[0] ?? null;
+  const viewingOlderRun = Boolean(selectedEntry && newestEntry && selectedEntry !== newestEntry);
+  const recommendation = selectedEntry?.recommendation ?? null;
+  const fanout = selectedEntry?.fanout ?? [];
+  const drafts = selectedEntry?.drafts ?? [];
+
+  const verdictKey = (
+    recommendation?.decision ??
+    selectedEntry?.run?.metadata?.decision ??
+    decision.agent_decision ??
+    decision.decision
+  ).toLowerCase();
+  const verdictLabel = agentDecisionToLabel(verdictKey);
+  const amount = recommendation
+    ? formatAgentMoney(recommendation.money_at_risk)
+    : formatAgentMoney(decision.overpayment_amount);
+  const confidenceScore = parseConfidenceScore(
+    recommendation ? recommendation.confidence : decision.confidence,
+  );
+  const calibrated = recommendation
+    ? recommendation.metadata.confidence_calibrated === true
+    : decision.confidence_calibrated;
+  const decidedAt = recommendation?.created_at ?? decision.agent_run_at;
+  const runTotal = entries.length || decision.agent_run_count;
+  const runNumber = selectedEntry
+    ? entries.length - entries.indexOf(selectedEntry)
+    : (decision.agent_run_index ?? runTotal);
+  const runId =
+    recommendation?.metadata?.waypoint_run_id ?? selectedEntry?.run?.id ?? null;
+  const reasoning = recommendation?.reasoning || finding?.summary || decision.reasoning;
+  const invoiceTotal = detail ? formatCurrency(detail.total_amount, detail.currency) : null;
+
+  const hasDecision = decision.has_agent_decision;
+  const activeRun = decision.has_active_run;
+
+  return (
+    <div className="absolute inset-0 z-30 flex justify-end">
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default bg-slate-950/20"
+        aria-label="Close decision context"
+        onClick={onClose}
+      />
+      <aside
+        className="relative z-10 flex h-full w-full max-w-[520px] flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl"
+        aria-label={`Decision context for ${decision.invoice_number}`}
+      >
+        <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold text-slate-950">
+              {decision.invoice_number}
+            </h2>
+            <p className="truncate text-sm text-slate-600">
+              {decision.supplier_name}
+              {invoiceTotal ? ` · ${invoiceTotal} invoiced` : ""}
+            </p>
+          </div>
+          <button
+            className="-mr-1.5 shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            type="button"
+            onClick={onClose}
+          >
+            <HiX className="h-5 w-5" aria-hidden="true" />
+            <span className="sr-only">Close decision context</span>
+          </button>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-auto">
+          {hasDecision ? (
+            <>
+              <section
+                aria-labelledby="case-verdict"
+                className="border-b border-slate-200 bg-slate-50 px-5 pb-5 pt-4"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <DecisionPill decision={verdictLabel} />
+                  {decision.category ? (
+                    <span className="text-xs text-slate-600">
+                      {formatCategory(decision.category)}
+                    </span>
+                  ) : null}
+                </div>
+                <h3
+                  id="case-verdict"
+                  className="mt-2 text-balance text-xl font-semibold leading-snug tracking-tight text-slate-950 sm:text-2xl"
+                >
+                  <VerdictHeadline
+                    verdict={verdictKey}
+                    label={verdictLabel}
+                    amount={amount}
+                    supplier={decision.supplier_name}
+                    invoiceTotal={invoiceTotal}
+                  />
+                </h3>
+                {reasoning ? (
+                  <p className="mt-2 max-w-[65ch] text-sm leading-6 text-slate-700">{reasoning}</p>
+                ) : null}
+
+                {viewingOlderRun && newestEntry ? (
+                  <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
+                    You're viewing an older run. The current decision is Run {entries.length}:{" "}
+                    {agentDecisionToLabel(
+                      newestEntry.recommendation?.decision ??
+                        newestEntry.run?.metadata?.decision ??
+                        "",
+                    ) || "pending"}
+                    .
+                  </p>
+                ) : null}
+
+                <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-slate-200 pt-3 text-sm">
+                  <div className="min-w-0">
+                    <dt className="text-xs text-slate-600">Confidence</dt>
+                    <dd
+                      className="mt-0.5 font-semibold tabular-nums text-slate-950"
+                      title={confidenceScore === null ? undefined : confidenceTitle(calibrated)}
+                    >
+                      {confidenceScore === null ? "Not reported" : `${Math.round(confidenceScore * 100)}%`}
+                    </dd>
+                    {confidenceScore !== null ? (
+                      <dd className="text-xs text-slate-600">
+                        {calibrated ? "Calibrated" : "Evidence score, not calibrated"}
+                      </dd>
+                    ) : null}
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-slate-600">Decided</dt>
+                    <dd className="mt-0.5 font-semibold text-slate-950">
+                      {decidedAt ? formatRunDate(decidedAt) : "Not recorded"}
+                    </dd>
+                    {decidedAt ? (
+                      <dd className="text-xs text-slate-600">{formatRunTime(decidedAt)}</dd>
+                    ) : null}
+                  </div>
+                  <div className="min-w-0">
+                    <dt className="text-xs text-slate-600">Run</dt>
+                    <dd className="mt-0.5 font-semibold text-slate-950">
+                      {runTotal > 0 ? `Run ${runNumber} of ${runTotal}` : "Not recorded"}
+                    </dd>
+                    {runId ? (
+                      <dd className="truncate font-mono text-xs text-slate-600" title={runId}>
+                        {runId}
+                      </dd>
+                    ) : null}
+                  </div>
+                </dl>
+
+                {entries.length > 1 && selectedEntry ? (
+                  <RunSwitcher
+                    entries={entries}
+                    selectedCaseId={selectedEntry.case.id}
+                    onSelectCase={setSelectedCaseId}
+                  />
+                ) : null}
+              </section>
+
+              {agentLoading ? (
+                <p className="px-5 py-6 text-sm text-slate-600">Loading clauses and evidence…</p>
+              ) : (
+                <>
+                  <ClauseSection
+                    basisSummary={finding?.basis_summary ?? decision.basis_summary}
+                    fanout={fanout}
+                    verdict={verdictKey}
+                    documents={basisDocuments}
+                    onOpenDocument={onOpenDocument}
+                  />
+                  <EvidenceSection
+                    fanout={fanout}
+                    verdict={verdictKey}
+                    records={loading ? [] : (detail?.evidence ?? [])}
+                    documents={basisDocuments}
+                    onOpenDocument={onOpenDocument}
+                  />
+                  <SupplierSection
+                    verdict={verdictKey}
+                    supplier={decision.supplier_name}
+                    drafts={drafts}
+                  />
+                  <NextStepSection
+                    verdict={verdictKey}
+                    amount={amount}
+                    supplier={decision.supplier_name}
+                    recommendation={recommendation}
+                    drafts={drafts}
+                    pdfUri={decision.pdf_uri}
+                    basisDocuments={basisDocuments}
+                    onOpenPdf={onOpenPdf}
+                    onOpenDocument={onOpenDocument}
+                  />
+                </>
+              )}
+            </>
+          ) : (
+            <NotRunCase
+              activeRun={activeRun}
+              triggering={triggering}
+              onRunAssurance={onRunAssurance}
+              onViewActivity={onViewActivity}
+            />
+          )}
+
+          <InvoiceRecordDetails
+            decision={decision}
+            detail={detail}
+            finding={finding}
+            loading={loading}
+            onOpenPdf={onOpenPdf}
+          />
+        </div>
+
+        {hasDecision ? (
+          <footer className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-5 py-3">
+            <p className="min-w-0 text-xs text-slate-600">
+              {activeRun
+                ? "A new assurance run is in progress."
+                : "A re-run opens a new case. Earlier runs stay in the history."}
+            </p>
+            {activeRun ? (
+              <button
+                type="button"
+                onClick={onViewActivity}
+                className={`${secondaryButton} shrink-0 whitespace-nowrap`}
+              >
+                View active run
+                <HiExternalLink className="h-4 w-4" aria-hidden="true" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onRunAssurance}
+                disabled={triggering}
+                className={`${secondaryButton} shrink-0 whitespace-nowrap`}
+              >
+                <HiRefresh
+                  className={triggering ? "h-4 w-4 animate-spin" : "h-4 w-4"}
+                  aria-hidden="true"
+                />
+                {triggering ? "Starting…" : "Re-run assurance…"}
+              </button>
+            )}
+          </footer>
+        ) : null}
+      </aside>
+    </div>
+  );
+}
+
+function VerdictHeadline({
+  verdict,
+  label,
+  amount,
+  supplier,
+  invoiceTotal,
+}: {
+  verdict: string;
+  label: string;
+  amount: string;
+  supplier: string;
+  invoiceTotal: string | null;
+}) {
+  const money = <span className="tabular-nums">{amount}</span>;
+  switch (verdict) {
+    case "recover":
+    case "recovery":
+      return (
+        <>
+          Recover {money} from {supplier}
+        </>
+      );
+    case "escalate":
+      return <>Escalate {money} before payment</>;
+    case "review":
+      return <>Hold {money} for human review</>;
+    case "approve":
+      return invoiceTotal ? (
+        <>
+          Approve <span className="tabular-nums">{invoiceTotal}</span> for payment
+        </>
+      ) : (
+        <>Approve for payment</>
+      );
+    default:
+      return (
+        <>
+          {label}: {money} at risk
+        </>
+      );
+  }
+}
+
+function RunSwitcher({
   entries,
   selectedCaseId,
   onSelectCase,
 }: {
   entries: AgentCaseEntry[];
-  selectedCaseId: string | null;
+  selectedCaseId: string;
   onSelectCase: (caseId: string) => void;
 }) {
   const count = entries.length;
   return (
-    <div className="mt-3 rounded-md border border-slate-200 bg-white p-2">
-      <div className="flex items-center justify-between">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-          Agent runs ({count})
-        </p>
-        <p className="text-[11px] text-slate-400">Newest first · runs disagree</p>
-      </div>
+    <div className="mt-3">
+      <p id="run-switcher-label" className="text-xs text-slate-600">
+        {count} runs on this invoice, newest first
+      </p>
       <div
         className="mt-1.5 flex flex-wrap gap-1.5"
         role="radiogroup"
-        aria-label="Select agent run"
+        aria-labelledby="run-switcher-label"
       >
         {entries.map((entry, index) => {
-          const runNumber = count - index;
           const active = entry.case.id === selectedCaseId;
-          const decision = (entry.recommendation?.decision ?? entry.run?.metadata?.decision ?? "")
-            .toLowerCase();
-          const dot = AGENT_DECISION_STYLES[decision] ?? "bg-slate-100 text-slate-700 ring-slate-200";
+          const runDecision = (
+            entry.recommendation?.decision ??
+            entry.run?.metadata?.decision ??
+            ""
+          ).toLowerCase();
           return (
             <button
               key={entry.case.id}
@@ -2649,22 +2628,22 @@ function CaseSwitcher({
               role="radio"
               aria-checked={active}
               onClick={() => onSelectCase(entry.case.id)}
+              title={formatRunDateTime(entry.case.created_at)}
               className={[
-                "flex items-center gap-1.5 rounded-md border px-2 py-1 text-left text-[11px] transition-colors",
+                "inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors",
                 active
-                  ? "border-blue-300 bg-blue-50 text-blue-900 ring-1 ring-blue-200"
-                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                  ? "border-blue-300 bg-white text-blue-900 ring-1 ring-blue-200"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100",
               ].join(" ")}
             >
-              <span className={`h-2 w-2 shrink-0 rounded-full ring-1 ${dot}`} aria-hidden="true" />
-              <span className="font-semibold">Run {runNumber}</span>
-              {decision ? <span className="capitalize">· {agentDecisionToLabel(decision)}</span> : null}
-              {index === 0 ? (
-                <span className="rounded bg-blue-100 px-1 text-[10px] font-semibold text-blue-700">
-                  newest
-                </span>
-              ) : null}
-              <span className="whitespace-nowrap text-slate-400">{formatRunDateTime(entry.case.created_at)}</span>
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ backgroundColor: decisionColor(agentDecisionToLabel(runDecision)) }}
+                aria-hidden="true"
+              />
+              <span className="font-semibold">Run {count - index}</span>
+              {runDecision ? <span>{agentDecisionToLabel(runDecision)}</span> : null}
+              {index === 0 ? <span className="text-slate-600">· current</span> : null}
             </button>
           );
         })}
@@ -2673,129 +2652,877 @@ function CaseSwitcher({
   );
 }
 
-function AgentDecisionSummary({
-  entries,
-  selectedEntry,
-  onSelectCase,
-  loading,
+function CaseSection({
+  id,
+  title,
+  meta,
+  children,
 }: {
-  entries: AgentCaseEntry[];
-  selectedEntry: AgentCaseEntry | null;
-  onSelectCase: (caseId: string) => void;
-  loading: boolean;
+  id: string;
+  title: string;
+  meta?: ReactNode;
+  children: ReactNode;
 }) {
-  if (loading) {
-    return (
-      <section className="rounded-md border border-blue-100 bg-blue-50/40 p-3">
-        <p className="text-sm text-slate-500">Loading agent decision…</p>
-      </section>
-    );
-  }
-
-  const recommendation = selectedEntry?.recommendation ?? null;
-  const fanout = selectedEntry?.fanout ?? [];
-  const caseCount = entries.length;
-
-  if (!recommendation && fanout.length === 0) {
-    return (
-      <section className="rounded-md border border-dashed border-slate-300 bg-slate-50/60 p-3">
-        <div className="flex items-center gap-2">
-          <HiSparkles className="h-4 w-4 text-blue-700" aria-hidden="true" />
-          <h3 className="font-semibold">Agent decision</h3>
-        </div>
-        <p className="mt-1 text-sm leading-6 text-slate-500">
-          No agent run has been recorded for this invoice yet. Trigger a pacioli fan-out
-          and the aggregator will write the grounded decision and evidence trail here.
-        </p>
-      </section>
-    );
-  }
-
-  const decision = (recommendation?.decision ?? selectedEntry?.run?.metadata?.decision ?? "").toLowerCase();
-  const style = AGENT_DECISION_STYLES[decision] ?? "bg-slate-100 text-slate-700 ring-slate-200";
-  const drafts = selectedEntry?.drafts ?? [];
-  const reviewerDraft =
-    drafts.find((draft) => draft.draft_type === "approval_summary") ?? drafts[0] ?? null;
-  const recommendationConfidence = parseConfidenceScore(recommendation?.confidence);
-  const recommendationConfidenceCalibrated =
-    recommendation?.metadata.confidence_calibrated === true;
-
   return (
-    <section className="rounded-md border border-blue-100 bg-blue-50/40 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <HiSparkles className="h-4 w-4 text-blue-700" aria-hidden="true" />
-        <h3 className="font-semibold">Agent decision</h3>
-        {decision ? (
-          <span className={`rounded-md px-2 py-0.5 text-xs font-semibold uppercase capitalize ring-1 ${style}`}>
-            {decision}
-          </span>
+    <section aria-labelledby={id} className="border-b border-slate-200 px-5 py-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 id={id} className="text-base font-semibold text-slate-950">
+          {title}
+        </h3>
+        {meta ? <span className="shrink-0 text-xs text-slate-600">{meta}</span> : null}
+      </div>
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+function StanceTag({ supports, verdict }: { supports?: string; verdict: string }) {
+  if (!supports) {
+    return null;
+  }
+  const stance = supports.toLowerCase();
+  if (stance === "governs") {
+    return (
+      <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-700">
+        Governing term
+      </span>
+    );
+  }
+  const agrees = agentDecisionToLabel(stance) === agentDecisionToLabel(verdict);
+  return agrees ? (
+    <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-700">
+      Supports {agentDecisionToLabel(stance).toLowerCase()}
+    </span>
+  ) : (
+    <span className="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-900 ring-1 ring-inset ring-amber-200">
+      Points to {agentDecisionToLabel(stance).toLowerCase()}
+    </span>
+  );
+}
+
+function SourceReference({
+  sourceRef,
+  documents,
+  onOpenDocument,
+}: {
+  sourceRef: string;
+  documents: BasisDocument[];
+  onOpenDocument: (type: "contract" | "policy", id: string) => void;
+}) {
+  const cleaned = cleanSourceRef(sourceRef);
+  if (/^https?:\/\//i.test(cleaned)) {
+    let label = cleaned;
+    try {
+      const url = new URL(cleaned);
+      label = `${url.hostname}${url.pathname === "/" ? "" : url.pathname}`;
+    } catch {
+      // Keep the raw reference when it isn't a parseable URL.
+    }
+    return (
+      <a
+        href={cleaned}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex max-w-full items-center gap-1 break-all font-medium text-blue-700 hover:text-blue-900 hover:underline"
+      >
+        {label}
+        <HiExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      </a>
+    );
+  }
+  const match = matchBasisDocument(cleaned, documents);
+  if (match) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenDocument(match.type, match.id)}
+        className="text-left font-medium text-blue-700 hover:text-blue-900 hover:underline"
+      >
+        {cleaned}
+      </button>
+    );
+  }
+  return <span className="font-medium text-slate-700">{cleaned}</span>;
+}
+
+function CitationItem({
+  item,
+  verdict,
+  documents,
+  onOpenDocument,
+  quote = false,
+}: {
+  item: FanoutEvidenceItem;
+  verdict: string;
+  documents: BasisDocument[];
+  onOpenDocument: (type: "contract" | "policy", id: string) => void;
+  quote?: boolean;
+}) {
+  return (
+    <li className="py-2.5">
+      <p className="text-sm leading-6 text-slate-800">
+        {item.claim ? (quote ? `“${item.claim}”` : item.claim) : "(no citation text)"}
+      </p>
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+        {item.source_ref ? (
+          <SourceReference
+            sourceRef={item.source_ref}
+            documents={documents}
+            onOpenDocument={onOpenDocument}
+          />
         ) : null}
-        {recommendation ? (
-          <>
-            <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-100">
-              {formatAgentMoney(recommendation.money_at_risk)} at risk
-            </span>
-            {recommendationConfidence !== null ? (
-              <span
-                className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600"
-                title={confidenceTitle(recommendationConfidenceCalibrated)}
-              >
-                {confidenceText(
-                  recommendationConfidence,
-                  recommendationConfidenceCalibrated,
-                )}
-              </span>
-            ) : (
-              <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
-                Confidence not available
-              </span>
-            )}
-          </>
+        <StanceTag supports={item.supports} verdict={verdict} />
+        {typeof item.confidence === "number" ? (
+          <span className="tabular-nums">{Math.round(item.confidence * 100)}% confidence</span>
         ) : null}
       </div>
+    </li>
+  );
+}
 
-      {caseCount > 1 && selectedEntry ? (
-        <CaseSwitcher
-          entries={entries}
-          selectedCaseId={selectedEntry.case.id}
-          onSelectCase={onSelectCase}
-        />
-      ) : null}
+function ClauseSection({
+  basisSummary,
+  fanout,
+  verdict,
+  documents,
+  onOpenDocument,
+}: {
+  basisSummary: string | null;
+  fanout: FanoutLane[];
+  verdict: string;
+  documents: BasisDocument[];
+  onOpenDocument: (type: "contract" | "policy", id: string) => void;
+}) {
+  const clauses = fanout
+    .filter((lane) => lanePlaneKey(lane) === "foundryiq")
+    .flatMap((lane) => lane.evidence ?? []);
+  const empty = !basisSummary && clauses.length === 0 && documents.length === 0;
 
-      {recommendation?.reasoning ? (
-        <p className="mt-2 text-sm leading-6 text-slate-700">{recommendation.reasoning}</p>
-      ) : null}
+  return (
+    <CaseSection
+      id="case-clauses"
+      title="Contract and policy basis"
+      meta={
+        clauses.length > 0
+          ? `${clauses.length} clause${clauses.length === 1 ? "" : "s"} cited`
+          : undefined
+      }
+    >
+      {empty ? (
+        <p className="text-sm leading-6 text-slate-600">
+          No contract or policy basis is attached to this decision. Treat it as unsupported until
+          a reviewer ties it to a clause.
+        </p>
+      ) : (
+        <>
+          {basisSummary ? (
+            <p className="text-sm leading-6 text-slate-700">{basisSummary}</p>
+          ) : null}
+          {clauses.length > 0 ? (
+            <ol className="mt-1 divide-y divide-slate-100">
+              {clauses.map((item, index) => (
+                <CitationItem
+                  key={`${item.source_ref ?? "clause"}-${index}`}
+                  item={item}
+                  verdict={verdict}
+                  documents={documents}
+                  onOpenDocument={onOpenDocument}
+                  quote
+                />
+              ))}
+            </ol>
+          ) : (
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              FoundryIQ didn't record clause-level citations for this run. The documents below
+              are the basis on file.
+            </p>
+          )}
+          {documents.length > 0 ? (
+            <ul className="mt-3 divide-y divide-slate-100 rounded-md border border-slate-200">
+              {documents.map((document) => (
+                <li key={`${document.type}-${document.id}`}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenDocument(document.type, document.id)}
+                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-slate-50"
+                  >
+                    <HiDocumentText
+                      className={
+                        document.type === "contract"
+                          ? "h-4 w-4 shrink-0 text-indigo-700"
+                          : "h-4 w-4 shrink-0 text-cyan-700"
+                      }
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-slate-900">
+                        {document.title}
+                      </span>
+                      <span className="block text-xs text-slate-600">
+                        {document.type === "contract" ? "Contract" : "Policy"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-xs font-semibold text-blue-700">Open</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      )}
+    </CaseSection>
+  );
+}
 
-      {recommendation && recommendation.proposed_next_actions.length > 0 ? (
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600">
-          {recommendation.proposed_next_actions.map((action, index) => (
-            <li key={index}>{formatActionLabel(action)}</li>
-          ))}
-        </ul>
-      ) : null}
+function EvidenceSection({
+  fanout,
+  verdict,
+  records,
+  documents,
+  onOpenDocument,
+}: {
+  fanout: FanoutLane[];
+  verdict: string;
+  records: EvidenceReference[];
+  documents: BasisDocument[];
+  onOpenDocument: (type: "contract" | "policy", id: string) => void;
+}) {
+  const byPlane = new Map<PlaneKey, FanoutLane[]>();
+  const other = new Map<string, FanoutLane[]>();
+  for (const lane of fanout) {
+    const key = lanePlaneKey(lane);
+    if (key) {
+      byPlane.set(key, [...(byPlane.get(key) ?? []), lane]);
+    } else {
+      const label = planeLabel(lane);
+      other.set(label, [...(other.get(label) ?? []), lane]);
+    }
+  }
+  const citationTotal = fanout.reduce((sum, lane) => sum + (lane.evidence?.length ?? 0), 0);
+  const planesUsed = byPlane.size + other.size;
 
-      {reviewerDraft ? (
-        <div className="mt-3 rounded-md border border-slate-200 bg-white p-2.5">
-          <div className="flex items-center gap-1.5">
-            <HiDocumentText className="h-4 w-4 text-blue-700" aria-hidden="true" />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-              Reviewer draft · {reviewerDraft.draft_type.replace(/_/g, " ")}
+  return (
+    <CaseSection
+      id="case-evidence"
+      title="Evidence by source"
+      meta={
+        citationTotal > 0
+          ? `${citationTotal} citation${citationTotal === 1 ? "" : "s"} · ${planesUsed} source${planesUsed === 1 ? "" : "s"}`
+          : undefined
+      }
+    >
+      <div className="divide-y divide-slate-200 border-t border-slate-200">
+        {IQ_PLANES.map((plane) => {
+          const lanes = byPlane.get(plane.key) ?? [];
+          const items = lanes.flatMap((lane) => lane.evidence ?? []);
+          const summary = lanes.map((lane) => lane.summary).filter(Boolean).join(" ");
+          return (
+            <EvidenceGroup
+              key={plane.key}
+              label={plane.label}
+              scope={plane.scope}
+              count={items.length}
+            >
+              {lanes.length === 0 ? (
+                <p className="text-sm text-slate-600">Nothing recorded for this run.</p>
+              ) : plane.key === "foundryiq" ? (
+                <p className="text-sm leading-6 text-slate-600">
+                  {summary ? `${summary} ` : ""}
+                  {items.length > 0
+                    ? "Clauses are listed under Contract and policy basis."
+                    : "No clause-level citations recorded."}
+                </p>
+              ) : (
+                <>
+                  {summary ? <p className="text-sm leading-6 text-slate-600">{summary}</p> : null}
+                  {items.length > 0 ? (
+                    <ul className="divide-y divide-slate-100">
+                      {items.map((item, index) => (
+                        <CitationItem
+                          key={`${item.source_ref ?? "evidence"}-${index}`}
+                          item={item}
+                          verdict={verdict}
+                          documents={documents}
+                          onOpenDocument={onOpenDocument}
+                        />
+                      ))}
+                    </ul>
+                  ) : null}
+                </>
+              )}
+            </EvidenceGroup>
+          );
+        })}
+        {Array.from(other.entries()).map(([label, lanes]) => {
+          const items = lanes.flatMap((lane) => lane.evidence ?? []);
+          const summary = lanes.map((lane) => lane.summary).filter(Boolean).join(" ");
+          return (
+            <EvidenceGroup key={label} label={label} scope="Third-party source" count={items.length}>
+              {summary ? <p className="text-sm leading-6 text-slate-600">{summary}</p> : null}
+              <ul className="divide-y divide-slate-100">
+                {items.map((item, index) => (
+                  <CitationItem
+                    key={`${item.source_ref ?? "evidence"}-${index}`}
+                    item={item}
+                    verdict={verdict}
+                    documents={documents}
+                    onOpenDocument={onOpenDocument}
+                  />
+                ))}
+              </ul>
+            </EvidenceGroup>
+          );
+        })}
+        {records.length > 0 ? (
+          <EvidenceGroup
+            label="Invoice records"
+            scope="Records attached to the finding"
+            count={records.length}
+            noun="record"
+          >
+            <ul className="divide-y divide-slate-100">
+              {records.map((record) => (
+                <li key={record.id} className="py-2.5">
+                  <p className="text-sm font-medium text-slate-800">{record.title}</p>
+                  {record.excerpt ? (
+                    <p className="mt-0.5 text-sm leading-6 text-slate-700">{record.excerpt}</p>
+                  ) : null}
+                  <p className="mt-1 text-xs text-slate-600">
+                    {formatCategory(record.evidence_type)}
+                  </p>
+                  <DocumentLink label="Open record" uri={record.uri} compact />
+                </li>
+              ))}
+            </ul>
+          </EvidenceGroup>
+        ) : null}
+      </div>
+    </CaseSection>
+  );
+}
+
+function EvidenceGroup({
+  label,
+  scope,
+  count,
+  noun = "citation",
+  children,
+}: {
+  label: string;
+  scope: string;
+  count: number;
+  noun?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="py-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm">
+          <span className="font-semibold text-slate-950">{label}</span>
+          <span className="text-slate-600"> · {scope}</span>
+        </p>
+        {count > 0 ? (
+          <span className="shrink-0 text-xs tabular-nums text-slate-600">
+            {count} {noun}
+            {count === 1 ? "" : "s"}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+function CopyButton({
+  text,
+  label,
+  variant = "secondary",
+}: {
+  text: string;
+  label: string;
+  variant?: "primary" | "secondary";
+}) {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  useEffect(() => {
+    if (state === "idle") {
+      return;
+    }
+    const timer = window.setTimeout(() => setState("idle"), 2400);
+    return () => window.clearTimeout(timer);
+  }, [state]);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setState("copied");
+    } catch {
+      setState("failed");
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => void copy()}
+      className={variant === "primary" ? primaryButton : secondaryButton}
+    >
+      {state === "copied" ? (
+        <HiCheck className="h-4 w-4" aria-hidden="true" />
+      ) : (
+        <HiClipboardCopy className="h-4 w-4" aria-hidden="true" />
+      )}
+      <span aria-live="polite">
+        {state === "copied"
+          ? "Copied"
+          : state === "failed"
+            ? "Couldn't copy. Select the text instead."
+            : label}
+      </span>
+    </button>
+  );
+}
+
+function SupplierSection({
+  verdict,
+  supplier,
+  drafts,
+}: {
+  verdict: string;
+  supplier: string;
+  drafts: CaseDraft[];
+}) {
+  const draft = drafts.find((candidate) => candidate.draft_type === "supplier_dispute") ?? null;
+
+  return (
+    <CaseSection id="case-supplier" title={`For ${supplier}`}>
+      {draft ? (
+        <>
+          <p className="text-sm font-semibold text-slate-900">{draft.title}</p>
+          <blockquote className="mt-2 whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-800">
+            {draft.body}
+          </blockquote>
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <CopyButton text={draft.body} label="Copy paragraph" />
+            <p className="text-xs text-slate-600">
+              Drafted by {draft.created_by} on {formatRunDateTime(draft.created_at)}. Read it
+              before you send it.
             </p>
           </div>
-          <p className="mt-1.5 text-sm font-medium text-slate-800">{reviewerDraft.title}</p>
-          <p className="mt-1 text-sm leading-6 text-slate-600">{reviewerDraft.body}</p>
-        </div>
-      ) : null}
+        </>
+      ) : verdict === "approve" ? (
+        <p className="text-sm leading-6 text-slate-600">
+          Nothing to send. Approved invoices don't need a supplier message.
+        </p>
+      ) : (
+        <p className="text-sm leading-6 text-slate-600">
+          No supplier draft was written for this run. The reasoning at the top is for reviewers,
+          not the supplier. If you dispute the line, write your message from the clauses above.
+        </p>
+      )}
+    </CaseSection>
+  );
+}
 
-      {recommendation ? (
-        <p className="mt-2 text-xs text-slate-400">
-          {recommendation.created_by} ·{" "}
-          <code className="rounded bg-slate-50 px-1 py-0.5 text-[11px] text-slate-600">
-            {recommendation.metadata?.waypoint_run_id ?? selectedEntry?.run?.id ?? recommendation.id}
-          </code>
+const NEXT_STEPS: Record<string, { title: (supplier: string, amount: string) => string; body: string }> = {
+  recover: {
+    title: (supplier, amount) => `Request a ${amount} credit from ${supplier}`,
+    body: "Copy the paragraph above into an email from your supplier mailbox, attach the invoice PDF, then record the credit in AP.",
+  },
+  review: {
+    title: (_supplier, amount) => `Hold ${amount} and make the call`,
+    body: "The agents couldn't settle this one. Read the clauses and the evidence that points the other way, then approve or dispute the line.",
+  },
+  escalate: {
+    title: (_supplier, amount) => `Hold ${amount} and escalate`,
+    body: "Don't pay or dispute this line yet. Send the escalation packet to the owner named in the dispute procedure.",
+  },
+  approve: {
+    title: () => "Release for payment",
+    body: "The invoice reconciles to the contract and operations data. Nothing to recover.",
+  },
+};
+
+function NextStepSection({
+  verdict,
+  amount,
+  supplier,
+  recommendation,
+  drafts,
+  pdfUri,
+  basisDocuments,
+  onOpenPdf,
+  onOpenDocument,
+}: {
+  verdict: string;
+  amount: string;
+  supplier: string;
+  recommendation: CaseRecommendation | null;
+  drafts: CaseDraft[];
+  pdfUri: string | null;
+  basisDocuments: BasisDocument[];
+  onOpenPdf: (uri: string) => void;
+  onOpenDocument: (type: "contract" | "policy", id: string) => void;
+}) {
+  const key = verdict === "recovery" ? "recover" : verdict;
+  const step = NEXT_STEPS[key];
+  const escalationDraft = drafts.find((draft) => draft.draft_type === "escalation_packet");
+  const reviewerNotes = drafts.filter((draft) => draft.draft_type !== "supplier_dispute");
+  const proposed = recommendation?.proposed_next_actions ?? [];
+  const contract = basisDocuments.find((document) => document.type === "contract");
+
+  let primary: ReactNode = null;
+  if (key === "escalate" && escalationDraft) {
+    primary = (
+      <CopyButton text={escalationDraft.body} label="Copy escalation packet" variant="primary" />
+    );
+  } else if (key === "review" && contract) {
+    primary = (
+      <button
+        type="button"
+        className={primaryButton}
+        onClick={() => onOpenDocument(contract.type, contract.id)}
+      >
+        <HiDocumentText className="h-4 w-4" aria-hidden="true" />
+        Open the contract
+      </button>
+    );
+  }
+
+  return (
+    <CaseSection id="case-next-step" title="Your next step">
+      <p className="text-base font-semibold text-slate-950">
+        {step ? step.title(supplier, amount) : `Decide what to do with ${amount}`}
+      </p>
+      <p className="mt-1 max-w-[65ch] text-sm leading-6 text-slate-700">
+        {step ? step.body : "Read the clauses and evidence above before acting."}
+      </p>
+      {proposed.length > 0 ? (
+        <p className="mt-2 text-sm text-slate-700">
+          <span className="text-slate-600">Agent proposed: </span>
+          {proposed.map(formatActionLabel).join(", ")}.
         </p>
       ) : null}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {primary}
+        {pdfUri ? (
+          <button
+            type="button"
+            className={primary ? secondaryButton : primaryButton}
+            onClick={() => onOpenPdf(pdfUri)}
+          >
+            <HiDocumentText className="h-4 w-4" aria-hidden="true" />
+            Open invoice PDF
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-3 text-xs text-slate-600">
+        Waypoint records the case. It doesn't send email or post approvals from this panel.
+      </p>
+      {reviewerNotes.length > 0 ? (
+        <details className="group mt-3 border-t border-slate-200 pt-3">
+          <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-semibold text-slate-800">
+            <HiChevronRight
+              className="h-4 w-4 text-slate-500 transition-transform group-open:rotate-90"
+              aria-hidden="true"
+            />
+            Reviewer notes ({reviewerNotes.length})
+          </summary>
+          <ul className="mt-2 space-y-3">
+            {reviewerNotes.map((draft) => (
+              <li key={draft.id}>
+                <p className="text-sm font-medium text-slate-900">{draft.title}</p>
+                <p className="text-xs text-slate-600">{formatCategory(draft.draft_type)}</p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                  {draft.body}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </CaseSection>
+  );
+}
+
+function NotRunCase({
+  activeRun,
+  triggering,
+  onRunAssurance,
+  onViewActivity,
+}: {
+  activeRun: boolean;
+  triggering: boolean;
+  onRunAssurance: () => void;
+  onViewActivity: () => void;
+}) {
+  if (activeRun) {
+    return (
+      <section aria-labelledby="case-verdict" className="border-b border-slate-200 px-5 py-6">
+        <DecisionPill decision="Pending" />
+        <h3 id="case-verdict" className="mt-2 text-xl font-semibold text-slate-950 sm:text-2xl">
+          Agents are working on this invoice
+        </h3>
+        <p className="mt-2 max-w-[65ch] text-sm leading-6 text-slate-700">
+          The case appears here once the run records a decision. Follow each expert's progress in
+          Activity.
+        </p>
+        <button type="button" onClick={onViewActivity} className={`mt-4 ${primaryButton}`}>
+          View active run
+          <HiExternalLink className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-labelledby="case-verdict" className="border-b border-slate-200 px-5 py-6">
+      <DecisionPill decision="Not run" />
+      <h3 id="case-verdict" className="mt-2 text-xl font-semibold text-slate-950 sm:text-2xl">
+        No decision yet
+      </h3>
+      <p className="mt-2 max-w-[65ch] text-sm leading-6 text-slate-700">
+        Running assurance sends this invoice to the cloud agent pipeline. Four experts check it
+        against their sources, then Waypoint records one decision: approve, review, recover or
+        escalate.
+      </p>
+      <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
+        {IQ_PLANES.map((plane) => (
+          <li key={plane.key} className="flex items-baseline justify-between gap-4 py-2 text-sm">
+            <span className="font-semibold text-slate-950">{plane.label}</span>
+            <span className="text-right text-slate-700">{plane.scope}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 max-w-[65ch] text-sm leading-6 text-slate-700">
+        You'll get the verdict and amount, the clauses it rests on, evidence by source, a
+        paragraph for the supplier when there's something to send, and your next step.
+      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+        <button
+          type="button"
+          onClick={onRunAssurance}
+          disabled={triggering}
+          className={primaryButton}
+        >
+          <HiSparkles
+            className={triggering ? "h-4 w-4 animate-pulse" : "h-4 w-4"}
+            aria-hidden="true"
+          />
+          {triggering ? "Starting assurance…" : "Run assurance…"}
+        </button>
+        <p className="text-xs text-slate-600">Can take several minutes. You'll confirm first.</p>
+      </div>
     </section>
+  );
+}
+
+function InvoiceRecordDetails({
+  decision,
+  detail,
+  finding,
+  loading,
+  onOpenPdf,
+}: {
+  decision: InvoiceDecision;
+  detail: InvoiceDetail | null;
+  finding: Finding | undefined;
+  loading: boolean;
+  onOpenPdf: (uri: string) => void;
+}) {
+  const lines = detail?.lines ?? [];
+  const trail = decisionTrail(decision, detail);
+  if (finding?.summary) {
+    trail.splice(1, 0, { title: "Recorded finding", detail: finding.summary });
+  }
+  const summaryClass =
+    "flex min-h-11 cursor-pointer list-none items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50";
+  const chevron = (
+    <HiChevronRight
+      className="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-90"
+      aria-hidden="true"
+    />
+  );
+
+  return (
+    <div className="divide-y divide-slate-200">
+      <details className="group">
+        <summary className={summaryClass}>
+          {chevron}
+          Invoice lines
+          <span className="ml-auto text-xs font-normal text-slate-600">
+            {loading ? "Loading…" : `${lines.length} line${lines.length === 1 ? "" : "s"}`}
+          </span>
+        </summary>
+        <div className="px-5 pb-4">
+          {lines.length > 0 ? (
+            <ul className="divide-y divide-slate-100 rounded-md border border-slate-200">
+              {lines.map((line) => (
+                <li key={line.id} className="px-3 py-2 text-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="font-medium text-slate-900">{line.description}</p>
+                    <p className="shrink-0 font-semibold tabular-nums text-slate-900">
+                      {formatCurrency(line.amount, detail?.currency)}
+                    </p>
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-600">
+                    {line.sku ? `SKU ${line.sku}` : "No SKU"}
+                    {line.purchase_order ? ` · ${line.purchase_order}` : " · No PO"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-600">
+              {loading ? "Loading invoice lines…" : "No invoice lines were imported."}
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <PreviewDocumentButton label="Invoice PDF" uri={decision.pdf_uri} onOpen={onOpenPdf} />
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+              <OneLakeIcon className="h-4 w-4 shrink-0" />
+              Documents come from Microsoft OneLake
+            </span>
+          </div>
+        </div>
+      </details>
+      <details className="group">
+        <summary className={summaryClass}>
+          {chevron}
+          Decision trail
+        </summary>
+        <ol className="px-5 pb-4">
+          {trail.map((item) => (
+            <li key={item.title} className="grid grid-cols-[20px_minmax(0,1fr)] gap-3">
+              <div className="relative flex justify-center">
+                <span className="relative z-10 mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-50 text-blue-700 ring-4 ring-white">
+                  <HiCheckCircle className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <span className="absolute bottom-0 top-7 w-px bg-slate-200" aria-hidden="true" />
+              </div>
+              <div className="pb-4">
+                <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                <p className="mt-0.5 text-sm leading-6 text-slate-700">{item.detail}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </details>
+    </div>
+  );
+}
+
+function RunAssuranceConfirmation({
+  decision,
+  runCount,
+  triggering,
+  error,
+  onConfirm,
+  onClose,
+}: {
+  decision: InvoiceDecision;
+  runCount: number;
+  triggering: boolean;
+  error: string | null;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  // Captured during the first render, before focus moves into the dialog.
+  const [opener] = useState(() =>
+    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
+  );
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    cancelRef.current?.focus();
+    // Return focus to whatever opened the dialog (the run button) when it closes.
+    return () => {
+      if (opener && document.contains(opener)) {
+        opener.focus();
+      }
+    };
+  }, [opener]);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        // Capture + stop so Escape closes this dialog without also closing the drawer.
+        event.stopPropagation();
+        if (!triggering) {
+          onClose();
+        }
+      }
+    }
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [triggering, onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-4 sm:items-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="run-assurance-title"
+      aria-describedby="run-assurance-guidance"
+      onClick={triggering ? undefined : onClose}
+    >
+      <section
+        className="w-full max-w-md overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="px-5 pb-2 pt-5">
+          <h2 id="run-assurance-title" className="text-lg font-semibold text-slate-950">
+            Run assurance for {decision.invoice_number}?
+          </h2>
+          <div id="run-assurance-guidance" className="mt-2 space-y-2 text-sm leading-6 text-slate-700">
+            <p>
+              This starts the cloud agent pipeline for {decision.supplier_name}. Four experts
+              gather evidence, then a decision is recorded. It can take several minutes, and
+              you'll follow it in Activity.
+            </p>
+            <p>
+              If a run is already active for this invoice, Waypoint reuses it instead of starting
+              another. Each new run uses hosted agent capacity and may incur usage cost.
+            </p>
+            {runCount > 0 ? (
+              <p>
+                This will be run {runCount + 1}. Earlier runs stay in the run history.
+              </p>
+            ) : null}
+          </div>
+          {error ? (
+            <p
+              className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800"
+              role="alert"
+            >
+              {error}
+            </p>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2 px-5 pb-5 pt-3">
+          <button
+            ref={cancelRef}
+            type="button"
+            className={secondaryButton}
+            onClick={onClose}
+            disabled={triggering}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={primaryButton}
+            onClick={onConfirm}
+            disabled={triggering}
+          >
+            {triggering ? (
+              <HiRefresh className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <HiSparkles className="h-4 w-4" aria-hidden="true" />
+            )}
+            {triggering ? "Starting assurance…" : "Start assurance run"}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -3203,56 +3930,6 @@ function BasisPills({ basisTypes }: { basisTypes: Array<"contract" | "policy"> }
           {basisType === "contract" ? "Contract" : "Policy"}
         </span>
       ))}
-    </div>
-  );
-}
-
-function BasisSummary({
-  decision,
-  finding,
-  onOpenDocument,
-}: {
-  decision: InvoiceDecision;
-  finding: Finding | undefined;
-  onOpenDocument: (type: "contract" | "policy", id: string) => void;
-}) {
-  const contractIds = finding?.contract_document_ids ?? decision.contract_document_ids;
-  const policyIds = finding?.policy_ids ?? decision.policy_ids;
-  const summary = finding?.basis_summary ?? decision.basis_summary;
-
-  return (
-    <div className="mt-3 rounded-md border border-indigo-100 bg-indigo-50/60 p-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-indigo-800">
-          Contract / policy basis
-        </p>
-        <BasisPills basisTypes={decision.basis_types} />
-      </div>
-      <p className="mt-2 text-sm leading-6 text-slate-700">
-        {summary ?? "No contract or policy basis is attached to this finding."}
-      </p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {contractIds.map((id) => (
-          <button
-            key={id}
-            type="button"
-            className="rounded bg-white px-2 py-1 text-left text-xs font-medium text-indigo-800 ring-1 ring-indigo-100 hover:bg-indigo-100"
-            onClick={() => onOpenDocument("contract", id)}
-          >
-            {id}
-          </button>
-        ))}
-        {policyIds.map((id) => (
-          <button
-            key={id}
-            type="button"
-            className="rounded bg-white px-2 py-1 text-left text-xs font-medium text-cyan-800 ring-1 ring-cyan-100 hover:bg-cyan-100"
-            onClick={() => onOpenDocument("policy", id)}
-          >
-            {id}
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
