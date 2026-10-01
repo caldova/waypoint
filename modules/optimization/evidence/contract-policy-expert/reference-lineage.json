@@ -219,6 +219,69 @@
       "schema_version": "1",
       "snapshot_id": "96d5cc49d370706f4c686e6e53dc2975ad040cead62c7db487ecf15813f9399e",
       "source_commit": "archived"
+    },
+    {
+      "agent": "contract-policy-expert",
+      "approvals": [],
+      "created_at": "2026-10-01T19:49:00Z",
+      "environment": "foundry-project-caldova",
+      "hashes": {
+        "dataset": {
+          "available": true,
+          "identifier": "opt-inline-73645f9f67154556b5c12640fb3e5b15:v1",
+          "label": "dataset",
+          "sha256": "b69727eb11ff66056fadf8e350092a0591f0fb8749a0dcc8f32af770a2a81fda"
+        },
+        "grader": {
+          "available": true,
+          "identifier": "contract-policy-expert-generated-rubric:v13",
+          "label": "grader",
+          "sha256": "6499d844fa49e5c202eb57f20b1ead41402e2a84766282ff073e4b9d7207e90c"
+        },
+        "model_deployment": {
+          "available": true,
+          "identifier": "gpt-6-astra",
+          "label": "model_deployment",
+          "sha256": "576a599a64cb3dde05f18ebb3e26e3d5bcbf4b108ff92da24f5229188fa0972a"
+        },
+        "prompt_config": {
+          "available": true,
+          "identifier": "../optimization/extensions/optimizer-diff-canvas/fixtures/opt_2fb58fc1723e461d9a1496907d029ac8/candidate_14-config.json",
+          "label": "prompt_config",
+          "sha256": "001560f43874f53eb001e7246d8a9672e28d60e016371974c4e818c3259179c5"
+        },
+        "rubric_eval_config": {
+          "available": true,
+          "identifier": "contract-policy-expert-generated-rubric:v13",
+          "label": "rubric_eval_config",
+          "sha256": "6499d844fa49e5c202eb57f20b1ead41402e2a84766282ff073e4b9d7207e90c"
+        }
+      },
+      "metrics": {
+        "baseline_avg_score": 0.455684,
+        "baseline_candidate_id": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0000",
+        "baseline_config_sha256": "9e3688f6e3f031b0df9c1d1e87c9468f3427dc2690f58dcb58423bdf7d409f43",
+        "best_avg_score": 0.8000013333333332,
+        "best_candidate_id": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0014",
+        "best_candidate_name": "candidate_14",
+        "best_config_sha256": "001560f43874f53eb001e7246d8a9672e28d60e016371974c4e818c3259179c5",
+        "candidate_count_scored": 7,
+        "eval_id": "eval_45f1bda7258047c1ae0aaf729d83e03d",
+        "best_eval_run_id": "evalrun_8f66da78b917482682045dcdc6c39951",
+        "mutation_strategy": "instructions + function tool schema hardening"
+      },
+      "model": {
+        "base_model": "gpt-6-astra",
+        "deployment": "gpt-6-astra"
+      },
+      "notes": "Reference-only Caldova Agent Optimizer lineage for opt_2fb58fc1723e461d9a1496907d029ac8. Candidate_14 tightened Contract Policy Expert from loose triage-note behavior into strict evidence-only JSON, exact cited evidence, explicit verification gaps, and read-only finance boundaries. This entry supports the review canvas and is not a deployment approval.",
+      "operation_id": "opt_2fb58fc1723e461d9a1496907d029ac8",
+      "operation_kind": "agent_optimizer",
+      "reference_only": true,
+      "review_status": "candidate",
+      "schema_version": "1",
+      "source_commit": "working-tree",
+      "snapshot_id": "81ecdd087881eebdae319fb8ef29e9737fcb4a0f0619dfd7158dba87ba7ffb12"
     }
   ]
 }

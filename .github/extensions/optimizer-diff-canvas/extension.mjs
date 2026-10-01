@@ -5,13 +5,16 @@ import { fileURLToPath } from "node:url";
 import { joinSession, createCanvas } from "@github/copilot-sdk/extension";
 import { lineageBadgeHtml, resolveLineageStatus } from "../shared/lineage-evidence.mjs";
 
-const jobId = "opt_994a956b2d6e49939506323a15dfc5d2";
-const baselineId = "cand_bc834224066e45d8938aa2fa738a9720";
-const candidateId = "cand_6bf6980ed16f4538ba0faf8935d93c01";
+const jobId = "opt_2fb58fc1723e461d9a1496907d029ac8";
+const baselineId = "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0000";
+const candidateLabel = "candidate_14";
+const candidateId = "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0014";
 const agentName = "contract-policy-expert";
 const extensionDir = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(extensionDir, "fixtures", jobId);
 const servers = new Map();
+const candidateConfigFile = `${candidateLabel}-config.json`;
+const candidateResultsFile = `${candidateLabel}-results.json`;
 
 function defaultArtifactDir() {
     const copilotHome = process.env.COPILOT_HOME || `${process.env.USERPROFILE || ""}\\.copilot`;
@@ -68,9 +71,9 @@ function readJson(name) {
 const requiredArtifacts = [
     "job.json",
     "baseline-config.json",
-    "candidate_4-config.json",
+    candidateConfigFile,
     "baseline-results.json",
-    "candidate_4-results.json",
+    candidateResultsFile,
 ];
 
 function hasArtifacts(dir) {
@@ -101,7 +104,7 @@ function artifactsAvailable() {
 
 function lineageStatus() {
     const dir = artifactSourceDir();
-    const configPath = dir ? join(dir, "candidate_4-config.json") : null;
+    const configPath = dir ? join(dir, candidateConfigFile) : null;
     return resolveLineageStatus({
         extensionDir,
         agent: agentName,
@@ -115,9 +118,9 @@ function loadComparison() {
     return {
         job: readJson("job.json"),
         baselineConfig: readJson("baseline-config.json"),
-        candidateConfig: readJson("candidate_4-config.json"),
+        candidateConfig: readJson(candidateConfigFile),
         baselineResults: readJson("baseline-results.json"),
-        candidateResults: readJson("candidate_4-results.json"),
+        candidateResults: readJson(candidateResultsFile),
     };
 }
 
@@ -130,7 +133,18 @@ function escapeHtml(value) {
 }
 
 function formatPercent(value) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) {
+        return "not reported";
+    }
     return `${(Number(value || 0) * 100).toFixed(1)}%`;
+}
+
+function formatScore(value) {
+    return Number(value || 0).toFixed(4);
+}
+
+function formatShortScore(value) {
+    return Number(value || 0).toFixed(3);
 }
 
 function lines(value) {
@@ -248,7 +262,7 @@ function renderMetric(label, value, detail) {
 
 function renderMetricHelp() {
     return `<section class="metric-help card">
-        <span><b>Quality:</b> Average rubric score for grounding, citations, evidence shape, gaps, and read-only behavior. <b>Passing rows:</b> cleared the threshold; 100% pass rate is not a perfect 1.0 score.</span>
+        <span><b>Quality</b> is the average evaluator score for grounding, citations, evidence shape, gap handling, and read-only behavior. This job reports scores and eval run IDs. It does not report pass thresholds.</span>
       </section>`;
 }
 
@@ -281,12 +295,12 @@ function renderMissingArtifactsHtml() {
     <main>
       <section class="card">
         <h1>Fetch optimizer artifacts first</h1>
-        <p>This committed canvas first reads Foundry optimizer payloads from session artifact storage. If those are unavailable, it uses sanitized sample fixtures committed beside the extension.</p>
+        <p>This canvas reads Foundry optimizer payloads from session artifact storage. If those files are missing, it falls back to sanitized fixtures committed beside the extension.</p>
         <p>Expected session artifact folder:</p>
         <p><code>${escapeHtml(artifactDir || "(SESSION_ID or COPILOT_HOME not available)")}</code></p>
         <p>Committed fixture folder:</p>
         <p><code>${escapeHtml(fixtureDir)}</code></p>
-        <p>Required files: <code>job.json</code>, <code>baseline-config.json</code>, <code>candidate_4-config.json</code>, <code>baseline-results.json</code>, and <code>candidate_4-results.json</code>.</p>
+        <p>Required files: <code>job.json</code>, <code>baseline-config.json</code>, <code>${candidateLabel}-config.json</code>, <code>baseline-results.json</code>, and <code>${candidateLabel}-results.json</code>.</p>
       </section>
     </main>
   </body>
@@ -294,38 +308,49 @@ function renderMissingArtifactsHtml() {
 }
 
 function renderKeywordRows(summary) {
-    return summary.keywordRows
+    const rows = summary.keywordRows
         .map((row) => {
-            const polarity = row.delta > 0 ? "up" : row.delta < 0 ? "down" : "flat";
             const emphasis =
                 row.delta > 0
-                    ? `More emphasis (+${row.delta})`
+                    ? `+${row.delta}`
                     : row.delta < 0
-                      ? `Less emphasis (${row.delta})`
-                      : "Same emphasis";
-            return `<article class="signal-card">
-                <div class="signal-top">
-                  <strong>${escapeHtml(row.label)}</strong>
-                  <span class="delta ${polarity}">${escapeHtml(emphasis)}</span>
-                </div>
-                <p>${escapeHtml(row.meaning)}</p>
-                <small>${escapeHtml(row.business)}</small>
-                <em>Keyword mentions in source text: baseline ${row.before}, candidate_4 ${row.after}</em>
-            </article>`;
+                      ? `${row.delta}`
+                      : "0";
+            return `<tr>
+                <th scope="row">${escapeHtml(row.label)}</th>
+                <td class="num">${escapeHtml(String(row.before))}</td>
+                <td class="num">${escapeHtml(String(row.after))}</td>
+                <td class="num">${escapeHtml(emphasis)}</td>
+                <td>${escapeHtml(row.meaning)} ${escapeHtml(row.business)}</td>
+            </tr>`;
         })
         .join("");
+    return `<table class="signal-table">
+        <caption>Prompt emphasis</caption>
+        <thead>
+          <tr>
+            <th>Behavior</th>
+            <th>Base</th>
+            <th>${escapeHtml(candidateLabel)}</th>
+            <th>Delta</th>
+            <th>Meaning</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
 }
 
-function renderHunks(title, beforeLabel, afterLabel, beforeText, afterText, open = false) {
+function renderHunks(title, beforeLabel, afterLabel, beforeText, afterText, open = false, id = "") {
     const hunks = changedHunks(beforeText, afterText);
     const stats = diffStats(beforeText, afterText);
     const summary = `${stats.added} added / ${stats.removed} removed`;
+    const idAttr = id ? ` id="${escapeHtml(id)}"` : "";
     if (hunks.length === 0) {
-        return `<details class="hunks"><summary>${escapeHtml(title)} <span>No changes</span></summary></details>`;
+        return `<details class="hunks"${idAttr}><summary>${escapeHtml(title)} <span>No changes</span></summary></details>`;
     }
 
-    return `<details class="hunks" ${open ? "open" : ""}>
-        <summary>${escapeHtml(title)} <span>${escapeHtml(summary)} across ${hunks.length} focused hunks</span></summary>
+    return `<details class="hunks" ${open ? "open" : ""}${idAttr}>
+        <summary>${escapeHtml(title)} <span>${escapeHtml(summary)} in ${hunks.length} focused hunks</span></summary>
         <div class="diff-labels"><div>${escapeHtml(beforeLabel)}</div><div>${escapeHtml(afterLabel)}</div></div>
         ${hunks
             .map(
@@ -345,11 +370,12 @@ function renderHunks(title, beforeLabel, afterLabel, beforeText, afterText, open
       </details>`;
 }
 
-function renderSurfaceCard({ title, beforeText, afterText, why, open = false }) {
+function renderSurfaceCard({ title, beforeText, afterText, why, open = false, id = "", auditId = "", auditTitle = "Full text diff" }) {
     const summary = summarizeText(beforeText, afterText);
     const charDelta = summary.afterChars - summary.beforeChars;
     const lineDelta = summary.afterLines - summary.beforeLines;
-    return `<section class="surface card">
+    const idAttr = id ? ` id="${escapeHtml(id)}"` : "";
+    return `<section class="surface card"${idAttr}>
         <div class="surface-head">
           <div>
             <h2>${escapeHtml(title)}</h2>
@@ -362,48 +388,47 @@ function renderSurfaceCard({ title, beforeText, afterText, why, open = false }) 
             <span>lines</span>
           </div>
         </div>
-        <div class="signal-grid">${renderKeywordRows(summary)}</div>
-        ${renderHunks("Focused raw hunks", "Baseline", "candidate_4", beforeText, afterText, open)}
+        ${renderKeywordRows(summary)}
+        ${renderHunks(auditTitle, "Baseline", candidateLabel, beforeText, afterText, open, auditId)}
       </section>`;
 }
 
 function renderBusinessSummary() {
-    return `<section class="business card">
-        <div class="section-head"><h2>Contract Policy Expert takeaway</h2><span>Read this before the technical diff</span></div>
-        <div class="takeaways">
-          <article>
-            <strong>Better invoice challenge support</strong>
-            <p>Candidate_4 is more explicit about producing evidence packets that explain whether invoice charges are supported by contract and policy data.</p>
-          </article>
-          <article>
-            <strong>Grounded in contract/policy sources</strong>
-            <p>The optimized candidate pushes harder on retrieving contract clauses, rate cards, supplier terms, policy rules, and prior findings before answering.</p>
-          </article>
-          <article>
-            <strong>Clearer “we do not know” behavior</strong>
-            <p>It emphasizes unsupported and missing-evidence reporting, so the agent should flag gaps instead of acting certain when source data is thin.</p>
-          </article>
-          <article>
-            <strong>Still advisory, not operational</strong>
-            <p>The candidate keeps the agent in a read-only reviewer role: explain evidence, but do not approve, reconcile, recover, or update finance systems.</p>
-          </article>
-        </div>
+    return `<section class="business card" id="summary">
+        <div class="section-head"><h2>What changed</h2><span>Review notes</span></div>
+        <table class="review-table">
+          <tbody>
+            <tr>
+              <th scope="row"><i class="mark mark-blue" aria-hidden="true"></i>Output</th>
+              <td>Moved from a loose reviewer note to one strict evidence JSON object. Approval, hold, and dispute language are fenced off.</td>
+            </tr>
+            <tr>
+              <th scope="row"><i class="mark mark-purple" aria-hidden="true"></i>Evidence</th>
+              <td>Contract and policy claims now have to come from FoundryIQ context, especially <code>retrieved_context</code>.</td>
+            </tr>
+            <tr>
+              <th scope="row"><i class="mark mark-yellow" aria-hidden="true"></i>Gaps</th>
+              <td>Missing source documents, rate gaps, release status, and identifier-only references become controller checks.</td>
+            </tr>
+            <tr>
+              <th scope="row"><i class="mark mark-green" aria-hidden="true"></i>Boundary</th>
+              <td><code>decision</code> and <code>recommended_finance_action</code> stay null when the request says not to decide. No system action is claimed.</td>
+            </tr>
+          </tbody>
+        </table>
       </section>`;
 }
 
 function renderSurfaceExplainer() {
     return `<section class="card explainer">
-        <div class="section-head"><h2>What changed surfaces mean</h2><span>Instructions vs. skills</span></div>
-        <div class="takeaways">
-          <article>
-            <strong>Instructions = overall job description</strong>
-            <p>The broad rules for Contract Policy Expert: what role it plays, what kind of answer to produce, and what boundaries it must follow.</p>
-          </article>
-          <article>
-            <strong>Skills = procedural playbooks</strong>
-            <p>Reusable checklists the agent follows for specific work, like retrieving contract/policy evidence or enforcing the invoice evidence shape.</p>
-          </article>
-        </div>
+        <div class="section-head"><h2>Changed assets</h2><span>What candidate_14 actually changed</span></div>
+        <table class="review-table compact">
+          <tbody>
+            <tr><th scope="row">Main prompt</th><td>Changed from loose triage guidance to a strict evidence JSON contract.</td></tr>
+            <tr><th scope="row">Retrieval tool</th><td>Description tightened, and <code>query</code> became required.</td></tr>
+            <tr><th scope="row">No change</th><td>Model, agent version, skills, and tool name stayed the same.</td></tr>
+          </tbody>
+        </table>
       </section>`;
 }
 
@@ -417,8 +442,8 @@ function renderSkillCards(baselineSkills, candidateSkills) {
             const afterSkill = after.get(name);
             const why =
                 name === "retrieval-discipline"
-                    ? "Most useful for reviewing how the optimizer changed evidence gathering behavior."
-                    : "Most useful for reviewing output schema, read-only limits, and evidence metadata requirements.";
+                    ? "Use this to review how evidence gathering changed."
+                    : "Use this to review schema, read-only limits, and evidence metadata.";
             return renderSurfaceCard({
                 title: `Skill: ${name}`,
                 beforeText: skillBody(beforeSkill),
@@ -434,8 +459,9 @@ function renderToolInventory(baselineTools, candidateTools) {
     const before = objectByName(baselineTools);
     const after = objectByName(candidateTools);
     const names = [...new Set([...before.keys(), ...after.keys()])];
-    return `<section class="card">
-        <div class="section-head"><h2>Tools: inventory diff</h2><span>Check this after instructions/skills</span></div>
+    return `<section class="card" id="tool">
+        <div class="section-head"><h2>Retrieval tool changes</h2><span>Description and schema</span></div>
+        <p class="section-note">The tool name stayed the same. candidate_14 tightened how the tool is described and made the search query required.</p>
         <div class="inventory">
           ${names
               .map((name) => {
@@ -445,13 +471,117 @@ function renderToolInventory(baselineTools, candidateTools) {
                   const changed = stats.added + stats.removed;
                   return `<article>
                     <h3>${escapeHtml(name)}</h3>
-                    <p>${changed === 0 ? "No tool-shape change." : `${changed} changed tool-shape lines.`}</p>
-                    ${renderHunks("Tool shape hunks", "Baseline", "candidate_4", pretty(beforeTool), pretty(afterTool), false)}
+                    <p>${changed === 0 ? "No tool shape changed." : `${changed} tool shape lines changed.`}</p>
+                    ${renderToolReadableDiff(beforeTool, afterTool)}
+                    ${renderHunks("Full tool JSON diff", "Baseline", candidateLabel, pretty(beforeTool), pretty(afterTool), false)}
                   </article>`;
               })
               .join("")}
         </div>
       </section>`;
+}
+
+function toolFunction(tool) {
+    return tool?.function ?? {};
+}
+
+function renderToolReadableDiff(beforeTool, afterTool) {
+    const beforeFn = toolFunction(beforeTool);
+    const afterFn = toolFunction(afterTool);
+    const beforeDescription = String(beforeFn.description ?? "").trim();
+    const afterDescription = String(afterFn.description ?? "").trim();
+    const beforeRequired = beforeFn.parameters?.required ?? [];
+    const afterRequired = afterFn.parameters?.required ?? [];
+    const beforeProps = Object.keys(beforeFn.parameters?.properties ?? {});
+    const afterProps = Object.keys(afterFn.parameters?.properties ?? {});
+    const sameInputs = sameStringList(beforeProps, afterProps);
+    const addedRequired = afterRequired.filter((field) => !beforeRequired.includes(field));
+    const removedRequired = beforeRequired.filter((field) => !afterRequired.includes(field));
+    const inputSummary = sameInputs
+        ? `${beforeProps.join(", ") || "none"} (unchanged)`
+        : `${beforeProps.join(", ") || "none"} changed to ${afterProps.join(", ") || "none"}`;
+    const requiredSummary = addedRequired.length
+        ? `${addedRequired.join(", ")} is now required`
+        : removedRequired.length
+          ? `${removedRequired.join(", ")} is no longer required`
+          : `${afterRequired.join(", ") || "none"} (unchanged)`;
+    const behaviorSummary =
+        beforeDescription === afterDescription
+            ? "Retrieval guidance unchanged."
+            : "Retrieval guidance is stricter about source-grounded evidence and no business-system actions.";
+
+    return `<div class="tool-readable">
+        <table class="tool-summary">
+          <tbody>
+            <tr><th scope="row">Tool</th><td>${escapeHtml(beforeFn.name ?? afterFn.name ?? "unknown")} stayed in place.</td></tr>
+            <tr><th scope="row">Input</th><td>${escapeHtml(inputSummary)}.</td></tr>
+            <tr><th scope="row">Contract</th><td>${escapeHtml(requiredSummary)}.</td></tr>
+            <tr><th scope="row">Behavior</th><td>${escapeHtml(behaviorSummary)}</td></tr>
+          </tbody>
+        </table>
+        <details class="tool-full-copy">
+          <summary>Full tool descriptions</summary>
+          <div class="tool-copy-grid">
+            <section>
+              <strong>Baseline</strong>
+              <p>${escapeHtml(beforeDescription || "No description.")}</p>
+            </section>
+            <section>
+              <strong>${escapeHtml(candidateLabel)}</strong>
+              <p>${escapeHtml(afterDescription || "No description.")}</p>
+            </section>
+          </div>
+        </details>
+      </div>`;
+}
+
+function sameStringList(left, right) {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function renderLeaderboard(job, candidateResults) {
+    const best = job?.result?.best;
+    const candidates = [...(candidateResults.leaderboard ?? job?.result?.candidates ?? [])].sort(
+        (a, b) => Number(b.avg_score || 0) - Number(a.avg_score || 0),
+    );
+    if (candidates.length === 0) return "";
+    return `<section class="card" id="candidates">
+        <div class="section-head"><h2>Candidate search</h2><span>${escapeHtml(job.id)} | winner chosen by score</span></div>
+        <table class="leaderboard">
+          <thead><tr><th>Rank</th><th>Candidate</th><th>Score</th><th>Status</th></tr></thead>
+          <tbody>
+          ${candidates
+              .map((candidate, index) => {
+                  const isBest = candidate.candidate_id === best;
+                  const isBaseline = candidate.name === "baseline" || candidate.candidate_id === job?.result?.baseline;
+                  return `<tr class="${isBest ? "winner" : ""}">
+                    <td class="num">${index + 1}</td>
+                    <td><strong>${escapeHtml(candidate.name || candidate.candidate_id)}</strong><br /><code>${escapeHtml(candidate.candidate_id)}</code></td>
+                    <td class="num">${formatScore(candidate.avg_score)}</td>
+                    <td>${isBest ? "winner" : isBaseline ? "baseline" : "candidate"}</td>
+                  </tr>`;
+              })
+              .join("")}
+          </tbody>
+        </table>
+      </section>`;
+}
+
+function renderDecisionStrip({ job, baselineResults, candidateResults, scoreLift, relativeLift, lineage }) {
+    return `<section class="decision-strip" aria-label="Optimizer result summary">
+        <div class="strip-score"><i class="mark mark-blue" aria-hidden="true"></i><span>Score</span><strong>${formatShortScore(baselineResults.avgScore)} to ${formatShortScore(candidateResults.avgScore)}</strong></div>
+        <div class="strip-lift"><i class="mark mark-green" aria-hidden="true"></i><span>Lift</span><strong>+${scoreLift.toFixed(3)} (${relativeLift.toFixed(1)}%)</strong></div>
+        <div class="strip-state"><i class="mark mark-yellow" aria-hidden="true"></i><span>Status</span><strong>${escapeHtml(job.status)} / ${escapeHtml(lineage.reviewStatus ?? "unreviewed")}</strong></div>
+        <div class="strip-proof"><i class="mark mark-purple" aria-hidden="true"></i><span>Lineage</span><strong>${escapeHtml(lineage.status.replaceAll("_", "-"))}${lineage.hashIntegrity ? ", hash match" : ""}</strong></div>
+      </section>`;
+}
+
+function renderLineageNote(lineage) {
+    return `<details class="lineage-note">
+        <summary>What lineage means</summary>
+        <p>Reference-only means this is a saved review artifact, not proof of what is deployed. Hash match means the rendered candidate file matches the recorded snapshot.</p>
+        <p>Snapshot <code>${escapeHtml(lineage.snapshotId ? lineage.snapshotId.slice(0, 12) : "not found")}</code>. Evidence file <code>${escapeHtml(lineage.referencePath ?? "not found")}</code>.</p>
+      </details>`;
 }
 
 function renderHtml() {
@@ -461,7 +591,8 @@ function renderHtml() {
 
     const { job, baselineConfig, candidateConfig, baselineResults, candidateResults } = loadComparison();
     const scoreLift = Number(candidateResults.avgScore || 0) - Number(baselineResults.avgScore || 0);
-    const passLift = Number(candidateResults.passRate || 0) - Number(baselineResults.passRate || 0);
+    const relativeLift = (scoreLift / Number(baselineResults.avgScore || 1)) * 100;
+    const candidatesEvaluated = job?.result?.candidates?.length ?? candidateResults.leaderboard?.length ?? 0;
     const lineage = lineageStatus();
 
     return `<!doctype html>
@@ -482,6 +613,7 @@ function renderHtml() {
         --green: var(--true-color-green, #1a7f37);
         --red: var(--true-color-red, #cf222e);
         --yellow: var(--true-color-yellow, #9a6700);
+        --purple: #8250df;
       }
       * { box-sizing: border-box; }
       body {
@@ -491,7 +623,7 @@ function renderHtml() {
         font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
         font-size: var(--text-body-medium, 14px);
       }
-      main { max-width: 1320px; margin: 0 auto; padding: 20px; }
+      main { max-width: 1180px; margin: 0 auto; padding: 20px 24px 36px; }
       h1, h2, h3 { margin: 0; }
       h1 { font-size: 20px; }
       h2 { font-size: 15px; }
@@ -506,36 +638,113 @@ function renderHtml() {
         border-bottom: 1px solid var(--border);
       }
       .meta { color: var(--muted); text-align: right; font-size: 12px; }
-      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+      .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 14px 0 0; border: 1px solid var(--border); border-bottom: 0; }
       .metric, .card {
         border: 1px solid var(--border);
-        border-radius: 12px;
         background: var(--surface);
-        box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
       }
-      .metric { padding: 9px 10px; }
+      .metric { padding: 10px 12px; border-width: 0 1px 1px 0; }
+      .metric:last-child { border-right: 0; }
       .metric span, .surface-stat span { color: var(--muted); font-size: 12px; }
       .metric strong { display: block; margin-top: 2px; font-size: 18px; }
       .metric p { font-size: 12px; }
       .metric-help {
-        margin-top: -2px;
-        padding: 7px 10px;
+        margin-top: 0;
+        padding: 8px 12px;
+        color: var(--muted);
+        font-size: 12px;
+        border-top: 0;
+      }
+      .metric-help b { color: var(--text); }
+      .decision-strip {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-top: 14px;
+        border: 1px solid var(--border);
+      }
+      .decision-strip div {
+        position: relative;
+        padding: 10px 12px;
+        border-right: 1px solid var(--border);
+        border-top: 3px solid var(--border);
+      }
+      .decision-strip div:last-child { border-right: 0; }
+      .decision-strip .strip-score { border-top-color: var(--blue); }
+      .decision-strip .strip-lift { border-top-color: var(--green); }
+      .decision-strip .strip-state { border-top-color: var(--yellow); }
+      .decision-strip .strip-proof { border-top-color: var(--purple); }
+      .decision-strip span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        padding-left: 18px;
+      }
+      .decision-strip strong {
+        display: block;
+        margin-top: 2px;
+        font-size: 17px;
+        font-weight: 650;
+        padding-left: 18px;
+      }
+      .mark {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        margin-right: 8px;
+        border: 2px solid currentColor;
+        vertical-align: -1px;
+      }
+      .decision-strip .mark {
+        position: absolute;
+        top: 13px;
+        left: 12px;
+        margin-right: 0;
+      }
+      .mark-blue { color: var(--blue); border-radius: 50%; }
+      .mark-green { color: var(--green); border-radius: 2px; }
+      .mark-yellow { color: var(--yellow); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 11px solid currentColor; border-top: 0; }
+      .mark-purple { color: var(--purple); transform: rotate(45deg); border-radius: 2px; }
+      .quick-nav {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        display: flex;
+        gap: 14px;
+        padding: 8px 0;
+        margin-top: 10px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        font-size: 12px;
+      }
+      .quick-nav a { color: var(--blue); text-decoration: none; }
+      .quick-nav a:hover { text-decoration: underline; }
+      .quiet-note {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lineage-note {
+        margin-top: 10px;
+        border: 1px solid var(--border);
+        padding: 8px 12px;
         color: var(--muted);
         font-size: 12px;
       }
-      .metric-help b { color: var(--text); }
-      .guide { padding: 11px 12px; margin-bottom: 10px; border-left: 4px solid var(--blue); }
-      .guide ol { margin: 7px 0 0; padding-left: 18px; color: var(--muted); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
-      .guide li { margin: 2px 0; }
-      .card { margin-top: 10px; overflow: hidden; }
+      .lineage-note summary {
+        cursor: pointer;
+        color: var(--text);
+        font-weight: 600;
+      }
+      .lineage-note p { margin-top: 6px; }
+      .card { margin-top: 14px; overflow: hidden; }
       .section-head, .surface-head {
         display: flex;
         justify-content: space-between;
         align-items: start;
         gap: 10px;
-        padding: 10px 12px;
+        padding: 9px 12px;
         border-bottom: 1px solid var(--border);
-        background: var(--surface-muted);
+        background: var(--surface);
       }
       .section-head span { color: var(--muted); font-size: 12px; }
       .surface-stat {
@@ -546,34 +755,28 @@ function renderHtml() {
         text-align: right;
       }
       .surface-stat strong { font-size: 14px; }
-      .signal-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-        padding: 10px;
-      }
-      .signal-card {
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 9px;
-        background: color-mix(in srgb, var(--surface-muted) 45%, var(--surface));
-      }
-      .signal-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-      .signal-card p { font-size: 12px; }
-      .signal-card small { display: block; margin-top: 5px; color: var(--text); line-height: 1.3; }
-      .signal-card em { display: block; margin-top: 5px; color: var(--muted); font-size: 11px; font-style: normal; }
-      .delta {
-        display: inline-block;
-        min-width: max-content;
-        border-radius: 999px;
-        padding: 1px 7px;
-        text-align: center;
-        border: 1px solid var(--border);
+      table { width: 100%; border-collapse: collapse; }
+      caption {
+        caption-side: top;
+        padding: 8px 10px;
+        color: var(--muted);
+        text-align: left;
         font-size: 12px;
+        font-weight: 600;
       }
-      .delta.up { color: var(--green); border-color: color-mix(in srgb, var(--green) 35%, var(--border)); }
-      .delta.down { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, var(--border)); }
-      .delta.flat { color: var(--muted); }
+      th, td { border-top: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+      thead th { color: var(--muted); font-size: 12px; font-weight: 600; background: var(--surface-muted); }
+      tbody th { width: 150px; font-weight: 600; }
+      .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .review-table td { line-height: 1.35; }
+      .review-table tbody th {
+        white-space: nowrap;
+      }
+      .review-table.compact tbody th { width: 120px; }
+      .signal-table th:nth-child(1) { width: 170px; }
+      .signal-table th:nth-child(2),
+      .signal-table th:nth-child(3),
+      .signal-table th:nth-child(4) { width: 72px; }
       details.hunks {
         border-top: 1px solid var(--border);
         background: color-mix(in srgb, var(--surface-muted) 45%, var(--surface));
@@ -602,7 +805,7 @@ function renderHtml() {
         border-bottom: 1px solid var(--border);
       }
       .diff-labels div { padding: 8px 12px; }
-      .hunk { margin: 8px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
+      .hunk { margin: 8px; border: 1px solid var(--border); overflow: hidden; background: var(--surface); }
       .hunk-title { padding: 6px 9px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--border); }
       .diff-row pre {
         margin: 0;
@@ -626,45 +829,102 @@ function renderHtml() {
       .diff-row.same pre { color: color-mix(in srgb, var(--text) 72%, var(--muted)); }
       .inventory {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
         gap: 8px;
         padding: 10px;
+      }
+      .section-note {
+        margin: 0;
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 13px;
       }
       .inventory article {
         border: 1px solid var(--border);
-        border-radius: 10px;
         overflow: hidden;
       }
       .inventory h3, .inventory p { padding: 8px 10px 0; }
-      .takeaways {
+      .tool-readable {
+        padding: 10px;
+        border-top: 1px solid var(--border);
+      }
+      .tool-copy-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
-        padding: 10px;
       }
-      .takeaways article {
+      .tool-copy-grid section {
         border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 10px;
-        background: color-mix(in srgb, var(--surface-muted) 45%, var(--surface));
+        padding: 9px;
+        background: var(--surface);
       }
-      .takeaways p { font-size: 12px; }
+      .tool-copy-grid strong {
+        display: block;
+        margin-bottom: 5px;
+      }
+      .tool-copy-grid p {
+        padding: 0;
+        white-space: pre-wrap;
+      }
+      .tool-summary {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .tool-summary th, .tool-summary td {
+        border-bottom: 1px solid var(--border);
+        padding: 7px 0;
+        text-align: left;
+        vertical-align: top;
+      }
+      .tool-summary th {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+        width: 96px;
+      }
+      .tool-full-copy {
+        margin-top: 8px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .tool-full-copy summary {
+        cursor: pointer;
+        padding: 8px 9px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .tool-full-copy .tool-copy-grid {
+        padding: 0 9px 9px;
+      }
+      .leaderboard code {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .leaderboard tr.winner td,
+      .leaderboard tr.winner th { background: color-mix(in srgb, var(--green) 7%, var(--surface)); }
       .note {
         margin-top: 10px;
-        border: 1px solid color-mix(in srgb, var(--blue) 35%, var(--border));
-        border-radius: 12px;
+        border: 1px solid var(--border);
         padding: 9px 10px;
         color: var(--muted);
-        background: color-mix(in srgb, var(--blue) 7%, var(--surface));
+        background: var(--surface);
       }
       @media (max-width: 900px) {
         header, .diff-labels, .diff-row { grid-template-columns: 1fr; }
         .meta { text-align: left; }
         .diff-row pre:first-child { border-right: 0; }
+        .decision-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .decision-strip div:nth-child(2) { border-right: 0; }
+        .decision-strip div:nth-child(-n + 2) { border-bottom: 1px solid var(--border); }
       }
       @media (max-width: 560px) {
         main { padding: 12px; }
-        .metrics, .guide ol, .takeaways, .signal-grid, .inventory { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .metrics, .tool-copy-grid, .decision-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .surface-head { display: grid; grid-template-columns: 1fr; }
         .surface-stat { text-align: left; grid-template-columns: auto 1fr auto 1fr; }
       }
@@ -675,42 +935,39 @@ function renderHtml() {
       <header>
         <div>
           <h1>Contract Policy Expert optimizer review</h1>
-          <p>Did candidate_4 make this agent better at contract-grounded invoice evidence review?</p>
+          <p>Foundry Agent Optimizer job. Baseline agent version ${escapeHtml(job.inputs?.agent?.agent_version ?? "unknown")} to ${candidateLabel}.</p>
         </div>
         <div class="meta">
           <div>Status <strong>${escapeHtml(job.status)}</strong></div>
           <div>${lineageBadgeHtml(lineage.status, lineage.reviewStatus ? `review: ${lineage.reviewStatus}` : undefined)}</div>
           <div>Baseline <code>${escapeHtml(baselineId.slice(0, 18))}...</code></div>
-          <div>candidate_4 <code>${escapeHtml(candidateId.slice(0, 18))}...</code></div>
+          <div>${candidateLabel} <code>${escapeHtml(candidateId.slice(0, 18))}...</code></div>
         </div>
       </header>
 
-      <section class="metrics">
-        ${renderMetric("Baseline quality", Number(baselineResults.avgScore || 0).toFixed(4), `${formatPercent(baselineResults.passRate)} rows passing threshold`)}
-        ${renderMetric("candidate_4 quality", Number(candidateResults.avgScore || 0).toFixed(4), `${formatPercent(candidateResults.passRate)} rows passing threshold`)}
-        ${renderMetric("Quality-score lift", `+${scoreLift.toFixed(4)}`, `${((scoreLift / Number(baselineResults.avgScore || 1)) * 100).toFixed(1)}% relative`)}
-        ${renderMetric("Pass-threshold lift", `+${(passLift * 100).toFixed(1)} pts`, `${formatPercent(baselineResults.passRate)} → ${formatPercent(candidateResults.passRate)} rows passing`)}
-      </section>
-      ${renderMetricHelp()}
-
-      <section class="guide card">
-        <h2>How to read the signal for this agent</h2>
-        <ol>
-          <li><strong>More emphasis</strong> means candidate_4 talks more about a behavior Contract Policy Expert needs for invoice evidence review.</li>
-          <li><strong>Same emphasis</strong> means the topic was already present; wording may still be different in the raw hunks.</li>
-          <li><strong>Best first read:</strong> takeaway cards, then signal cards, then raw hunks only when someone needs audit detail.</li>
-          <li><strong>The headline:</strong> candidate_4 made the agent more specific about retrieved contract evidence, missing-evidence gaps, strict evidence shape, and read-only boundaries.</li>
-        </ol>
-      </section>
+      ${renderDecisionStrip({ job, baselineResults, candidateResults, scoreLift, relativeLift, lineage })}
+      <nav class="quick-nav" aria-label="Review sections">
+        <a href="#summary">Summary</a>
+        <a href="#candidates">Candidates</a>
+        <a href="#instructions">Main prompt</a>
+        <a href="#tool">Tool</a>
+        <a href="#audit">Full diff</a>
+      </nav>
+      <p class="quiet-note">Start with Changed assets. Open full diffs only when you need audit detail.</p>
+      ${renderLineageNote(lineage)}
 
       ${renderBusinessSummary()}
+      ${renderLeaderboard(job, candidateResults)}
       ${renderSurfaceExplainer()}
 
       ${renderSurfaceCard({
-          title: "Instructions: overall job description",
+          title: "Main prompt changes",
           beforeText: baselineConfig.instructions,
           afterText: candidateConfig.instructions,
-          why: "Top-level behavior contract for invoice evidence review. Raw line hunks are collapsed because the prompt is large.",
+          why: "This is the primary behavior contract for invoice evidence review.",
+          id: "instructions",
+          auditId: "audit",
+          auditTitle: "Full main prompt diff",
           open: false,
       })}
       ${renderSkillCards(baselineConfig.skills, candidateConfig.skills)}
@@ -749,14 +1006,17 @@ function comparisonSummary() {
             score: baselineResults.avgScore,
             passRate: baselineResults.passRate,
         },
-        candidate4: {
+        candidate: {
+            label: candidateLabel,
             id: candidateId,
             model: candidateConfig.model,
             score: candidateResults.avgScore,
             passRate: candidateResults.passRate,
             mutations: candidateResults.mutations ?? {},
+            evalRunId: candidateResults.evalRunId,
         },
-        reviewModel: "semantic-summary-first-with-collapsed-focused-hunks",
+        leaderboard: candidateResults.leaderboard ?? job?.result?.candidates ?? [],
+        reviewModel: "actual-optimizer-job-with-score-path-and-focused-hunks",
     };
 }
 
@@ -781,7 +1041,7 @@ await joinSession({
         createCanvas({
             id: "optimizer-diff",
             displayName: "Optimizer Diff",
-            description: "Compare Foundry-fetched Agent Optimizer baseline and candidate_4 configs/results.",
+            description: `Compare Foundry-fetched Agent Optimizer baseline and ${candidateLabel} configs/results.`,
             actions: [
                 {
                     name: "get_comparison",
@@ -797,7 +1057,7 @@ await joinSession({
                 }
                 return {
                     title: "Optimizer review",
-                    status: "Semantic diff with collapsed raw hunks",
+                    status: `${jobId} | baseline to ${candidateLabel}`,
                     url: entry.url,
                 };
             },
