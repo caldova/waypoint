@@ -769,7 +769,7 @@ export default function Agent() {
                   />
                 </dl>
                 {moneyTrend.length > 1 ? (
-                  <div className="mt-2.5 rounded-md border border-slate-200 p-2">
+                  <div className="mt-3 border-t border-slate-100 pt-2.5">
                     <div className="flex items-center justify-between type-meta">
                       <span className="font-medium text-slate-600">Money at risk over time</span>
                       <span>{moneyTrend.length} days</span>
@@ -797,30 +797,35 @@ function Stat({
   tone,
   onClick,
   hint,
+  size = "sm",
 }: {
   label: string;
   value: string;
   tone?: string;
   onClick?: () => void;
   hint?: string;
+  size?: "sm" | "lg";
 }) {
+  const valueClass = `mt-0.5 block font-semibold tabular-nums ${
+    size === "lg" ? "text-lg" : "text-sm"
+  } ${tone ?? ""}`;
   if (onClick) {
     return (
       <button
         type="button"
         onClick={onClick}
         title={hint}
-        className="group rounded-md border border-slate-200 p-2 text-left transition-colors hover:border-emerald-300 hover:bg-emerald-50/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+        className="group -m-1.5 rounded-md p-1.5 text-left transition-colors hover:bg-emerald-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
       >
         <span className="block type-meta">{label}</span>
-        <span className={`mt-0.5 block text-sm font-semibold ${tone ?? ""}`}>{value}</span>
+        <span className={valueClass}>{value}</span>
       </button>
     );
   }
   return (
-    <div className="rounded-md border border-slate-200 p-2">
+    <div>
       <dt className="type-meta">{label}</dt>
-      <dd className={`mt-0.5 text-sm font-semibold ${tone ?? ""}`}>{value}</dd>
+      <dd className={valueClass}>{value}</dd>
     </div>
   );
 }
@@ -1427,11 +1432,12 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
-          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:flex sm:flex-wrap sm:gap-x-10">
             <Stat
               label="At risk"
               value={formatMoney(meta.money_at_risk)}
               tone="text-emerald-700"
+              size="lg"
             />
             <Stat
               label="Confidence"
@@ -1440,10 +1446,12 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
                   ? `${Math.round(meta.confidence * 100)}%`
                   : "—"
               }
+              size="lg"
             />
-            <Stat label="Experts" value={String(fanout.length)} />
+            <Stat label="Experts" value={String(fanout.length)} size="lg" />
             <Stat
               label="Findings"
+              size="lg"
               value={String(
                 typeof meta.finding_count === "number"
                   ? meta.finding_count
@@ -1453,7 +1461,7 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
           </dl>
 
           {run.summary ? (
-            <p className="rounded-md border border-slate-200 bg-slate-50/60 p-3 text-sm leading-6 text-slate-700">
+            <p className="max-w-[75ch] text-sm leading-6 text-slate-700">
               {run.summary}
             </p>
           ) : null}
@@ -1469,13 +1477,13 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
           <div>
             <h3 className="text-sm font-semibold text-slate-800">Per-expert (IQ) evidence</h3>
             {fanout.length > 0 ? (
-              <ol className="mt-2 space-y-2.5">
+              <ol className="mt-1 divide-y divide-slate-100">
                 {fanout.map((lane, index) => (
                   <ExpertLane key={`${lane.agent ?? lane.plane ?? "lane"}-${index}`} lane={lane} />
                 ))}
               </ol>
             ) : (
-              <p className="mt-2 rounded-md border border-dashed border-slate-300 bg-slate-50/60 p-3 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-slate-500">
                 No per-expert evidence was recorded for this run.
               </p>
             )}
@@ -1484,7 +1492,7 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
           {run.foundry_agent_name ||
           run.foundry_conversation_id ||
           run.app_insights_operation_id ? (
-            <div className="rounded-md border border-slate-200 p-3">
+            <div className="border-t border-slate-100 pt-4">
               <h3 className="type-label">Telemetry</h3>
               <dl className="mt-1.5 space-y-1 text-xs text-slate-600">
                 {run.foundry_agent_name ? (
@@ -2409,7 +2417,7 @@ function EvidenceMap({
       ) : null}
       {/* Kept mounted while hidden so the map's resize and wheel listeners stay bound. */}
       <div hidden={mode !== "map"}>
-        <div className="relative mt-2 overflow-clip rounded-xl border border-slate-200 bg-slate-50">
+        <div className="relative mt-2 overflow-clip rounded-xl bg-slate-50">
           <nav
             aria-label="Map zoom level"
             className="absolute left-2 top-2 z-20 flex items-center gap-0.5 rounded-md border border-slate-200 bg-white/90 px-1 py-0.5 text-xs shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_-6px_rgba(15,23,42,0.18)] backdrop-blur"
@@ -2807,11 +2815,11 @@ function nodeEvidenceSummary(node: MapNode): string {
 
 function AgentMapListNodes({ nodes }: { nodes: MapNode[] }) {
   return (
-    <ul className="mt-2 space-y-2">
+    <ul className="mt-1 divide-y divide-slate-200/70">
       {nodes.map((node) => {
         const isSource = node.citations !== undefined;
         return (
-          <li key={node.key} className="rounded-md border border-slate-200 bg-white p-2.5">
+          <li key={node.key} className="py-2.5">
             <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm">
               <span className={`font-semibold ${node.active ? "text-slate-900" : "text-slate-600"}`}>
                 {node.label}
@@ -2921,7 +2929,7 @@ function AgentMapList({
         <p className="mt-0.5 text-xs text-slate-600">{summaryFor(bubble)}</p>
         {nodes.length > 0 ? <AgentMapListNodes nodes={nodes} /> : null}
         {nested.length > 0 ? (
-          <ul className="mt-3 space-y-4 border-l-2 border-violet-200 pl-3">
+          <ul className="mt-3 space-y-4 border-l border-violet-200 pl-3">
             {nested.map((child) => (
               <li key={child.key}>{renderBubble(child, level + 1)}</li>
             ))}
@@ -2932,7 +2940,7 @@ function AgentMapList({
   };
 
   return (
-    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <div className="mt-2 rounded-xl bg-slate-50 p-4">
       <p className="text-xs leading-5 text-slate-600">
         Work flows from Orchestration through Caldova IQ's evidence sources to the governed
         record{byKey.has("analysts") ? ", which the analysts then read" : ""}.
@@ -3085,17 +3093,19 @@ function ExpertLane({ lane }: { lane: FanoutLane }) {
   const evidence = citedEvidence(lane);
   const meta = IQ_META[iqKeyForLane(lane)];
   return (
-    <li className="rounded-md border border-slate-200 bg-white p-2.5">
-      <div className="flex items-center gap-2 font-semibold">
+    <li className="py-3">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <IqLogo meta={meta} size="h-7 w-7" />
-        <span>{meta.key === "other" ? lane.agent || lane.plane || "Expert" : meta.label}</span>
-        <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600">
+        <span className="font-semibold">
+          {meta.key === "other" ? lane.agent || lane.plane || "Expert" : meta.label}
+        </span>
+        <span className="type-meta">
           {evidence.length} {evidence.length === 1 ? "citation" : "citations"}
         </span>
       </div>
-      {lane.summary ? <p className="mt-1.5 text-sm text-slate-600">{lane.summary}</p> : null}
+      {lane.summary ? <p className="mt-1 pl-9 text-sm text-slate-600">{lane.summary}</p> : null}
       {evidence.length > 0 ? (
-        <ul className="mt-2 space-y-2 border-l border-slate-200 pl-3">
+        <ul className="mt-2 space-y-2 pl-9">
           {evidence.map((item, index) => (
             <li key={index} className="text-sm text-slate-600">
               <span className="block">{item.claim || "(no citation text)"}</span>

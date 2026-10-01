@@ -48,9 +48,7 @@ export default function Login() {
         <div className="flex items-center gap-3">
           <img src="/favicon.svg" alt="" className="h-9 w-9" />
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-blue-700">
-              Waypoint
-            </p>
+            <p className="text-sm font-semibold text-blue-900">Waypoint</p>
             <h1 className="text-xl font-semibold tracking-tight text-slate-950">
               Sign in
             </h1>

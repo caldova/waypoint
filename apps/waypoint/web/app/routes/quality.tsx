@@ -126,42 +126,36 @@ const OPERATION_STAGES: Array<{
   step: number;
   title: string;
   detail: string;
-  icon: IconType;
 }> = [
   {
     id: "run",
     step: 1,
     title: "Run assurance",
     detail: "Generate live, governed evidence from an invoice.",
-    icon: HiOutlineBolt,
   },
   {
     id: "inspect",
     step: 2,
     title: "Inspect the run",
     detail: "Correlate the result with sanitized operational traces.",
-    icon: HiOutlineCodeBracketSquare,
   },
   {
     id: "measure",
     step: 3,
     title: "Measure quality",
     detail: "Evaluate the current agent and verify its quality assets.",
-    icon: HiOutlineBeaker,
   },
   {
     id: "improve",
     step: 4,
     title: "Improve the agent",
     detail: "Search and prepare candidates without applying them.",
-    icon: HiOutlineArrowTrendingUp,
   },
   {
     id: "release",
     step: 5,
     title: "Release with approval",
     detail: "Keep live training behind review, spend, and command gates.",
-    icon: HiOutlineLockClosed,
   },
 ];
 
@@ -288,10 +282,7 @@ function Hero({
               Schema v{manifest.schemaVersion}
             </span>
           </div>
-          <p className="mt-5 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-            Quality operations
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+          <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950">
             Quality &amp; optimization
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
@@ -391,13 +382,12 @@ function LineagePanel({ manifest }: { manifest: QualityManifest }) {
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <PanelHeader
-        eyebrow="Measured lineage"
         title={`${lineage.agent} quality path`}
-        detail={`${lineage.dataset.name} v${lineage.dataset.version} · evaluator v${lineage.evaluator.version}`}
+        detail={`Measured on ${lineage.dataset.name} v${lineage.dataset.version} · evaluator v${lineage.evaluator.version}`}
       />
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="border-y border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="border-b border-slate-200 type-label">
             <tr>
               <th className="px-5 py-3 font-semibold">Stage</th>
               <th className="px-5 py-3 font-semibold">Lineage</th>
@@ -486,43 +476,46 @@ function OperationsPanel({
   return (
     <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
       <PanelHeader
-        eyebrow="Controlled quality loop"
         title="From invoice evidence to a safe release"
-        detail="Use the steps in order for a new quality cycle, or open the operation you need for an existing run."
+        detail="A controlled quality loop. Use the steps in order for a new quality cycle, or open the operation you need for an existing run."
         flush
       />
-      <ol className="mt-6 space-y-4">
-        {OPERATION_STAGES.map((stage) => {
+      <ol className="mt-6">
+        {OPERATION_STAGES.map((stage, index) => {
           const stageOperations = operations.filter((operation) => operation.stage === stage.id);
-          const StageIcon = stage.icon;
+          const isLast = index === OPERATION_STAGES.length - 1;
           return (
             <li
               key={stage.id}
-              className="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 md:grid-cols-[48px_minmax(0,1fr)] md:p-5"
+              className={`relative grid grid-cols-[32px_minmax(0,1fr)] gap-x-4 ${isLast ? "" : "pb-6"}`}
             >
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-full border border-blue-200 bg-white text-blue-700 shadow-sm"
+              {isLast ? null : (
+                <span
+                  className="absolute bottom-0 left-4 top-9 w-px bg-slate-200"
+                  aria-hidden="true"
+                />
+              )}
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-700 ring-1 ring-blue-200"
                 aria-hidden="true"
               >
-                <span className="text-sm font-bold">{stage.step}</span>
-              </div>
-              <div>
-                <div className="flex items-start gap-3">
-                  <StageIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
-                  <div>
-                    <h3 className="text-base font-semibold text-slate-950">{stage.title}</h3>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">{stage.detail}</p>
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                {stage.step}
+              </span>
+              <div className="min-w-0 pt-1">
+                <h3 className="text-base font-semibold text-slate-950">
+                  <span className="sr-only">Step {stage.step}: </span>
+                  {stage.title}
+                </h3>
+                <p className="mt-0.5 text-sm leading-6 text-slate-600">{stage.detail}</p>
+                <ul className="mt-2 divide-y divide-slate-100">
                   {stageOperations.map((operation) => (
-                    <OperationCard
+                    <OperationRow
                       key={operation.id}
                       operation={operation}
                       workflowUrl={workflowUrl}
                     />
                   ))}
-                </div>
+                </ul>
               </div>
             </li>
           );
@@ -532,7 +525,7 @@ function OperationsPanel({
   );
 }
 
-function OperationCard({
+function OperationRow({
   operation,
   workflowUrl,
 }: {
@@ -556,50 +549,51 @@ function OperationCard({
   const ExecutionIcon = execution.icon;
 
   return (
-    <article className="flex h-full flex-col rounded-lg border border-slate-200 bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
+    <li className="grid gap-x-6 py-3 md:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
           <h4 className="text-sm font-semibold text-slate-950">{operation.label}</h4>
-          <p className="mt-1 text-xs leading-5 text-slate-600">{operation.purpose}</p>
+          <AvailabilityBadge availability={operation.availability} />
         </div>
-        <AvailabilityBadge availability={operation.availability} />
+        <p className="mt-1 max-w-[70ch] text-sm leading-6 text-slate-600">{operation.purpose}</p>
+        <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 type-meta">
+          <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
+            <ExecutionIcon className="h-4 w-4 text-blue-600" aria-hidden="true" />
+            {execution.label}
+          </span>
+          <code>Workflow option: {operation.id}</code>
+        </p>
+        <details className="text-xs text-slate-600">
+          <summary className="min-h-11 w-fit cursor-pointer rounded-md py-3 font-semibold text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500">
+            View prerequisites
+          </summary>
+          <ul className="space-y-2 pb-2 leading-5">
+            {operation.prerequisites.map((prerequisite) => (
+              <li key={prerequisite} className="flex gap-2">
+                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-400" />
+                {prerequisite}
+              </li>
+            ))}
+          </ul>
+        </details>
       </div>
-      <div className="mt-3 flex items-center gap-2 text-xs font-medium text-slate-600">
-        <ExecutionIcon className="h-4 w-4 text-blue-600" aria-hidden="true" />
-        {execution.label}
-      </div>
-      <details className="mt-3 text-xs text-slate-600">
-        <summary className="min-h-11 cursor-pointer rounded-md py-3 font-semibold text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500">
-          View prerequisites
-        </summary>
-        <ul className="space-y-2 pb-2 leading-5">
-          {operation.prerequisites.map((prerequisite) => (
-            <li key={prerequisite} className="flex gap-2">
-              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-slate-400" />
-              {prerequisite}
-            </li>
-          ))}
-        </ul>
-      </details>
-      <div className="mt-auto border-t border-slate-100 pt-3">
-        <code className="block text-[11px] text-slate-500">Workflow option: {operation.id}</code>
-        <a
-          href={workflowUrl ?? undefined}
-          aria-disabled={!workflowUrl}
-          className={[
-            "mt-2 inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500",
-            workflowUrl
-              ? "text-blue-700 hover:text-blue-900"
-              : "cursor-not-allowed text-slate-400",
-          ].join(" ")}
-          target={workflowUrl ? "_blank" : undefined}
-          rel={workflowUrl ? "noreferrer" : undefined}
-        >
-          Open in GitHub Actions
-          <HiOutlineArrowTopRightOnSquare className="h-4 w-4" aria-hidden="true" />
-        </a>
-      </div>
-    </article>
+      <a
+        href={workflowUrl ?? undefined}
+        aria-disabled={!workflowUrl}
+        aria-label={`Open ${operation.label} in GitHub Actions`}
+        className={[
+          "inline-flex min-h-11 items-center gap-2 self-start rounded-md text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500",
+          workflowUrl
+            ? "text-blue-700 hover:text-blue-900"
+            : "cursor-not-allowed text-slate-500",
+        ].join(" ")}
+        target={workflowUrl ? "_blank" : undefined}
+        rel={workflowUrl ? "noreferrer" : undefined}
+      >
+        Open in GitHub Actions
+        <HiOutlineArrowTopRightOnSquare className="h-4 w-4" aria-hidden="true" />
+      </a>
+    </li>
   );
 }
 
@@ -607,8 +601,7 @@ function EvidencePanel({ manifest }: { manifest: QualityManifest }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <PanelHeader
-        eyebrow="Evidence health"
-        title="Freshness & source"
+        title="Evidence freshness & source"
         detail={`Reviewed ${formatDate(manifest.reviewedAt)}`}
         flush
       />
@@ -623,16 +616,16 @@ function EvidencePanel({ manifest }: { manifest: QualityManifest }) {
           </div>
         ))}
       </div>
-      <div className="mt-5 rounded-lg bg-slate-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Source</p>
-        <code className="mt-2 block break-all text-xs leading-5 text-slate-700">
+      <div className="mt-5 border-t border-slate-100 pt-4">
+        <h3 className="type-label">Source</h3>
+        <code className="mt-1 block break-all text-xs leading-5 text-slate-700">
           {manifest.source.workflow}
         </code>
         <p className="mt-2 text-xs text-slate-500">
           Stale after {formatDate(manifest.staleAfter)}
         </p>
       </div>
-      <div className="mt-5 space-y-3">
+      <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
         {manifest.stateDefinitions.map((definition) => (
           <div key={definition.state} className="flex items-start gap-3">
             <StateBadge state={definition.state} compact />
@@ -655,22 +648,20 @@ function LaunchPolicy({
 }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
-        <HiOutlineLockClosed className="h-5 w-5" aria-hidden="true" />
-      </span>
-      <h2 className="mt-4 text-lg font-semibold text-slate-950">Safety boundary</h2>
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
+        <HiOutlineLockClosed className="h-5 w-5 text-blue-700" aria-hidden="true" />
+        Safety boundary
+      </h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">
         The workflow can run, inspect, measure, and prepare. It never auto-applies an optimizer
         candidate, promotes a model, or deploys an agent.
       </p>
-      <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-          Live RFT gate
-        </p>
-        <code className="mt-2 block break-all text-xs font-semibold text-blue-900">
+      <div className="mt-5 border-t border-slate-100 pt-4">
+        <h3 className="type-label">Live RFT gate</h3>
+        <code className="mt-1 block break-all text-xs font-semibold text-blue-900">
           {environment}
         </code>
-        <p className="mt-2 text-xs leading-5 text-blue-900">
+        <p className="mt-2 text-xs leading-5 text-slate-600">
           Required reviewers and explicit spend acknowledgement are prerequisites. Submission
           remains blocked until a committed first-class command exists.
         </p>
@@ -758,7 +749,7 @@ function StateBadge({ state, compact = false }: { state: EvidenceState; compact?
     <span
       className={[
         "inline-flex shrink-0 items-center gap-1.5 rounded-full border font-semibold",
-        compact ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs",
+        compact ? "px-2 py-0.5 text-xs" : "px-2.5 py-1 text-xs",
         style.classes,
       ].join(" ")}
     >
@@ -776,7 +767,7 @@ function AvailabilityBadge({ availability }: { availability: OperationAvailabili
   };
   return (
     <span
-      className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize ${classes[availability]}`}
+      className={`rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${classes[availability]}`}
     >
       {availability}
     </span>
@@ -784,21 +775,18 @@ function AvailabilityBadge({ availability }: { availability: OperationAvailabili
 }
 
 function PanelHeader({
-  eyebrow,
   title,
   detail,
   flush = false,
 }: {
-  eyebrow: string;
   title: string;
   detail: string;
   flush?: boolean;
 }) {
   return (
     <div className={flush ? "" : "p-5 lg:p-6"}>
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">{eyebrow}</p>
-      <h2 className="mt-2 text-lg font-semibold text-slate-950">{title}</h2>
-      <p className="mt-1 text-sm leading-6 text-slate-600">{detail}</p>
+      <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+      <p className="mt-1 max-w-[70ch] text-sm leading-6 text-slate-600">{detail}</p>
     </div>
   );
 }

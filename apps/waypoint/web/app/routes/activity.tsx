@@ -264,14 +264,11 @@ export default function Activity() {
           {/* Header row */}
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-blue-700">
-                Live agent activity
-              </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+              <h1 className="text-2xl font-semibold tracking-tight">
                 Active &amp; pending runs
               </h1>
               <p className="mt-1 max-w-2xl text-sm text-slate-600">
-                Runs opened by the assurance pipeline, refreshed automatically. Open a
+                Live runs opened by the assurance pipeline, refreshed automatically. Open a
                 run to inspect the full expert fan-out in Agent Details.
               </p>
             </div>
@@ -413,9 +410,7 @@ function SummaryStat({
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
       <div className="flex items-center gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-          {label}
-        </p>
+        <p className="type-label">{label}</p>
         {pulse ? (
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
@@ -444,7 +439,7 @@ function Section({
     <section className="mt-6">
       <div className="mb-2 flex items-center gap-2">
         <span className={`h-4 w-1 rounded-full ${bar}`} />
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-700">
+        <h2 className="type-section">
           {title}
         </h2>
         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
@@ -515,7 +510,7 @@ function RunCard({
             <span className={`h-2 w-2 rounded-full ${style.dot}`} />
             <h3 className="truncate text-sm font-semibold text-slate-900">{run.name}</h3>
             <span
-              className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold capitalize ${style.badge}`}
+              className={`rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${style.badge}`}
             >
               {style.label}
             </span>
@@ -573,7 +568,7 @@ function RunCard({
       {/* Progress: determinate when we know the expert fan-out, else indeterminate for live runs. */}
       {progress.total > 0 ? (
         <div className="mt-2">
-          <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500">
+          <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
             <span>Experts</span>
             <span>
               {progress.done}/{progress.total}
