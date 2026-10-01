@@ -21,6 +21,32 @@
   --color-blue-950: #0e1a38;
 }
 
+/*
+ * Text roles. 12px is the UI floor, grey text on light surfaces is slate-500
+ * or darker, and labels are sentence case: hierarchy comes from size, weight
+ * and colour, never letter-spacing. Single-property utilities placed after a
+ * role (e.g. `type-meta text-slate-600`) override it.
+ */
+@utility type-section {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-slate-900);
+}
+
+@utility type-label {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-slate-600);
+}
+
+@utility type-meta {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  color: var(--color-slate-500);
+}
+
 /* Custom styles can be added here */
 
 /* Smooth transitions for dark mode */
