@@ -176,8 +176,10 @@ version `12` smoke run has both:
 - `gen_ai.tool.name = contracts-kb-mcp___knowledge_base_retrieve` on
   `execute_tool contracts-kb-mcp___knowledge_base_retrieve`.
 
-The FoundryIQ tool also stamps `gen_ai.tool.type = foundry_iq` on its
-`execute_tool` span, so KQL can group tool calls by IQ source:
+The FoundryIQ tool now renames its span to `execute_tool foundry_iq_retrieve`
+(matching the `contracts` agent) and stamps `gen_ai.tool.type = foundry_iq`.
+`gen_ai.tool.name` keeps the KB tool name the tuned model was trained on.
+Group tool calls by IQ source with:
 
 ```kusto
 dependencies

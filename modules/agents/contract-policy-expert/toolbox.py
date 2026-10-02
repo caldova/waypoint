@@ -21,6 +21,8 @@ _KB_TOOL_NAME = "contracts-kb-mcp___knowledge_base_retrieve"
 # Telemetry label for the execute_tool span's gen_ai.tool.type. Castia 0.10 has
 # no Tool.kind, so the impl stamps it onto the active execute_tool span.
 FOUNDRY_IQ = "foundry_iq"
+# Matches the contracts agent's span; its tuned MAI model still calls _KB_TOOL_NAME.
+FOUNDRY_IQ_SPAN_NAME = "execute_tool foundry_iq_retrieve"
 _KB_TOOL_DESCRIPTION = (
     "Look up helpful contract, policy, or invoice-review context for a "
     "supplier billing question."
@@ -110,7 +112,10 @@ def _runtime_parameters(optimized: object | None) -> dict[str, Any]:
 async def _call_foundryiq_toolbox(activity: Any, **kwargs: Any) -> dict[str, Any]:
     # Stamp before binding arguments so malformed calls are still labeled.
     del activity
-    trace.get_current_span().set_attribute("gen_ai.tool.type", FOUNDRY_IQ)
+    span = trace.get_current_span()
+    span.set_attribute("gen_ai.tool.type", FOUNDRY_IQ)
+    # Model-facing name stays the trained KB name; only the span is renamed.
+    span.update_name(FOUNDRY_IQ_SPAN_NAME)
     query = kwargs.get("query")
     endpoint = resolve_toolbox_endpoint()
     if not endpoint:

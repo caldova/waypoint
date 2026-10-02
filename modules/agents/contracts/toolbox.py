@@ -7,14 +7,12 @@ from collections.abc import Sequence
 from typing import Any
 
 import httpx
-from castia import (
-    resolve_toolbox_endpoint,
-    toolbox_mcp_tool,
-    toolbox_token,
-)
+from castia import resolve_toolbox_endpoint, toolbox_token
 from castia.inference.tools import Tool
 
-_OPTIMIZER_ENDPOINT = "https://example.invalid/toolboxes/contract-toolbox/mcp?api-version=v1"
+# Model-facing name; Castia names the span "execute_tool foundry_iq_retrieve".
+FOUNDRY_IQ_TOOL_NAME = "foundry_iq_retrieve"
+# Underlying toolbox MCP tool the call is dispatched to.
 _KB_TOOL_NAME = "contracts-kb-mcp___knowledge_base_retrieve"
 # Castia stamps Tool.kind onto the execute_tool span as gen_ai.tool.type.
 FOUNDRY_IQ = "foundry_iq"
@@ -34,22 +32,9 @@ def is_toolbox_configured() -> bool:
     return resolve_toolbox_endpoint() is not None
 
 
-def _foundryiq_spec(endpoint: str, *, token: str | None = None) -> dict[str, Any]:
-    spec = toolbox_mcp_tool(
-        endpoint,
-        server_label="foundryiq",
-        allowed_tools=(_KB_TOOL_NAME,),
-        token=token,
-        descriptions={_KB_TOOL_NAME: _KB_TOOL_DESCRIPTION},
-        param_guidance={_KB_TOOL_NAME: {"query": _KB_QUERY_GUIDANCE}},
-    )
-    assert spec is not None
-    return spec
-
-
-def foundryiq_toolbox_tools() -> list[dict[str, Any]]:
-    """Optimizer-visible baseline for the FoundryIQ MCP tool."""
-    return [_foundryiq_spec(_OPTIMIZER_ENDPOINT)]
+def foundryiq_toolbox_tools() -> list[Tool]:
+    """Optimizer-visible baseline: the same function tool the model sees."""
+    return [_foundryiq_tool()]
 
 
 def foundryiq_runtime_tools(
@@ -57,22 +42,23 @@ def foundryiq_runtime_tools(
 ) -> list[Tool]:
     """Client-side FoundryIQ tool so each call gets a local ``execute_tool`` span.
 
-    Keeps the optimizer-visible tool name and any optimized wording, then
-    dispatches the call to the toolbox MCP endpoint from the hosted agent.
+    Folds in any optimized wording, then dispatches the call to the toolbox
+    MCP endpoint from the hosted agent.
     """
     if not resolve_toolbox_endpoint():
         return []
+    return [_foundryiq_tool(_optimized_function(tool_definitions))]
 
-    optimized = _optimized_function(tool_definitions)
-    return [
-        Tool(
-            name=_KB_TOOL_NAME,
-            description=optimized.get("description") or _KB_TOOL_DESCRIPTION,
-            parameters=_runtime_parameters(optimized.get("parameters")),
-            impl=_call_foundryiq_toolbox,
-            kind=FOUNDRY_IQ,
-        )
-    ]
+
+def _foundryiq_tool(optimized: dict[str, Any] | None = None) -> Tool:
+    optimized = optimized or {}
+    return Tool(
+        name=FOUNDRY_IQ_TOOL_NAME,
+        description=optimized.get("description") or _KB_TOOL_DESCRIPTION,
+        parameters=_runtime_parameters(optimized.get("parameters")),
+        impl=_call_foundryiq_toolbox,
+        kind=FOUNDRY_IQ,
+    )
 
 
 def _optimized_function(tool_definitions: Sequence[dict[str, Any]]) -> dict[str, Any]:
@@ -80,9 +66,9 @@ def _optimized_function(tool_definitions: Sequence[dict[str, Any]]) -> dict[str,
         if not isinstance(item, dict):
             continue
         function = item.get("function")
-        if isinstance(function, dict) and function.get("name") == _KB_TOOL_NAME:
+        if isinstance(function, dict) and function.get("name") == FOUNDRY_IQ_TOOL_NAME:
             return function
-        if item.get("name") == _KB_TOOL_NAME:
+        if item.get("name") == FOUNDRY_IQ_TOOL_NAME:
             return item
     return {}
 

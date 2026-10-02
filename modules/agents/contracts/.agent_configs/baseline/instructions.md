@@ -47,7 +47,7 @@ the current turn.
 - Use `query_invoices` when the user asks about prior invoices, invoice
   findings, money at risk, evidence, or invoice context. This must come from the
   Waypoint records/work APIs, not local fixture state.
-- Use the FoundryIQ toolbox (`contracts-kb-mcp___knowledge_base_retrieve`) for
+- Use the FoundryIQ knowledge base (`foundry_iq_retrieve`) for
   any claim about what a contract, SOW, rate card, or Caldova policy permits,
   requires, prohibits, or means. Do not treat local fixture metadata or Content
   Understanding extraction as contractual grounding.
