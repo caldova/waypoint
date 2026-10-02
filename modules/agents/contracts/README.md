@@ -81,17 +81,40 @@ The result includes configured-value presence, SharePoint report readiness,
 guidance for hosted sessions. It intentionally reports only presence and
 non-secret values, never tokens or credentials.
 
-The baseline agent config also declares the minimal read-only FoundryIQ-style
-contract/policy knowledge-base tool used by the older `contract-policy-expert`
-prototype:
-
-```text
-contracts-kb-mcp___knowledge_base_retrieve
-```
+The baseline agent config also declares the read-only FoundryIQ contract/policy
+knowledge-base tool. The model sees it as `foundry_iq_retrieve`; the agent
+dispatches each call to the toolbox MCP tool
+`contracts-kb-mcp___knowledge_base_retrieve`.
 
 In hosted Foundry runs, set `TOOLBOX_NAME=contract-toolbox` or
 `TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT` so Castia can resolve that MCP-backed
-toolbox. Local fixture mode can still run without the toolbox endpoint.
+toolbox. When the endpoint resolves, the agent exposes the KB tool on every
+surface as a client-side function that calls the toolbox `tools/call`, so each
+call gets a local `execute_tool foundry_iq_retrieve` span. Local fixture mode
+can still run without the toolbox endpoint.
+
+### IQ tool telemetry
+
+Each `execute_tool` span carries `gen_ai.tool.type` naming the IQ source behind
+the tool:
+
+| `gen_ai.tool.type` | Tools |
+| --- | --- |
+| `foundry_iq` | `foundry_iq_retrieve` |
+| `work_iq` | `read_inbox`, `send_email`, `reply_email`, `create_document` (Activity only) |
+| `function` | Waypoint API and local tools (`poll_contracts_inbox`, `get_last_contract`, `draft_contract_report`, `query_invoices`, diagnostics) |
+
+**Adding an IQ-backed tool:** give it both IQ monikers so telemetry shows its
+source.
+
+- Set `kind` to the IQ source (`foundry_iq`, `work_iq`, `fabric_iq`, ...). This
+  becomes `gen_ai.tool.type`.
+- Prefix the model-facing name with that source (e.g. `foundry_iq_retrieve`),
+  so the span reads `execute_tool <source>_iq_<action>`. Dispatch to the
+  underlying MCP/Graph name inside the impl, as `toolbox.py` does.
+
+Castia's built-in Graph tools keep their Castia names and get only the
+`work_iq` kind.
 
 The tools in `tools.py` are API-ready scaffolds. For local smoke tests, the
 agent can source an actual fixture PDF from disk instead of checking a mailbox.

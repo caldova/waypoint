@@ -176,6 +176,18 @@ version `12` smoke run has both:
 - `gen_ai.tool.name = contracts-kb-mcp___knowledge_base_retrieve` on
   `execute_tool contracts-kb-mcp___knowledge_base_retrieve`.
 
+The FoundryIQ tool now renames its span to `execute_tool foundry_iq_retrieve`
+(matching the `contracts` agent) and stamps `gen_ai.tool.type = foundry_iq`.
+`gen_ai.tool.name` keeps the KB tool name the tuned model was trained on.
+Group tool calls by IQ source with:
+
+```kusto
+dependencies
+| extend cd = todynamic(customDimensions)
+| where tostring(cd["gen_ai.operation.name"]) == "execute_tool"
+| summarize count() by iq = tostring(cd["gen_ai.tool.type"]), tool = tostring(cd["gen_ai.tool.name"])
+```
+
 ### Evaluation chart data
 
 Run a Foundry eval after deployment so the **Monitor** tab has chart data:
