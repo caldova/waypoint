@@ -2,13 +2,10 @@ name: contract-policy-expert-generated-rubric
 agent:
     name: contract-policy-expert
     kind: hosted
-    config: .agent_configs/baseline
+    version: "12"
+    config: .agent_configs/baseline/metadata.yaml
     model: gpt-6-astra
 dataset:
-    local_uri: C:\Users\sejuare\.copilot\copilot-worktrees\caldova_waypoint\sethjuarez-musical-pancake\modules\evals\datasets\contract-policy-expert\contract-policy-expert-train.jsonl
-dataset_reference:
-    name: contract-policy-expert-train
-    version: generated
     local_uri: ..\..\evals\datasets\contract-policy-expert\contract-policy-expert-train.jsonl
 evaluators:
     - name: contract-policy-expert-generated-rubric
