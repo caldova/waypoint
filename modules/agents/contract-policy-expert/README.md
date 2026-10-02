@@ -208,7 +208,7 @@ for evaluation rules. Hosted and external agents are not supported.
 
 For hosted agents, use a Foundry schedule over an eval group and trace data. The
 current schedule ID is `contract-policy-expert-hourly-trace-eval`. It runs
-hourly against eval group `eval_4d0fe3e7a45a416eba552edb462b469b` and uses an
+hourly against the trace-evaluation group and uses an
 `azure_ai_trace_data_source_preview` data source filtered to
 `agent_name = contract-policy-expert`.
 
