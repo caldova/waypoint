@@ -142,6 +142,29 @@ requires FoundryIQ retrieval. App Insights should show:
 If answers are grounded but the **Tool calls** tile is empty, query App Insights
 for `contracts-kb-mcp___knowledge_base_retrieve` before changing code. Castia's
 tool loop already emits `execute_tool` spans when the model calls the function.
+The Azure CLI query command applies its own one-hour window unless `--offset` or
+explicit start/end times are passed, even when the KQL uses `ago(...)`.
+
+```powershell
+az monitor app-insights query `
+  --subscription $env:AZURE_SUBSCRIPTION_ID `
+  --app <app-insights-name> `
+  --resource-group $env:AZURE_RESOURCE_GROUP `
+  --offset 4h `
+  --analytics-query @'
+dependencies
+| where timestamp > ago(4h)
+| extend cd = todynamic(customDimensions)
+| where * has "contract-policy-expert" or * has "contracts-kb-mcp"
+| summarize count() by operation=tostring(cd["gen_ai.operation.name"]), type
+| order by operation asc
+'@
+```
+
+The Caldova hosted smoke run emitted `execute_tool` spans with type
+`GenAI | microsoft.foundry`. If raw App Insights traces show those rows but the
+Foundry chart is empty, wait for the Monitor aggregate to catch up before
+changing instrumentation.
 
 ### Evaluation chart data
 
