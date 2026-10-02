@@ -14,9 +14,13 @@ from castia import (
 from castia.inference.tools import Tool
 
 import httpx
+from opentelemetry import trace
 
 _OPTIMIZER_ENDPOINT = "https://example.invalid/toolboxes/contract-toolbox/mcp?api-version=v1"
 _KB_TOOL_NAME = "contracts-kb-mcp___knowledge_base_retrieve"
+# Telemetry label for the execute_tool span's gen_ai.tool.type. Castia 0.10 has
+# no Tool.kind, so the impl stamps it onto the active execute_tool span.
+FOUNDRY_IQ = "foundry_iq"
 _KB_TOOL_DESCRIPTION = (
     "Look up helpful contract, policy, or invoice-review context for a "
     "supplier billing question."
@@ -103,8 +107,11 @@ def _runtime_parameters(optimized: object | None) -> dict[str, Any]:
     }
 
 
-async def _call_foundryiq_toolbox(activity: Any, *, query: str) -> dict[str, Any]:
+async def _call_foundryiq_toolbox(activity: Any, **kwargs: Any) -> dict[str, Any]:
+    # Stamp before binding arguments so malformed calls are still labeled.
     del activity
+    trace.get_current_span().set_attribute("gen_ai.tool.type", FOUNDRY_IQ)
+    query = kwargs.get("query")
     endpoint = resolve_toolbox_endpoint()
     if not endpoint:
         return {"ok": False, "error": "FoundryIQ toolbox endpoint is not configured."}

@@ -176,6 +176,16 @@ version `12` smoke run has both:
 - `gen_ai.tool.name = contracts-kb-mcp___knowledge_base_retrieve` on
   `execute_tool contracts-kb-mcp___knowledge_base_retrieve`.
 
+The FoundryIQ tool also stamps `gen_ai.tool.type = foundry_iq` on its
+`execute_tool` span, so KQL can group tool calls by IQ source:
+
+```kusto
+dependencies
+| extend cd = todynamic(customDimensions)
+| where tostring(cd["gen_ai.operation.name"]) == "execute_tool"
+| summarize count() by iq = tostring(cd["gen_ai.tool.type"]), tool = tostring(cd["gen_ai.tool.name"])
+```
+
 ### Evaluation chart data
 
 Run a Foundry eval after deployment so the **Monitor** tab has chart data:
