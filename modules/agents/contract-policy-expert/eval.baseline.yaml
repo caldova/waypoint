@@ -2,6 +2,7 @@ name: contract-policy-expert-baseline
 agent:
     name: contract-policy-expert
     kind: hosted
+    version: "12"
     config: .agent_configs/baseline
     model: gpt-6-astra
 dataset:
