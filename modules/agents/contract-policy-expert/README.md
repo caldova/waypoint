@@ -166,6 +166,16 @@ The Caldova hosted smoke run emitted `execute_tool` spans with type
 Foundry chart is empty, wait for the Monitor aggregate to catch up before
 changing instrumentation.
 
+Foundry can also show the tools connected to a run from the available-tool
+metadata, not just from completed calls. Check that `invoke_agent` spans carry
+`gen_ai.tool.definitions`, and that each executed tool span carries
+`gen_ai.operation.name = execute_tool` plus `gen_ai.tool.name`. The hosted
+version `12` smoke run has both:
+
+- `gen_ai.tool.definitions` on `invoke_agent contract-policy-expert:12`;
+- `gen_ai.tool.name = contracts-kb-mcp___knowledge_base_retrieve` on
+  `execute_tool contracts-kb-mcp___knowledge_base_retrieve`.
+
 ### Evaluation chart data
 
 Run a Foundry eval after deployment so the **Monitor** tab has chart data:
