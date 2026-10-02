@@ -104,6 +104,18 @@ the tool:
 | `work_iq` | `read_inbox`, `send_email`, `reply_email`, `create_document` (Activity only) |
 | `function` | Waypoint API and local tools (`poll_contracts_inbox`, `get_last_contract`, `draft_contract_report`, `query_invoices`, diagnostics) |
 
+**Adding an IQ-backed tool:** give it both IQ monikers so telemetry shows its
+source.
+
+- Set `kind` to the IQ source (`foundry_iq`, `work_iq`, `fabric_iq`, ...). This
+  becomes `gen_ai.tool.type`.
+- Prefix the model-facing name with that source (e.g. `foundry_iq_retrieve`),
+  so the span reads `execute_tool <source>_iq_<action>`. Dispatch to the
+  underlying MCP/Graph name inside the impl, as `toolbox.py` does.
+
+Castia's built-in Graph tools keep their Castia names and get only the
+`work_iq` kind.
+
 The tools in `tools.py` are API-ready scaffolds. For local smoke tests, the
 agent can source an actual fixture PDF from disk instead of checking a mailbox.
 `CONTRACTS_DOCUMENT_SOURCE_MODE=auto` selects:

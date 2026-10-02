@@ -12,6 +12,8 @@ from agent.tools.contracts import contracts_tools
 from toolbox import foundryiq_runtime_tools, foundryiq_toolbox_tools
 
 # Castia stamps Tool.kind onto the execute_tool span as gen_ai.tool.type.
+# New IQ-backed tools must set kind="<source>_iq" and use a "<source>_iq_" name
+# prefix so the span name shows the IQ source (see README "IQ tool telemetry").
 WORK_IQ = "work_iq"
 
 
