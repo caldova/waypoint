@@ -13,6 +13,7 @@ from agent.domain.contracts import fixture_response
 from agent.domain.invoices import is_latest_invoices_prompt, latest_invoices_response
 from agent.integrations.activity_identity import has_agentic_user_identity
 from agent.toolsets import Toolsets
+from tools import _local_fixture_enabled
 
 TOOL_BUDGET_EXHAUSTED = "I couldn't complete that in the allotted steps."
 
@@ -27,7 +28,9 @@ async def respond_with_mode(
 ) -> tuple[str, str]:
     if is_capabilities_prompt(text):
         return capabilities_response(activity=activity), "capabilities"
-    if is_latest_invoices_prompt(text):
+    # Canned invoice table only in fixture mode; with the API wired the model
+    # answers through query_invoices.
+    if _local_fixture_enabled() and is_latest_invoices_prompt(text):
         return latest_invoices_response(), "invoices"
     if foundry_project_endpoint():
         provider = (
