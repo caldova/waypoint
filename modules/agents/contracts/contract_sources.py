@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-
 ArtifactType = Literal["contract", "invoice"]
 
 
@@ -116,18 +115,117 @@ class LocalPdfContractSource:
         )
 
 
+_GRAPH = "https://graph.microsoft.com/v1.0"
+_MAX_MESSAGES = 25
+_MAX_PAGES = 4
+
+
 class HostedMailboxContractSource:
-    def next_contract(
+    """Reads PDF attachments from the agent's own mailbox (its Agent 365 agentic user).
+
+    The delegated Graph token must come from an Agent 365 turn: only then does the
+    platform bind the hosted credential to the hired instance that owns the mailbox.
+    """
+
+    async def recent_attachments(
         self,
         *,
+        token: str,
         mailbox_id: str,
-        owner_user_id: str,
+        lookback_minutes: int,
         artifact_type: str | None = None,
-    ) -> ContractAttachment:
-        raise NotImplementedError(
-            "Hosted mailbox polling is not implemented yet; configure "
-            "CONTRACTS_DOCUMENT_SOURCE_MODE=local for local fixture PDF smoke tests."
+        sender: str | None = None,
+    ) -> list[ContractAttachment]:
+        import base64
+        from datetime import UTC, datetime, timedelta
+
+        import httpx
+        from castia.hosting.credentials import bearer
+
+        since = (datetime.now(UTC) - timedelta(minutes=max(1, lookback_minutes))).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
         )
+        wanted = sender.lower() if sender else None
+        headers = {"Authorization": bearer(token)}
+        found: list[ContractAttachment] = []
+        async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
+            messages: list[dict] = []
+            url: str | None = f"{_GRAPH}/me/mailFolders/inbox/messages"
+            params: dict[str, str] | None = {
+                "$filter": f"receivedDateTime ge {since} and hasAttachments eq true",
+                "$orderby": "receivedDateTime desc",
+                "$select": "id,subject,from,receivedDateTime",
+                "$top": str(_MAX_MESSAGES),
+            }
+            for _ in range(_MAX_PAGES):
+                listing = await client.get(url, params=params)
+                _raise_for_graph(listing, "list inbox messages")
+                page = listing.json()
+                messages.extend(page.get("value", []))
+                url, params = page.get("@odata.nextLink"), None
+                if not url:
+                    break
+            for message in messages:
+                from_address = (
+                    ((message.get("from") or {}).get("emailAddress") or {}).get("address")
+                    or mailbox_id
+                ).lower()
+                if wanted and from_address != wanted:
+                    continue
+                attachments = await client.get(
+                    f"{_GRAPH}/me/messages/{message['id']}/attachments"
+                )
+                _raise_for_graph(attachments, "list message attachments")
+                subject = message.get("subject") or ""
+                for item in attachments.json().get("value", []):
+                    if not _is_pdf_file_attachment(item):
+                        continue
+                    pdf_bytes = base64.b64decode(item["contentBytes"])
+                    found.append(
+                        ContractAttachment(
+                            mailbox_id=mailbox_id,
+                            message_id=message["id"],
+                            attachment_id=item["id"],
+                            sender=from_address,
+                            owner_user_id=from_address,
+                            subject=subject,
+                            artifact_type=_classify(artifact_type, subject, item.get("name")),
+                            file_name=item.get("name") or "attachment.pdf",
+                            content_type="application/pdf",
+                            sha256=hashlib.sha256(pdf_bytes).hexdigest(),
+                            size_bytes=len(pdf_bytes),
+                            original_file_uri=(
+                                f"graph://users/{mailbox_id}/messages/{message['id']}"
+                                f"/attachments/{item['id']}"
+                            ),
+                            source_mode="hosted_mailbox",
+                            pdf_bytes=pdf_bytes,
+                        )
+                    )
+        return found
+
+
+def _raise_for_graph(response: object, action: str) -> None:
+    status = getattr(response, "status_code", 0)
+    if status >= 400:
+        text = getattr(response, "text", "")[:300]
+        raise RuntimeError(f"Graph {action} failed with HTTP {status}: {text}")
+
+
+def _is_pdf_file_attachment(item: dict) -> bool:
+    if item.get("@odata.type") != "#microsoft.graph.fileAttachment" or not item.get(
+        "contentBytes"
+    ):
+        return False
+    name = str(item.get("name") or "").lower()
+    return item.get("contentType") == "application/pdf" or name.endswith(".pdf")
+
+
+def _classify(requested: str | None, subject: str, file_name: str | None) -> ArtifactType:
+    if requested in ("contract", "invoice"):
+        return requested  # type: ignore[return-value]
+    text = f"{subject} {file_name or ''}".lower()
+    return "invoice" if "invoice" in text else "contract"
 
 
 def contract_source() -> LocalPdfContractSource | HostedMailboxContractSource:

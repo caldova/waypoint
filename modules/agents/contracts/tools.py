@@ -16,14 +16,20 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from agent.integrations.activity_identity import has_agentic_user_identity
+from agent.integrations.requester import agentic_graph_token, requester_email
 from azure.identity.aio import DefaultAzureCredential
 from castia.inference.tools import Tool
-from dotenv import load_dotenv
-
-from contract_sources import ContractAttachment, contract_source
 from content_understanding import ContractExtraction, extract_contract_pdf
+from contract_sources import (
+    ContractAttachment,
+    HostedMailboxContractSource,
+    contract_source,
+)
+from dotenv import load_dotenv
 from report_publisher import report_publisher, sharepoint_report_publishing_configured
 from report_writer import render_report
+
 from toolbox import is_toolbox_configured
 
 load_dotenv()
@@ -61,6 +67,16 @@ def _contracts_inbox() -> str:
 
 def _contracts_owner() -> str:
     return _usable_env("CONTRACTS_DEV_USER_EMAIL") or "local.user@contracts.local"
+
+
+async def _turn_owner(activity: Any) -> str | None:
+    """On a Teams turn the requester owns the data and callers cannot override it.
+
+    Fails closed: a lookup error on a Teams turn raises rather than falling back.
+    """
+    if not has_agentic_user_identity(activity):
+        return None
+    return await requester_email(activity, await agentic_graph_token(activity))
 
 
 def _env_presence(names: list[str]) -> dict[str, bool]:
@@ -702,29 +718,93 @@ async def _poll_contracts_inbox_impl(
         return response
 
     client = _WaypointContractsClient()
-    owner = _contracts_owner()
+    source = contract_source()
+    requester: str | None = None
     try:
-        attachment = contract_source().next_contract(
-            mailbox_id=_contracts_inbox(),
-            owner_user_id=owner,
-            artifact_type=artifact_type,
-        )
-    except NotImplementedError as exc:
+        if isinstance(source, HostedMailboxContractSource):
+            if not has_agentic_user_identity(activity):
+                return {
+                    "ok": False,
+                    "status": "needs_teams_turn",
+                    "inbox": _contracts_inbox(),
+                    "note": (
+                        "The agent's mailbox can only be read on a Teams turn, as the hired "
+                        f"agent. Ask in Teams after emailing a PDF to {_contracts_inbox()}."
+                    ),
+                }
+            token = await agentic_graph_token(activity)
+            requester = await requester_email(activity, token)
+            attachments = await source.recent_attachments(
+                token=token,
+                mailbox_id=_contracts_inbox(),
+                lookback_minutes=lookback_minutes,
+                artifact_type=artifact_type,
+                sender=requester,
+            )
+        else:
+            attachments = [
+                source.next_contract(
+                    mailbox_id=_contracts_inbox(),
+                    owner_user_id=_contracts_owner(),
+                    artifact_type=artifact_type,
+                )
+            ]
+    except Exception as exc:  # noqa: BLE001 - token, Graph, and lookup failures all surface to the model
         response = {
             "ok": False,
-            "status": "hosted_mailbox_not_implemented",
+            "status": "mailbox_read_failed",
             "inbox": _contracts_inbox(),
             "lookback_minutes": max(1, lookback_minutes),
-            "future_endpoint": _future_endpoint("/api/contracts/intake/messages/upsert"),
-            "note": str(exc),
+            "error": f"{type(exc).__name__}: {exc}",
         }
         _telemetry_event(
             "contracts_inbox_poll_completed",
             status=response["status"],
             artifact_type=artifact_type,
             processed_count=0,
+            error_type=type(exc).__name__,
         )
         return response
+
+    results = [
+        await _ingest_attachment(client, attachment, lookback_minutes)
+        for attachment in attachments
+    ]
+    processed = [item for item in results if item.get("created")]
+    response = {
+        "ok": all(item.get("ok") for item in results),
+        "status": "processed" if processed else "no_new_attachments",
+        "inbox": _contracts_inbox(),
+        "requester": requester,
+        "lookback_minutes": max(1, lookback_minutes),
+        "scanned_count": len(results),
+        "processed_count": len(processed),
+        "results": results,
+    }
+    _telemetry_event(
+        "contracts_inbox_poll_completed",
+        status=response["status"],
+        artifact_type=artifact_type,
+        source_mode=attachments[0].source_mode if attachments else None,
+        processed_count=len(processed),
+    )
+    return response
+
+
+async def _ingest_attachment(
+    client: _WaypointContractsClient,
+    attachment: ContractAttachment,
+    lookback_minutes: int,
+) -> dict[str, Any]:
+    """Register one attachment; extract and record evidence only when it is new."""
+    fixture = attachment.source_mode == "local_pdf"
+    summary: dict[str, Any] = {
+        "file_name": attachment.file_name,
+        "artifact_type": attachment.artifact_type,
+        "sender": attachment.sender,
+        "subject": attachment.subject,
+        "sha256": attachment.sha256,
+    }
     body = {
         "mailbox_id": attachment.mailbox_id,
         "message_id": attachment.message_id,
@@ -741,8 +821,8 @@ async def _poll_contracts_inbox_impl(
                 "original_file_uri": attachment.original_file_uri,
                 "artifact_type": attachment.artifact_type,
                 "metadata": {
-                    "fixture": True,
-                    "source": "contracts-agent-local-api",
+                    "fixture": fixture,
+                    "source": "contracts-agent",
                     "source_mode": attachment.source_mode,
                     "artifact_type": attachment.artifact_type,
                     "size_bytes": attachment.size_bytes,
@@ -757,40 +837,30 @@ async def _poll_contracts_inbox_impl(
     }
     result = await client.request("POST", "/api/contracts/intake/messages/upsert", json_body=body)
     assert isinstance(result, dict)
-    artifact = result["results"][0]["artifact"]
-    artifact_id = str(artifact["id"])
+    intake = result["results"][0]
+    artifact_id = str(intake["artifact"]["id"])
+    summary["artifact_id"] = artifact_id
+    # The upsert is idempotent; skip only artifacts that already hold a usable extraction,
+    # so a failed extraction is retried on the next check.
+    existing = intake["artifact"]
+    if not intake.get("created", True) and existing.get("latest_extraction_id") and existing.get(
+        "extraction_status"
+    ) in ("succeeded", "partial"):
+        return {"ok": True, "created": False, **summary}
+
     try:
         extracted = await extract_contract_pdf(attachment)
     except RuntimeError as exc:
-        response = {
+        return {
             "ok": False,
+            "created": True,
             "status": "content_understanding_failed",
-            "inbox": _contracts_inbox(),
-            "lookback_minutes": max(1, lookback_minutes),
-            "artifact_id": artifact_id,
             "error": str(exc),
-            "pdf": {
-                "file_name": attachment.file_name,
-                "artifact_type": attachment.artifact_type,
-                "content_type": attachment.content_type,
-                "size_bytes": attachment.size_bytes,
-                "sha256": attachment.sha256,
-                "uri": attachment.original_file_uri,
-            },
-            "note": "Waypoint registered the intake placeholder, but extraction failed; do not treat this artifact as processed.",
+            "note": "Intake registered, but extraction failed; do not treat as processed.",
+            **summary,
         }
-        _telemetry_event(
-            "contracts_inbox_poll_completed",
-            status=response["status"],
-            artifact_id=artifact_id,
-            artifact_type=attachment.artifact_type,
-            source_mode=attachment.source_mode,
-            processed_count=0,
-            error_type=type(exc).__name__,
-        )
-        return response
 
-    extraction = await client.request(
+    await client.request(
         "POST",
         f"/api/contracts/artifacts/{artifact_id}/extractions",
         json_body={
@@ -802,15 +872,14 @@ async def _poll_contracts_inbox_impl(
             "source_spans": extracted.source_spans,
             "metadata": {
                 **extracted.metadata,
-                "fixture": attachment.source_mode == "local_pdf",
+                "fixture": fixture,
                 "source_mode": attachment.source_mode,
                 "artifact_type": attachment.artifact_type,
             },
         },
     )
-    evidence_results = []
-    for evidence in _mock_artifact(owner, attachment, extracted)["evidence"]:
-        evidence_result = await client.request(
+    for evidence in _mock_artifact(attachment.owner_user_id, attachment, extracted)["evidence"]:
+        await client.request(
             "POST",
             f"/api/contracts/artifacts/{artifact_id}/evidence",
             json_body={
@@ -822,42 +891,15 @@ async def _poll_contracts_inbox_impl(
                 "claim": evidence["claim"],
                 "citation": evidence["citation"],
                 "confidence": evidence["confidence"],
-                "metadata": {"fixture": True, "source_type": evidence["source_type"]},
+                "metadata": {"fixture": fixture, "source_type": evidence["source_type"]},
             },
         )
-        evidence_results.append(evidence_result)
-    detail = await client.request("GET", f"/api/contracts/artifacts/{artifact_id}")
-    response = {
+    return {
         "ok": True,
-        "status": "api_local_pdf",
-        "inbox": _contracts_inbox(),
-        "lookback_minutes": max(1, lookback_minutes),
-        "intake": result,
-        "extraction": extraction,
-        "evidence": evidence_results,
-        "artifact_detail": detail,
-        "pdf": {
-            "file_name": attachment.file_name,
-            "artifact_type": attachment.artifact_type,
-            "content_type": attachment.content_type,
-            "size_bytes": attachment.size_bytes,
-            "sha256": attachment.sha256,
-            "uri": attachment.original_file_uri,
-        },
-        "note": (
-            "Waypoint API was used, but the intake payload came from a local fixture PDF; "
-            "no real email mailbox was read."
-        ),
+        "created": True,
+        "extraction": {"status": extracted.status, "values": extracted.values},
+        **summary,
     }
-    _telemetry_event(
-        "contracts_inbox_poll_completed",
-        status=response["status"],
-        artifact_id=artifact_id,
-        artifact_type=attachment.artifact_type,
-        source_mode=attachment.source_mode,
-        processed_count=1,
-    )
-    return response
 
 
 async def _get_last_contract_impl(
@@ -886,7 +928,7 @@ async def _get_last_contract_impl(
         }
 
     client = _WaypointContractsClient()
-    owner = owner_user_id or _contracts_owner()
+    owner = await _turn_owner(activity) or owner_user_id or _contracts_owner()
     latest = await client.request(
         "GET",
         "/api/contracts/artifacts/latest",
@@ -1014,12 +1056,13 @@ async def _draft_contract_report_impl(
         return response
 
     client = _WaypointContractsClient()
+    turn_owner = await _turn_owner(activity)
     if not artifact_id:
         latest = await client.request(
             "GET",
             "/api/contracts/artifacts/latest",
             params={
-                "owner_user_id": _contracts_owner(),
+                "owner_user_id": turn_owner or _contracts_owner(),
                 "artifact_type": _artifact_type_filter(artifact_type),
             },
         )
@@ -1030,6 +1073,9 @@ async def _draft_contract_report_impl(
     else:
         detail = await client.request("GET", f"/api/contracts/artifacts/{artifact_id}")
         assert isinstance(detail, dict)
+        owner = str((detail.get("artifact") or {}).get("owner_user_id") or "").lower()
+        if turn_owner and owner != turn_owner:
+            raise RuntimeError("That artifact does not belong to the requester.")
 
     report_id = f"report-{artifact_id}-{report_type}"
     rendered = render_report(
@@ -1280,9 +1326,12 @@ def contracts_tools() -> list[Tool]:
         Tool(
             name="poll_contracts_inbox",
             description=(
-                "Run the contracts inbox intake path. With WAYPOINT_API_BASE_URL configured, "
-                "registers a fixture email attachment through the live Waypoint Contracts API; "
-                "without it, uses local fixture state. Does not read a real mailbox yet."
+                "Check whether the user has emailed PDFs to the contracts inbox and register "
+                "them in Waypoint. Use when the user says they sent or emailed a contract or "
+                "invoice, or asks whether the agent got their email. Hosted (Teams only), it "
+                "reads the agent's own mailbox for messages from the asking user over the "
+                "lookback window and extracts only new attachments (intake is idempotent). "
+                "Locally, it processes a fixture PDF."
             ),
             parameters={
                 "type": "object",
@@ -1290,12 +1339,12 @@ def contracts_tools() -> list[Tool]:
                     "lookback_minutes": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "How far back the future mailbox poll should look.",
+                        "description": "How far back to scan the inbox (default 15).",
                     },
                     "artifact_type": {
                         "type": "string",
                         "enum": ["contract", "invoice"],
-                        "description": "Optional local fixture artifact kind to process for this call.",
+                        "description": "Force the artifact kind; otherwise inferred from subject/file name.",
                     },
                 },
                 "required": [],
