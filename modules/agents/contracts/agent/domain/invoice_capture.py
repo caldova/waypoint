@@ -1,4 +1,4 @@
-"""Turn-scoped capture of query_invoices results so Teams can render them as cards."""
+"""Turn-scoped capture of invoice tool results so Teams can render them as cards."""
 
 from __future__ import annotations
 
@@ -27,3 +27,10 @@ def record_invoice_result(result: dict[str, Any]) -> None:
     results = _captured.get()
     if results is not None and result.get("ok") and result.get("invoices"):
         results.append(result)
+
+
+def record_review_document(result: dict[str, Any]) -> None:
+    """Keep a published invoice review document when a capture is open; no-op otherwise."""
+    results = _captured.get()
+    if results is not None and result.get("ok"):
+        results.append({**result, "kind": "review_document"})

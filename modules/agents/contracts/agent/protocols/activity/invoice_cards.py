@@ -8,6 +8,8 @@ from typing import Any
 from castia import adaptive_card
 
 DISPOSITION_PROMPT = "Tell me about invoice {invoice_id}"
+REVIEW_DOCUMENT_PROMPT = "Create a review document for invoice {invoice_id}"
+FULL_WIDTH = {"width": "Full"}
 MAX_LIST_ROWS = 10
 MAX_FINDINGS = 5
 
@@ -31,7 +33,16 @@ _STATUS_COLOR = {
 
 
 def invoice_attachments(results: list[dict[str, Any]]) -> list[dict[str, Any]] | None:
-    """Card for the last query_invoices result this turn, or ``None`` if there is none."""
+    """Card for this turn's invoice results, or ``None`` if there are none.
+
+    A published review document wins; otherwise the last query_invoices result.
+    """
+    if not results:
+        return None
+    reviews = [item for item in results if item.get("kind") == "review_document"]
+    if reviews:
+        return [review_document_card(reviews[-1])]
+    results = [item for item in results if item.get("kind") != "review_document"]
     if not results:
         return None
     result = results[-1]
@@ -93,7 +104,7 @@ def invoice_list_card(
             "wrap": True,
         }
     )
-    return adaptive_card(body)
+    return adaptive_card(body, msteams=FULL_WIDTH)
 
 
 def invoice_disposition_card(
@@ -199,14 +210,84 @@ def invoice_disposition_card(
 
     actions = [
         _imback(
+            "Create review document",
+            REVIEW_DOCUMENT_PROMPT.format(invoice_id=invoice_id),
+        ),
+        _imback(
             "Draft a variance note", f"Draft a variance note for invoice {invoice_id}"
         ),
         _imback("Show evidence", f"Show the evidence for invoice {invoice_id}"),
         _imback("Back to latest invoices", "Show latest invoices"),
     ]
     if not findings:
-        actions = actions[1:]
-    return adaptive_card(body, actions=actions)
+        actions = [actions[0], *actions[2:]]
+    return adaptive_card(body, actions=actions, msteams=FULL_WIDTH)
+
+
+def review_document_card(result: dict[str, Any]) -> dict[str, Any]:
+    invoice_id = str(result.get("invoice_id") or "")
+    number = str(result.get("invoice_number") or invoice_id)
+    link = str(result.get("teams_link_url") or result.get("web_url") or "")
+    shared = bool(link) and result.get("storage") != "local"
+    body: list[dict[str, Any]] = [
+        {
+            "type": "Container",
+            "style": "emphasis",
+            "bleed": True,
+            "items": [
+                {
+                    "type": "TextBlock",
+                    "text": "Review document ready"
+                    if shared
+                    else "Review document created",
+                    "weight": "Bolder",
+                    "size": "Medium",
+                },
+                {
+                    "type": "TextBlock",
+                    "text": str(result.get("title") or f"Invoice review: {number}"),
+                    "isSubtle": True,
+                    "spacing": "None",
+                    "wrap": True,
+                },
+            ],
+        },
+        {
+            "type": "FactSet",
+            "spacing": "Medium",
+            "facts": [
+                fact
+                for fact in (
+                    _fact("Invoice", number),
+                    _fact("Supplier", result.get("supplier_name")),
+                    _fact("Findings", str(result.get("finding_count") or 0)),
+                    _fact(
+                        "Money at risk",
+                        _money(
+                            result.get("money_at_risk"),
+                            str(result.get("currency") or "USD"),
+                        ),
+                    ),
+                    _fact(
+                        "Shared",
+                        "With you, view access"
+                        if shared
+                        else "Not shared (saved locally)",
+                    ),
+                )
+                if fact
+            ],
+        },
+    ]
+    actions: list[dict[str, Any]] = []
+    if shared:
+        actions.append(
+            {"type": "Action.OpenUrl", "title": "Open document", "url": link}
+        )
+    actions.append(
+        _imback("Back to invoice", DISPOSITION_PROMPT.format(invoice_id=invoice_id))
+    )
+    return adaptive_card(body, actions=actions, msteams=FULL_WIDTH)
 
 
 def _invoice_row(invoice: dict[str, Any]) -> dict[str, Any]:

@@ -63,6 +63,12 @@ the current turn.
 - Use `query_invoices` when the user asks about prior invoices, invoice
   findings, money at risk, evidence, or invoice context. This must come from the
   Waypoint records/work APIs, not local fixture state.
+- Use `draft_invoice_review` when the user asks for a review document for one
+  invoice. Check the contract basis with `foundry_iq_retrieve` first if the
+  findings need it, then pass a short `summary` and `recommendation`. The tool
+  adds the invoice facts, findings, and grounding itself. Use it instead of
+  `draft_contract_report` for invoices. On Teams a card carries the document
+  link, so reply in one or two sentences and do not paste the link.
 - Use the FoundryIQ knowledge base (`foundry_iq_retrieve`) for
   any claim about what a contract, SOW, rate card, or Caldova policy permits,
   requires, prohibits, or means. Do not treat local fixture metadata or Content

@@ -11,12 +11,18 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
-from agent.domain.invoice_capture import record_invoice_result
+from agent.domain.invoice_capture import record_invoice_result, record_review_document
+from agent.domain.invoice_review import (
+    build_invoice_review_markdown,
+    invoice_findings,
+    money_at_risk,
+)
 from agent.integrations.activity_identity import has_agentic_user_identity
 from agent.integrations.requester import agentic_graph_token, requester_email
 from azure.identity.aio import DefaultAzureCredential
@@ -1319,6 +1325,13 @@ async def _draft_contract_report_impl(
     return response
 
 
+_INVOICE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+
+
+def _valid_invoice_id(value: str) -> bool:
+    return _INVOICE_ID.fullmatch(value) is not None
+
+
 def _summarize_invoice_detail(detail: dict[str, Any]) -> dict[str, Any]:
     supplier = detail.get("supplier") if isinstance(detail.get("supplier"), dict) else {}
     scenario = detail.get("scenario") if isinstance(detail.get("scenario"), dict) else {}
@@ -1388,6 +1401,8 @@ async def _query_invoices_impl(
         limit = 5
     limit = max(1, min(limit, 10))
     selected_id = invoice_id.strip()
+    if selected_id and not _valid_invoice_id(selected_id):
+        return {"ok": False, "status": "invalid_invoice_id", "invoice_id": selected_id}
 
     if not selected_id:
         params = {
@@ -1451,6 +1466,118 @@ async def _query_invoices_impl(
         had_context=context is not None,
     )
     record_invoice_result(response)
+    return response
+
+
+async def _draft_invoice_review_impl(
+    activity: Any,
+    *,
+    invoice_id: str = "",
+    summary: str = "",
+    recommendation: str = "",
+    title: str = "",
+) -> dict[str, Any]:
+    selected_id = invoice_id.strip()
+    if not selected_id:
+        return {"ok": False, "status": "invoice_id_required"}
+    if not _valid_invoice_id(selected_id):
+        return {"ok": False, "status": "invalid_invoice_id", "invoice_id": selected_id}
+    if _local_fixture_enabled():
+        return {
+            "ok": False,
+            "status": "waypoint_api_required",
+            "note": "Invoice review documents need WAYPOINT_API_BASE_URL.",
+        }
+
+    client = _WaypointContractsClient()
+    try:
+        detail = await client.request("GET", f"/api/invoices/{selected_id}")
+        assert isinstance(detail, dict)
+        context = await client.request(
+            "GET",
+            f"/api/invoices/{selected_id}/context",
+            params={"include_sensitive": "false"},
+        )
+    except RuntimeError as exc:
+        _telemetry_event(
+            "contracts_invoice_review_completed",
+            status="invoice_lookup_failed",
+            invoice_id=selected_id,
+        )
+        return {
+            "ok": False,
+            "status": "invoice_lookup_failed",
+            "invoice_id": selected_id,
+            "error": str(exc),
+        }
+    context = context if isinstance(context, dict) else None
+    findings = invoice_findings(detail, context)
+    number = str(detail.get("invoice_number") or selected_id)
+    supplier = detail.get("supplier") if isinstance(detail.get("supplier"), dict) else {}
+    title = title.strip() or f"Invoice review: {number}"
+    rendered = render_report(
+        report_id=f"invoice-review-{selected_id}",
+        markdown=build_invoice_review_markdown(
+            detail,
+            context,
+            summary=summary,
+            recommendation=recommendation,
+            prepared_on=_now()[:10],
+        ),
+        output_dir=_state_dir() / "reports",
+    )
+    base = {
+        "invoice_id": selected_id,
+        "invoice_number": number,
+        "supplier_name": supplier.get("name"),
+        "currency": detail.get("currency") or "USD",
+        "finding_count": len(findings),
+        "money_at_risk": str(money_at_risk(findings)),
+        "title": title,
+    }
+    try:
+        publication = await _publish_rendered_report(
+            rendered_docx=rendered.docx_path,
+            rendered_markdown=rendered.markdown_path,
+            title=title,
+            activity=activity,
+        )
+    except RuntimeError as exc:
+        _telemetry_event(
+            "contracts_invoice_review_completed",
+            status="report_publish_failed",
+            invoice_id=selected_id,
+        )
+        return {
+            **base,
+            "ok": False,
+            "status": "report_publish_failed",
+            "error": str(exc),
+            "note": "The document was rendered but publishing failed; do not post a link.",
+        }
+    response = {
+        **base,
+        "ok": True,
+        "status": "review_published",
+        "teams_link_url": publication["teams_link_url"],
+        "web_url": publication["web_url"],
+        "share_status": publication["share_status"],
+        "storage": publication["storage"],
+        "note": (
+            "Teams shows a card with an Open document button; do not paste the link."
+            if publication["storage"] != "local"
+            else "Saved locally only; it was not shared."
+        ),
+    }
+    _telemetry_event(
+        "contracts_invoice_review_completed",
+        status=response["status"],
+        invoice_id=selected_id,
+        storage=publication["storage"],
+        share_status=publication["share_status"],
+        finding_count=len(findings),
+    )
+    record_review_document(response)
     return response
 
 
@@ -1642,6 +1769,43 @@ def contracts_tools() -> list[Tool]:
                 "additionalProperties": False,
             },
             impl=_draft_contract_report_impl,
+        ),
+        Tool(
+            name="draft_invoice_review",
+            description=(
+                "Create a Word review document for one invoice and share it with the "
+                "requesting user. The tool pulls the invoice, findings, money at risk, and "
+                "grounding from Waypoint itself; you only write the summary and the "
+                "recommendation. Use when the user asks for a review document for an invoice."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "invoice_id": {
+                        "type": "string",
+                        "description": "Waypoint invoice id, for example INV-2026-08034.",
+                    },
+                    "summary": {
+                        "type": "string",
+                        "description": (
+                            "Two to four sentences in Markdown: what is going on with the "
+                            "invoice and why it matters. Ground contract claims in "
+                            "foundry_iq_retrieve results."
+                        ),
+                    },
+                    "recommendation": {
+                        "type": "string",
+                        "description": (
+                            "Recommended disposition and next steps in Markdown "
+                            "(pay, hold, short-pay, recover, escalate), with owners if known."
+                        ),
+                    },
+                    "title": {"type": "string", "description": "Optional document title."},
+                },
+                "required": ["invoice_id", "summary", "recommendation"],
+                "additionalProperties": False,
+            },
+            impl=_draft_invoice_review_impl,
         ),
         Tool(
             name="query_invoices",

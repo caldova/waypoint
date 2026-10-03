@@ -16,7 +16,8 @@ INVOICE_CARD_NOTE = (
     "[If you call query_invoices, Teams renders its results as an interactive card with "
     "the invoice amounts, statuses, findings, and grounding. Then reply with a short "
     "narrative: what is going on and the recommended next step. Do not repeat tables or "
-    "field-by-field lists.]"
+    "field-by-field lists. If you call draft_invoice_review, Teams renders a card with "
+    "the document link; do not paste the link.]"
 )
 
 
