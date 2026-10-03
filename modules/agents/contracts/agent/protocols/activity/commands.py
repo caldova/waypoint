@@ -113,5 +113,5 @@ def register_activity_commands(app: Agent, toolsets: Toolsets) -> None:
 
 
 async def _version_text(agent_name: str) -> str:
-    live_version = await get_live_foundry_agent_version(agent_name)
-    return version_response(agent_name, live_foundry_agent_version=live_version)
+    live_version, error = await get_live_foundry_agent_version(agent_name)
+    return version_response(agent_name, live_foundry_agent_version=live_version, live_lookup_error=error)
