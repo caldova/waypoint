@@ -339,6 +339,36 @@ activate** approval wizard. They define the agent user's allowed M365 surface;
 the Contracts-specific intake/report tools still stay in local fixture / future
 API mode until the Waypoint Contracts intake and report APIs are implemented.
 
+## Runtime identities and roles
+
+The agent runs under two identities. Both need **Foundry User** at Foundry
+project scope (`AZURE_AI_PROJECT_ID`). Without it, `/version` falls back to the
+configured version with `foundry_agent_version_error: HTTP 403`, and calls to
+the project toolbox fail.
+
+| Identity | Used for | azd env var |
+| --- | --- | --- |
+| Hosted instance identity | Responses / Invocations turns | `AGENT_CONTRACTS_INSTANCE_IDENTITY_PRINCIPAL_ID` (set by `azd deploy`) |
+| Agent 365 agent identity | Teams / Activity turns | `CONTRACTS_MAILBOX_AGENT_ID` (set once the agent is hired in Teams) |
+
+`azd ai agent show contracts` and `GET /agents/contracts` report only the
+instance identity. On Teams turns the runtime calls as the Agent 365 identity,
+whose object id `/version` shows as `hosted_instance_client_id`.
+
+`scripts/grant-runtime-roles.ps1` grants both identities their roles; grants
+that already exist are skipped. It is a manual step today (candidate for a
+`contracts` postdeploy hook). The person running it needs Owner or User Access
+Administrator on the project. After a deploy or after hiring a new agent:
+
+```powershell
+azd env set CONTRACTS_MAILBOX_AGENT_ID <agent-365-object-id>
+pwsh modules/agents/contracts/scripts/grant-runtime-roles.ps1
+```
+
+Role changes take 5–10 minutes to propagate. Hosted sessions stay on the
+version they were created with; `azd ai agent sessions list --agent-name
+contracts` shows which version each session runs.
+
 ## Local development
 
 ```powershell
