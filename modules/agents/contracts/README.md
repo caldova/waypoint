@@ -47,6 +47,12 @@ off Teams the tool returns `needs_teams_turn`.
 Users can also attach a PDF to the Teams message itself; the same tool downloads
 it (Teams `file.download.info`) and registers it with `source: teams_upload`.
 
+Teams turns react 👀 on the user's message while working and swap it for ✅
+when the answer posts. When `query_invoices` returns invoices, the turn attaches
+an Adaptive Card (`agent/protocols/activity/invoice_cards.py`): a list card
+whose rows send "Tell me about invoice {id}" as a new turn, or a single-invoice
+disposition card with findings, money at risk, grounding, and follow-ups.
+
 After ingest the agent reviews each new document in the same turn: it lists the
 user's prior artifacts (`find_prior_contracts`, backed by
 `GET /api/contracts/artifacts`), checks policy with FoundryIQ, records cited

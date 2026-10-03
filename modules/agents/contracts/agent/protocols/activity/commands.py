@@ -1,5 +1,6 @@
 """Activity slash-command registrations."""
 
+import asyncio
 import inspect
 from collections.abc import Awaitable, Callable
 
@@ -17,7 +18,6 @@ from agent.domain.diagnostics import (
 from agent.protocols.activity.responding import start_activity_status
 from agent.toolsets import Toolsets
 
-
 CommandText = str | Awaitable[str]
 
 
@@ -31,8 +31,8 @@ async def command_reply(
     try:
         produced = text() if callable(text) else text
         resolved = await produced if inspect.isawaitable(produced) else produced
-    except Exception:
-        await working.cancel()
+    except BaseException:
+        await asyncio.shield(working.cancel())
         raise
     await working.finish(str(resolved))
 

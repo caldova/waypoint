@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from agent.domain.invoice_capture import record_invoice_result
 from agent.integrations.activity_identity import has_agentic_user_identity
 from agent.integrations.requester import agentic_graph_token, requester_email
 from azure.identity.aio import DefaultAzureCredential
@@ -1449,6 +1450,7 @@ async def _query_invoices_impl(
         include_context=include_context,
         had_context=context is not None,
     )
+    record_invoice_result(response)
     return response
 
 
