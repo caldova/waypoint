@@ -14,6 +14,8 @@ from agent.domain.invoices import is_latest_invoices_prompt, latest_invoices_res
 from agent.integrations.activity_identity import has_agentic_user_identity
 from agent.toolsets import Toolsets
 
+TOOL_BUDGET_EXHAUSTED = "I couldn't complete that in the allotted steps."
+
 
 async def respond(text: str, *, toolsets: Toolsets, activity: Any = None) -> str:
     answer, _ = await respond_with_mode(text, toolsets=toolsets, activity=activity)
@@ -28,7 +30,16 @@ async def respond_with_mode(
     if is_latest_invoices_prompt(text):
         return latest_invoices_response(), "invoices"
     if foundry_project_endpoint():
-        model = toolsets.chat_model()
-        tools = toolsets.activity if has_agentic_user_identity(activity) else toolsets.responses
-        return await model.respond_with_tools(text, tools=tools, activity=activity), "model"
+        provider = (
+            toolsets.activity_runner
+            if has_agentic_user_identity(activity)
+            else toolsets.responses_runner
+        )
+        runner = await provider()
+        try:
+            return await runner.turn(text, activity=activity), "model"
+        except ValueError as exc:
+            if "max_iterations" not in str(exc):
+                raise
+            return TOOL_BUDGET_EXHAUSTED, "model"
     return await fixture_response(text), "fixture"
