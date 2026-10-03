@@ -517,7 +517,7 @@ async def _get_deployment_diagnostics_impl(activity: Any) -> dict[str, Any]:
             "CONTENT_UNDERSTANDING_ENDPOINT",
             "CONTENT_UNDERSTANDING_ANALYZER_ID",
             "TOOLBOX_NAME",
-            "TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT",
+            "TOOLBOX_CONTRACTS_TOOLBOX_MCP_ENDPOINT",
             "CONTRACTS_REPORTS_DRIVE_ID",
             "CONTRACTS_REPORTS_FOLDER_ITEM_ID",
             "CONTRACTS_REPORTS_SCOPE",

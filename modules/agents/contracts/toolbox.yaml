@@ -1,0 +1,19 @@
+# Contracts agent toolbox (separate from contract-toolbox, which the
+# FoundryIQ-only contract-policy-expert keeps so its eval/RFT tool surface is
+# stable).
+#
+# Lanes:
+#   contracts-kb-mcp  FoundryIQ contract/policy KB. Called through the local
+#                     foundry_iq_retrieve wrapper (toolbox.py), not projected.
+# Add a lane: `azd ai toolbox connection add contracts-toolbox <connection>`,
+# publish the new version, then add its MCP tool names to
+# CONTRACTS_TOOLBOX_TOOLS in agent/toolsets.py. The agent uses the version-less
+# endpoint, so publishing needs no redeploy; changing the allowlist does.
+#
+# Create:
+#   azd ai toolbox create contracts-toolbox --from-file ./toolbox.yaml \
+#     --project-endpoint "<project>"
+# azd writes TOOLBOX_CONTRACTS_TOOLBOX_MCP_ENDPOINT to the azd env.
+description: Contracts agent toolbox -- FoundryIQ contract/policy KB; WorkIQ, WebIQ, and FabricIQ lanes attach here.
+connections:
+  - name: contracts-kb-mcp

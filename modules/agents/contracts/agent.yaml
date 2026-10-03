@@ -68,6 +68,6 @@ environment_variables:
   - name: CONTRACTS_REPORTS_GRAPH_BASE_URL
     value: ${CONTRACTS_REPORTS_GRAPH_BASE_URL}
   - name: TOOLBOX_NAME
-    value: contract-toolbox
-  - name: TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT
-    value: ${TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT}
+    value: contracts-toolbox
+  - name: TOOLBOX_CONTRACTS_TOOLBOX_MCP_ENDPOINT
+    value: ${TOOLBOX_CONTRACTS_TOOLBOX_MCP_ENDPOINT}

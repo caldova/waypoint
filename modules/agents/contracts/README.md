@@ -86,12 +86,26 @@ knowledge-base tool. The model sees it as `foundry_iq_retrieve`; the agent
 dispatches each call to the toolbox MCP tool
 `contracts-kb-mcp___knowledge_base_retrieve`.
 
-In hosted Foundry runs, set `TOOLBOX_NAME=contract-toolbox` or
-`TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT` so Castia can resolve that MCP-backed
-toolbox. When the endpoint resolves, the agent exposes the KB tool on every
-surface as a client-side function that calls the toolbox `tools/call`, so each
-call gets a local `execute_tool foundry_iq_retrieve` span. Local fixture mode
-can still run without the toolbox endpoint.
+Contracts has its own Foundry toolbox, `contracts-toolbox` (`toolbox.yaml`),
+separate from the `contract-toolbox` used by `contract-policy-expert`, so new
+lanes never change the policy expert's evaluated tool surface. Hosted runs set
+`TOOLBOX_NAME=contracts-toolbox` and the version-less
+`TOOLBOX_CONTRACTS_TOOLBOX_MCP_ENDPOINT`, so publishing a new toolbox version
+needs no redeploy. When the endpoint resolves, the agent exposes the KB tool on
+every surface as a client-side function that calls the toolbox `tools/call`, so
+each call gets a local `execute_tool foundry_iq_retrieve` span. Local fixture
+mode can still run without the toolbox endpoint.
+
+To add a lane (WorkIQ, WebIQ, FabricIQ, ...):
+
+1. `azd ai toolbox connection add contracts-toolbox <connection>`, then
+   `azd ai toolbox publish contracts-toolbox <version>`.
+2. Add the lane's exact MCP tool names (from `tools/list`) to
+   `CONTRACTS_TOOLBOX_TOOLS` in `agent/toolsets.py` and redeploy. Castia
+   preflights them and projects them to the model as `toolbox`-typed tools.
+
+Agentic-user Graph tools (mail, OneDrive) stay local: they need the Teams
+turn's agentic user token, which a toolbox call does not carry.
 
 ### IQ tool telemetry
 
