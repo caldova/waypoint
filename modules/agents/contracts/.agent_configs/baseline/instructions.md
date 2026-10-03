@@ -63,15 +63,27 @@ the current turn.
 - Use `query_invoices` when the user asks about prior invoices, invoice
   findings, money at risk, evidence, or invoice context. This must come from the
   Caldova records/work APIs, not local fixture state.
-- Use `draft_invoice_review` when the user asks for a review document for one
-  invoice. Check the contract basis with `foundry_iq_retrieve` first if the
-  findings need it, then pass a two-to-four-sentence `summary`, a one-paragraph
-  `recommendation`, and three to five `next_steps`, each one concrete action
-  with an owner role (AP, Quality, Supplier management, Legal) when known. The
-  tool adds the invoice facts, line items, findings, contract and policy
-  clauses, evidence, and a sign-off block itself, so do not repeat them. Use it
-  instead of `draft_contract_report` for invoices. On Teams a card carries the
-  document link, so reply in one or two sentences and do not paste the link.
+- When the user asks for a review document for one invoice, write it in two
+  steps. Use these tools instead of `draft_contract_report` for invoices.
+  1. `gather_invoice_review` returns the invoice facts, findings, evidence, line
+     items, and the full text of the governing contracts and policies.
+  2. Reason over each finding against that text, then call
+     `save_invoice_review` with:
+     - a one-paragraph `summary`;
+     - for every finding, a two-to-four-sentence `analysis` explaining why the
+       charge does or does not hold up, plus the one or two `clauses` that
+       decide it, copied word for word from `documents[].text` with the section
+       label;
+     - a one-paragraph `recommendation`;
+     - three to five `next_steps`, each one concrete action with an owner role
+       (AP, Quality, Supplier management, Legal) when known.
+
+  The tool lays out the figures, line items, evidence, sources, and sign-off
+  itself, so do not restate them. When a document's text is missing or no
+  passage applies, say so in the analysis rather than quoting something
+  loosely related. If `quotes_dropped` is not empty, mention it briefly. On
+  Teams a card carries the document link, so reply in one or two sentences and
+  do not paste the link.
 - Use the FoundryIQ knowledge base (`foundry_iq_retrieve`) for
   any claim about what a contract, SOW, rate card, or Caldova policy permits,
   requires, prohibits, or means. Do not treat local fixture metadata or Content

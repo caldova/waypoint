@@ -1,7 +1,10 @@
 """Markdown for an invoice review document, built from Caldova invoice records.
 
-Facts (amounts, findings, lines, clauses, evidence) come straight from the API;
-only the summary, recommendation, and next steps are model-authored.
+Facts (amounts, findings, lines, evidence) come straight from the API and are
+laid out by code. The model reads ``review_inputs`` (facts plus FoundryIQ
+contract/policy text) and writes the narrative: summary, recommendation, next
+steps, and a per-finding analysis with clause quotes that are checked verbatim
+against the retrieved text before they are rendered.
 """
 
 from __future__ import annotations
@@ -28,6 +31,7 @@ _STOP_TERMS = {
 }  # fmt: skip
 _MIN_CLAUSE_SCORE = 4
 _MAX_QUOTE_CHARS = 700
+_MIN_VERIFIED_QUOTE_CHARS = 20
 _ACTIONABLE = {"open", "review", "recover", "escalate"}
 
 
@@ -64,6 +68,243 @@ def money_at_risk(findings: list[dict[str, Any]]) -> Decimal:
     )
 
 
+def document_chunks(document: dict[str, Any]) -> list[str]:
+    """Retrieved text for a contract/policy, one entry per independent chunk."""
+    chunks = document.get("text_chunks")
+    if isinstance(chunks, list):
+        return [chunk for chunk in chunks if isinstance(chunk, str) and chunk.strip()]
+    text = document.get("text")
+    return [text] if isinstance(text, str) and text.strip() else []
+
+
+def review_inputs(
+    detail: dict[str, Any], context: dict[str, Any] | None
+) -> dict[str, Any]:
+    """What the model needs to write the review: facts plus contract/policy text."""
+    context = context or {}
+    invoice = (
+        context.get("invoice") if isinstance(context.get("invoice"), dict) else detail
+    )
+    currency = str(detail.get("currency") or "USD")
+    findings = invoice_findings(detail, context)
+    known = _findings_known(detail, context)
+    actionable = any(is_actionable(item) for item in findings) if known else None
+    lines = [item for item in invoice.get("lines") or [] if isinstance(item, dict)]
+    evidence = {
+        str(item.get("id")): item
+        for item in invoice.get("evidence") or []
+        if isinstance(item, dict)
+    }
+    total = _decimal(detail.get("total_amount"))
+    at_risk = money_at_risk(findings)
+    documents: list[dict[str, Any]] = []
+    for kind, key, name_key in (
+        ("contract", "contract_documents", "title"),
+        ("policy", "policies", "name"),
+    ):
+        for document in _by_id(context.get(key)).values():
+            chunks = document_chunks(document)
+            documents.append(
+                {
+                    "document_id": document.get("id"),
+                    "kind": kind,
+                    "title": document.get(name_key),
+                    "effective_date": document.get("effective_date"),
+                    "text": "\n\n[…]\n\n".join(chunks) if chunks else None,
+                }
+            )
+    return {
+        "invoice": {
+            "invoice_number": detail.get("invoice_number") or detail.get("id"),
+            "supplier": _dict(detail.get("supplier")).get("name")
+            or detail.get("supplier_id"),
+            "invoice_date": detail.get("invoice_date"),
+            "due_date": detail.get("due_date"),
+            "status": detail.get("status"),
+            "total": _money(total, currency),
+            "money_at_risk": _money(at_risk, currency),
+            "share_at_risk": _percent(at_risk, total) if total else None,
+            "review_area": _dict(detail.get("scenario")).get("name"),
+        },
+        "findings_known": known,
+        "findings": [
+            {
+                "finding_id": finding.get("id"),
+                "category": _dict(finding.get("metadata")).get("display_category")
+                or _title(finding.get("category")),
+                "severity": finding.get("severity"),
+                "disposition": _disposition(finding.get("status")),
+                "actionable": is_actionable(finding),
+                "overpayment": _money(finding.get("overpayment_amount"), currency),
+                "summary": finding.get("summary"),
+                "basis": finding.get("basis_summary")
+                or _dict(finding.get("metadata")).get("basis_summary"),
+                "evidence": [
+                    {
+                        "label": _evidence_label(evidence[str(eid)]),
+                        "excerpt": _squash(evidence[str(eid)].get("excerpt")),
+                    }
+                    for eid in finding.get("evidence_ids") or []
+                    if str(eid) in evidence
+                ],
+                "contract_document_ids": finding.get("contract_document_ids") or [],
+                "policy_ids": finding.get("policy_ids") or [],
+            }
+            for finding in findings
+        ],
+        "lines": [
+            {
+                "sku": line.get("sku"),
+                "description": line.get("description"),
+                "quantity": _quantity(line.get("quantity")),
+                "unit_price": _money(line.get("unit_price"), currency),
+                "amount": _money(line.get("amount"), currency),
+                "review": _line_review(line, actionable) or None,
+            }
+            for line in lines
+        ],
+        "documents": documents,
+        "cases": [
+            {"title": case.get("title"), "status": case.get("status")}
+            for case in context.get("cases") or []
+            if isinstance(case, dict) and case.get("title")
+        ],
+    }
+
+
+def verify_analyses(
+    analyses: Any, detail: dict[str, Any], context: dict[str, Any] | None
+) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
+    """Keep model-written finding analyses; drop clause quotes not found verbatim.
+
+    Returns ``(by_finding_id, dropped)`` where each kept entry is
+    ``{"analysis": str, "clauses": [{"document_id", "title", "section", "quote"}]}``.
+    """
+    context = context or {}
+    finding_ids = {str(item.get("id")) for item in invoice_findings(detail, context)}
+    documents = {
+        **{
+            key: (doc, "title")
+            for key, doc in _by_id(context.get("contract_documents")).items()
+        },
+        **{key: (doc, "name") for key, doc in _by_id(context.get("policies")).items()},
+    }
+    kept: dict[str, dict[str, Any]] = {}
+    dropped: list[dict[str, Any]] = []
+    for item in analyses if isinstance(analyses, list) else []:
+        if not isinstance(item, dict):
+            continue
+        finding_id = str(item.get("finding_id") or "").strip()
+        if finding_id not in finding_ids:
+            dropped.append({"finding_id": finding_id, "reason": "unknown_finding_id"})
+            continue
+        entry = kept.setdefault(finding_id, {"analysis": "", "clauses": []})
+        analysis = str(item.get("analysis") or "").strip()
+        if analysis:
+            entry["analysis"] = analysis
+        clauses = item.get("clauses")
+        for clause in clauses if isinstance(clauses, list) else []:
+            if not isinstance(clause, dict):
+                continue
+            document_id = str(clause.get("document_id") or "").strip()
+            quote = str(clause.get("quote") or "").strip()
+            found = documents.get(document_id)
+            section = (
+                _locate_quote(quote, document_chunks(found[0]))
+                if found is not None
+                else None
+            )
+            reason = (
+                "unknown_document_id"
+                if found is None
+                else "quote_too_short"
+                if len(_normalize_quote(quote)) < _MIN_VERIFIED_QUOTE_CHARS
+                else "quote_not_in_retrieved_text"
+                if section is None
+                else ""
+            )
+            if reason:
+                dropped.append(
+                    {
+                        "finding_id": finding_id,
+                        "document_id": document_id,
+                        "reason": reason,
+                    }
+                )
+                continue
+            document, name_key = found
+            entry["clauses"].append(
+                {
+                    "document_id": document_id,
+                    "title": document.get(name_key),
+                    # Label from the source heading, never the model's claim.
+                    "section": section,
+                    "quote": quote,
+                }
+            )
+    return kept, dropped
+
+
+def _normalize_quote(text: str) -> str:
+    text = (
+        text.replace("\u2018", "'")
+        .replace("\u2019", "'")
+        .replace("\u201c", '"')
+        .replace("\u201d", '"')
+        .replace("\u2013", "-")
+        .replace("\u2014", "-")
+    )
+    text = re.sub(r"(?m)^\s*(?:>|[-*+]|\d+\.)\s+", " ", text)
+    text = re.sub(r"[*_`#]", "", text)
+    return " ".join(text.split()).lower()
+
+
+def _locate_quote(quote: str, chunks: list[str]) -> str | None:
+    """Return the heading of the section holding the quote ("" if unheaded), else None.
+
+    Every ellipsis-separated part must appear, in order, within one section of one chunk.
+    """
+    parts = [
+        _normalize_quote(part) for part in re.split(r"\.\.\.|…|\[…\]|\[\.\.\.\]", quote)
+    ]
+    parts = [part for part in parts if part]
+    if not parts:
+        return None
+    for chunk in chunks:
+        candidates = [(h, f"{h}\n{b}") for h, b in _sections(chunk)] + [("", chunk)]
+        for heading, text in candidates:
+            haystack = _normalize_quote(text)
+            position = 0
+            for part in parts:
+                position = haystack.find(part, position)
+                if position < 0:
+                    break
+                position += len(part)
+            else:
+                return heading
+    return None
+
+
+def _prose(text: Any) -> str:
+    """Model-written prose as plain paragraphs: no headings, tables, quotes, lists, or links."""
+    paragraphs = []
+    for block in re.split(r"\n\s*\n", str(text or "").strip()):
+        lines = []
+        for line in block.splitlines():
+            line = re.sub(
+                r"^\s*(?:#{1,6}\s+|>+\s*|\|+\s*|[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)",
+                "",
+                line,
+            )
+            line = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", line)
+            line = re.sub(r"<[^>]+>", "", line).replace("|", "/")
+            if line.strip() and not re.fullmatch(r"[\s\-*_=:|/]+", line):
+                lines.append(line.strip())
+        if lines:
+            paragraphs.append(" ".join(lines))
+    return "\n\n".join(paragraphs)
+
+
 def build_invoice_review_markdown(
     detail: dict[str, Any],
     context: dict[str, Any] | None,
@@ -72,8 +313,10 @@ def build_invoice_review_markdown(
     recommendation: str,
     prepared_on: str,
     next_steps: list[str] | None = None,
+    analyses: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     context = context or {}
+    analyses = analyses or {}
     # The context bundle's invoice copy has classification-filtered evidence.
     invoice = (
         context.get("invoice") if isinstance(context.get("invoice"), dict) else detail
@@ -110,14 +353,16 @@ def build_invoice_review_markdown(
     )
     out += _at_a_glance(detail, findings, total, at_risk, currency)
 
-    out += ["## Summary", "", summary.strip() or "_No summary provided._", ""]
+    out += ["## Summary", "", _prose(summary) or "_No summary provided._", ""]
     out += [
         "## Recommendation",
         "",
-        recommendation.strip() or "_No recommendation provided._",
+        _prose(recommendation) or "_No recommendation provided._",
         "",
     ]
-    steps = [step.strip() for step in next_steps or [] if str(step).strip()]
+    steps = [
+        " ".join(_prose(step).split()) for step in next_steps or [] if _prose(step)
+    ]
     if steps:
         out += ["### Next steps", ""]
         out += [f"- [ ] {step}" for step in steps]
@@ -150,6 +395,7 @@ def build_invoice_review_markdown(
             contracts=contracts,
             policies=policies,
             evidence=evidence,
+            analysis=analyses.get(str(finding.get("id"))),
         )
 
     if lines:
@@ -160,9 +406,10 @@ def build_invoice_review_markdown(
         "---",
         "",
         (
-            "*Figures, findings, clauses, and evidence come from Caldova records. "
-            "The summary, recommendation, and next steps were drafted by the Contracts "
-            "agent and need reviewer confirmation.*"
+            "*Figures, findings, and evidence come from Caldova records. Contract "
+            "and policy passages, where shown, are quoted verbatim from the Caldova "
+            "contract knowledge base. The summary, analysis, recommendation, and next "
+            "steps were drafted by the Contracts agent and need reviewer confirmation.*"
         ),
         "",
     ]
@@ -243,6 +490,7 @@ def _finding_section(
     contracts: dict[str, dict[str, Any]],
     policies: dict[str, dict[str, Any]],
     evidence: dict[str, dict[str, Any]],
+    analysis: dict[str, Any] | None = None,
 ) -> list[str]:
     metadata = _dict(finding.get("metadata"))
     category = metadata.get("display_category") or _title(finding.get("category"))
@@ -277,38 +525,29 @@ def _finding_section(
     basis = finding.get("basis_summary") or metadata.get("basis_summary")
     if basis:
         out += [f"**Basis:** {str(basis).strip()}", ""]
-
-    query = " ".join(
-        str(value or "")
-        for value in (
-            finding.get("summary"),
-            basis,
-            finding.get("category"),
-            metadata.get("display_category"),
-        )
-    )
-    for label, documents, ids, name_key in (
-        (
-            "What the contract says",
-            contracts,
-            finding.get("contract_document_ids"),
-            "title",
-        ),
-        ("What policy requires", policies, finding.get("policy_ids"), "name"),
-    ):
-        for document_id in ids or []:
-            document = documents.get(str(document_id))
-            if not document:
-                continue
-            clause = _best_clause(document.get("text"), query, document.get(name_key))
-            if clause:
-                heading, body = clause
-                out += [
-                    f"**{label}:** *{document.get(name_key)}, {heading}*",
-                    "",
-                    *[f"> {para}" if para else ">" for para in body.split("\n")],
-                    "",
-                ]
+    written = _prose(analysis.get("analysis")) if analysis else ""
+    if written:
+        out += [written, ""]
+    if analysis and analysis.get("clauses"):
+        for clause in analysis["clauses"]:
+            label = (
+                "What the contract says"
+                if clause["document_id"] in contracts
+                else ("What policy requires")
+            )
+            section = re.sub(r"[*_`]", "", clause["section"])
+            where = f", {section}" if section else ""
+            out += [
+                f"**{label}:** *{clause['title']}{where}*",
+                "",
+                *_blockquote(clause["quote"]),
+                "",
+            ]
+    elif written:
+        # The agent judged this finding; keyword-matched clauses would mask a grounding gap.
+        out += ["*No contract or policy passage was quoted for this finding.*", ""]
+    else:
+        out += _matched_clauses(finding, basis, metadata, contracts, policies)
 
     items = [
         evidence[str(eid)]
@@ -323,6 +562,62 @@ def _finding_section(
             excerpt = _squash(item.get("excerpt"))
             if excerpt and summary not in excerpt:
                 out += [f"> *{_evidence_label(item)}:* {excerpt}", ""]
+    return out
+
+
+def _blockquote(text: str) -> list[str]:
+    return [f"> {line}" if line.strip() else ">" for line in text.strip().split("\n")]
+
+
+def _matched_clauses(
+    finding: dict[str, Any],
+    basis: Any,
+    metadata: dict[str, Any],
+    contracts: dict[str, dict[str, Any]],
+    policies: dict[str, dict[str, Any]],
+) -> list[str]:
+    """Keyword-matched clauses, used when the model supplied no verified quotes."""
+    query = " ".join(
+        str(value or "")
+        for value in (
+            finding.get("summary"),
+            basis,
+            finding.get("category"),
+            metadata.get("display_category"),
+        )
+    )
+    out: list[str] = []
+    for label, documents, ids, name_key in (
+        (
+            "What the contract says",
+            contracts,
+            finding.get("contract_document_ids"),
+            "title",
+        ),
+        ("What policy requires", policies, finding.get("policy_ids"), "name"),
+    ):
+        for document_id in ids or []:
+            document = documents.get(str(document_id))
+            if not document:
+                continue
+            chunks = document_chunks(document)
+            clause = _best_clause(chunks, query, document.get(name_key))
+            if clause:
+                heading, body = clause
+                out += [
+                    f"**{label}:** *{document.get(name_key)}, {heading}*",
+                    "",
+                    *_blockquote(body),
+                    "",
+                ]
+            elif documents is contracts and chunks:
+                out += [
+                    (
+                        f"**{label}:** No clause in *{document.get(name_key)}* "
+                        "closely matches this charge."
+                    ),
+                    "",
+                ]
     return out
 
 
@@ -398,16 +693,18 @@ def _sign_off() -> list[str]:
     ]
 
 
-def _best_clause(text: Any, query: str, document_name: Any) -> tuple[str, str] | None:
+def _best_clause(
+    chunks: list[str], query: str, document_name: Any
+) -> tuple[str, str] | None:
     """Pick the document section that best matches the finding, if any matches well."""
-    if not isinstance(text, str) or not text.strip():
-        return None
     wanted = _terms(query) - _terms(str(document_name or ""))
     best: tuple[int, str, str] | None = None
-    for heading, body in _sections(text):
-        score = 3 * len(wanted & _terms(heading)) + len(wanted & _terms(body))
-        if score >= _MIN_CLAUSE_SCORE and (best is None or score > best[0]):
-            best = (score, heading, body)
+    # Chunks may arrive out of order, so sections never span a chunk boundary.
+    for chunk in chunks:
+        for heading, body in _sections(chunk):
+            score = 3 * len(wanted & _terms(heading)) + len(wanted & _terms(body))
+            if score >= _MIN_CLAUSE_SCORE and (best is None or score > best[0]):
+                best = (score, heading, body)
     if best is None:
         return None
     _, heading, body = best

@@ -53,9 +53,13 @@ an Adaptive Card (`agent/protocols/activity/invoice_cards.py`): a list card
 whose rows send "Tell me about invoice {id}" as a new turn, or a single-invoice
 disposition card with findings, money at risk, grounding, and follow-ups.
 Cards render full width in Teams. The disposition card's **Create review
-document** button calls `draft_invoice_review`, which builds a Word document
-from Waypoint invoice data plus a model-written summary and recommendation,
-shares it from the agent's OneDrive, and replies with an **Open document** card.
+document** button starts a two-step turn. First, `gather_invoice_review` returns
+the Waypoint invoice facts plus the full text of the governing contracts and
+policies from FoundryIQ. The model then reasons over them and calls
+`save_invoice_review` with its summary, its per-finding analysis with clause
+quotes, and its recommendation. The tool checks each quote verbatim against the
+retrieved text and adds the code-built figures and tables. It then shares the
+document from the agent's OneDrive and replies with an **Open document** card.
 Recording these documents back in Waypoint is tracked in #31.
 
 After ingest the agent reviews each new document in the same turn: it lists the
@@ -144,7 +148,7 @@ the tool:
 | `foundry_iq` | `foundry_iq_retrieve` |
 | `web_iq` | `web_iq_search`, `web_iq_browse` |
 | `work_iq` | `read_inbox`, `send_email`, `reply_email`, `create_document` (Activity only) |
-| `function` | Waypoint API and local tools (`poll_contracts_inbox`, `get_last_contract`, `draft_contract_report`, `draft_invoice_review`, `query_invoices`, diagnostics) |
+| `function` | Waypoint API and local tools (`poll_contracts_inbox`, `get_last_contract`, `draft_contract_report`, `gather_invoice_review`, `save_invoice_review`, `query_invoices`, diagnostics) |
 
 **Adding an IQ-backed tool:** give it both IQ monikers so telemetry shows its
 source.

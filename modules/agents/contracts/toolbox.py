@@ -13,7 +13,7 @@ from castia.inference.tools import Tool
 # Model-facing name; Castia names the span "execute_tool foundry_iq_retrieve".
 FOUNDRY_IQ_TOOL_NAME = "foundry_iq_retrieve"
 # Underlying toolbox MCP tool the call is dispatched to.
-_KB_TOOL_NAME = "contracts-kb-mcp___knowledge_base_retrieve"
+KB_TOOL_NAME = "contracts-kb-mcp___knowledge_base_retrieve"
 # Castia stamps Tool.kind onto the execute_tool span as gen_ai.tool.type.
 FOUNDRY_IQ = "foundry_iq"
 _KB_TOOL_DESCRIPTION = (
@@ -97,7 +97,7 @@ async def _call_foundryiq_toolbox(activity: Any, *, query: str) -> dict[str, Any
     cleaned = str(query or "").strip()
     if not cleaned:
         return {"ok": False, "error": "query is required."}
-    return await call_toolbox_tool(_KB_TOOL_NAME, {"query_variants": [cleaned[:400]]})
+    return await call_toolbox_tool(KB_TOOL_NAME, {"query_variants": [cleaned[:400]]})
 
 
 async def call_toolbox_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:

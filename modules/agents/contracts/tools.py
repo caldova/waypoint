@@ -22,6 +22,8 @@ from agent.domain.invoice_review import (
     build_invoice_review_markdown,
     invoice_findings,
     money_at_risk,
+    review_inputs,
+    verify_analyses,
 )
 from agent.domain.turn_status import (
     CHECKING_INVOICES,
@@ -30,6 +32,7 @@ from agent.domain.turn_status import (
     report_status,
 )
 from agent.integrations.activity_identity import has_agentic_user_identity
+from agent.integrations.corpus_text import fill_corpus_text
 from agent.integrations.requester import agentic_graph_token, requester_email
 from azure.identity.aio import DefaultAzureCredential
 from castia.inference.tools import Tool
@@ -1478,36 +1481,120 @@ async def _query_invoices_impl(
     return response
 
 
-async def _draft_invoice_review_impl(
+_REVIEW_BUNDLE_TTL_SECONDS = 30 * 60
+_REVIEW_BUNDLE_MAX = 32
+# invoice_id -> (loaded_at, detail, context, clauses_filled); gather fills it so the
+# save call verifies quotes against exactly the text the model read.
+_review_bundles: dict[str, tuple[float, dict[str, Any], dict[str, Any] | None, int]] = {}
+
+
+def _review_invoice_id(invoice_id: str) -> tuple[str, dict[str, Any] | None]:
+    selected_id = invoice_id.strip()
+    if not selected_id:
+        return selected_id, {"ok": False, "status": "invoice_id_required"}
+    if not _valid_invoice_id(selected_id):
+        return selected_id, {
+            "ok": False,
+            "status": "invalid_invoice_id",
+            "invoice_id": selected_id,
+        }
+    if _local_fixture_enabled():
+        return selected_id, {
+            "ok": False,
+            "status": "waypoint_api_required",
+            "note": "Invoice review documents need WAYPOINT_API_BASE_URL.",
+        }
+    return selected_id, None
+
+
+async def _load_review_bundle(
+    invoice_id: str, *, refresh: bool
+) -> tuple[dict[str, Any], dict[str, Any] | None, int]:
+    """Invoice detail + context with FoundryIQ clause text; raises RuntimeError on API failure."""
+    now = datetime.now(UTC).timestamp()
+    cached = _review_bundles.get(invoice_id)
+    if cached and not refresh and now - cached[0] < _REVIEW_BUNDLE_TTL_SECONDS:
+        return cached[1], cached[2], cached[3]
+    client = _WaypointContractsClient()
+    detail = await client.request("GET", f"/api/invoices/{invoice_id}")
+    assert isinstance(detail, dict)
+    context = await client.request(
+        "GET",
+        f"/api/invoices/{invoice_id}/context",
+        params={"include_sensitive": "false"},
+    )
+    context = context if isinstance(context, dict) else None
+    clauses_filled = await fill_corpus_text(context, invoice_findings(detail, context))
+    if len(_review_bundles) >= _REVIEW_BUNDLE_MAX:
+        _review_bundles.pop(min(_review_bundles, key=lambda k: _review_bundles[k][0]))
+    _review_bundles[invoice_id] = (now, detail, context, clauses_filled)
+    return detail, context, clauses_filled
+
+
+async def _gather_invoice_review_impl(
+    activity: Any, *, invoice_id: str = ""
+) -> dict[str, Any]:
+    del activity
+    selected_id, error = _review_invoice_id(invoice_id)
+    if error:
+        return error
+    await report_status(creating_review_document(selected_id))
+    try:
+        detail, context, clauses_filled = await _load_review_bundle(
+            selected_id, refresh=True
+        )
+    except RuntimeError as exc:
+        _telemetry_event(
+            "contracts_invoice_review_gathered",
+            status="invoice_lookup_failed",
+            invoice_id=selected_id,
+        )
+        return {
+            "ok": False,
+            "status": "invoice_lookup_failed",
+            "invoice_id": selected_id,
+            "error": str(exc),
+        }
+    inputs = review_inputs(detail, context)
+    _telemetry_event(
+        "contracts_invoice_review_gathered",
+        status="ok",
+        invoice_id=selected_id,
+        finding_count=len(inputs["findings"]),
+        clauses_filled=clauses_filled,
+    )
+    return {
+        "ok": True,
+        "status": "review_inputs",
+        "invoice_id": selected_id,
+        **inputs,
+        "note": (
+            "Invoice facts come from Caldova records; document text comes from the "
+            "Caldova contract knowledge base (FoundryIQ). Reason over them, then call "
+            "save_invoice_review. Quote clauses verbatim from documents[].text; "
+            "paraphrased or invented quotes are dropped. Do not restate amounts, "
+            "line items, or evidence lists; the document lays those out itself."
+        ),
+    }
+
+
+async def _save_invoice_review_impl(
     activity: Any,
     *,
     invoice_id: str = "",
     summary: str = "",
     recommendation: str = "",
     next_steps: list[str] | str | None = None,
+    findings: list[dict[str, Any]] | None = None,
     title: str = "",
 ) -> dict[str, Any]:
-    selected_id = invoice_id.strip()
-    if not selected_id:
-        return {"ok": False, "status": "invoice_id_required"}
-    if not _valid_invoice_id(selected_id):
-        return {"ok": False, "status": "invalid_invoice_id", "invoice_id": selected_id}
-    if _local_fixture_enabled():
-        return {
-            "ok": False,
-            "status": "waypoint_api_required",
-            "note": "Invoice review documents need WAYPOINT_API_BASE_URL.",
-        }
+    selected_id, error = _review_invoice_id(invoice_id)
+    if error:
+        return error
     await report_status(creating_review_document(selected_id))
-
-    client = _WaypointContractsClient()
     try:
-        detail = await client.request("GET", f"/api/invoices/{selected_id}")
-        assert isinstance(detail, dict)
-        context = await client.request(
-            "GET",
-            f"/api/invoices/{selected_id}/context",
-            params={"include_sensitive": "false"},
+        detail, context, clauses_filled = await _load_review_bundle(
+            selected_id, refresh=False
         )
     except RuntimeError as exc:
         _telemetry_event(
@@ -1521,8 +1608,8 @@ async def _draft_invoice_review_impl(
             "invoice_id": selected_id,
             "error": str(exc),
         }
-    context = context if isinstance(context, dict) else None
-    findings = invoice_findings(detail, context)
+    analyses, dropped = verify_analyses(findings, detail, context)
+    invoice_finding_list = invoice_findings(detail, context)
     number = str(detail.get("invoice_number") or selected_id)
     supplier = detail.get("supplier") if isinstance(detail.get("supplier"), dict) else {}
     title = title.strip() or f"Invoice review: {number}"
@@ -1537,17 +1624,21 @@ async def _draft_invoice_review_impl(
                 [next_steps] if isinstance(next_steps, str) else list(next_steps or [])
             ),
             prepared_on=_now()[:10],
+            analyses=analyses,
         ),
         output_dir=_state_dir() / "reports",
     )
+    quotes_kept = sum(len(entry["clauses"]) for entry in analyses.values())
     base = {
         "invoice_id": selected_id,
         "invoice_number": number,
         "supplier_name": supplier.get("name"),
         "currency": detail.get("currency") or "USD",
-        "finding_count": len(findings),
-        "money_at_risk": str(money_at_risk(findings)),
+        "finding_count": len(invoice_finding_list),
+        "money_at_risk": str(money_at_risk(invoice_finding_list)),
         "title": title,
+        "quotes_kept": quotes_kept,
+        "quotes_dropped": dropped,
     }
     try:
         publication = await _publish_rendered_report(
@@ -1589,7 +1680,10 @@ async def _draft_invoice_review_impl(
         invoice_id=selected_id,
         storage=publication["storage"],
         share_status=publication["share_status"],
-        finding_count=len(findings),
+        finding_count=len(invoice_finding_list),
+        clauses_filled=clauses_filled,
+        quotes_kept=quotes_kept,
+        quotes_dropped=len(dropped),
     )
     record_review_document(response)
     return response
@@ -1785,13 +1879,37 @@ def contracts_tools() -> list[Tool]:
             impl=_draft_contract_report_impl,
         ),
         Tool(
-            name="draft_invoice_review",
+            name="gather_invoice_review",
             description=(
-                "Create a Word review document for one invoice and share it with the "
-                "requesting user. The tool pulls the invoice, line items, findings, money "
-                "at risk, governing contract and policy clauses, and evidence from Caldova "
-                "itself; you only write the summary, the recommendation, and next steps. "
-                "Use when the user asks for a review document for an invoice."
+                "Step 1 of an invoice review document. Returns everything needed to "
+                "write it: invoice facts, findings with basis and evidence excerpts, "
+                "line items, and the full text of the governing contracts and policies "
+                "from the Caldova contract knowledge base (FoundryIQ). Read it, reason "
+                "about each finding against the contract text, then call "
+                "save_invoice_review. Use when the user asks for a review document for "
+                "an invoice."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "invoice_id": {
+                        "type": "string",
+                        "description": "Caldova invoice id, for example INV-2026-08034.",
+                    },
+                },
+                "required": ["invoice_id"],
+                "additionalProperties": False,
+            },
+            impl=_gather_invoice_review_impl,
+        ),
+        Tool(
+            name="save_invoice_review",
+            description=(
+                "Step 2 of an invoice review document, after gather_invoice_review. "
+                "Pass your written analysis; the tool adds the headline, at-a-glance "
+                "figures, finding facts, line items, evidence, sources, and sign-off, "
+                "verifies each clause quote verbatim against the retrieved text, then "
+                "renders a Word document and shares it with the requesting user."
             ),
             parameters={
                 "type": "object",
@@ -1803,10 +1921,68 @@ def contracts_tools() -> list[Tool]:
                     "summary": {
                         "type": "string",
                         "description": (
-                            "Executive summary, two to four sentences in Markdown: what "
-                            "happened on this invoice, why it matters, and how much is at "
-                            "stake. Ground contract claims in foundry_iq_retrieve results."
+                            "Executive summary, one short paragraph in Markdown: what "
+                            "happened on this invoice, which contract terms it runs "
+                            "against, and what is at stake."
                         ),
+                    },
+                    "findings": {
+                        "type": "array",
+                        "description": "One entry per finding from gather_invoice_review.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "finding_id": {
+                                    "type": "string",
+                                    "description": "finding_id from gather_invoice_review.",
+                                },
+                                "analysis": {
+                                    "type": "string",
+                                    "description": (
+                                        "Two to four sentences in Markdown: why the "
+                                        "charge does or does not hold up under the "
+                                        "quoted terms and the evidence, and what that "
+                                        "means for payment. No restated amounts tables."
+                                    ),
+                                },
+                                "clauses": {
+                                    "type": "array",
+                                    "description": (
+                                        "The one or two passages that decide this "
+                                        "finding. Omit when no passage applies."
+                                    ),
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "document_id": {
+                                                "type": "string",
+                                                "description": "documents[].document_id",
+                                            },
+                                            "section": {
+                                                "type": "string",
+                                                "description": (
+                                                    "Section label as written in the "
+                                                    "document, e.g. '§4 Contamination "
+                                                    "and deviation costs'."
+                                                ),
+                                            },
+                                            "quote": {
+                                                "type": "string",
+                                                "description": (
+                                                    "Exact words copied from "
+                                                    "documents[].text, at most about "
+                                                    "80 words; use '…' to skip text."
+                                                ),
+                                            },
+                                        },
+                                        "required": ["document_id", "quote"],
+                                        "additionalProperties": False,
+                                    },
+                                },
+                            },
+                            "required": ["finding_id", "analysis"],
+                            "additionalProperties": False,
+                        },
                     },
                     "recommendation": {
                         "type": "string",
@@ -1826,10 +2002,10 @@ def contracts_tools() -> list[Tool]:
                     },
                     "title": {"type": "string", "description": "Optional document title."},
                 },
-                "required": ["invoice_id", "summary", "recommendation"],
+                "required": ["invoice_id", "summary", "findings", "recommendation"],
                 "additionalProperties": False,
             },
-            impl=_draft_invoice_review_impl,
+            impl=_save_invoice_review_impl,
         ),
         Tool(
             name="query_invoices",
