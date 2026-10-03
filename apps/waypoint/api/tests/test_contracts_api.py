@@ -277,6 +277,56 @@ async def test_latest_returns_404_when_owner_has_no_artifacts(client: AsyncClien
 
 
 @pytest.mark.asyncio
+async def test_list_artifacts_returns_owner_type_newest_first(client: AsyncClient):
+    for index, received in enumerate(("2026-09-01T10:00:00Z", "2026-09-03T10:00:00Z")):
+        await _register(
+            client,
+            message_id=f"m-{index}",
+            received_at=received,
+            attachments=[
+                {"attachment_id": "a", "sha256": (SHA_A, SHA_B)[index], "original_file_uri": "https://f"}
+            ],
+        )
+    await _register(client, message_id="m-other", sender="sam@caldova.example")
+
+    response = await client.get(
+        "/api/contracts/artifacts", params={"limit": 5}, headers=DEV_HEADERS
+    )
+
+    assert response.status_code == 200
+    assert [item["source_message_id"] for item in response.json()] == ["m-1", "m-0"]
+    limited = await client.get("/api/contracts/artifacts", params={"limit": 1}, headers=DEV_HEADERS)
+    assert len(limited.json()) == 1
+    invoices = await client.get(
+        "/api/contracts/artifacts", params={"artifact_type": "invoice"}, headers=DEV_HEADERS
+    )
+    assert invoices.json() == []
+    others = await client.get(
+        "/api/contracts/artifacts",
+        params={"owner_user_id": "sam@caldova.example"},
+        headers=DEV_HEADERS,
+    )
+    assert others.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_list_artifacts_lets_app_callers_name_the_owner(client: AsyncClient):
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        api_key_auth_enabled=True, api_keys="contracts-agent:agent-secret:writer"
+    )
+    headers = {"x-api-key": "agent-secret"}
+    await client.post("/api/contracts/intake/messages/upsert", json=_message(), headers=headers)
+
+    without_owner = await client.get("/api/contracts/artifacts", headers=headers)
+    with_owner = await client.get(
+        "/api/contracts/artifacts", params={"owner_user_id": USER}, headers=headers
+    )
+
+    assert without_owner.status_code == 422
+    assert len(with_owner.json()) == 1
+
+
+@pytest.mark.asyncio
 async def test_latest_requires_owner_for_app_only_callers(client: AsyncClient):
     app.dependency_overrides[get_settings] = lambda: Settings(
         api_key_auth_enabled=True, api_keys="contracts-agent:agent-secret:writer"

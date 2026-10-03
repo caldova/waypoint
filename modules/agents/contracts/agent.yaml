@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
 kind: hosted
 name: contracts
-description: Teams-first contract intake and evidence autopilot for Waypoint.
+description: Teams-first contract intake and evidence autopilot for Caldova.
 protocols:
   - protocol: responses
     version: 2.0.0
@@ -51,6 +51,10 @@ environment_variables:
     value: ${CONTENT_UNDERSTANDING_SCOPE}
   - name: CONTRACTS_REPORTS_PUBLISH_MODE
     value: ${CONTRACTS_REPORTS_PUBLISH_MODE}
+  - name: CONTRACTS_REPORTS_ONEDRIVE_FOLDER
+    value: ${CONTRACTS_REPORTS_ONEDRIVE_FOLDER}
+  - name: CONTRACTS_REPORTS_SHARE_ROLE
+    value: ${CONTRACTS_REPORTS_SHARE_ROLE}
   - name: CONTRACTS_REPORTS_DRIVE_ID
     value: ${CONTRACTS_REPORTS_DRIVE_ID}
   - name: CONTRACTS_REPORTS_FOLDER_ITEM_ID
@@ -64,6 +68,6 @@ environment_variables:
   - name: CONTRACTS_REPORTS_GRAPH_BASE_URL
     value: ${CONTRACTS_REPORTS_GRAPH_BASE_URL}
   - name: TOOLBOX_NAME
-    value: contract-toolbox
-  - name: TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT
-    value: ${TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT}
+    value: contracts-toolbox
+  - name: TOOLBOX_CONTRACTS_TOOLBOX_MCP_ENDPOINT
+    value: ${TOOLBOX_CONTRACTS_TOOLBOX_MCP_ENDPOINT}

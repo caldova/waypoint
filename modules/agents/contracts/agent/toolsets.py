@@ -2,26 +2,41 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 
-from castia import Agent, configured_model, load_agent_config
+from castia import Agent, load_agent_config
 from castia.inference.tools import Tool, graph_tools
+from castia.prompty import PromptyRunner, prompty_runner_provider
 
 from agent.config import AGENT_ROOT
 from agent.tools.contracts import contracts_tools
-from toolbox import foundryiq_runtime_tools, foundryiq_toolbox_tools
+from toolbox import foundryiq_runtime_tools, foundryiq_toolbox_tools, is_toolbox_configured
+from webiq import webiq_tools
 
 # Castia stamps Tool.kind onto the execute_tool span as gen_ai.tool.type.
 # New IQ-backed tools must set kind="<source>_iq" and use a "<source>_iq_" name
 # prefix so the span name shows the IQ source (see README "IQ tool telemetry").
 WORK_IQ = "work_iq"
+# Review turns run poll -> prior contracts -> KB (1-2) -> record findings; reports
+# gather then draft. Leave room for one retry.
+MAX_TOOL_ITERATIONS = 8
+# contracts-toolbox MCP tools projected straight to the model (exact names from
+# tools/list). IQ lanes (KB, WebIQ) are excluded: they run through local
+# <source>_iq_* wrappers so spans carry the IQ kind. Empty keeps projection off;
+# add non-IQ lane tool names here to expose them as-is.
+CONTRACTS_TOOLBOX_TOOLS: tuple[str, ...] = ()
+
+
+RunnerProvider = Callable[[], Awaitable[PromptyRunner]]
 
 
 @dataclass(frozen=True)
 class Toolsets:
-    chat_model: object
     responses: list[Tool | dict]
     activity: list[Tool | dict]
+    responses_runner: RunnerProvider
+    activity_runner: RunnerProvider
 
 
 def work_iq_tools() -> list[Tool]:
@@ -34,12 +49,27 @@ def build_toolsets() -> Toolsets:
     base: list[Tool | dict] = [*contracts_tools()]
     # Added after apply_tools: the runtime wrapper folds in optimized wording
     # itself and keeps a strict query schema.
-    foundry_iq = foundryiq_runtime_tools(config.tool_definitions)
+    iq = [*foundryiq_runtime_tools(config.tool_definitions), *webiq_tools()]
+    responses = [*config.apply_tools(base), *iq]
+    activity = [*config.apply_tools([*base, *work_iq_tools()]), *iq]
+    toolbox = toolbox_projection()
     return Toolsets(
-        chat_model=configured_model(config),
-        responses=[*config.apply_tools(base), *foundry_iq],
-        activity=[*config.apply_tools([*base, *work_iq_tools()]), *foundry_iq],
+        responses=responses,
+        activity=activity,
+        responses_runner=prompty_runner_provider(
+            config, tools=responses, toolbox=toolbox, max_iterations=MAX_TOOL_ITERATIONS
+        ),
+        activity_runner=prompty_runner_provider(
+            config, tools=activity, toolbox=toolbox, max_iterations=MAX_TOOL_ITERATIONS
+        ),
     )
+
+
+def toolbox_projection() -> list[str] | bool:
+    """Castia toolbox arg: the allowlist when set and configured, else off."""
+    if CONTRACTS_TOOLBOX_TOOLS and is_toolbox_configured():
+        return list(CONTRACTS_TOOLBOX_TOOLS)
+    return False
 
 
 def register_tools(app: Agent) -> None:

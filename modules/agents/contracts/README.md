@@ -35,21 +35,37 @@ For the deployment spike, keep work surfaces separated:
 - `invocations` is the structured work-command surface for routines and future
   agent-to-agent calls.
 
-The intended scheduled `contracts-inbox-poll` routine should target
-`invoke_agent_invocations_api` with this payload once the local azd/Foundry
-extension supports routine resources in `azure.yaml`:
+Hosted mailbox reads happen on Teams turns only. Users email PDFs to the hire's
+mailbox (for example `contracts@caldova.com`), then ask in Teams; the agent reads
+just that user's messages with the hire's agentic-user token and registers new
+attachments in Waypoint. Only PDFs from the inbox's own domain are read; set
+`CONTRACTS_ALLOWED_SENDER_DOMAINS` (comma-separated) to allow others. A scheduled
+routine cannot do this yet: only Agent 365
+turns bind the hosted credential to the hired instance that owns the mailbox, so
+off Teams the tool returns `needs_teams_turn`.
 
-```json
-{
-  "operation": "poll_contracts_inbox",
-  "lookback_minutes": 15
-}
-```
+Users can also attach a PDF to the Teams message itself; the same tool downloads
+it (Teams `file.download.info`) and registers it with `source: teams_upload`.
 
-In the local playground, switch to the Invocations protocol and send the same
-payload as a JSON string. Add `"artifact_type": "invoice"` to force the
-agent-local invoice fixture path for that call while testing; this no longer
-mutates process-wide environment state.
+Teams turns react 👀 on the user's message while working and swap it for ✅
+when the answer posts. When `query_invoices` returns invoices, the turn attaches
+an Adaptive Card (`agent/protocols/activity/invoice_cards.py`): a list card
+whose rows send "Tell me about invoice {id}" as a new turn, or a single-invoice
+disposition card with findings, money at risk, grounding, and follow-ups.
+Cards render full width in Teams. The disposition card's **Create review
+document** button calls `draft_invoice_review`, which builds a Word document
+from Waypoint invoice data plus a model-written summary and recommendation,
+shares it from the agent's OneDrive, and replies with an **Open document** card.
+Recording these documents back in Waypoint is tracked in #31.
+
+After ingest the agent reviews each new document in the same turn: it lists the
+user's prior artifacts (`find_prior_contracts`, backed by
+`GET /api/contracts/artifacts`), checks policy with FoundryIQ, records cited
+findings as evidence (`record_contract_findings`), and marks the artifact
+processed. Hosted ingest no longer writes placeholder evidence.
+
+In the local playground, ask about an emailed contract to run the fixture inbox
+path. Pass `artifact_type: "invoice"` to force the agent-local invoice fixture.
 
 The same structured surface supports invoice work queries against the Waypoint
 records/work APIs:
@@ -86,12 +102,37 @@ knowledge-base tool. The model sees it as `foundry_iq_retrieve`; the agent
 dispatches each call to the toolbox MCP tool
 `contracts-kb-mcp___knowledge_base_retrieve`.
 
-In hosted Foundry runs, set `TOOLBOX_NAME=contract-toolbox` or
-`TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT` so Castia can resolve that MCP-backed
-toolbox. When the endpoint resolves, the agent exposes the KB tool on every
-surface as a client-side function that calls the toolbox `tools/call`, so each
-call gets a local `execute_tool foundry_iq_retrieve` span. Local fixture mode
-can still run without the toolbox endpoint.
+Contracts has its own Foundry toolbox, `contracts-toolbox` (`toolbox.yaml`),
+separate from the `contract-toolbox` used by `contract-policy-expert`, so new
+lanes never change the policy expert's evaluated tool surface. Hosted runs set
+`TOOLBOX_NAME=contracts-toolbox` and the version-less
+`TOOLBOX_CONTRACTS_TOOLBOX_MCP_ENDPOINT`, so publishing a new toolbox version
+needs no redeploy. When the endpoint resolves, the agent exposes the KB tool on
+every surface as a client-side function that calls the toolbox `tools/call`, so
+each call gets a local `execute_tool foundry_iq_retrieve` span. Local fixture
+mode can still run without the toolbox endpoint.
+
+To add a lane (WorkIQ, WebIQ, FabricIQ, ...):
+
+1. Store any credential in a Foundry project connection (never in the repo or
+   agent env), e.g. `azd ai connection create <connection> --kind remote-tool
+   --auth-type custom-keys --custom-key "<header>=<key>"`. Then
+   `azd ai toolbox connection add contracts-toolbox <connection>` and
+   `azd ai toolbox publish contracts-toolbox <version>`.
+2. For an IQ lane, add a local `<source>_iq_*` wrapper that calls
+   `toolbox.call_toolbox_tool` (see `webiq.py`) so spans carry the IQ kind.
+   For a non-IQ lane, add its exact MCP tool names (from `tools/list`) to
+   `CONTRACTS_TOOLBOX_TOOLS` in `agent/toolsets.py`; Castia preflights them and
+   projects them as `toolbox`-typed tools. Redeploy either way.
+
+WebIQ is lane `contracts-webiq-mcp` (`https://api.microsoft.ai/v3/mcp`). Its
+API key lives only in that project connection; the toolbox sends it as
+`x-apikey`. The model sees `web_iq_search` (web or news) and `web_iq_browse`.
+Rotate the key with `azd ai connection create contracts-webiq-mcp ... --force`;
+no redeploy is needed.
+
+Agentic-user Graph tools (mail, OneDrive) stay local: they need the Teams
+turn's agentic user token, which a toolbox call does not carry.
 
 ### IQ tool telemetry
 
@@ -101,8 +142,9 @@ the tool:
 | `gen_ai.tool.type` | Tools |
 | --- | --- |
 | `foundry_iq` | `foundry_iq_retrieve` |
+| `web_iq` | `web_iq_search`, `web_iq_browse` |
 | `work_iq` | `read_inbox`, `send_email`, `reply_email`, `create_document` (Activity only) |
-| `function` | Waypoint API and local tools (`poll_contracts_inbox`, `get_last_contract`, `draft_contract_report`, `query_invoices`, diagnostics) |
+| `function` | Waypoint API and local tools (`poll_contracts_inbox`, `get_last_contract`, `draft_contract_report`, `draft_invoice_review`, `query_invoices`, diagnostics) |
 
 **Adding an IQ-backed tool:** give it both IQ monikers so telemetry shows its
 source.
@@ -137,22 +179,29 @@ playground can exercise the flow without the future API:
 - `poll_contracts_inbox` reads `fixtures/contracts/aster-ridge-sow.pdf` and
   seeds a mock Aster Ridge contract artifact.
 - `get_last_contract` resolves that mock artifact.
-- `draft_contract_report` writes local DOCX and Markdown report artifacts under
-  `.contracts-state/reports/`; DOCX is the primary `file_url`. If
-  `CONTRACTS_REPORTS_DRIVE_ID` and `CONTRACTS_REPORTS_FOLDER_ITEM_ID` are set,
-  it uploads the DOCX to the agent-owned SharePoint folder, creates a view link,
-  and returns `teams_link_url` for the Teams response.
+- `draft_contract_report` takes report Markdown written by the model
+  (`markdown`, `title`), renders it to DOCX with quilldown, and keeps both
+  under `.contracts-state/reports/`. Without `markdown` it renders a minimal
+  metadata summary. DOCX is the primary `file_url`.
 - `query_invoices` requires `WAYPOINT_API_BASE_URL`; it is intentionally
   API-backed so Flow 2 conversations use seeded/live Waypoint data.
 
-Report publishing uses `report_publisher.py`:
+Report publishing uses `report_publisher.py`. `CONTRACTS_REPORTS_PUBLISH_MODE`
+is `auto` (default), `local`, `onedrive`, or `sharepoint`:
 
-- local mode returns a `file://` DOCX URL plus Markdown sidecar for dev smoke
-  tests.
+| Mode | When `auto` picks it | Result |
+|---|---|---|
+| `onedrive` | Activity turn with an agentic user (Teams / M365) | DOCX uploaded to the agent's own OneDrive (`/me/drive`, folder `CONTRACTS_REPORTS_ONEDRIVE_FOLDER`, default `Contracts Reports`) and shared with the requester's Entra object id (`CONTRACTS_REPORTS_SHARE_ROLE`, default `read`; no invitation email) |
+| `sharepoint` | Drive and folder ids are set | DOCX uploaded to the agent-owned SharePoint folder with an organization view link |
+| `local` | Otherwise (Responses / playground turns) | `file://` DOCX URL plus Markdown sidecar |
+
+OneDrive uses the agentic user token and the consented `Files.ReadWrite` scope.
+`/responses` turns carry no Activity, so they never publish to OneDrive.
+
 - SharePoint mode uploads the DOCX with Microsoft Graph using the hosted
   identity and creates an organization view link. Required environment:
   `CONTRACTS_REPORTS_DRIVE_ID` and `CONTRACTS_REPORTS_FOLDER_ITEM_ID`.
-- The tool does not silently fall back if SharePoint upload is configured and
+- The tool does not silently fall back if OneDrive or SharePoint upload
   fails; it returns `status: report_publish_failed` so the Teams answer does not
   claim a document was shared.
 
@@ -300,6 +349,39 @@ The Microsoft 365 admin center shows these permissions during the **Pending
 activate** approval wizard. They define the agent user's allowed M365 surface;
 the Contracts-specific intake/report tools still stay in local fixture / future
 API mode until the Waypoint Contracts intake and report APIs are implemented.
+
+## Runtime identities and roles
+
+The agent runs under two identities. Both need **Foundry User** at Foundry
+project scope (`AZURE_AI_PROJECT_ID`) and the **`Waypoint.Write`** app role on
+the Waypoint API app registration (`WAYPOINT_API_SCOPE`; writer implies reader).
+Without Foundry User, `/version` falls back to the configured version with
+`foundry_agent_version_error: HTTP 403`, and toolbox calls fail. Without the
+Waypoint role, API tools fail with `AADSTS501051` (the API app requires role
+assignment).
+
+| Identity | Used for | azd env var |
+| --- | --- | --- |
+| Hosted instance identity | Responses / Invocations turns | `AGENT_CONTRACTS_INSTANCE_IDENTITY_PRINCIPAL_ID` (set by `azd deploy`) |
+| Agent 365 agent identity | Teams / Activity turns | `CONTRACTS_MAILBOX_AGENT_ID` (set once the agent is hired in Teams) |
+
+`azd ai agent show contracts` and `GET /agents/contracts` report only the
+instance identity. On Teams turns the runtime calls as the Agent 365 identity,
+whose object id `/version` shows as `hosted_instance_client_id`.
+
+`scripts/grant-runtime-roles.ps1` grants both identities their roles; grants
+that already exist are skipped. It is a manual step today (candidate for a
+`contracts` postdeploy hook). The person running it needs Owner or User Access
+Administrator on the project. After a deploy or after hiring a new agent:
+
+```powershell
+azd env set CONTRACTS_MAILBOX_AGENT_ID <agent-365-object-id>
+pwsh modules/agents/contracts/scripts/grant-runtime-roles.ps1
+```
+
+Role changes take 5–10 minutes to propagate. Hosted sessions stay on the
+version they were created with; `azd ai agent sessions list --agent-name
+contracts` shows which version each session runs.
 
 ## Local development
 
