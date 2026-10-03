@@ -342,9 +342,12 @@ API mode until the Waypoint Contracts intake and report APIs are implemented.
 ## Runtime identities and roles
 
 The agent runs under two identities. Both need **Foundry User** at Foundry
-project scope (`AZURE_AI_PROJECT_ID`). Without it, `/version` falls back to the
-configured version with `foundry_agent_version_error: HTTP 403`, and calls to
-the project toolbox fail.
+project scope (`AZURE_AI_PROJECT_ID`) and the **`Waypoint.Write`** app role on
+the Waypoint API app registration (`WAYPOINT_API_SCOPE`; writer implies reader).
+Without Foundry User, `/version` falls back to the configured version with
+`foundry_agent_version_error: HTTP 403`, and toolbox calls fail. Without the
+Waypoint role, API tools fail with `AADSTS501051` (the API app requires role
+assignment).
 
 | Identity | Used for | azd env var |
 | --- | --- | --- |
