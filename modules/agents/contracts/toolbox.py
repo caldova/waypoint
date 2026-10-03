@@ -94,22 +94,23 @@ def _runtime_parameters(optimized: object | None) -> dict[str, Any]:
 
 async def _call_foundryiq_toolbox(activity: Any, *, query: str) -> dict[str, Any]:
     del activity
-    endpoint = resolve_toolbox_endpoint()
-    if not endpoint:
-        return {"ok": False, "error": "FoundryIQ toolbox endpoint is not configured."}
-
     cleaned = str(query or "").strip()
     if not cleaned:
         return {"ok": False, "error": "query is required."}
+    return await call_toolbox_tool(_KB_TOOL_NAME, {"query_variants": [cleaned[:400]]})
+
+
+async def call_toolbox_tool(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+    """Call one contracts-toolbox MCP tool; errors are returned, not raised."""
+    endpoint = resolve_toolbox_endpoint()
+    if not endpoint:
+        return {"ok": False, "error": "Contracts toolbox endpoint is not configured."}
 
     payload = {
         "jsonrpc": "2.0",
         "id": str(uuid.uuid4()),
         "method": "tools/call",
-        "params": {
-            "name": _KB_TOOL_NAME,
-            "arguments": {"query_variants": [cleaned[:400]]},
-        },
+        "params": {"name": name, "arguments": arguments},
     }
     headers = {
         "Authorization": "Bearer " + await toolbox_token(),

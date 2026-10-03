@@ -98,11 +98,22 @@ mode can still run without the toolbox endpoint.
 
 To add a lane (WorkIQ, WebIQ, FabricIQ, ...):
 
-1. `azd ai toolbox connection add contracts-toolbox <connection>`, then
+1. Store any credential in a Foundry project connection (never in the repo or
+   agent env), e.g. `azd ai connection create <connection> --kind remote-tool
+   --auth-type custom-keys --custom-key "<header>=<key>"`. Then
+   `azd ai toolbox connection add contracts-toolbox <connection>` and
    `azd ai toolbox publish contracts-toolbox <version>`.
-2. Add the lane's exact MCP tool names (from `tools/list`) to
-   `CONTRACTS_TOOLBOX_TOOLS` in `agent/toolsets.py` and redeploy. Castia
-   preflights them and projects them to the model as `toolbox`-typed tools.
+2. For an IQ lane, add a local `<source>_iq_*` wrapper that calls
+   `toolbox.call_toolbox_tool` (see `webiq.py`) so spans carry the IQ kind.
+   For a non-IQ lane, add its exact MCP tool names (from `tools/list`) to
+   `CONTRACTS_TOOLBOX_TOOLS` in `agent/toolsets.py`; Castia preflights them and
+   projects them as `toolbox`-typed tools. Redeploy either way.
+
+WebIQ is lane `contracts-webiq-mcp` (`https://api.microsoft.ai/v3/mcp`). Its
+API key lives only in that project connection; the toolbox sends it as
+`x-apikey`. The model sees `web_iq_search` (web or news) and `web_iq_browse`.
+Rotate the key with `azd ai connection create contracts-webiq-mcp ... --force`;
+no redeploy is needed.
 
 Agentic-user Graph tools (mail, OneDrive) stay local: they need the Teams
 turn's agentic user token, which a toolbox call does not carry.
@@ -115,6 +126,7 @@ the tool:
 | `gen_ai.tool.type` | Tools |
 | --- | --- |
 | `foundry_iq` | `foundry_iq_retrieve` |
+| `web_iq` | `web_iq_search`, `web_iq_browse` |
 | `work_iq` | `read_inbox`, `send_email`, `reply_email`, `create_document` (Activity only) |
 | `function` | Waypoint API and local tools (`poll_contracts_inbox`, `get_last_contract`, `draft_contract_report`, `query_invoices`, diagnostics) |
 
