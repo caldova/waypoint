@@ -27,6 +27,7 @@ class ContractAttachment:
     original_file_uri: str
     source_mode: str
     pdf_bytes: bytes
+    source: str = "email"
 
 
 def _usable_env(name: str) -> str | None:
@@ -205,6 +206,135 @@ class HostedMailboxContractSource:
                         )
                     )
         return found
+
+
+_TEAMS_FILE = "application/vnd.microsoft.teams.file.download.info"
+
+
+def activity_attachments(activity: object) -> list[dict]:
+    """Raw inbound attachments on a Teams activity (kept as wire extras by the model)."""
+    raw = getattr(activity, "activity", activity)
+    value = getattr(raw, "attachments", None)
+    if value is None:
+        extra = getattr(raw, "model_extra", None) or {}
+        value = extra.get("attachments")
+    return [item for item in value or [] if isinstance(item, dict)]
+
+
+def _attachment_name(item: dict) -> str:
+    return str(item.get("name") or (item.get("content") or {}).get("name") or "")
+
+
+def is_pdf_activity_attachment(item: dict) -> bool:
+    content_type = str(item.get("contentType") or "")
+    if content_type == "application/pdf":
+        return True
+    if content_type == _TEAMS_FILE:
+        file_type = str((item.get("content") or {}).get("fileType") or "").lower()
+        return file_type == "pdf" or _attachment_name(item).lower().endswith(".pdf")
+    return False
+
+
+async def teams_attachments(
+    activity: object,
+    *,
+    token: str,
+    owner: str,
+    artifact_type: str | None = None,
+) -> list[ContractAttachment]:
+    """Download PDF files the user attached to this Teams message.
+
+    Teams file uploads arrive as ``file.download.info`` with a short-lived,
+    pre-authenticated ``downloadUrl``. Inline ``application/pdf`` attachments
+    with a SharePoint/OneDrive ``contentUrl`` are fetched via Graph ``/shares``
+    with the hire's delegated token.
+    """
+    import base64
+
+    import httpx
+    from castia.hosting.credentials import bearer
+
+    async def _guard(request: httpx.Request) -> None:
+        # Every hop, including redirects, must stay on Graph or tenant SharePoint over HTTPS.
+        if not _trusted_file_url(str(request.url)):
+            raise ValueError(f"Refusing to fetch attachment from {request.url.host!r}.")
+
+    raw = getattr(activity, "activity", activity)
+    activity_id = str(getattr(raw, "id", "") or "teams-message")
+    conversation = getattr(getattr(raw, "conversation", None), "id", None) or "teams"
+    found: list[ContractAttachment] = []
+    async with httpx.AsyncClient(
+        timeout=60.0, follow_redirects=True, event_hooks={"request": [_guard]}
+    ) as client:
+        for index, item in enumerate(activity_attachments(activity)):
+            if not is_pdf_activity_attachment(item):
+                continue
+            content = item.get("content") or {}
+            if item.get("contentType") == _TEAMS_FILE and content.get("downloadUrl"):
+                url, headers = str(content["downloadUrl"]), {}
+            elif item.get("contentUrl") and _trusted_file_url(str(item["contentUrl"])):
+                share_url = str(item["contentUrl"])
+                share = "u!" + base64.urlsafe_b64encode(share_url.encode()).decode().rstrip("=")
+                url = f"{_GRAPH}/shares/{share}/driveItem/content"
+                headers = {"Authorization": bearer(token)}
+            else:
+                continue
+            pdf_bytes = await _bounded_download(client, url, headers)
+            if not pdf_bytes.startswith(b"%PDF"):
+                raise ValueError(f"Attachment {_attachment_name(item)!r} is not a PDF.")
+            name = _attachment_name(item) or f"attachment-{index}.pdf"
+            attachment_id = str(content.get("uniqueId") or f"{index}-{name}")
+            found.append(
+                ContractAttachment(
+                    mailbox_id=f"teams:{conversation}",
+                    message_id=activity_id,
+                    attachment_id=attachment_id,
+                    sender=owner,
+                    owner_user_id=owner,
+                    subject=name,
+                    artifact_type=_classify(artifact_type, "", name),
+                    file_name=name,
+                    content_type="application/pdf",
+                    sha256=hashlib.sha256(pdf_bytes).hexdigest(),
+                    size_bytes=len(pdf_bytes),
+                    original_file_uri=str(item.get("contentUrl") or content.get("downloadUrl") or name).split("?")[0],
+                    source_mode="teams_upload",
+                    pdf_bytes=pdf_bytes,
+                    source="teams_upload",
+                )
+            )
+    return found
+
+
+_MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024
+
+
+def _trusted_file_url(url: str) -> bool:
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(url)
+    host = (parts.hostname or "").lower()
+    return parts.scheme == "https" and (
+        host == "graph.microsoft.com" or host.endswith(".sharepoint.com")
+    )
+
+
+async def _bounded_download(client: object, url: str, headers: dict[str, str]) -> bytes:
+    async with client.stream("GET", url, headers=headers) as resp:  # type: ignore[attr-defined]
+        if resp.status_code >= 400:
+            await resp.aread()
+            _raise_for_graph(resp, "download Teams attachment")
+        declared = int(resp.headers.get("content-length") or 0)
+        if declared > _MAX_ATTACHMENT_BYTES:
+            raise ValueError(f"Attachment is larger than {_MAX_ATTACHMENT_BYTES} bytes.")
+        chunks: list[bytes] = []
+        total = 0
+        async for chunk in resp.aiter_bytes():
+            total += len(chunk)
+            if total > _MAX_ATTACHMENT_BYTES:
+                raise ValueError(f"Attachment is larger than {_MAX_ATTACHMENT_BYTES} bytes.")
+            chunks.append(chunk)
+    return b"".join(chunks)
 
 
 def _allowed_sender_domains(mailbox_id: str) -> set[str]:

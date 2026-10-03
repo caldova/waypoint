@@ -25,6 +25,7 @@ from contract_sources import (
     ContractAttachment,
     HostedMailboxContractSource,
     contract_source,
+    teams_attachments,
 )
 from dotenv import load_dotenv
 from report_publisher import report_publisher, sharepoint_report_publishing_configured
@@ -720,6 +721,7 @@ async def _poll_contracts_inbox_impl(
     client = _WaypointContractsClient()
     source = contract_source()
     requester: str | None = None
+    mailbox_error: str | None = None
     try:
         if isinstance(source, HostedMailboxContractSource):
             if not has_agentic_user_identity(activity):
@@ -734,13 +736,21 @@ async def _poll_contracts_inbox_impl(
                 }
             token = await agentic_graph_token(activity)
             requester = await requester_email(activity, token)
-            attachments = await source.recent_attachments(
-                token=token,
-                mailbox_id=_contracts_inbox(),
-                lookback_minutes=lookback_minutes,
-                artifact_type=artifact_type,
-                sender=requester,
+            attachments = await teams_attachments(
+                activity, token=token, owner=requester, artifact_type=artifact_type
             )
+            try:
+                attachments += await source.recent_attachments(
+                    token=token,
+                    mailbox_id=_contracts_inbox(),
+                    lookback_minutes=lookback_minutes,
+                    artifact_type=artifact_type,
+                    sender=requester,
+                )
+            except Exception as exc:  # still ingest a Teams attachment if the mailbox read fails
+                if not attachments:
+                    raise
+                mailbox_error = f"{type(exc).__name__}: {exc}"
         else:
             attachments = [
                 source.next_contract(
@@ -781,6 +791,15 @@ async def _poll_contracts_inbox_impl(
         "processed_count": len(processed),
         "results": results,
     }
+    if mailbox_error:
+        response["ok"] = False
+        response["mailbox_error"] = mailbox_error
+        response["note"] = "Teams attachments were processed, but the mailbox could not be read."
+    if processed:
+        response["next_step"] = (
+            "Review each processed artifact now: find_prior_contracts, foundry_iq_retrieve for "
+            "policy, then record_contract_findings, and summarize the findings for the user."
+        )
     _telemetry_event(
         "contracts_inbox_poll_completed",
         status=response["status"],
@@ -811,7 +830,7 @@ async def _ingest_attachment(
         "sender": attachment.sender,
         "owner_user_id": attachment.owner_user_id,
         "subject": attachment.subject,
-        "source": "email",
+        "source": attachment.source,
         "attachments": [
             {
                 "attachment_id": attachment.attachment_id,
@@ -878,7 +897,9 @@ async def _ingest_attachment(
             },
         },
     )
-    for evidence in _mock_artifact(attachment.owner_user_id, attachment, extracted)["evidence"]:
+    # Hosted findings are recorded by the review (record_contract_findings), not mocked here.
+    mock_evidence = _mock_artifact(attachment.owner_user_id, attachment, extracted)["evidence"] if fixture else []
+    for evidence in mock_evidence:
         await client.request(
             "POST",
             f"/api/contracts/artifacts/{artifact_id}/evidence",
@@ -943,6 +964,145 @@ async def _get_last_contract_impl(
         "artifact": latest,
         "artifact_detail": detail,
     }
+
+
+async def _find_prior_contracts_impl(
+    activity: Any,
+    *,
+    artifact_id: str = "",
+    artifact_type: str | None = None,
+    supplier: str = "",
+    limit: int = 5,
+) -> dict[str, Any]:
+    artifact_type = _artifact_type_filter(_coerce_artifact_type(artifact_type))
+    limit = max(1, min(int(limit or 5), 10))
+    needle = supplier.strip().lower()
+    if _local_fixture_enabled():
+        artifacts = [
+            item
+            for item in _load_state().get("artifacts", [])
+            if item.get("type") == artifact_type
+        ]
+        owner = None
+        source = "local_fixture"
+    else:
+        owner = await _turn_owner(activity) or _contracts_owner()
+        try:
+            listed = await _WaypointContractsClient().request(
+                "GET",
+                "/api/contracts/artifacts",
+                params={"owner_user_id": owner, "artifact_type": artifact_type, "limit": 25},
+            )
+        except Exception as exc:  # noqa: BLE001 - an older API without the list route should not stop a review
+            return {
+                "ok": False,
+                "status": "prior_unavailable",
+                "error": f"{type(exc).__name__}: {exc}"[:300],
+                "note": "Prior artifacts could not be listed; review without a comparison.",
+            }
+        artifacts = listed if isinstance(listed, list) else []
+        source = "api"
+
+    prior = []
+    for item in artifacts:
+        if item.get("id") == artifact_id:
+            continue
+        values = item.get("extracted_json") or {}
+        if needle and needle not in json.dumps(values).lower() and needle not in str(
+            item.get("subject") or item.get("title") or ""
+        ).lower():
+            continue
+        prior.append(
+            {
+                "id": item.get("id"),
+                "subject": item.get("subject") or item.get("title"),
+                "file_name": item.get("file_name") or (item.get("metadata") or {}).get("source_file_name"),
+                "received_at": item.get("received_at") or item.get("created_at"),
+                "extraction_status": item.get("extraction_status"),
+                "extracted_json": values,
+            }
+        )
+        if len(prior) >= limit:
+            break
+    return {
+        "ok": True,
+        "status": source,
+        "owner_user_id": owner,
+        "artifact_type": artifact_type,
+        "supplier_filter": needle or None,
+        "prior_count": len(prior),
+        "prior": prior,
+        "note": "Compare extracted terms only; cite FoundryIQ for what any contract or policy means.",
+    }
+
+
+_FINDING_SOURCES = {"foundryiq", "webiq", "workiq", "fabriciq", "waypoint", "user_file"}
+
+
+async def _record_contract_findings_impl(
+    activity: Any,
+    *,
+    artifact_id: str = "",
+    findings: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    cleaned = []
+    for finding in (findings or [])[:10]:
+        claim = str(finding.get("claim") or "").strip()
+        citation = str(finding.get("citation") or "").strip()
+        source_type = str(finding.get("source_type") or "").strip().lower()
+        if not claim or not citation or source_type not in _FINDING_SOURCES:
+            continue
+        confidence = finding.get("confidence")
+        cleaned.append(
+            {
+                "source_type": source_type,
+                "claim": claim,
+                "citation": citation,
+                "confidence": max(0.0, min(float(confidence), 1.0))
+                if isinstance(confidence, (int, float))
+                else None,
+                "metadata": {
+                    "severity": str(finding.get("severity") or "info"),
+                    "recorded_by": "contracts-agent-review",
+                },
+            }
+        )
+    if not artifact_id or not cleaned:
+        return {
+            "ok": False,
+            "status": "invalid_findings",
+            "note": "Need artifact_id and findings with claim, citation, and a known source_type.",
+        }
+    if _local_fixture_enabled():
+        return {
+            "ok": True,
+            "status": "local_fixture",
+            "artifact_id": artifact_id,
+            "recorded_count": 0,
+            "findings": cleaned,
+            "note": "Local fixture mode; findings were not written to Waypoint.",
+        }
+
+    client = _WaypointContractsClient()
+    expected_owner = (await _turn_owner(activity) or _contracts_owner()).lower()
+    detail = await client.request("GET", f"/api/contracts/artifacts/{artifact_id}")
+    assert isinstance(detail, dict)
+    owner = str((detail.get("artifact") or {}).get("owner_user_id") or "").lower()
+    if owner != expected_owner:
+        raise RuntimeError("That artifact does not belong to the requester.")
+    for body in cleaned:
+        await client.request(
+            "POST", f"/api/contracts/artifacts/{artifact_id}/evidence", json_body=body
+        )
+    await client.request(
+        "PATCH",
+        f"/api/contracts/artifacts/{artifact_id}",
+        json_body={"processing_status": "processed", "metadata": {"reviewed_at": _now()}},
+    )
+    _telemetry_event(
+        "contracts_findings_recorded", artifact_id=artifact_id, recorded_count=len(cleaned)
+    )
+    return {"ok": True, "status": "api", "artifact_id": artifact_id, "recorded_count": len(cleaned)}
 
 
 async def _draft_contract_report_impl(
@@ -1326,8 +1486,9 @@ def contracts_tools() -> list[Tool]:
         Tool(
             name="poll_contracts_inbox",
             description=(
-                "Check whether the user has emailed PDFs to the contracts inbox and register "
-                "them in Waypoint. Use when the user says they sent or emailed a contract or "
+                "Check for PDFs the user sent and register them in Waypoint: PDFs attached to "
+                "the current Teams message, plus PDFs they emailed to the contracts inbox. Use "
+                "when the user attaches a PDF, says they sent or emailed a contract or "
                 "invoice, or asks whether the agent got their email. Hosted (Teams only), it "
                 "reads the agent's own mailbox for messages from the asking user over the "
                 "lookback window and extracts only new attachments (intake is idempotent). "
@@ -1375,6 +1536,68 @@ def contracts_tools() -> list[Tool]:
                 "additionalProperties": False,
             },
             impl=_get_last_contract_impl,
+        ),
+        Tool(
+            name="find_prior_contracts",
+            description=(
+                "List the requester's earlier contract (or invoice) artifacts with their "
+                "extracted terms, newest first, excluding artifact_id. Use during a review to "
+                "compare a newly ingested document against prior ones from the same supplier."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "artifact_id": {
+                        "type": "string",
+                        "description": "The artifact under review; it is excluded from results.",
+                    },
+                    "artifact_type": {"type": "string", "enum": ["contract", "invoice"]},
+                    "supplier": {
+                        "type": "string",
+                        "description": "Optional supplier/counterparty name to match in extracted terms.",
+                    },
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 10},
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+            impl=_find_prior_contracts_impl,
+        ),
+        Tool(
+            name="record_contract_findings",
+            description=(
+                "Record review findings as evidence on an artifact and mark it processed. "
+                "Each finding needs a claim, a citation (FoundryIQ source, prior artifact id, "
+                "or URL), and source_type. Only record findings you can cite."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "artifact_id": {"type": "string"},
+                    "findings": {
+                        "type": "array",
+                        "maxItems": 10,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "claim": {"type": "string"},
+                                "citation": {"type": "string"},
+                                "source_type": {
+                                    "type": "string",
+                                    "enum": sorted(_FINDING_SOURCES),
+                                },
+                                "severity": {"type": "string", "enum": ["info", "warning", "issue"]},
+                                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                            },
+                            "required": ["claim", "citation", "source_type"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["artifact_id", "findings"],
+                "additionalProperties": False,
+            },
+            impl=_record_contract_findings_impl,
         ),
         Tool(
             name="draft_contract_report",

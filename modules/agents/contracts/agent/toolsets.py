@@ -18,8 +18,9 @@ from webiq import webiq_tools
 # New IQ-backed tools must set kind="<source>_iq" and use a "<source>_iq_" name
 # prefix so the span name shows the IQ source (see README "IQ tool telemetry").
 WORK_IQ = "work_iq"
-# Report turns gather (contract, invoices, KB, web) then draft; leave room for one retry.
-MAX_TOOL_ITERATIONS = 6
+# Review turns run poll -> prior contracts -> KB (1-2) -> record findings; reports
+# gather then draft. Leave room for one retry.
+MAX_TOOL_ITERATIONS = 8
 # contracts-toolbox MCP tools projected straight to the model (exact names from
 # tools/list). IQ lanes (KB, WebIQ) are excluded: they run through local
 # <source>_iq_* wrappers so spans carry the IQ kind. Empty keeps projection off;

@@ -44,6 +44,15 @@ routine cannot do this yet: only Agent 365
 turns bind the hosted credential to the hired instance that owns the mailbox, so
 off Teams the tool returns `needs_teams_turn`.
 
+Users can also attach a PDF to the Teams message itself; the same tool downloads
+it (Teams `file.download.info`) and registers it with `source: teams_upload`.
+
+After ingest the agent reviews each new document in the same turn: it lists the
+user's prior artifacts (`find_prior_contracts`, backed by
+`GET /api/contracts/artifacts`), checks policy with FoundryIQ, records cited
+findings as evidence (`record_contract_findings`), and marks the artifact
+processed. Hosted ingest no longer writes placeholder evidence.
+
 In the local playground, ask about an emailed contract to run the fixture inbox
 path. Pass `artifact_type: "invoice"` to force the agent-local invoice fixture.
 
