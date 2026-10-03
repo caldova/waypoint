@@ -23,6 +23,12 @@ from agent.domain.invoice_review import (
     invoice_findings,
     money_at_risk,
 )
+from agent.domain.turn_status import (
+    CHECKING_INVOICES,
+    checking_invoice,
+    creating_review_document,
+    report_status,
+)
 from agent.integrations.activity_identity import has_agentic_user_identity
 from agent.integrations.requester import agentic_graph_token, requester_email
 from azure.identity.aio import DefaultAzureCredential
@@ -452,7 +458,7 @@ class _WaypointContractsClient:
             )
         if response.is_error:
             raise RuntimeError(
-                f"Waypoint {method} {path} failed with HTTP {response.status_code}: "
+                f"Caldova {method} {path} failed with HTTP {response.status_code}: "
                 f"{response.text[:500]}"
             )
         if not response.content:
@@ -471,7 +477,7 @@ async def _get_contracts_capabilities_impl(activity: Any) -> dict[str, Any]:
             "activity protocol for Teams-style chat",
             "invocations protocol for structured routine and agent-to-agent work commands",
             (
-                "Waypoint Contracts API tools"
+                "Caldova Contracts API tools"
                 if _waypoint_base_url()
                 else "local fixture tools for no-API playground testing"
             ),
@@ -952,7 +958,7 @@ async def _get_last_contract_impl(
             "ok": True,
             "status": "local_fixture",
             "artifact": artifact,
-            "note": "Local fixture mode only; this is not live Waypoint data.",
+            "note": "Local fixture mode only; this is not live Caldova data.",
         }
 
     client = _WaypointContractsClient()
@@ -1087,7 +1093,7 @@ async def _record_contract_findings_impl(
             "artifact_id": artifact_id,
             "recorded_count": 0,
             "findings": cleaned,
-            "note": "Local fixture mode; findings were not written to Waypoint.",
+            "note": "Local fixture mode; findings were not written to Caldova.",
         }
 
     client = _WaypointContractsClient()
@@ -1310,7 +1316,7 @@ async def _draft_contract_report_impl(
             "markdown": rendered.markdown_path.as_uri(),
         },
         "note": (
-            "Waypoint API recorded the DOCX report. "
+            "Caldova API recorded the DOCX report. "
             f"Publication storage: {publication['storage']}."
         ),
     }
@@ -1382,7 +1388,7 @@ async def _query_invoices_impl(
             "ok": False,
             "status": "waypoint_api_required",
             "note": (
-                "Invoice queries use the Waypoint records/work APIs; set "
+                "Invoice queries use the Caldova records/work APIs; set "
                 "WAYPOINT_API_BASE_URL to query seeded Aspire data."
             ),
         }
@@ -1403,6 +1409,9 @@ async def _query_invoices_impl(
     selected_id = invoice_id.strip()
     if selected_id and not _valid_invoice_id(selected_id):
         return {"ok": False, "status": "invalid_invoice_id", "invoice_id": selected_id}
+    await report_status(
+        checking_invoice(selected_id) if selected_id else CHECKING_INVOICES
+    )
 
     if not selected_id:
         params = {
@@ -1452,7 +1461,7 @@ async def _query_invoices_impl(
         "invoices": [_summarize_invoice_detail(detail) for detail in details],
         "context": context,
         "note": (
-            "Invoice data came from the Waypoint records/work APIs. Contract, policy, "
+            "Invoice data came from the Caldova records/work APIs. Contract, policy, "
             "and evidence text in context is API-backed; live contract/policy "
             "interpretation should still be grounded through the FoundryIQ toolbox."
         ),
@@ -1475,6 +1484,7 @@ async def _draft_invoice_review_impl(
     invoice_id: str = "",
     summary: str = "",
     recommendation: str = "",
+    next_steps: list[str] | str | None = None,
     title: str = "",
 ) -> dict[str, Any]:
     selected_id = invoice_id.strip()
@@ -1488,6 +1498,7 @@ async def _draft_invoice_review_impl(
             "status": "waypoint_api_required",
             "note": "Invoice review documents need WAYPOINT_API_BASE_URL.",
         }
+    await report_status(creating_review_document(selected_id))
 
     client = _WaypointContractsClient()
     try:
@@ -1522,6 +1533,9 @@ async def _draft_invoice_review_impl(
             context,
             summary=summary,
             recommendation=recommendation,
+            next_steps=(
+                [next_steps] if isinstance(next_steps, str) else list(next_steps or [])
+            ),
             prepared_on=_now()[:10],
         ),
         output_dir=_state_dir() / "reports",
@@ -1587,7 +1601,7 @@ def contracts_tools() -> list[Tool]:
             name="get_contracts_capabilities",
             description=(
                 "Report what the Contracts agent can do now and whether it is using the "
-                "Waypoint Contracts API or local fixture mode."
+                "Caldova Contracts API or local fixture mode."
             ),
             parameters={
                 "type": "object",
@@ -1615,7 +1629,7 @@ def contracts_tools() -> list[Tool]:
         Tool(
             name="poll_contracts_inbox",
             description=(
-                "Check for PDFs the user sent and register them in Waypoint: PDFs attached to "
+                "Check for PDFs the user sent and register them in Caldova: PDFs attached to "
                 "the current Teams message, plus PDFs they emailed to the contracts inbox. Use "
                 "when the user attaches a PDF, says they sent or emailed a contract or "
                 "invoice, or asks whether the agent got their email. Hosted (Teams only), it "
@@ -1646,7 +1660,7 @@ def contracts_tools() -> list[Tool]:
             name="get_last_contract",
             description=(
                 "Resolve the latest contract artifact for the signed-in user or supplied "
-                "owner_user_id, using the Waypoint Contracts API when configured."
+                "owner_user_id, using the Caldova Contracts API when configured."
             ),
             parameters={
                 "type": "object",
@@ -1774,30 +1788,40 @@ def contracts_tools() -> list[Tool]:
             name="draft_invoice_review",
             description=(
                 "Create a Word review document for one invoice and share it with the "
-                "requesting user. The tool pulls the invoice, findings, money at risk, and "
-                "grounding from Waypoint itself; you only write the summary and the "
-                "recommendation. Use when the user asks for a review document for an invoice."
+                "requesting user. The tool pulls the invoice, line items, findings, money "
+                "at risk, governing contract and policy clauses, and evidence from Caldova "
+                "itself; you only write the summary, the recommendation, and next steps. "
+                "Use when the user asks for a review document for an invoice."
             ),
             parameters={
                 "type": "object",
                 "properties": {
                     "invoice_id": {
                         "type": "string",
-                        "description": "Waypoint invoice id, for example INV-2026-08034.",
+                        "description": "Caldova invoice id, for example INV-2026-08034.",
                     },
                     "summary": {
                         "type": "string",
                         "description": (
-                            "Two to four sentences in Markdown: what is going on with the "
-                            "invoice and why it matters. Ground contract claims in "
-                            "foundry_iq_retrieve results."
+                            "Executive summary, two to four sentences in Markdown: what "
+                            "happened on this invoice, why it matters, and how much is at "
+                            "stake. Ground contract claims in foundry_iq_retrieve results."
                         ),
                     },
                     "recommendation": {
                         "type": "string",
                         "description": (
-                            "Recommended disposition and next steps in Markdown "
-                            "(pay, hold, short-pay, recover, escalate), with owners if known."
+                            "One short paragraph in Markdown: the recommended disposition "
+                            "(pay, hold, short-pay, recover, escalate) and why."
+                        ),
+                    },
+                    "next_steps": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "Three to five concrete actions for the reviewer, each one "
+                            "sentence, with an owner role when known (for example "
+                            "'AP: short-pay the invoice by $111,000.00')."
                         ),
                     },
                     "title": {"type": "string", "description": "Optional document title."},
@@ -1810,7 +1834,7 @@ def contracts_tools() -> list[Tool]:
         Tool(
             name="query_invoices",
             description=(
-                "Query seeded or live invoice data through the Waypoint records/work APIs. "
+                "Query seeded or live invoice data through the Caldova records/work APIs. "
                 "Use this for conversation about prior invoices, findings, evidence, and invoice context."
             ),
             parameters={

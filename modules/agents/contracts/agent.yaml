@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
 kind: hosted
 name: contracts
-description: Teams-first contract intake and evidence autopilot for Waypoint.
+description: Teams-first contract intake and evidence autopilot for Caldova.
 protocols:
   - protocol: responses
     version: 2.0.0

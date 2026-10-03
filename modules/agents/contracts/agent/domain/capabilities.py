@@ -26,7 +26,7 @@ def capabilities_response(*, activity: Any = None) -> str:
     )
     return (
         "I can help with contract and invoice intake workflows without pretending "
-        "the unfinished Waypoint APIs are live.\n\n"
+        "the unfinished Caldova APIs are live.\n\n"
         "**Good paths to try now**\n"
         "- Ask what the agent can do and what is still stubbed.\n"
         "- Ask for **latest invoices** to see the fixture summary pattern.\n"

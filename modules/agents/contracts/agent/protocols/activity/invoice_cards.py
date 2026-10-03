@@ -65,7 +65,7 @@ def invoice_list_card(
     shown = invoices[:MAX_LIST_ROWS]
     total_at_risk = sum((_at_risk(item) for item in shown), Decimal(0))
     currency = _currency(shown[0])
-    subtitle = f"{len(shown)} of {match_count or len(shown)} from Waypoint"
+    subtitle = f"{len(shown)} of {match_count or len(shown)} from Caldova"
     if total_at_risk:
         subtitle += f" · {_money(total_at_risk, currency)} at risk"
     body: list[dict[str, Any]] = [

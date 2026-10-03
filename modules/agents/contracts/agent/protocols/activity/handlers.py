@@ -7,6 +7,7 @@ from contract_sources import activity_attachments, is_pdf_activity_attachment
 
 from agent.domain.invoice_capture import capture_invoice_results
 from agent.domain.modes import respond_with_mode
+from agent.domain.turn_status import initial_status, status_reporter
 from agent.protocols.activity.cards import attachments_for_mode
 from agent.protocols.activity.invoice_cards import invoice_attachments
 from agent.protocols.activity.responding import start_activity_status
@@ -37,11 +38,16 @@ def _with_attachment_note(text: str, activity: object) -> str:
 def register_activity(app: Agent, toolsets: Toolsets) -> None:
     @app.activity(Teams.direct, Teams.group, Teams.channel_mention)
     async def ask(msg: Message) -> None:
-        working = await start_activity_status(msg, status="Checking Contracts...")
+        working = await start_activity_status(
+            msg, status=initial_status(msg.text or "")
+        )
         activity = msg.activity
         text = _with_invoice_card_note(_with_attachment_note(msg.text or "", activity))
         try:
-            with capture_invoice_results() as invoice_results:
+            with (
+                capture_invoice_results() as invoice_results,
+                status_reporter(working.update),
+            ):
                 answer, mode = await respond_with_mode(
                     text, toolsets=toolsets, activity=activity
                 )

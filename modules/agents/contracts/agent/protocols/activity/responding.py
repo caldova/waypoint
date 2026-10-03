@@ -40,6 +40,15 @@ class ActivityStatus:
         await self._stream.update(self._status)
         self._refresh_task = asyncio.create_task(self._refresh())
 
+    async def update(self, status: str) -> None:
+        """Change the visible status mid-turn; the refresh loop keeps it alive."""
+        if status == self._status:
+            return
+        self._status = status
+        if self._stream is not None:
+            with contextlib.suppress(Exception):
+                await self._stream.update(status)
+
     async def finish(
         self,
         text: str,

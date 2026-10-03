@@ -15,7 +15,7 @@ def is_latest_invoices_prompt(text: str) -> bool:
 def latest_invoices_response() -> str:
     lines = [
         "I found **3 fixture invoices** to show the next interaction shape. "
-        "These are demo records, not live Waypoint data yet.",
+        "These are demo records, not live Caldova data yet.",
         "",
         "| Invoice | Supplier | Amount | Status | Why it matters |",
         "|---|---:|---:|---|---|",
