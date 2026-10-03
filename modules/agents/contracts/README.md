@@ -38,7 +38,9 @@ For the deployment spike, keep work surfaces separated:
 Hosted mailbox reads happen on Teams turns only. Users email PDFs to the hire's
 mailbox (for example `contracts@caldova.com`), then ask in Teams; the agent reads
 just that user's messages with the hire's agentic-user token and registers new
-attachments in Waypoint. A scheduled routine cannot do this yet: only Agent 365
+attachments in Waypoint. Only PDFs from the inbox's own domain are read; set
+`CONTRACTS_ALLOWED_SENDER_DOMAINS` (comma-separated) to allow others. A scheduled
+routine cannot do this yet: only Agent 365
 turns bind the hosted credential to the hired instance that owns the mailbox, so
 off Teams the tool returns `needs_teams_turn`.
 

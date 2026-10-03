@@ -172,6 +172,8 @@ class HostedMailboxContractSource:
                 ).lower()
                 if wanted and from_address != wanted:
                     continue
+                if not _sender_allowed(from_address, mailbox_id):
+                    continue
                 attachments = await client.get(
                     f"{_GRAPH}/me/messages/{message['id']}/attachments"
                 )
@@ -203,6 +205,20 @@ class HostedMailboxContractSource:
                         )
                     )
         return found
+
+
+def _allowed_sender_domains(mailbox_id: str) -> set[str]:
+    """Sender domains whose attachments are read; defaults to the inbox's own domain."""
+    configured = _usable_env("CONTRACTS_ALLOWED_SENDER_DOMAINS")
+    if configured:
+        return {d.strip().lower().lstrip("@") for d in configured.split(",") if d.strip()}
+    _, _, domain = mailbox_id.rpartition("@")
+    return {domain.lower()} if domain else set()
+
+
+def _sender_allowed(address: str, mailbox_id: str) -> bool:
+    _, at, domain = address.lower().rpartition("@")
+    return bool(at) and domain in _allowed_sender_domains(mailbox_id)
 
 
 def _raise_for_graph(response: object, action: str) -> None:
