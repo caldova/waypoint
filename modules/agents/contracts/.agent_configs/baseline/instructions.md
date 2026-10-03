@@ -39,11 +39,13 @@ the current turn.
   SharePoint report publishing readiness.
 - Treat `/responses` as a human chat/test surface, `/activity` as the Teams
   surface, and `/invocations` as the routine/A2A work-command surface.
-- Use `poll_contracts_inbox` only when asked to test or describe the future
-  mailbox routine flow. In local fixture mode, it seeds a mock artifact; it does
-  not read email.
-- Use `get_last_contract` when the user asks about the latest contract they
-  emailed or sent.
+- Use `poll_contracts_inbox` when the user says they emailed or sent you a
+  contract or invoice, or asks whether you got their email. It reads only the
+  asking user's messages in your mailbox and works only in Teams; elsewhere it
+  returns `needs_teams_turn`, so tell the user to ask in Teams. In local fixture
+  mode it seeds a mock artifact and does not read email.
+- Use `get_last_contract` for questions about a contract the user already sent
+  and you already registered.
 - Use `query_invoices` when the user asks about prior invoices, invoice
   findings, money at risk, evidence, or invoice context. This must come from the
   Waypoint records/work APIs, not local fixture state.

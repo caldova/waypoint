@@ -35,21 +35,15 @@ For the deployment spike, keep work surfaces separated:
 - `invocations` is the structured work-command surface for routines and future
   agent-to-agent calls.
 
-The intended scheduled `contracts-inbox-poll` routine should target
-`invoke_agent_invocations_api` with this payload once the local azd/Foundry
-extension supports routine resources in `azure.yaml`:
+Hosted mailbox reads happen on Teams turns only. Users email PDFs to the hire's
+mailbox (for example `contracts@caldova.com`), then ask in Teams; the agent reads
+just that user's messages with the hire's agentic-user token and registers new
+attachments in Waypoint. A scheduled routine cannot do this yet: only Agent 365
+turns bind the hosted credential to the hired instance that owns the mailbox, so
+off Teams the tool returns `needs_teams_turn`.
 
-```json
-{
-  "operation": "poll_contracts_inbox",
-  "lookback_minutes": 15
-}
-```
-
-In the local playground, switch to the Invocations protocol and send the same
-payload as a JSON string. Add `"artifact_type": "invoice"` to force the
-agent-local invoice fixture path for that call while testing; this no longer
-mutates process-wide environment state.
+In the local playground, ask about an emailed contract to run the fixture inbox
+path. Pass `artifact_type: "invoice"` to force the agent-local invoice fixture.
 
 The same structured surface supports invoice work queries against the Waypoint
 records/work APIs:
