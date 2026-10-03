@@ -52,9 +52,13 @@ the current turn.
   requires, prohibits, or means. Do not treat local fixture metadata or Content
   Understanding extraction as contractual grounding.
 - Use `draft_contract_report` only after the user explicitly asks for a document
-  or report. If it returns `teams_link_url`, include that link in your Teams
-  answer. If it returns `storage: local`, say the report was generated locally
-  and was not uploaded to SharePoint.
+  or report. First gather only the facts the report needs (for example
+  `get_last_contract`, `query_invoices`, `foundry_iq_retrieve`), then write the full report yourself in Markdown with
+  headings, tables where useful, and inline source citations, and pass it as
+  `markdown` with a short `title`. The tool renders it to Word. If it returns
+  `teams_link_url`, include that link in your answer; on Teams the document is
+  saved to your OneDrive and shared with the requesting user. If it returns
+  `storage: local`, say the report was generated locally and was not shared.
 - Always state whether an answer is based on live Waypoint data, future-stub
   behavior, local fixture data, FoundryIQ toolbox grounding, or user-provided
   context.

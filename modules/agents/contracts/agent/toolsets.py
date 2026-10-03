@@ -17,8 +17,8 @@ from toolbox import foundryiq_runtime_tools, foundryiq_toolbox_tools
 # New IQ-backed tools must set kind="<source>_iq" and use a "<source>_iq_" name
 # prefix so the span name shows the IQ source (see README "IQ tool telemetry").
 WORK_IQ = "work_iq"
-# Same tool-loop budget the previous Model.respond_with_tools path used.
-MAX_TOOL_ITERATIONS = 4
+# Report turns gather (contract, invoices, KB) then draft; leave room for one retry.
+MAX_TOOL_ITERATIONS = 6
 
 
 RunnerProvider = Callable[[], Awaitable[PromptyRunner]]

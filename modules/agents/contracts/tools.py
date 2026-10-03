@@ -268,9 +268,6 @@ def _report_markdown(artifact: dict[str, Any], report_type: str) -> str:
         [
             f"# {title} - {report_type.replace('_', ' ').title()}",
             "",
-            "> Local generated report. In local smoke tests this Markdown is written to disk; "
-            "SharePoint upload/sharing is still a hosted workflow.",
-            "",
             "## Summary",
             "",
             f"- Artifact: `{artifact.get('id', 'unknown')}`",
@@ -299,6 +296,7 @@ async def _publish_rendered_report(
     rendered_docx: Path,
     rendered_markdown: Path,
     title: str,
+    activity: Any = None,
 ) -> dict[str, Any]:
     _telemetry_event(
         "contracts_report_publish_started",
@@ -309,7 +307,7 @@ async def _publish_rendered_report(
         sharepoint_configured=sharepoint_report_publishing_configured(),
     )
     try:
-        published = await report_publisher().publish(
+        published = await report_publisher(activity).publish(
             docx_path=rendered_docx,
             markdown_path=rendered_markdown,
             title=title,
@@ -341,6 +339,11 @@ async def _publish_rendered_report(
         "drive_item": published.drive_item,
         "metadata": published.metadata or {},
     }
+
+
+def _publication_shared_with(publication: dict[str, Any]) -> list[str]:
+    object_id = (publication.get("metadata") or {}).get("shared_with_object_id")
+    return [str(object_id)] if object_id else []
 
 
 def _api_share_status(publication: dict[str, Any]) -> str:
@@ -906,8 +909,11 @@ async def _draft_contract_report_impl(
     artifact_id: str = "",
     report_type: str = "contract_brief",
     artifact_type: str | None = None,
+    markdown: str = "",
+    title: str = "",
 ) -> dict[str, Any]:
     artifact_type = _coerce_artifact_type(artifact_type)
+    authored = markdown.strip()
     if _local_fixture_enabled():
         state = _load_state()
         artifact = (
@@ -931,15 +937,16 @@ async def _draft_contract_report_impl(
         report_id = f"report-{artifact['id']}-{report_type}"
         rendered = render_report(
             report_id=report_id,
-            markdown=_report_markdown(artifact, report_type),
+            markdown=authored or _report_markdown(artifact, report_type),
             output_dir=_state_dir() / "reports",
         )
-        title = f"{report_type.replace('_', ' ').title()} for {artifact['id']}"
+        title = title.strip() or f"{report_type.replace('_', ' ').title()} for {artifact['id']}"
         try:
             publication = await _publish_rendered_report(
                 rendered_docx=rendered.docx_path,
                 rendered_markdown=rendered.markdown_path,
                 title=title,
+                activity=activity,
             )
         except RuntimeError as exc:
             response = {
@@ -1027,15 +1034,16 @@ async def _draft_contract_report_impl(
     report_id = f"report-{artifact_id}-{report_type}"
     rendered = render_report(
         report_id=report_id,
-        markdown=_report_markdown(detail, report_type),
+        markdown=authored or _report_markdown(detail, report_type),
         output_dir=_state_dir() / "reports",
     )
-    title = f"{report_type.replace('_', ' ').title()} for {artifact_id}"
+    title = title.strip() or f"{report_type.replace('_', ' ').title()} for {artifact_id}"
     try:
         publication = await _publish_rendered_report(
             rendered_docx=rendered.docx_path,
             rendered_markdown=rendered.markdown_path,
             title=title,
+            activity=activity,
         )
     except RuntimeError as exc:
         response = {
@@ -1066,20 +1074,20 @@ async def _draft_contract_report_impl(
             "file_url": publication["file_url"],
             "title": title,
             "share_status": _api_share_status(publication),
+            "shared_with": _publication_shared_with(publication),
             "metadata": {
-                "fixture": True,
+                "fixture": publication["storage"] == "local",
                 **publication["metadata"],
                 "storage": publication["storage"],
                 "teams_link_url": publication["teams_link_url"],
                 "web_url": publication["web_url"],
                 "share_url": publication["share_url"],
-                "note": "Local DOCX report generated for playground testing.",
             },
         },
     )
     response = {
         "ok": True,
-        "status": "api_fixture_report_metadata",
+        "status": "report_recorded",
         "artifact_id": artifact_id,
         "report": report,
         "teams_link_url": publication["teams_link_url"],
@@ -1089,7 +1097,7 @@ async def _draft_contract_report_impl(
             "markdown": rendered.markdown_path.as_uri(),
         },
         "note": (
-            "Waypoint API recorded DOCX report metadata for playground testing. "
+            "Waypoint API recorded the DOCX report. "
             f"Publication storage: {publication['storage']}."
         ),
     }
@@ -1322,13 +1330,26 @@ def contracts_tools() -> list[Tool]:
         Tool(
             name="draft_contract_report",
             description=(
-                "Record or create a contract report placeholder for an artifact. With the "
-                "Waypoint API configured, records report metadata only; it does not create "
-                "or share a SharePoint document."
+                "Render a Word (.docx) contract report from Markdown you write, publish it, "
+                "and record it on the artifact. On a Teams turn the document is saved to the "
+                "agent's own OneDrive and shared with the requesting user; elsewhere it is "
+                "saved locally. Returns teams_link_url when the document is shared."
             ),
             parameters={
                 "type": "object",
                 "properties": {
+                    "markdown": {
+                        "type": "string",
+                        "description": (
+                            "Full report body in Markdown (headings, lists, tables). Ground "
+                            "contract claims in foundry_iq_retrieve results and cite sources "
+                            "inline. If omitted, a minimal metadata summary is rendered."
+                        ),
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Document title.",
+                    },
                     "artifact_id": {
                         "type": "string",
                         "description": "Contract artifact id to report on.",

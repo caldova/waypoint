@@ -137,22 +137,29 @@ playground can exercise the flow without the future API:
 - `poll_contracts_inbox` reads `fixtures/contracts/aster-ridge-sow.pdf` and
   seeds a mock Aster Ridge contract artifact.
 - `get_last_contract` resolves that mock artifact.
-- `draft_contract_report` writes local DOCX and Markdown report artifacts under
-  `.contracts-state/reports/`; DOCX is the primary `file_url`. If
-  `CONTRACTS_REPORTS_DRIVE_ID` and `CONTRACTS_REPORTS_FOLDER_ITEM_ID` are set,
-  it uploads the DOCX to the agent-owned SharePoint folder, creates a view link,
-  and returns `teams_link_url` for the Teams response.
+- `draft_contract_report` takes report Markdown written by the model
+  (`markdown`, `title`), renders it to DOCX with quilldown, and keeps both
+  under `.contracts-state/reports/`. Without `markdown` it renders a minimal
+  metadata summary. DOCX is the primary `file_url`.
 - `query_invoices` requires `WAYPOINT_API_BASE_URL`; it is intentionally
   API-backed so Flow 2 conversations use seeded/live Waypoint data.
 
-Report publishing uses `report_publisher.py`:
+Report publishing uses `report_publisher.py`. `CONTRACTS_REPORTS_PUBLISH_MODE`
+is `auto` (default), `local`, `onedrive`, or `sharepoint`:
 
-- local mode returns a `file://` DOCX URL plus Markdown sidecar for dev smoke
-  tests.
+| Mode | When `auto` picks it | Result |
+|---|---|---|
+| `onedrive` | Activity turn with an agentic user (Teams / M365) | DOCX uploaded to the agent's own OneDrive (`/me/drive`, folder `CONTRACTS_REPORTS_ONEDRIVE_FOLDER`, default `Contracts Reports`) and shared with the requester's Entra object id (`CONTRACTS_REPORTS_SHARE_ROLE`, default `read`; no invitation email) |
+| `sharepoint` | Drive and folder ids are set | DOCX uploaded to the agent-owned SharePoint folder with an organization view link |
+| `local` | Otherwise (Responses / playground turns) | `file://` DOCX URL plus Markdown sidecar |
+
+OneDrive uses the agentic user token and the consented `Files.ReadWrite` scope.
+`/responses` turns carry no Activity, so they never publish to OneDrive.
+
 - SharePoint mode uploads the DOCX with Microsoft Graph using the hosted
   identity and creates an organization view link. Required environment:
   `CONTRACTS_REPORTS_DRIVE_ID` and `CONTRACTS_REPORTS_FOLDER_ITEM_ID`.
-- The tool does not silently fall back if SharePoint upload is configured and
+- The tool does not silently fall back if OneDrive or SharePoint upload
   fails; it returns `status: report_publish_failed` so the Teams answer does not
   claim a document was shared.
 
