@@ -21,7 +21,7 @@ import { useAuth } from "../components/AuthProvider";
 import { RequireAuth } from "../components/RequireAuth";
 
 export const meta: MetaFunction = () => [
-  { title: "Activity - Waypoint" },
+  { title: "Activity - Caldova" },
   {
     name: "description",
     content: "Live view of active and pending agent runs and their progress",

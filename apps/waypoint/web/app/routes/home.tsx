@@ -11,7 +11,7 @@ import { AppHeader } from "../components/AppHeader";
 import { RequireAuth } from "../components/RequireAuth";
 
 export const meta: MetaFunction = () => [
-  { title: "Waypoint" },
+  { title: "Caldova" },
   {
     name: "description",
     content: "Contract manufacturing supplier oversight workspace",
@@ -83,12 +83,12 @@ export default function Home() {
                 id="home-heading"
                 className="max-w-4xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl"
               >
-                Waypoint helps Caldova investigate supplier invoices,
+                Caldova investigates supplier invoices,
                 protect IP-sensitive manufacturing commitments, and control
                 escalation of supplier-caused quality deviations.
               </h1>
               <p className="mt-3 max-w-[65ch] text-base leading-7 text-slate-600">
-                Start the question in Teams or Copilot, then use Waypoint to
+                Start the question in Teams or Copilot, then come here to
                 inspect invoice evidence, supplier behavior, batch records,
                 quality logs, and agent decisions before finance, procurement,
                 legal, or quality teams act.
@@ -111,7 +111,7 @@ export default function Home() {
             </div>
 
             <nav
-              aria-label="Waypoint areas"
+              aria-label="Caldova areas"
               className="border-t border-slate-200"
             >
               <ul className="grid gap-px bg-slate-100 md:grid-cols-2 xl:grid-cols-4">
