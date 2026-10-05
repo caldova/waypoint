@@ -9,7 +9,7 @@ dependencies = [
     "httpx>=0.28.1",
     "python-docx>=1.2.0",
     "python-dotenv>=1.0",
-    "quilldown>=0.3.1",
+    "quilldown>=0.4.0",
 ]
 
 [tool.uv]
