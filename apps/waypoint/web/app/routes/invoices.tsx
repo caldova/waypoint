@@ -17,6 +17,7 @@ import {
   HiSparkles,
   HiX,
 } from "react-icons/hi";
+import { integrationForLane } from "../../lib/integrations";
 import { authFetch } from "../../lib/msalAuth";
 import { AppHeader } from "../components/AppHeader";
 import { useAuth } from "../components/AuthProvider";
@@ -24,10 +25,10 @@ import { RequireAuth } from "../components/RequireAuth";
 import { useModalDialog } from "../hooks/useModalDialog";
 
 export const meta: MetaFunction = () => [
-  { title: "Invoices - Waypoint" },
+  { title: "Invoices - Caldova" },
   {
     name: "description",
-    content: "Waypoint invoice decisions and agent context",
+    content: "Caldova invoice decisions and agent context",
   },
 ];
 
@@ -995,7 +996,7 @@ export default function Invoices() {
                 <p className="mt-2 flex max-w-[90ch] items-center gap-1.5 text-xs text-slate-500 max-md:items-start">
                   <HiSparkles className="h-3.5 w-3.5 shrink-0 text-blue-600 max-md:mt-px" aria-hidden="true" />
                   {loading
-                    ? "Loading supplier invoice decisions from the Waypoint API…"
+                    ? "Loading supplier invoice decisions…"
                     : `${formatMoney(totalOverpayment)} recoverable across ${reviewedCount} reviewed invoice${
                         reviewedCount === 1 ? "" : "s"
                       } · ${escalationCount} escalation${
@@ -1562,7 +1563,7 @@ function BatchAssuranceConfirmation({
             className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-5 text-blue-950"
           >
             Each newly accepted invoice starts a hosted agent orchestration and may incur usage
-            cost. Active runs are reused automatically. Waypoint starts at most{" "}
+            cost. Active runs are reused automatically. Caldova starts at most{" "}
             {BATCH_ASSURANCE_CONCURRENCY} invoices concurrently and accepts up to{" "}
             {MAX_BATCH_ASSURANCE_INVOICES} per batch.
           </div>
@@ -2800,15 +2801,22 @@ function DecisionDrawer({
       <section className="relative z-10 flex h-full w-full max-w-[520px] flex-col overflow-hidden border-l border-slate-200 bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-3">
           <div className="min-w-0">
-            <h2
-              ref={headingRef}
-              id="decision-drawer-title"
-              tabIndex={-1}
-              className="truncate rounded-sm text-lg font-semibold text-slate-950 focus-visible:outline-offset-0"
-            >
-              <span className="sr-only">Decision context for invoice </span>
-              {decision.invoice_number}
-            </h2>
+            <div className="flex min-w-0 items-center gap-1">
+              <h2
+                ref={headingRef}
+                id="decision-drawer-title"
+                tabIndex={-1}
+                className="truncate rounded-sm text-lg font-semibold text-slate-950 focus-visible:outline-offset-0"
+              >
+                <span className="sr-only">Decision context for invoice </span>
+                {decision.invoice_number}
+              </h2>
+              <CopyButton
+                text={decision.invoice_number}
+                label={`Copy invoice ID ${decision.invoice_number}`}
+                variant="inline"
+              />
+            </div>
             <p id="decision-drawer-subtitle" className="truncate text-sm text-slate-600">
               {decision.supplier_name}
               {invoiceTotal ? ` · ${invoiceTotal} invoiced` : ""}
@@ -3348,7 +3356,7 @@ function EvidenceSection({
     if (key) {
       byPlane.set(key, [...(byPlane.get(key) ?? []), lane]);
     } else {
-      const label = planeLabel(lane);
+      const label = integrationForLane(lane)?.label ?? planeLabel(lane);
       other.set(label, [...(other.get(label) ?? []), lane]);
     }
   }
@@ -3410,8 +3418,15 @@ function EvidenceSection({
         {Array.from(other.entries()).map(([label, lanes]) => {
           const items = lanes.flatMap((lane) => lane.evidence ?? []);
           const summary = lanes.map((lane) => lane.summary).filter(Boolean).join(" ");
+          const integration = integrationForLane(lanes[0]);
           return (
-            <EvidenceGroup key={label} label={label} scope="Third-party source" count={items.length}>
+            <EvidenceGroup
+              key={label}
+              label={label}
+              scope={integration?.scope ?? "Third-party source"}
+              count={items.length}
+              logo={integration?.img}
+            >
               {summary ? <p className="text-sm leading-6 text-slate-600">{summary}</p> : null}
               <ul className="divide-y divide-slate-100">
                 {items.map((item, index) => (
@@ -3460,18 +3475,27 @@ function EvidenceGroup({
   scope,
   count,
   noun = "citation",
+  logo,
   children,
 }: {
   label: string;
   scope: string;
   count: number;
   noun?: string;
+  logo?: string;
   children: ReactNode;
 }) {
   return (
     <div className="py-3">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-sm">
+          {logo ? (
+            <img
+              src={logo}
+              alt=""
+              className="mr-1.5 inline-block h-5 w-5 -translate-y-px object-contain align-middle"
+            />
+          ) : null}
           <span className="font-semibold text-slate-950">{label}</span>
           <span className="text-slate-600"> · {scope}</span>
         </p>
@@ -3494,7 +3518,7 @@ function CopyButton({
 }: {
   text: string;
   label: string;
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "secondary" | "inline";
 }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   useEffect(() => {
@@ -3513,6 +3537,26 @@ function CopyButton({
       setState("failed");
     }
   };
+
+  if (variant === "inline") {
+    return (
+      <button
+        type="button"
+        onClick={() => void copy()}
+        title={state === "idle" ? label : undefined}
+        className="inline-flex h-8 min-w-8 shrink-0 items-center justify-center gap-1 rounded-md px-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 max-md:h-11 max-md:min-w-11"
+      >
+        {state === "copied" ? (
+          <HiCheck className="h-4 w-4 text-emerald-700" aria-hidden="true" />
+        ) : (
+          <HiClipboardCopy className="h-4 w-4" aria-hidden="true" />
+        )}
+        <span aria-live="polite" className={state === "idle" ? "sr-only" : undefined}>
+          {state === "copied" ? "Copied" : state === "failed" ? "Couldn't copy" : label}
+        </span>
+      </button>
+    );
+  }
 
   return (
     <button
@@ -3670,7 +3714,7 @@ function NextStepSection({
         ) : null}
       </div>
       <p className="mt-3 text-xs text-slate-600">
-        Waypoint records the case. It doesn't send email or post approvals from this panel.
+        Caldova records the case. It doesn't send email or post approvals from this panel.
       </p>
       {reviewerNotes.length > 0 ? (
         <details className="group mt-3 border-t border-slate-200 pt-3">
@@ -3736,7 +3780,7 @@ function NotRunCase({
       </h3>
       <p className="mt-2 max-w-[65ch] text-sm leading-6 text-slate-700">
         Running assurance sends this invoice to the cloud agent pipeline. Four experts check it
-        against their sources, then Waypoint records one decision: approve, review, recover or
+        against their sources, then Caldova records one decision: approve, review, recover or
         escalate.
       </p>
       <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
@@ -3909,7 +3953,7 @@ function RunAssuranceConfirmation({
               you'll follow it in Activity.
             </p>
             <p>
-              If a run is already active for this invoice, Waypoint reuses it instead of starting
+              If a run is already active for this invoice, Caldova reuses it instead of starting
               another. Each new run uses hosted agent capacity and may incur usage cost.
             </p>
             {runCount > 0 ? (
@@ -4541,7 +4585,7 @@ function DocumentUnavailable({ uri }: { uri: string | null }) {
     <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
       <p className="text-sm font-semibold text-slate-800">Document content not available here</p>
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        The full document lives in the Waypoint corpus lake, which isn&apos;t connected in this
+        The full document lives in the Caldova corpus lake, which isn&apos;t connected in this
         environment. The reference below stays attached to this finding.
       </p>
       {uri ? (
@@ -4630,7 +4674,7 @@ function InvoicePdfPreview({
         </p>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {state === "unavailable"
-            ? "The source PDF lives in the Waypoint corpus lake, which isn’t connected in this environment. The reference below stays attached to this finding."
+            ? "The source PDF lives in the Caldova corpus lake, which isn’t connected in this environment. The reference below stays attached to this finding."
             : "Something went wrong while loading the document. You can try reopening it."}
         </p>
         <p className="mt-3 inline-flex items-center gap-1.5 break-all rounded-md bg-slate-50 p-3 font-mono text-xs text-slate-700">
@@ -4671,7 +4715,7 @@ function decisionTrail(decision: InvoiceDecision, detail: InvoiceDetail | null) 
       },
       {
         title: "Ingest",
-        detail: `${detail?.lines.length ?? decision.metadata.line_count ?? 0} invoice lines imported through Waypoint.`,
+        detail: `${detail?.lines.length ?? decision.metadata.line_count ?? 0} invoice lines imported into Caldova.`,
       },
     ];
   }
@@ -4694,7 +4738,7 @@ function decisionTrail(decision: InvoiceDecision, detail: InvoiceDetail | null) 
     },
     {
       title: "Ingest",
-      detail: `${detail?.lines.length ?? decision.metadata.line_count ?? 0} invoice lines imported through Waypoint.`,
+      detail: `${detail?.lines.length ?? decision.metadata.line_count ?? 0} invoice lines imported into Caldova.`,
     },
   ];
 }

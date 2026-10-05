@@ -246,7 +246,7 @@ export function AuthProvider({
         try {
           const profile = await loadUserProfile({ interactive: "popup" });
           if (!profile) {
-            throw new Error("Waypoint could not load your profile.");
+            throw new Error("Caldova could not load your profile.");
           }
           setAuthState("authenticated", profile, null, "sign_in_success");
           span?.setAttribute("auth.sign_in.result", "authenticated");
@@ -351,7 +351,7 @@ async function loadUserProfile(options: { interactive?: "popup" } = {}) {
           return null;
         }
         span?.setAttribute("auth.profile.result", "failed");
-        throw new Error(`Waypoint profile returned ${response.status}.`);
+        throw new Error(`Caldova profile returned ${response.status}.`);
       }
 
       const profile = (await response.json()) as UserProfile;

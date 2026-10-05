@@ -5,10 +5,10 @@ import { HiArrowRight } from "react-icons/hi";
 import { useAuth } from "../components/AuthProvider";
 
 export const meta: MetaFunction = () => [
-  { title: "Sign in - Waypoint" },
+  { title: "Sign in - Caldova" },
   {
     name: "description",
-    content: "Sign in to Waypoint",
+    content: "Sign in to Caldova",
   },
 ];
 

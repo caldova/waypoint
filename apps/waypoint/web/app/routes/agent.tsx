@@ -19,6 +19,7 @@ import {
   HiSearch,
   HiX,
 } from "react-icons/hi";
+import { INTEGRATIONS, integrationForLane } from "../../lib/integrations";
 import { authFetch } from "../../lib/msalAuth";
 import { AppHeader } from "../components/AppHeader";
 import { useAuth } from "../components/AuthProvider";
@@ -27,7 +28,7 @@ import { useModalDialog } from "../hooks/useModalDialog";
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
 
 export const meta: MetaFunction = () => [
-  { title: "Runs - Waypoint" },
+  { title: "Runs - Caldova" },
   {
     name: "description",
     content: "Aggregated agent work: per-invoice runs, IQ usage, and the evidence each run found",
@@ -135,6 +136,8 @@ type IqKey = "workiq" | "webiq" | "foundryiq" | "fabriciq" | "other";
 
 interface IqMeta {
   key: IqKey;
+  /** Set for third-party integrations (key "other"), e.g. "oracle-erp". */
+  integrationKey?: string;
   /** Microsoft tool brand (FabricIQ, WorkIQ, …) — kept for compact chips and the run graph. */
   label: string;
   /** New forge agent/persona name surfaced on the Expert Usage panel. */
@@ -222,6 +225,60 @@ const IQ_META: Record<IqKey, IqMeta> = {
 // Order the canonical IQs deterministically for the sidebar.
 const IQ_ORDER: IqKey[] = ["fabriciq", "foundryiq", "webiq", "workiq"];
 
+// Chip/ring colours per integration, written out so Tailwind can see them.
+const INTEGRATION_STYLES: Record<string, Pick<IqMeta, "ring" | "badge" | "text" | "dot">> = {
+  "oracle-erp": {
+    ring: "ring-[#f2c4bc]",
+    badge: "bg-[#fdf3f1] text-[#9f3527]",
+    text: "text-[#9f3527]",
+    dot: "bg-[#c74634]",
+  },
+};
+
+const INTEGRATION_META: Record<string, IqMeta> = Object.fromEntries(
+  INTEGRATIONS.map((integration) => [
+    integration.key,
+    {
+      ...IQ_META.other,
+      ...INTEGRATION_STYLES[integration.key],
+      integrationKey: integration.key,
+      label: integration.label,
+      agent: integration.agent,
+      tool: integration.product,
+      icon: HiPuzzle,
+      img: integration.img,
+      hex: integration.hex,
+    },
+  ]),
+);
+
+// IQ planes keep their own meta; known integrations get their name and logo;
+// anything else falls back to a generic "Expert".
+function metaForLane(lane: FanoutLane): IqMeta {
+  const key = iqKeyForLane(lane);
+  if (key !== "other") return IQ_META[key];
+  const integration = integrationForLane(lane);
+  return integration ? INTEGRATION_META[integration.key] : IQ_META.other;
+}
+
+function metaKey(meta: IqMeta): string {
+  return meta.integrationKey ?? meta.key;
+}
+
+// Distinct sources for a run's evidence: IQ planes first, then integrations.
+function sourceMetasFor(fanout: FanoutLane[]): IqMeta[] {
+  const metas = new Map<string, IqMeta>();
+  for (const lane of fanout) {
+    const meta = metaForLane(lane);
+    metas.set(metaKey(meta), meta);
+  }
+  const rank = (meta: IqMeta) => {
+    const index = IQ_ORDER.indexOf(meta.key);
+    return index === -1 ? IQ_ORDER.length : index;
+  };
+  return [...metas.values()].sort((a, b) => rank(a) - rank(b));
+}
+
 function iqKeyForLane(lane: FanoutLane): IqKey {
   const raw = `${lane.plane ?? ""} ${lane.agent ?? ""}`.toLowerCase();
   if (raw.includes("fabric") || raw.includes("operations-data")) return "fabriciq";
@@ -296,6 +353,7 @@ interface InvoiceGroup {
   confidence: number | null;
   confidenceCalibrated: boolean;
   iqKeys: IqKey[];
+  sources: IqMeta[];
   lastRunAt: string;
 }
 
@@ -361,6 +419,7 @@ function buildInvoiceGroups(runs: AgentRun[]): InvoiceGroup[] {
       confidence: groupConfidence(latestMeta, fanout),
       confidenceCalibrated: latestMeta.confidence_calibrated === true,
       iqKeys,
+      sources: sourceMetasFor(fanout),
       lastRunAt: latestRun.created_at,
     });
   }
@@ -418,13 +477,56 @@ function buildIqStats(runs: AgentRun[], groups: InvoiceGroup[]): IqStat[] {
     }
   }
 
-  return IQ_ORDER.map((key) => ({
+  const iqStats = IQ_ORDER.map((key) => ({
     meta: IQ_META[key],
     runCount: runCount[key],
     claimCount: claimCount[key],
     moneyAtRisk: moneyAtRisk[key],
     avgConfidence: confidenceCount[key] > 0 ? confidenceSum[key] / confidenceCount[key] : null,
-  })).filter((stat) => stat.runCount > 0);
+  }));
+
+  const integrationStats = new Map<string, IqStat & { confidenceSum: number; confidenceN: number }>();
+  for (const run of runs) {
+    const seen = new Set<string>();
+    for (const lane of evidenceFanout(run.metadata ?? {})) {
+      const meta = metaForLane(lane);
+      if (!meta.integrationKey) continue;
+      const stat = integrationStats.get(meta.integrationKey) ?? {
+        meta,
+        runCount: 0,
+        claimCount: 0,
+        moneyAtRisk: 0,
+        avgConfidence: null,
+        confidenceSum: 0,
+        confidenceN: 0,
+      };
+      stat.claimCount += laneClaimCount(lane);
+      const confidence = laneAvgConfidence(lane);
+      if (typeof confidence === "number") {
+        stat.confidenceSum += confidence;
+        stat.confidenceN += 1;
+      }
+      if (!seen.has(meta.integrationKey)) {
+        seen.add(meta.integrationKey);
+        stat.runCount += 1;
+      }
+      integrationStats.set(meta.integrationKey, stat);
+    }
+  }
+  for (const group of groups) {
+    for (const meta of group.sources) {
+      const stat = meta.integrationKey ? integrationStats.get(meta.integrationKey) : undefined;
+      if (stat) stat.moneyAtRisk += group.moneyAtRisk;
+    }
+  }
+
+  return [
+    ...iqStats,
+    ...[...integrationStats.values()].map(({ confidenceSum, confidenceN, ...stat }) => ({
+      ...stat,
+      avgConfidence: confidenceN > 0 ? confidenceSum / confidenceN : null,
+    })),
+  ].filter((stat) => stat.runCount > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -744,7 +846,7 @@ export default function Agent() {
 
             <aside className="flex flex-col gap-2 xl:min-h-0 xl:overflow-auto">
               <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                <h2 className="type-section">Expert usage (IQ)</h2>
+                <h2 className="type-section">Expert usage</h2>
                 <p className="mt-1 type-meta leading-5">
                   How often each expert ran across all work, and the evidence each
                   contributed to the decision.
@@ -752,7 +854,7 @@ export default function Agent() {
                 {iqStats.length > 0 ? (
                   <ul className="mt-2.5 space-y-2">
                     {iqStats.map((stat) => (
-                      <IqUsageTile key={stat.meta.key} stat={stat} />
+                      <IqUsageTile key={metaKey(stat.meta)} stat={stat} />
                     ))}
                   </ul>
                 ) : (
@@ -1208,8 +1310,7 @@ function IqUsageTile({ stat }: { stat: IqStat }) {
   );
 }
 
-function IqChip({ iqKey }: { iqKey: IqKey }) {
-  const meta = IQ_META[iqKey];
+function IqChip({ meta }: { meta: IqMeta }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${meta.ring} ${meta.badge}`}
@@ -1276,8 +1377,8 @@ function InvoiceCard({
             ) : null}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            {group.iqKeys.length > 0 ? (
-              group.iqKeys.map((iqKey) => <IqChip key={iqKey} iqKey={iqKey} />)
+            {group.sources.length > 0 ? (
+              group.sources.map((meta) => <IqChip key={metaKey(meta)} meta={meta} />)
             ) : (
               <span className="type-meta">No expert evidence recorded.</span>
             )}
@@ -1335,7 +1436,7 @@ function RunRow({
 }) {
   const meta = run.metadata ?? {};
   const fanout = evidenceFanout(meta);
-  const iqKeys = Array.from(new Set(fanout.map(iqKeyForLane)));
+  const sources = sourceMetasFor(fanout);
   return (
     <li>
       <button
@@ -1365,10 +1466,10 @@ function RunRow({
           <p className="mt-0.5 line-clamp-1 text-sm text-slate-600">
             {run.summary || "No summary recorded."}
           </p>
-          {iqKeys.length > 0 ? (
+          {sources.length > 0 ? (
             <div className="mt-1 flex items-center gap-1">
-              {iqKeys.map((iqKey) => (
-                <IqLogo key={iqKey} meta={IQ_META[iqKey]} size="h-5 w-5" />
+              {sources.map((source) => (
+                <IqLogo key={metaKey(source)} meta={source} size="h-5 w-5" />
               ))}
             </div>
           ) : null}
@@ -1733,9 +1834,12 @@ type LaneGroup = { meta: IqMeta; lane: FanoutLane; evidence: FanoutEvidence[] };
 function groupEvidenceLanes(fanout: FanoutLane[]): Map<string, LaneGroup> {
   const groups = new Map<string, LaneGroup>();
   fanout.forEach((lane, index) => {
-    const iqKey = iqKeyForLane(lane);
-    const key = iqKey === "other" ? `other:${lane.agent || lane.plane || index}` : iqKey;
-    const group = groups.get(key) ?? { meta: IQ_META[iqKey], lane, evidence: [] };
+    const meta = metaForLane(lane);
+    const key =
+      meta.key !== "other"
+        ? meta.key
+        : `other:${meta.integrationKey ?? lane.agent ?? lane.plane ?? index}`;
+    const group = groups.get(key) ?? { meta, lane, evidence: [] };
     group.evidence.push(...citedEvidence(lane));
     groups.set(key, group);
   });
@@ -1765,12 +1869,13 @@ function buildIntegrationNodes(fanout: FanoutLane[]): MapNode[] {
       },
     ];
   }
-  return keys.map((key, index) => ({
-    ...evidenceNodeFor(key, groups.get(key), positions[index]),
-    hex: "#0891b2",
-    icon: HiPuzzle,
-    iconClass: "text-cyan-700",
-  }));
+  return keys.map((key, index) => {
+    const node = evidenceNodeFor(key, groups.get(key), positions[index]);
+    // Known integrations keep their own logo and colour.
+    return groups.get(key)?.meta.integrationKey
+      ? node
+      : { ...node, hex: "#0891b2", icon: HiPuzzle, iconClass: "text-cyan-700" };
+  });
 }
 
 function buildEvidenceNodes(fanout: FanoutLane[]): MapNode[] {
@@ -1797,9 +1902,11 @@ function evidenceNodeFor(
   return {
     key,
     label:
-      meta.key === "other" ? humanizeIdentifier(lane.plane || "Evidence source") : meta.label,
+      meta.key === "other" && !meta.integrationKey
+        ? humanizeIdentifier(lane.plane || "Evidence source")
+        : meta.label,
     title:
-      meta.key === "other"
+      meta.key === "other" && !meta.integrationKey
         ? humanizeIdentifier(lane.agent || lane.plane || "Integration")
         : meta.agent,
     stats: active
@@ -1956,8 +2063,8 @@ function buildMapBubbles({
     nodes: [
       {
         key: "waypoint-recorder",
-        label: "Waypoint Recorder",
-        title: "Sole Waypoint writer",
+        label: "Caldova Recorder",
+        title: "Sole writer of the governed record",
         stats: "Writes run · case · recommendation",
         lines: [],
         active: true,
@@ -1983,7 +2090,7 @@ function buildMapBubbles({
         key: `analyst-${lane.agent || lane.plane || index}`,
         label: humanizeIdentifier(lane.agent || lane.plane || "Analyst"),
         title: "Read-only analyst",
-        stats: "Answers questions over Waypoint",
+        stats: "Answers questions over the governed record",
         lines: lane.summary ? [lane.summary] : [],
         active: true,
         hex: "#7c3aed",
@@ -2798,7 +2905,7 @@ function EvidenceMap({
         <p className="mt-1.5 max-w-[100ch] text-xs leading-5 text-slate-600">
           Caldova IQ holds every evidence source the orchestrator can call: Microsoft IQ (FabricIQ,
           FoundryIQ, WebIQ, WorkIQ) and third-party integrations. Click it to zoom in. Tiles in
-          colour cited evidence in this run; faded tiles weren't used. Waypoint Recorder remains the
+          colour cited evidence in this run; faded tiles weren't used. Caldova Recorder remains the
           sole writer of the governed run, case, and recommendation.
         </p>
       </div>
@@ -3120,13 +3227,15 @@ function MapTile({
 
 function ExpertLane({ lane }: { lane: FanoutLane }) {
   const evidence = citedEvidence(lane);
-  const meta = IQ_META[iqKeyForLane(lane)];
+  const meta = metaForLane(lane);
   return (
     <li className="py-3">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <IqLogo meta={meta} size="h-7 w-7" />
         <span className="font-semibold">
-          {meta.key === "other" ? lane.agent || lane.plane || "Expert" : meta.label}
+          {meta.key === "other" && !meta.integrationKey
+            ? lane.agent || lane.plane || "Expert"
+            : meta.label}
         </span>
         <span className="type-meta">
           {evidence.length} {evidence.length === 1 ? "citation" : "citations"}

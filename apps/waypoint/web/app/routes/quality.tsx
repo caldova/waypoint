@@ -22,10 +22,10 @@ import { AppHeader } from "../components/AppHeader";
 import { RequireAuth } from "../components/RequireAuth";
 
 export const meta: MetaFunction = () => [
-  { title: "Quality & optimization - Waypoint" },
+  { title: "Quality & optimization - Caldova" },
   {
     name: "description",
-    content: "Quality lineage, readiness, and guarded GitHub operations for Waypoint agents",
+    content: "Quality lineage, readiness, and guarded GitHub operations for Caldova agents",
   },
 ];
 
