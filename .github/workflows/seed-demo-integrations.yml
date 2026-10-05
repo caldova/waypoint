@@ -71,8 +71,8 @@ jobs:
         run: |
           set -euo pipefail
           ip="$(curl -fsS https://api.ipify.org)"
-          az postgres flexible-server firewall-rule create -g "$RG" -n "$PG" \
-            --rule-name "$FIREWALL_RULE" --start-ip-address "$ip" --end-ip-address "$ip" -o none
+          az postgres flexible-server firewall-rule create -g "$RG" --server-name "$PG" \
+            --name "$FIREWALL_RULE" --start-ip-address "$ip" --end-ip-address "$ip" -o none
 
       - name: Seed integration evidence
         env:
@@ -102,5 +102,5 @@ jobs:
       - name: Remove the runner firewall rule
         if: always()
         run: |
-          az postgres flexible-server firewall-rule delete -g "$RG" -n "$PG" \
-            --rule-name "$FIREWALL_RULE" --yes -o none || true
+          az postgres flexible-server firewall-rule delete -g "$RG" --server-name "$PG" \
+            --name "$FIREWALL_RULE" --yes -o none || true
