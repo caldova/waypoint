@@ -10,9 +10,12 @@
  * - PORT: Server port (default: 3000)
  */
 
+import { existsSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
+import path from "node:path";
 import { createRequestHandler } from "@react-router/express";
+import compression from "compression";
 import express from "express";
 import { createProxyMiddleware, fixRequestBody } from "http-proxy-middleware";
 
@@ -190,8 +193,44 @@ if (otlpTarget) {
 // Mount API proxy
 app.use(apiProxy);
 
-// Serve static assets from the build
-app.use(express.static("build/client"));
+// MSAL popup and hidden-iframe redirect target. MSAL v5 waits for the page at
+// the redirect URI to call broadcastResponseToMainFrame(); serving the full app
+// route there meant every silent token renewal booted the whole SPA inside a
+// hidden iframe and often hit MSAL's 10 s timeout. This static page loads only
+// MSAL's 6 KB redirect bridge. Falls back to the app route if either file is missing.
+const msalCallbackPage = path.resolve("build/client/msal-callback.html");
+const msalBridgeScript = path.resolve(
+  "node_modules/@azure/msal-browser/lib/redirect-bridge/msal-redirect-bridge.min.js",
+);
+if (existsSync(msalCallbackPage) && existsSync(msalBridgeScript)) {
+  app.get("/msal-redirect-bridge.js", (_req, res) => {
+    res.set("Cache-Control", "public, max-age=3600");
+    res.type("application/javascript").sendFile(msalBridgeScript);
+  });
+  app.get("/auth/msal/callback", (_req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.type("html").sendFile(msalCallbackPage);
+  });
+} else {
+  console.warn("Static MSAL callback unavailable; using the app route for /auth/msal/callback.");
+}
+
+// Compress pages and static files. Mounted after the API and OTLP proxies so
+// proxied responses stream through untouched.
+app.use(compression());
+
+// Serve static assets from the build. Files under /assets/ have a content hash
+// in their name, so browsers can cache them for a year; every deploy produces
+// new names. Everything else keeps the default revalidation.
+app.use(
+  express.static("build/client", {
+    setHeaders: (res, filePath) => {
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    },
+  }),
+);
 
 // Handle all other requests with React Router
 const build = await import("./build/server/index.js");

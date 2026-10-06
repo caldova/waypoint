@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Completing sign-in</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #0f172a;
+        background: #fff;
+      }
+      p {
+        margin: 0;
+        padding: 24px;
+        font-size: 14px;
+        line-height: 1.6;
+        color: #475569;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      MSAL popup and hidden-iframe redirect target. Served in production at
+      /auth/msal/callback by server.js instead of the full app route, so token
+      renewal only loads this page and the 6 KB redirect bridge.
+    -->
+    <p id="message">Completing sign-in…</p>
+    <script src="/msal-redirect-bridge.js"></script>
+    <script>
+      (function () {
+        var message = document.getElementById("message");
+        var query = new URLSearchParams(window.location.search);
+        var hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+        var hasAuthResponse =
+          query.has("code") || query.has("error") || hash.has("code") || hash.has("error");
+
+        try {
+          window.sessionStorage.removeItem("waypoint:msal:logout-popup");
+        } catch (error) {
+          // Storage can be unavailable in some embedded contexts.
+        }
+
+        if (!hasAuthResponse) {
+          message.textContent = "Sign-out is complete. You can close this window.";
+          window.close();
+          return;
+        }
+
+        if (!window.msalRedirectBridge) {
+          message.textContent = "Unable to complete sign-in. Close this window and try again.";
+          return;
+        }
+
+        Promise.resolve(window.msalRedirectBridge.broadcastResponseToMainFrame()).catch(
+          function () {
+            message.textContent = "Unable to complete sign-in. Close this window and try again.";
+          },
+        );
+      })();
+    </script>
+  </body>
+</html>

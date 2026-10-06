@@ -23,6 +23,7 @@
     "@opentelemetry/semantic-conventions": "^1.28.0",
     "@react-router/express": "^7.1.0",
     "@react-router/node": "^7.1.0",
+    "compression": "^1.8.2",
     "express": "^4.21.0",
     "http-proxy-middleware": "^3.0.0",
     "isbot": "^5.1.0",
