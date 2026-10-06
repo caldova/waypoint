@@ -143,6 +143,42 @@ export function AuthProvider({
     [],
   );
 
+  // Keep the photo across revalidations of the same user, then fetch it in the
+  // background if it's missing.
+  const withKnownAvatar = useCallback((profile: UserProfile | null) => {
+    const current = userRef.current;
+    if (!profile || profile.avatarUrl || !current?.avatarUrl) {
+      return profile;
+    }
+    return normalizeProfile(profile)?.email === current.email
+      ? { ...profile, avatarUrl: current.avatarUrl }
+      : profile;
+  }, []);
+
+  const loadAvatarInBackground = useCallback((profile: UserProfile | null) => {
+    if (!profile || profile.avatarUrl) {
+      return;
+    }
+    const email = normalizeProfile(profile)?.email;
+    void loadUserPhoto()
+      .then((avatarUrl) => {
+        const current = userRef.current;
+        if (
+          !avatarUrl ||
+          !mountedRef.current ||
+          statusRef.current !== "authenticated" ||
+          !current ||
+          current.email !== email
+        ) {
+          return;
+        }
+        const next = { ...current, avatarUrl };
+        userRef.current = next;
+        setUser(next);
+      })
+      .catch(() => undefined);
+  }, []);
+
   const refresh = useCallback(async (options: RefreshOptions = {}) => {
     return traceClientAuthOperation(
       "auth_refresh",
@@ -191,13 +227,15 @@ export function AuthProvider({
         }
 
         refreshPromiseRef.current = loadUserProfile()
-          .then((profile) => {
+          .then((loaded) => {
+            const profile = withKnownAvatar(loaded);
             setAuthState(
               profile ? "authenticated" : "unauthenticated",
               profile,
               null,
               profile ? "profile_loaded" : "profile_missing",
             );
+            loadAvatarInBackground(profile);
             span?.setAttribute(
               "auth.refresh.result",
               profile ? "authenticated" : "unauthenticated",
@@ -220,7 +258,7 @@ export function AuthProvider({
         return refreshPromiseRef.current;
       },
     ).catch(() => null);
-  }, [isConfigured, localMode, setAuthState]);
+  }, [isConfigured, localMode, setAuthState, withKnownAvatar, loadAvatarInBackground]);
 
   const signIn = useCallback(async () => {
     return traceClientAuthOperation(
@@ -249,6 +287,7 @@ export function AuthProvider({
             throw new Error("Caldova could not load your profile.");
           }
           setAuthState("authenticated", profile, null, "sign_in_success");
+          loadAvatarInBackground(profile);
           span?.setAttribute("auth.sign_in.result", "authenticated");
           return profile;
         } catch (err) {
@@ -268,7 +307,7 @@ export function AuthProvider({
         }
       },
     );
-  }, [isConfigured, localMode, setAuthState]);
+  }, [isConfigured, localMode, setAuthState, loadAvatarInBackground]);
 
   const signOut = useCallback(async () => {
     setIsSigningOut(!localMode);
@@ -357,25 +396,31 @@ async function loadUserProfile(options: { interactive?: "popup" } = {}) {
       const profile = (await response.json()) as UserProfile;
       span?.setAttribute("auth.profile.result", "loaded");
       span?.setAttribute("auth.profile.source", profile.source);
-      try {
-        const avatarUrl = await getMsalUserPhotoUrl();
-        span?.setAttribute("auth.profile.avatar_present", Boolean(avatarUrl));
-        if (avatarUrl) {
-          profile.avatarUrl = avatarUrl;
-        }
-      } catch (error) {
-        span?.setAttribute("auth.profile.avatar_error", true);
-        span?.setAttribute(
-          "auth.profile.avatar_error_name",
-          error instanceof Error ? error.name : "UnknownError",
-        );
-        console.warn("Microsoft Graph profile photo could not be loaded", {
-          errorName: error instanceof Error ? error.name : "UnknownError",
-        });
-      }
       return normalizeProfile(profile) as UserProfile;
     },
   );
+}
+
+// The Microsoft Graph photo is decoration: it loads after sign-in resolves so a
+// slow Graph token renewal never holds up "Checking your sign-in".
+async function loadUserPhoto(): Promise<string | null> {
+  return traceClientAuthOperation("auth_load_user_photo", {}, async (span) => {
+    try {
+      const avatarUrl = await getMsalUserPhotoUrl();
+      span?.setAttribute("auth.profile.avatar_present", Boolean(avatarUrl));
+      return avatarUrl;
+    } catch (error) {
+      span?.setAttribute("auth.profile.avatar_error", true);
+      span?.setAttribute(
+        "auth.profile.avatar_error_name",
+        error instanceof Error ? error.name : "UnknownError",
+      );
+      console.warn("Microsoft Graph profile photo could not be loaded", {
+        errorName: error instanceof Error ? error.name : "UnknownError",
+      });
+      return null;
+    }
+  });
 }
 
 async function traceClientAuthOperation<T>(

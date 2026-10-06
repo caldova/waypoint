@@ -10,6 +10,8 @@
  * - PORT: Server port (default: 3000)
  */
 
+import http from "node:http";
+import https from "node:https";
 import { createRequestHandler } from "@react-router/express";
 import express from "express";
 import { createProxyMiddleware, fixRequestBody } from "http-proxy-middleware";
@@ -72,6 +74,14 @@ app.use("/api", express.json({ limit: "10mb" }));
 const apiTarget = process.env.API_ENDPOINT_HTTP || "http://localhost:8000";
 console.log(`Proxying /api requests to: ${apiTarget}`);
 
+// Reuse connections to the API. Without an agent, http-proxy opens a new
+// TCP + TLS connection for every request, which intermittently added seconds
+// to calls like the sign-in check (/api/user/me).
+const apiAgent = apiTarget.startsWith("https:")
+  ? new https.Agent({ keepAlive: true, maxSockets: 64 })
+  : new http.Agent({ keepAlive: true, maxSockets: 64 });
+const proxyStartedAt = new WeakMap();
+
 const otlpTarget = getOtlpHttpTarget();
 const otlpHeaders = getOtlpHeaders();
 if (otlpTarget) {
@@ -81,17 +91,21 @@ if (otlpTarget) {
 const apiProxy = createProxyMiddleware({
   target: apiTarget,
   changeOrigin: true,
+  agent: apiAgent,
   pathFilter: (path) => path.startsWith("/api"),
   ws: true, // Enable WebSocket proxying
   on: {
     proxyReq: (proxyReq, req) => {
       // Fix request body for JSON requests
       fixRequestBody(proxyReq, req);
+      proxyStartedAt.set(req, Date.now());
       logProxyEvent("api_proxy_request", req);
     },
     proxyRes: (proxyRes, req) => {
+      const startedAt = proxyStartedAt.get(req);
       logProxyEvent("api_proxy_response", req, {
         statusCode: proxyRes.statusCode,
+        durationMs: startedAt ? Date.now() - startedAt : undefined,
       });
     },
     error: (err, req, res) => {
