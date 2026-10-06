@@ -15,6 +15,7 @@ import http from "node:http";
 import https from "node:https";
 import path from "node:path";
 import { createRequestHandler } from "@react-router/express";
+import compression from "compression";
 import express from "express";
 import { createProxyMiddleware, fixRequestBody } from "http-proxy-middleware";
 
@@ -214,8 +215,22 @@ if (existsSync(msalCallbackPage) && existsSync(msalBridgeScript)) {
   console.warn("Static MSAL callback unavailable; using the app route for /auth/msal/callback.");
 }
 
-// Serve static assets from the build
-app.use(express.static("build/client"));
+// Compress pages and static files. Mounted after the API and OTLP proxies so
+// proxied responses stream through untouched.
+app.use(compression());
+
+// Serve static assets from the build. Files under /assets/ have a content hash
+// in their name, so browsers can cache them for a year; every deploy produces
+// new names. Everything else keeps the default revalidation.
+app.use(
+  express.static("build/client", {
+    setHeaders: (res, filePath) => {
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    },
+  }),
+);
 
 // Handle all other requests with React Router
 const build = await import("./build/server/index.js");
