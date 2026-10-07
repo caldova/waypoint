@@ -125,7 +125,7 @@ can click through the UI, including `/es`, alongside the code diff.
   `waypoint-preview-deployer` identity, through the `preview` GitHub
   Environment. That identity:
   - has Contributor on `waypoint-preview-rg` only, which holds its own registry
-    and Container Apps environment ([infra/preview/main.bicep](../infra/preview/main.bicep));
+    and Container Apps environment;
   - owns only the preview sign-in app, `waypoint-preview-web`, whose redirect
     URIs it adds and removes for each PR.
 
@@ -133,8 +133,22 @@ can click through the UI, including `/es`, alongside the code diff.
   registration. Because a preview runs PR code in the reviewer's signed-in
   session, only open previews of PRs you trust.
 
+Everything is declared in Bicep under [infra/preview](../infra/preview):
+
+- `main.bicep` covers the resource group plus the Entra objects, through the
+  [Microsoft Graph Bicep extension](https://learn.microsoft.com/graph/templates/bicep/overview-bicep-templates-for-graph):
+  both app registrations, the OIDC credential, admin consent, and the Graph
+  permission.
+- `resources.bicep` covers the registry, pull identity, and environment.
+- `app.bicep` covers one PR's container app.
+
+`tools/deploy/scripts/preview_web.sh` only adds the glue Bicep can't express:
+per-PR redirect URIs on the shared sign-in app, image cleanup, and the
+closed-PR sweep.
+
 **One-time setup** needs a tenant admin who can grant Microsoft Graph app
-permissions and admin consent, and `gh` admin on the repository. Preview first,
+permissions and admin consent, and `gh` admin on the repository. The script
+deploys `main.bicep` and then creates the GitHub environment. Preview first,
 then run it:
 
 ```bash

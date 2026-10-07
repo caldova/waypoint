@@ -5,7 +5,7 @@ name: Preview Waypoint web
 # updated on each push and deleted when the PR closes. A nightly sweep removes
 # anything a missed close event left behind.
 #
-# Previews run in an isolated resource group (infra/preview/main.bicep) and call
+# Previews run in an isolated resource group (infra/preview/) and call
 # the shared production API through the web server's /api proxy. Fork PRs are
 # skipped because they can't get Azure credentials.
 #
@@ -25,6 +25,7 @@ on:
       - .github/workflows/preview-web.yml
       - tools/deploy/scripts/preview_web.sh
       - tools/deploy/scripts/msal.sh
+      - infra/preview/app.bicep
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:

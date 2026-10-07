@@ -69,19 +69,27 @@ class PreviewWebScriptTests(unittest.TestCase):
             return {}
         return dict(line.split("=", 1) for line in self.output.read_text().splitlines())
 
-    def test_deploy_creates_scale_to_zero_app_and_registers_sign_in(self) -> None:
+    def test_deploy_runs_app_bicep_and_registers_sign_in(self) -> None:
         result = self.run_script("deploy", PR_NUMBER="36", IMAGE="reg.azurecr.io/waypoint-web:pr-36-abc")
         self.assertEqual(result.returncode, 0, result.stderr)
 
         app = self.state()["apps"]["web-pr-36"]
-        args = app["args"]
-        self.assertEqual(app["image"], "reg.azurecr.io/waypoint-web:pr-36-abc")
-        self.assertEqual(args[args.index("--min-replicas") + 1], "0")
-        self.assertEqual(args[args.index("--target-port") + 1], "8000")
-        self.assertEqual(args[args.index("--environment") + 1], "waypoint-preview-env")
-        self.assertIn(f"WAYPOINT_MSAL_REDIRECT_URI=https://web-pr-36.{DOMAIN}/login", args)
-        self.assertIn("API_ENDPOINT_HTTP=https://api.example.com", args)
-        self.assertIn("waypoint-pr=36", args)
+        self.assertTrue(app["template"].endswith("infra/preview/app.bicep"))
+        self.assertEqual(app["deployment"], "preview-web-pr-36")
+        self.assertEqual(
+            app["params"],
+            {
+                "prNumber": "36",
+                "image": "reg.azurecr.io/waypoint-web:pr-36-abc",
+                "registryName": "waypointpreview",
+                "location": "northeurope",
+                "apiUrl": "https://api.example.com",
+                "msalClientId": "00000000-0000-0000-0000-0000000000aa",
+                "msalTenantId": "00000000-0000-0000-0000-0000000000bb",
+                "msalApiScope": "api://prod-api/user_impersonation",
+                "repository": "caldova/waypoint",
+            },
+        )
 
         self.assertEqual(
             sorted(self.state()["spa"]),
@@ -95,15 +103,13 @@ class PreviewWebScriptTests(unittest.TestCase):
         )
         self.assertEqual(self.outputs()["url"], f"https://web-pr-36.{DOMAIN}")
 
-    def test_redeploy_updates_existing_app(self) -> None:
+    def test_redeploy_updates_the_same_app_in_place(self) -> None:
         self.run_script("deploy", PR_NUMBER="36", IMAGE="reg.azurecr.io/waypoint-web:pr-36-abc")
         result = self.run_script("deploy", PR_NUMBER="36", IMAGE="reg.azurecr.io/waypoint-web:pr-36-def")
         self.assertEqual(result.returncode, 0, result.stderr)
 
-        verbs = [call[1] for call in self.state()["calls"] if call[:1] == ["containerapp"]]
-        self.assertEqual(verbs.count("create"), 1)
-        self.assertEqual(verbs.count("update"), 1)
-        self.assertEqual(self.state()["apps"]["web-pr-36"]["image"], "reg.azurecr.io/waypoint-web:pr-36-def")
+        self.assertEqual(list(self.state()["apps"]), ["web-pr-36"])
+        self.assertEqual(self.state()["apps"]["web-pr-36"]["params"]["image"], "reg.azurecr.io/waypoint-web:pr-36-def")
 
     def test_destroy_removes_only_that_prs_app_redirects_and_images(self) -> None:
         self.run_script("deploy", PR_NUMBER="36", IMAGE="reg.azurecr.io/waypoint-web:pr-36-abc")
@@ -164,7 +170,11 @@ def save():
 
 if args[:2] == ["containerapp", "env"]:
     query = arg("--query")
-    print({"[0].name": "waypoint-preview-env", "[0].properties.defaultDomain": DOMAIN}[query])
+    print({
+        "[0].name": "waypoint-preview-env",
+        "[0].properties.defaultDomain": DOMAIN,
+        "[0].location": "northeurope",
+    }[query])
     raise SystemExit(0)
 if args[:2] == ["acr", "list"]:
     print({"[0].name": "waypointpreview", "[0].loginServer": "waypointpreview.azurecr.io"}[arg("--query")])
@@ -173,14 +183,19 @@ if args[:2] == ["identity", "show"]:
     print("/subscriptions/x/resourceGroups/waypoint-preview-rg/providers/identity/waypoint-preview-pull")
     raise SystemExit(0)
 
-state["calls"].append(args[:2])
+state["calls"].append(args[:3])
 if args[:2] == ["containerapp", "show"]:
     save()
     raise SystemExit(0 if arg("-n") in state["apps"] else 3)
-elif args[:2] == ["containerapp", "create"]:
-    state["apps"][arg("-n")] = {"image": arg("--image"), "args": args}
-elif args[:2] == ["containerapp", "update"]:
-    state["apps"][arg("-n")]["image"] = arg("--image")
+elif args[:3] == ["deployment", "group", "create"]:
+    start = args.index("-p") + 1
+    end = args.index("-o")
+    params = dict(item.split("=", 1) for item in args[start:end])
+    state["apps"]["web-pr-" + params["prNumber"]] = {
+        "deployment": arg("-n"),
+        "template": arg("-f"),
+        "params": params,
+    }
 elif args[:2] == ["containerapp", "delete"]:
     state["apps"].pop(arg("-n"), None)
 elif args[:2] == ["containerapp", "list"]:

@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
 # One-time setup for Waypoint web PR previews (.github/workflows/preview-web.yml).
 #
-# Creates, look-up-before-write (re-running is a no-op):
-#   1. The isolated preview resource group.
-#   2. A preview-only Entra SPA app ("waypoint-preview-web") with admin consent to
-#      the production API's user_impersonation scope and basic Graph sign-in scopes.
-#      Per-PR redirect URIs are added to THIS app, never to the production app.
-#   3. A preview deployer app + service principal ("waypoint-preview-deployer") with
-#      a GitHub OIDC federated credential for the `preview` environment.
-#   4. Graph Application.ReadWrite.OwnedBy for the deployer, plus ownership of the
-#      preview SPA app only, so it can manage that app's redirect URIs.
-#   5. infra/preview/main.bicep: registry, pull identity, Container Apps environment,
-#      and Contributor for the deployer on the preview resource group only.
-#   6. The `preview` GitHub Environment and its variables.
+# 1. Deploys infra/preview/main.bicep, which declares everything in Azure and
+#    Entra: the isolated preview resource group and its resources, the
+#    preview-only sign-in app with admin consent, and the OIDC deployer with
+#    its Graph permission. Safe to rerun.
+# 2. Creates the `preview` GitHub Environment and its variables, which Bicep
+#    can't manage.
+#
+# Inputs are derived from production; this script's own logic is just that
+# lookup, the GitHub environment, and --uninstall.
 #
 # `--uninstall` removes all of it again: the GitHub environment, the preview
 # resource group (with every PR preview in it), and both app registrations, which
@@ -71,8 +68,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-GRAPH="https://graph.microsoft.com/v1.0"
-GRAPH_APP_ID="00000003-0000-0000-c000-000000000000"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BICEP="${SCRIPT_DIR}/../../../infra/preview/main.bicep"
 
@@ -158,121 +153,35 @@ if [[ "$DRY_RUN" == "true" ]]; then
   exit 0
 fi
 
-ensure_app() {
-  local name="$1" app_id obj_id tags
-  app_id="$(az ad app list --filter "displayName eq '${name}'" --query "[0].appId" -o tsv)"
-  if [[ -z "$app_id" ]]; then
-    log "creating app registration $name"
-    app_id="$(az ad app create --display-name "$name" --sign-in-audience AzureADMyOrg --query appId -o tsv)"
-  fi
-  obj_id="$(az ad app show --id "$app_id" --query id -o tsv)"
-  tags="$(az ad app show --id "$app_id" --query tags -o json)"
-  if [[ "$tags" != *"\"${APP_TAG}\""* ]]; then
-    tags="$(python3 -c 'import json,sys;print(json.dumps({"tags":sorted(set(json.loads(sys.argv[1] or "[]") or [])|{sys.argv[2]})}))' "$tags" "$APP_TAG")"
-    az rest --method PATCH --uri "${GRAPH}/applications/${obj_id}" --headers "Content-Type=application/json" --body "$tags" -o none
-  fi
-  az ad sp show --id "$app_id" -o none 2>/dev/null || az ad sp create --id "$app_id" -o none
-  echo "$app_id"
-}
+# ---- declarative setup ---------------------------------------------------------
+# infra/preview/main.bicep declares the resource group, its resources, both app
+# registrations, the OIDC credential, admin consent, and the Graph permission.
+# The template states the sign-in app's full redirect URI list, so pass in the
+# URIs of currently open previews to keep them.
+existing_uris="$(az ad app list --filter "displayName eq '${SPA_NAME}'" \
+  --query "[?tags && contains(tags, '${APP_TAG}')] | [0].spa.redirectUris" -o json 2>/dev/null || true)"
+[[ -z "$existing_uris" || "$existing_uris" == "null" ]] && existing_uris="[]"
 
-sp_object_id() { az ad sp show --id "$1" --query id -o tsv; }
-scope_id() { az ad sp show --id "$1" --query "oauth2PermissionScopes[?value=='$2'].id | [0]" -o tsv; }
-
-ensure_consent() {
-  local client_sp="$1" resource_sp="$2" scope="$3" grant
-  grant="$(az rest --method GET \
-    --uri "${GRAPH}/oauth2PermissionGrants?\$filter=clientId eq '${client_sp}' and resourceId eq '${resource_sp}' and consentType eq 'AllPrincipals'" \
-    --query "value[0].{id:id, scope:scope}" -o json)"
-  if [[ "$grant" == "null" || -z "$grant" ]]; then
-    log "granting admin consent: $scope"
-    az rest --method POST --uri "${GRAPH}/oauth2PermissionGrants" --headers "Content-Type=application/json" \
-      --body "{\"clientId\":\"${client_sp}\",\"consentType\":\"AllPrincipals\",\"resourceId\":\"${resource_sp}\",\"scope\":\"${scope}\"}" -o none
-  else
-    local id existing merged
-    id="$(echo "$grant" | python3 -c 'import json,sys;print(json.load(sys.stdin)["id"])')"
-    existing="$(echo "$grant" | python3 -c 'import json,sys;print(json.load(sys.stdin)["scope"] or "")')"
-    merged="$(python3 -c 'import sys;print(" ".join(sorted(set(sys.argv[1].split()) | set(sys.argv[2].split()))))' "$existing" "$scope")"
-    if [[ "$merged" != "$(python3 -c 'import sys;print(" ".join(sorted(sys.argv[1].split())))' "$existing")" ]]; then
-      log "updating admin consent: $merged"
-      az rest --method PATCH --uri "${GRAPH}/oauth2PermissionGrants/${id}" --headers "Content-Type=application/json" \
-        --body "{\"scope\":\"${merged}\"}" -o none
-    fi
-  fi
-}
-
-# ---- 1. resource group -------------------------------------------------------
-az group show -n "$RESOURCE_GROUP" -o none 2>/dev/null \
-  || az group create -n "$RESOURCE_GROUP" -l "$LOCATION" --tags "waypoint-preview=${RG_TAG_VALUE}" -o none
-
-# ---- 2. preview-only sign-in app ---------------------------------------------
-SPA_APP_ID="$(ensure_app "$SPA_NAME")"
-SPA_OBJ_ID="$(az ad app show --id "$SPA_APP_ID" --query id -o tsv)"
-SPA_SP_ID="$(sp_object_id "$SPA_APP_ID")"
-API_SP_ID="$(sp_object_id "$API_APP_ID")"
-GRAPH_SP_ID="$(sp_object_id "$GRAPH_APP_ID")"
-API_SCOPE_ID="$(scope_id "$API_APP_ID" user_impersonation)"
-access="$(python3 - "$API_APP_ID" "$API_SCOPE_ID" "$GRAPH_APP_ID" \
-  "$(scope_id "$GRAPH_APP_ID" User.Read)" "$(scope_id "$GRAPH_APP_ID" openid)" \
-  "$(scope_id "$GRAPH_APP_ID" profile)" "$(scope_id "$GRAPH_APP_ID" offline_access)" <<'PY'
-import json, sys
-api_app, api_scope, graph_app, *graph_scopes = sys.argv[1:]
-print(json.dumps({"requiredResourceAccess": [
-    {"resourceAppId": api_app, "resourceAccess": [{"id": api_scope, "type": "Scope"}]},
-    {"resourceAppId": graph_app, "resourceAccess": [{"id": s, "type": "Scope"} for s in graph_scopes]},
-]}))
-PY
-)"
-az rest --method PATCH --uri "${GRAPH}/applications/${SPA_OBJ_ID}" --headers "Content-Type=application/json" --body "$access" -o none
-ensure_consent "$SPA_SP_ID" "$API_SP_ID" "user_impersonation"
-ensure_consent "$SPA_SP_ID" "$GRAPH_SP_ID" "User.Read openid profile offline_access"
-
-# ---- 3. preview deployer + OIDC ----------------------------------------------
-DEPLOYER_APP_ID="$(ensure_app "$DEPLOYER_NAME")"
-DEPLOYER_SP_ID="$(sp_object_id "$DEPLOYER_APP_ID")"
-owner="${REPO%%/*}"; name="${REPO##*/}"
-cred_name="github-${owner}-${name}-env-${ENVIRONMENT}"
-subject="${SUBJECT_PREFIX}:environment:${ENVIRONMENT}"
-current="$(az ad app federated-credential list --id "$DEPLOYER_APP_ID" --query "[?name=='${cred_name}'].subject | [0]" -o tsv)"
-if [[ "$current" != "$subject" ]]; then
-  [[ -n "$current" ]] && az ad app federated-credential delete --id "$DEPLOYER_APP_ID" --federated-credential-id "$cred_name"
-  log "adding federated credential $subject"
-  az ad app federated-credential create --id "$DEPLOYER_APP_ID" --parameters "{
-    \"name\": \"${cred_name}\",
-    \"issuer\": \"https://token.actions.githubusercontent.com\",
-    \"subject\": \"${subject}\",
-    \"audiences\": [\"api://AzureADTokenExchange\"],
-    \"description\": \"Waypoint web PR previews for ${REPO}\"
-  }" -o none
-fi
-
-# ---- 4. Graph: manage only the preview sign-in app ---------------------------
-owned_by_role="$(az ad sp show --id "$GRAPH_APP_ID" --query "appRoles[?value=='Application.ReadWrite.OwnedBy'].id | [0]" -o tsv)"
-has_role="$(az rest --method GET --uri "${GRAPH}/servicePrincipals/${DEPLOYER_SP_ID}/appRoleAssignments" \
-  --query "length(value[?appRoleId=='${owned_by_role}'])" -o tsv)"
-if [[ "$has_role" == "0" ]]; then
-  log "granting Graph Application.ReadWrite.OwnedBy to the deployer"
-  az rest --method POST --uri "${GRAPH}/servicePrincipals/${DEPLOYER_SP_ID}/appRoleAssignments" \
-    --headers "Content-Type=application/json" \
-    --body "{\"principalId\":\"${DEPLOYER_SP_ID}\",\"resourceId\":\"${GRAPH_SP_ID}\",\"appRoleId\":\"${owned_by_role}\"}" -o none
-fi
-if [[ "$(az ad app owner list --id "$SPA_APP_ID" --query "length([?id=='${DEPLOYER_SP_ID}'])" -o tsv)" == "0" ]]; then
-  log "making the deployer an owner of $SPA_NAME"
-  az ad app owner add --id "$SPA_APP_ID" --owner-object-id "$DEPLOYER_SP_ID"
-fi
-
-# ---- 5. preview infrastructure -----------------------------------------------
 log "deploying infra/preview/main.bicep"
-if ! deploy_output="$(az deployment group create -g "$RESOURCE_GROUP" -n waypoint-preview -f "$BICEP" \
-  -p deployerPrincipalId="$DEPLOYER_SP_ID" location="$LOCATION" environmentLocation="$ENVIRONMENT_LOCATION" \
-  -o none 2>&1)"; then
-  echo "$deploy_output" >&2
-  if [[ "$deploy_output" == *"CapacityHeavyUsage"* ]]; then
-    echo "::error::$ENVIRONMENT_LOCATION has no Container Apps capacity right now. Rerun with --environment-location <region> (for example northeurope); the existing resources stay where they are." >&2
+deploy_err="$(mktemp)"
+if ! outputs="$(az deployment sub create -l "$LOCATION" -n waypoint-preview -f "$BICEP" \
+  -p resourceGroupName="$RESOURCE_GROUP" location="$LOCATION" environmentLocation="$ENVIRONMENT_LOCATION" \
+     apiAppId="$API_APP_ID" githubOidcSubject="${SUBJECT_PREFIX}:environment:${ENVIRONMENT}" \
+     existingRedirectUris="$existing_uris" \
+  --query properties.outputs -o json 2>"$deploy_err")"; then
+  cat "$deploy_err" >&2
+  if grep -q "CapacityHeavyUsage" "$deploy_err"; then
+    echo "::error::$ENVIRONMENT_LOCATION has no Container Apps capacity right now. Rerun with --environment-location <region> (for example northeurope)." >&2
   fi
+  rm -f "$deploy_err"
   exit 1
 fi
+rm -f "$deploy_err"
+output() { python3 -c 'import json,sys;print(json.loads(sys.argv[1])[sys.argv[2]]["value"])' "$outputs" "$1"; }
+DEPLOYER_APP_ID="$(output deployerClientId)"
+SPA_APP_ID="$(output previewWebClientId)"
 
-# ---- 6. GitHub environment ---------------------------------------------------
+# ---- GitHub environment (Bicep can't manage it) ------------------------------
 gh api -X PUT "repos/${REPO}/environments/${ENVIRONMENT}" --silent
 set_var() { gh variable set "$1" --env "$ENVIRONMENT" --repo "$REPO" --body "$2"; }
 set_var AZURE_CLIENT_ID "$DEPLOYER_APP_ID"

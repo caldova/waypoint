@@ -2,10 +2,11 @@
 # Waypoint web PR previews (Azure Container Apps), in the spirit of Azure Static
 # Web Apps / Netlify deploy previews.
 #
-# Each PR gets its own container app, `web-pr-<number>`, in the isolated preview
-# resource group (infra/preview/main.bicep). Previews scale to zero, call the
-# shared production API through the web server's /api proxy, and sign in with
-# the preview-only Entra app, whose redirect URIs are added and removed per PR.
+# Each PR gets its own container app, `web-pr-<number>` (infra/preview/app.bicep),
+# in the isolated preview resource group. Previews scale to zero, call the shared
+# production API through the web server's /api proxy, and sign in with the
+# preview-only Entra app. This script is the imperative glue around the Bicep:
+# per-PR redirect URIs on that shared app, image cleanup, and the closed-PR sweep.
 #
 # Usage: preview_web.sh discover | deploy | destroy | sweep
 #
@@ -24,10 +25,9 @@ mode="${1:?usage: preview_web.sh discover|deploy|destroy|sweep}"
 : "${PREVIEW_RESOURCE_GROUP:?PREVIEW_RESOURCE_GROUP required}"
 rg="$PREVIEW_RESOURCE_GROUP"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+app_bicep="${script_dir}/../../../infra/preview/app.bicep"
 
 IMAGE_REPOSITORY="waypoint-web"
-PULL_IDENTITY_NAME="waypoint-preview-pull"
-TARGET_PORT=8000
 
 log() { echo "preview: $*" >&2; }
 emit() { log "$1=$2"; [[ -n "${GITHUB_OUTPUT:-}" ]] && echo "$1=$2" >> "$GITHUB_OUTPUT"; return 0; }
@@ -83,60 +83,23 @@ deploy() {
   : "${PR_NUMBER:?PR_NUMBER required}" "${IMAGE:?IMAGE required}" "${API_URL:?API_URL required}"
   : "${MSAL_CLIENT_ID:?MSAL_CLIENT_ID required}" "${MSAL_TENANT_ID:?MSAL_TENANT_ID required}"
   : "${MSAL_API_SCOPE:?MSAL_API_SCOPE required}"
-  local name env_name env_domain fqdn url registry_server pull_identity
+  local name env_domain env_location fqdn url
   name="$(app_name_for "$PR_NUMBER")"
-  env_name="$(environment_field name)"
   env_domain="$(environment_field properties.defaultDomain)"
-  registry_server="$(registry_field loginServer)"
-  pull_identity="$(az identity show -g "$rg" -n "$PULL_IDENTITY_NAME" --query id -o tsv)"
+  env_location="$(environment_field location)"
   fqdn="${name}.${env_domain}"
   url="https://${fqdn}"
-
-  local env_vars=(
-    "NODE_ENV=production"
-    "PORT=${TARGET_PORT}"
-    "API_ENDPOINT_HTTP=${API_URL}"
-    "WAYPOINT_MSAL_ENABLED=true"
-    "WAYPOINT_MSAL_TENANT_ID=${MSAL_TENANT_ID}"
-    "WAYPOINT_MSAL_CLIENT_ID=${MSAL_CLIENT_ID}"
-    "WAYPOINT_MSAL_API_SCOPE=${MSAL_API_SCOPE}"
-    "WAYPOINT_MSAL_REDIRECT_URI=${url}/login"
-  )
-  local tags=(
-    "waypoint-preview=pr"
-    "waypoint-pr=${PR_NUMBER}"
-    "waypoint-repository=${GITHUB_REPOSITORY:-unknown}"
-  )
 
   # Register sign-in URLs first so the preview works as soon as it answers.
   MSAL_CLIENT_ID="$MSAL_CLIENT_ID" WEB_FQDN="$fqdn" bash "${script_dir}/msal.sh" redirect
 
-  if az containerapp show -g "$rg" -n "$name" -o none 2>/dev/null; then
-    log "updating $name -> $IMAGE"
-    az containerapp update -g "$rg" -n "$name" \
-      --image "$IMAGE" \
-      --set-env-vars "${env_vars[@]}" \
-      --tags "${tags[@]}" \
-      -o none
-  else
-    log "creating $name -> $IMAGE"
-    az containerapp create -g "$rg" -n "$name" \
-      --environment "$env_name" \
-      --workload-profile-name Consumption \
-      --image "$IMAGE" \
-      --registry-server "$registry_server" \
-      --registry-identity "$pull_identity" \
-      --user-assigned "$pull_identity" \
-      --ingress external \
-      --target-port "$TARGET_PORT" \
-      --min-replicas 0 \
-      --max-replicas 1 \
-      --cpu 0.5 \
-      --memory 1Gi \
-      --env-vars "${env_vars[@]}" \
-      --tags "${tags[@]}" \
-      -o none
-  fi
+  log "deploying $name -> $IMAGE"
+  az deployment group create -g "$rg" -n "preview-${name}" -f "$app_bicep" \
+    -p prNumber="$PR_NUMBER" image="$IMAGE" registryName="$(registry_field name)" \
+       location="$env_location" apiUrl="$API_URL" msalClientId="$MSAL_CLIENT_ID" \
+       msalTenantId="$MSAL_TENANT_ID" msalApiScope="$MSAL_API_SCOPE" \
+       repository="${GITHUB_REPOSITORY:-}" \
+    -o none
 
   wait_until_ready "${url}/login"
   emit app_name "$name"
