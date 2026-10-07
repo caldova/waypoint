@@ -25,7 +25,7 @@ import { RequireAuth } from "../components/RequireAuth";
 import { useFormat, type Formatters } from "../i18n/format";
 import { pageMeta } from "../i18n/meta";
 
-export const meta: MetaFunction = ({ matches }) => pageMeta(matches, "quality");
+export const meta: MetaFunction = ({ location }) => pageMeta(location, "quality");
 
 type EvidenceState = "current" | "reference-only" | "stale";
 type OperationAvailability = "available" | "guarded" | "blocked";

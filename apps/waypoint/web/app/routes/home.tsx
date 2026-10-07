@@ -11,8 +11,9 @@ import { AppHeader } from "../components/AppHeader";
 import { RequireAuth } from "../components/RequireAuth";
 import { useTranslation } from "react-i18next";
 import { pageMeta } from "../i18n/meta";
+import { useLocale } from "../i18n/LocaleProvider";
 
-export const meta: MetaFunction = ({ matches }) => pageMeta(matches, "home");
+export const meta: MetaFunction = ({ location }) => pageMeta(location, "home");
 
 const destinations = [
   { key: "invoices", icon: HiDocumentSearch, to: "/invoices" },
@@ -25,6 +26,7 @@ const principles = ["showWork", "keepControl", "reduceLoad"] as const;
 
 export default function Home() {
   const { t } = useTranslation("home");
+  const { localize } = useLocale();
 
   return (
     <RequireAuth>
@@ -52,13 +54,13 @@ export default function Home() {
 
               <div className="mt-5 flex flex-wrap gap-2">
                 <Link
-                  to="/invoices"
+                  to={localize("/invoices")}
                   className="inline-flex min-h-10 items-center gap-2 rounded-md bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 max-md:min-h-11"
                 >
                   {t("hero.reviewInvoices")}
                 </Link>
                 <Link
-                  to="/agent"
+                  to={localize("/agent")}
                   className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 max-md:min-h-11"
                 >
                   {t("hero.viewAgentRuns")}
@@ -74,7 +76,7 @@ export default function Home() {
                 {destinations.map((destination) => (
                   <li key={destination.to} className="bg-white">
                     <Link
-                      to={destination.to}
+                      to={localize(destination.to)}
                       className="group flex h-full items-start gap-3 p-5 transition-colors hover:bg-slate-50 focus-visible:bg-slate-50"
                     >
                       <destination.icon

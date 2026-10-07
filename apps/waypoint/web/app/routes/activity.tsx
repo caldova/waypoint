@@ -24,8 +24,9 @@ import { RequireAuth } from "../components/RequireAuth";
 import { useFormat, type Formatters } from "../i18n/format";
 import { useLabels } from "../i18n/labels";
 import { pageMeta } from "../i18n/meta";
+import { useLocale } from "../i18n/LocaleProvider";
 
-export const meta: MetaFunction = ({ matches }) => pageMeta(matches, "activity");
+export const meta: MetaFunction = ({ location }) => pageMeta(location, "activity");
 
 // ---------------------------------------------------------------------------
 // Types (mirror the Waypoint /api/runs AgentRun schema)
@@ -183,6 +184,7 @@ async function tracedFetch(
 
 export default function Activity() {
   const { t } = useTranslation("activity");
+  const { localize } = useLocale();
   const fmt = useFormat();
   const auth = useAuth();
   const [runs, setRuns] = useState<AgentRun[]>([]);
@@ -357,7 +359,7 @@ export default function Activity() {
                     components={{
                       invoiceLink: (
                         <Link
-                          to="/invoices"
+                          to={localize("/invoices")}
                           className="font-semibold text-blue-700 underline-offset-2 hover:underline"
                         />
                       ),
@@ -575,6 +577,7 @@ function RunCard({
   drilldownConfig: DrilldownConfig | null;
 }) {
   const { t } = useTranslation("activity");
+  const { localize } = useLocale();
   const fmt = useFormat();
   const labels = useLabels();
   const style = statusStyle(run.status);
@@ -641,7 +644,7 @@ function RunCard({
             </span>
           ) : null}
           <Link
-            to="/agent"
+            to={localize("/agent")}
             className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 max-md:min-h-11 max-md:px-3"
           >
             {t("run.details")}

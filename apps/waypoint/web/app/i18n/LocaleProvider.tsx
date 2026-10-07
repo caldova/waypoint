@@ -1,52 +1,51 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { I18nextProvider } from "react-i18next";
-import { useRevalidator } from "react-router";
-import {
-  DEFAULT_LOCALE,
-  LOCALE_COOKIE,
-  LOCALE_COOKIE_MAX_AGE_SECONDS,
-  type Locale,
-} from "./config";
+import { useLocation, useNavigate } from "react-router";
+import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE_SECONDS, type Locale } from "./config";
 import { getI18n } from "./i18n";
+import { localizePath, splitLocalePath } from "./paths";
 
 interface LocaleContextValue {
   locale: Locale;
   setLocale: (locale: Locale) => void;
+  /** Prefix an app path for the active language: `/invoices` → `/es/invoices`. */
+  localize: (path: string) => string;
 }
 
-const LocaleContext = createContext<LocaleContextValue>({
-  locale: DEFAULT_LOCALE,
-  setLocale: () => {},
-});
+const LocaleContext = createContext<LocaleContextValue | null>(null);
+
+function saveLocaleCookie(locale: Locale) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${LOCALE_COOKIE}=${locale}; Path=/; Max-Age=${LOCALE_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
+}
 
 /**
- * Provides the active UI language. The server picks the initial locale (cookie,
- * then Accept-Language); `setLocale` persists a user's explicit choice in a
- * cookie so the next server render matches.
+ * Provides the active UI language, which always comes from the URL: English is
+ * unprefixed and other languages live under their code (`/es/...`). The root
+ * loader sends visitors to their preferred prefix; `setLocale` saves an
+ * explicit choice in a cookie and moves to the same page in that language.
  */
-export function LocaleProvider({
-  initialLocale,
-  children,
-}: {
-  initialLocale: Locale;
-  children: ReactNode;
-}) {
-  const [locale, setLocaleState] = useState<Locale>(initialLocale);
-  const revalidator = useRevalidator();
+export function LocaleProvider({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { locale, path } = splitLocalePath(location.pathname);
 
-  useEffect(() => {
-    setLocaleState(initialLocale);
-  }, [initialLocale]);
+  const setLocale = useCallback(
+    (next: Locale) => {
+      saveLocaleCookie(next);
+      if (next !== locale) {
+        navigate(`${localizePath(path, next)}${location.search}${location.hash}`, {
+          replace: true,
+          preventScrollReset: true,
+        });
+      }
+    },
+    [locale, path, location.search, location.hash, navigate],
+  );
 
-  const setLocale = useCallback((next: Locale) => {
-    const secure = window.location.protocol === "https:" ? "; Secure" : "";
-    document.cookie = `${LOCALE_COOKIE}=${next}; Path=/; Max-Age=${LOCALE_COOKIE_MAX_AGE_SECONDS}; SameSite=Lax${secure}`;
-    setLocaleState(next);
-    // Re-run the root loader so route `meta` (page titles) picks up the new locale.
-    void revalidator.revalidate();
-  }, [revalidator]);
+  const localize = useCallback((target: string) => localizePath(target, locale), [locale]);
 
-  const value = useMemo(() => ({ locale, setLocale }), [locale, setLocale]);
+  const value = useMemo(() => ({ locale, setLocale, localize }), [locale, setLocale, localize]);
 
   return (
     <LocaleContext.Provider value={value}>
@@ -56,5 +55,9 @@ export function LocaleProvider({
 }
 
 export function useLocale(): LocaleContextValue {
-  return useContext(LocaleContext);
+  const value = useContext(LocaleContext);
+  if (!value) {
+    throw new Error("useLocale must be used within LocaleProvider.");
+  }
+  return value;
 }

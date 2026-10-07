@@ -7,18 +7,21 @@ import type { TFunction } from "i18next";
 import { useAuth } from "../components/AuthProvider";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { pageMeta } from "../i18n/meta";
+import { useLocale } from "../i18n/LocaleProvider";
+import { splitLocalePath } from "../i18n/paths";
 import { SignOutPendingError } from "../../lib/msalAuth";
 
-export const meta: MetaFunction = ({ matches }) => pageMeta(matches, "login");
+export const meta: MetaFunction = ({ location }) => pageMeta(location, "login");
 
 export default function Login() {
   const auth = useAuth();
   const { t } = useTranslation(["auth", "common"]);
+  const { localize } = useLocale();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"));
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), localize("/"));
 
   useEffect(() => {
     if (auth.status === "authenticated") {
@@ -102,12 +105,14 @@ export default function Login() {
   );
 }
 
-function sanitizeReturnTo(value: string | null) {
+function sanitizeReturnTo(value: string | null, home: string) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/";
+    return home;
   }
-  if (value.startsWith("/login") || value.startsWith("/auth/msal/callback")) {
-    return "/";
+  // Compare without the locale prefix so `/es/login` is rejected too.
+  const { path } = splitLocalePath(value.split(/[?#]/)[0]);
+  if (path.startsWith("/login") || path.startsWith("/auth/msal/callback")) {
+    return home;
   }
   return value;
 }

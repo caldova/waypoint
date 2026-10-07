@@ -6,6 +6,7 @@ import { HiChevronDown, HiLogout, HiMenu, HiX } from "react-icons/hi";
 import { useTranslation } from "react-i18next";
 import { useAuth, type UserProfile } from "./AuthProvider";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { useLocale } from "../i18n/LocaleProvider";
 
 interface RootOutletContext {
   env: {
@@ -18,6 +19,7 @@ export function AppHeader() {
   const { env, buildVersion } = useOutletContext<RootOutletContext>();
   const auth = useAuth();
   const { t } = useTranslation();
+  const { localize } = useLocale();
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
@@ -74,7 +76,7 @@ export function AppHeader() {
   const handleSignOut = async () => {
     await auth.signOut();
     setIsUserMenuOpen(false);
-    navigate("/login", { replace: true });
+    navigate(localize("/login"), { replace: true });
   };
 
   return (
@@ -105,7 +107,7 @@ export function AppHeader() {
               aria-label={t("app.primaryNavigation")}
             >
               {NAV_ITEMS.map((item) => (
-                <AppNavLink key={item.to} to={item.to}>
+                <AppNavLink key={item.to} to={localize(item.to)} end={item.to === "/"}>
                   {t(item.labelKey)}
                 </AppNavLink>
               ))}
@@ -147,7 +149,7 @@ export function AppHeader() {
           <ul className="mx-auto grid max-w-[1500px] gap-1 sm:grid-cols-2">
             {NAV_ITEMS.map((item) => (
               <li key={item.to}>
-                <AppNavLink to={item.to} block>
+                <AppNavLink to={localize(item.to)} end={item.to === "/"} block>
                   {t(item.labelKey)}
                 </AppNavLink>
               </li>
@@ -255,17 +257,19 @@ function UserMenu({
 
 function AppNavLink({
   to,
+  end = false,
   block = false,
   children,
 }: {
   to: string;
+  end?: boolean;
   block?: boolean;
   children: ReactNode;
 }) {
   return (
     <NavLink
       to={to}
-      end={to === "/"}
+      end={end}
       className={({ isActive }) =>
         [
           block

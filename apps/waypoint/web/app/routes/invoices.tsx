@@ -28,8 +28,9 @@ import { useModalDialog } from "../hooks/useModalDialog";
 import { useFormat, type Formatters } from "../i18n/format";
 import { normalizeDecision, useLabels, type Labels } from "../i18n/labels";
 import { pageMeta } from "../i18n/meta";
+import { useLocale } from "../i18n/LocaleProvider";
 
-export const meta: MetaFunction = ({ matches }) => pageMeta(matches, "invoices");
+export const meta: MetaFunction = ({ location }) => pageMeta(location, "invoices");
 
 interface InvoiceDecision {
   invoice_id: string;
@@ -413,7 +414,13 @@ export default function Invoices() {
   const [batchError, setBatchError] = useState<string | null>(null);
   const [batchResult, setBatchResult] = useState<BatchAssuranceResult | null>(null);
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const routerNavigate = useNavigate();
+  const { localize } = useLocale();
+  // In-app links keep the current language prefix (`/es/...`).
+  const navigate = useCallback(
+    (to: string) => routerNavigate(localize(to)),
+    [routerNavigate, localize],
+  );
   const deepLinkAppliedRef = useRef(false);
 
   const [decisionFilter, setDecisionFilter] = useState<string>("all");

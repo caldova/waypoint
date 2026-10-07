@@ -113,9 +113,14 @@ translated. Agent findings, corpus data, and API messages stay in English.
   namespace per page plus `common` for the shell and shared labels. English is
   the source of truth: `t()` keys are type-checked against the English files,
   so a missing key fails `npm run typecheck`.
-- **Language choice:** the `waypoint_lang` cookie (set from the language picker
-  in the user menu or on the sign-in page), then the browser's
-  `Accept-Language`, then English.
+- **URLs:** English pages are unprefixed (`/invoices`) and other languages
+  live under their code (`/es/invoices`). Links stay in the current language;
+  use `localize()` from `useLocale()` for in-app paths. `/en/...` redirects to
+  the unprefixed URL.
+- **Language choice:** an unprefixed URL redirects to `/es/...` when the
+  visitor prefers Spanish: the `waypoint_lang` cookie (set by the language
+  picker in the user menu or on the sign-in page) first, then the browser's
+  `Accept-Language`. `/auth/msal/callback` is never prefixed.
 - **Formatting:** use `useFormat()` from `web/app/i18n/format.ts` for currency,
   numbers, percentages, and dates. Don't call `toLocaleString()` or hardcode `$`.
   Decision, run-status, and action labels come from `useLabels()` in
@@ -132,7 +137,8 @@ fails when locales drift apart.
 
 To add a language, add a locale folder with every namespace and add the code to
 `SUPPORTED_LOCALES`, `LOCALE_NAMES`, and `INTL_LOCALES`. Then register its
-files in `web/app/i18n/resources.ts`.
+files in `web/app/i18n/resources.ts`. Its `/<code>/...` routes are generated
+in `web/app/routes.ts`.
 
 ## Configuration
 

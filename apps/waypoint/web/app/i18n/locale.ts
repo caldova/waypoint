@@ -1,15 +1,33 @@
 import { DEFAULT_LOCALE, LOCALE_COOKIE, matchLocale, type Locale } from "./config";
+import { isUnlocalizedPath, localizePath, splitLocalePath } from "./paths";
 
-/**
- * Pick the request locale: explicit cookie choice, then the browser's
- * Accept-Language preference order, then English.
- */
-export function resolveLocale(request: Request): Locale {
+/** The visitor's preferred language: saved cookie choice, then Accept-Language, then English. */
+export function preferredLocale(request: Request): Locale {
   return (
     matchLocale(readCookie(request.headers.get("cookie"), LOCALE_COOKIE)) ??
     pickAcceptLanguage(request.headers.get("accept-language")) ??
     DEFAULT_LOCALE
   );
+}
+
+/**
+ * Where an unprefixed URL should go so the address always shows the language:
+ * `/x` → `/es/x` for visitors who prefer Spanish. Returns null when the URL is
+ * already right. (`/en/...` is handled by its own redirect route.)
+ */
+export function localeRedirect(request: Request): string | null {
+  const url = new URL(request.url);
+  // Client navigations fetch `/path.data?_routes=…` (or `/_root.data` for `/`).
+  const pathname = url.pathname === "/_root.data" ? "/" : url.pathname.replace(/\.data$/, "");
+  url.searchParams.delete("_routes");
+  const search = url.searchParams.size ? `?${url.searchParams}` : "";
+  const { path, prefixed } = splitLocalePath(pathname);
+
+  if (prefixed || isUnlocalizedPath(path)) {
+    return null;
+  }
+  const preferred = preferredLocale(request);
+  return preferred === DEFAULT_LOCALE ? null : `${localizePath(path, preferred)}${search}`;
 }
 
 export function pickAcceptLanguage(header: string | null | undefined): Locale | null {

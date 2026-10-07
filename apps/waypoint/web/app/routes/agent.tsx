@@ -32,7 +32,7 @@ import { useFormat, type Formatters } from "../i18n/format";
 import { normalizeDecision, useLabels, type Labels } from "../i18n/labels";
 import { pageMeta } from "../i18n/meta";
 
-export const meta: MetaFunction = ({ matches }) => pageMeta(matches, "agent");
+export const meta: MetaFunction = ({ location }) => pageMeta(location, "agent");
 
 interface FanoutEvidence {
   claim?: string;

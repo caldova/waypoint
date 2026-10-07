@@ -15,13 +15,11 @@ import {
   Scripts,
   ScrollRestoration,
   useLoaderData,
-  useRouteLoaderData,
 } from "react-router";
 import { useEffect } from "react";
 import type { HeadersFunction, LinksFunction } from "react-router";
 import { useTranslation } from "react-i18next";
 import { AuthProvider } from "./components/AuthProvider";
-import { DEFAULT_LOCALE, isSupportedLocale } from "./i18n/config";
 import { LocaleProvider, useLocale } from "./i18n/LocaleProvider";
 import type { loader } from "./root.loader";
 
@@ -43,14 +41,11 @@ export const headers: HeadersFunction = () => ({
 
 /**
  * Document layout component. Wraps both the app and the error boundary so
- * both render in the user's language.
+ * both render in the language from the URL (`/es/...`).
  */
 export function Layout({ children }: { children: React.ReactNode }) {
-  const rootData = useRouteLoaderData<typeof loader>("root");
-  const initialLocale = isSupportedLocale(rootData?.locale) ? rootData.locale : DEFAULT_LOCALE;
-
   return (
-    <LocaleProvider initialLocale={initialLocale}>
+    <LocaleProvider>
       <Document>{children}</Document>
     </LocaleProvider>
   );
@@ -124,6 +119,7 @@ export default function App() {
  */
 export function ErrorBoundary() {
   const { t } = useTranslation();
+  const { localize } = useLocale();
 
   return (
     <div className="flex min-h-screen items-center justify-center">
@@ -132,7 +128,7 @@ export function ErrorBoundary() {
         <h1 className="text-4xl font-bold mb-4">{t("error.title")}</h1>
         <p className="text-lg text-zinc-600 dark:text-zinc-400 mb-6">{t("error.body")}</p>
         <a
-          href="/"
+          href={localize("/")}
           className="inline-block px-6 py-3 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
         >
           {t("error.goHome")}
