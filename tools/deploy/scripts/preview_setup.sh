@@ -14,6 +14,12 @@
 #      and Contributor for the deployer on the preview resource group only.
 #   6. The `preview` GitHub Environment and its variables.
 #
+# `--uninstall` removes all of it again: the GitHub environment, the preview
+# resource group (with every PR preview in it), and both app registrations, which
+# takes their service principals, OIDC credential, Graph grant, and consent with
+# them. It only deletes what this script tagged, and without `--yes` it just
+# prints the plan.
+#
 # Requires: az logged in as a tenant admin who can grant Graph app permissions and
 # admin consent (Global Administrator or Privileged Role Administrator) and create
 # role assignments on the subscription; gh with admin on the repository.
@@ -24,6 +30,7 @@
 # Usage: preview_setup.sh [--repo owner/name] [--resource-group name] [--location region]
 #          [--environment-location region] [--api-app-id id] [--api-url url] [--subject-prefix prefix]
 #          [--prod-environment name] [--prod-resource-group name] [--dry-run]
+#        preview_setup.sh --uninstall [--yes] [--repo owner/name] [--resource-group name]
 set -euo pipefail
 
 REPO="${GITHUB_REPOSITORY:-caldova/waypoint}"
@@ -37,8 +44,13 @@ SUBJECT_PREFIX=""
 PROD_ENVIRONMENT="caldova"
 PROD_RESOURCE_GROUP="waypoint-rg"
 DRY_RUN="false"
+UNINSTALL="false"
+YES="false"
 SPA_NAME="waypoint-preview-web"
 DEPLOYER_NAME="waypoint-preview-deployer"
+# Marks what this script owns; --uninstall deletes nothing without these tags.
+APP_TAG="waypoint-preview-managed"
+RG_TAG_VALUE="environment"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -52,7 +64,9 @@ while [[ $# -gt 0 ]]; do
     --prod-environment) PROD_ENVIRONMENT="$2"; shift 2 ;;
     --prod-resource-group) PROD_RESOURCE_GROUP="$2"; shift 2 ;;
     --dry-run) DRY_RUN="true"; shift ;;
-    -h|--help) sed -n '2,31p' "$0"; exit 0 ;;
+    --uninstall) UNINSTALL="true"; shift ;;
+    --yes) YES="true"; shift ;;
+    -h|--help) sed -n '2,39p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -67,6 +81,48 @@ prod_var() { gh variable get "$1" --env "$PROD_ENVIRONMENT" --repo "$REPO" 2>/de
 
 SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
 TENANT_ID="$(az account show --query tenantId -o tsv)"
+
+# ---- uninstall ---------------------------------------------------------------
+if [[ "$UNINSTALL" == "true" ]]; then
+  apply="false"
+  [[ "$YES" == "true" && "$DRY_RUN" != "true" ]] && apply="true"
+  step() { if [[ "$apply" == "true" ]]; then log "removing $*"; else log "would remove $*"; fi; }
+
+  if gh api "repos/${REPO}/environments/${ENVIRONMENT}" --silent 2>/dev/null; then
+    step "GitHub environment '${ENVIRONMENT}' and its variables (${REPO})"
+    [[ "$apply" == "true" ]] && gh api -X DELETE "repos/${REPO}/environments/${ENVIRONMENT}" --silent
+  fi
+
+  if az group show -n "$RESOURCE_GROUP" -o none 2>/dev/null; then
+    rg_tag="$(az group show -n "$RESOURCE_GROUP" --query 'tags."waypoint-preview"' -o tsv)"
+    if [[ "$rg_tag" == "$RG_TAG_VALUE" ]]; then
+      step "resource group ${RESOURCE_GROUP} and every PR preview in it"
+      [[ "$apply" == "true" ]] && az group delete -n "$RESOURCE_GROUP" --yes
+    else
+      log "skipping resource group ${RESOURCE_GROUP}: not tagged waypoint-preview=${RG_TAG_VALUE}"
+    fi
+  fi
+
+  for app_name in "$DEPLOYER_NAME" "$SPA_NAME"; do
+    for app_id in $(az ad app list --filter "displayName eq '${app_name}'" \
+      --query "[?tags && contains(tags, '${APP_TAG}')].appId" -o tsv); do
+      step "app registration ${app_name} (${app_id}) with its service principal, credentials, and grants"
+      [[ "$apply" == "true" ]] && az ad app delete --id "$app_id"
+    done
+    untagged="$(az ad app list --filter "displayName eq '${app_name}'" \
+      --query "length([?!(tags && contains(tags, '${APP_TAG}'))])" -o tsv)"
+    if [[ "$untagged" != "0" ]]; then
+      log "skipping ${untagged} '${app_name}' app registration(s) without the ${APP_TAG} tag"
+    fi
+  done
+
+  if [[ "$apply" == "true" ]]; then
+    log "uninstall complete (deleted app registrations stay restorable in Entra for 30 days)"
+  else
+    log "plan only: rerun with --uninstall --yes to remove these"
+  fi
+  exit 0
+fi
 
 # ---- resolve defaults from production ---------------------------------------
 if [[ -z "$LOCATION" ]]; then
@@ -103,11 +159,17 @@ if [[ "$DRY_RUN" == "true" ]]; then
 fi
 
 ensure_app() {
-  local name="$1" app_id
+  local name="$1" app_id obj_id tags
   app_id="$(az ad app list --filter "displayName eq '${name}'" --query "[0].appId" -o tsv)"
   if [[ -z "$app_id" ]]; then
     log "creating app registration $name"
     app_id="$(az ad app create --display-name "$name" --sign-in-audience AzureADMyOrg --query appId -o tsv)"
+  fi
+  obj_id="$(az ad app show --id "$app_id" --query id -o tsv)"
+  tags="$(az ad app show --id "$app_id" --query tags -o json)"
+  if [[ "$tags" != *"\"${APP_TAG}\""* ]]; then
+    tags="$(python3 -c 'import json,sys;print(json.dumps({"tags":sorted(set(json.loads(sys.argv[1] or "[]") or [])|{sys.argv[2]})}))' "$tags" "$APP_TAG")"
+    az rest --method PATCH --uri "${GRAPH}/applications/${obj_id}" --headers "Content-Type=application/json" --body "$tags" -o none
   fi
   az ad sp show --id "$app_id" -o none 2>/dev/null || az ad sp create --id "$app_id" -o none
   echo "$app_id"
@@ -140,7 +202,7 @@ ensure_consent() {
 
 # ---- 1. resource group -------------------------------------------------------
 az group show -n "$RESOURCE_GROUP" -o none 2>/dev/null \
-  || az group create -n "$RESOURCE_GROUP" -l "$LOCATION" --tags waypoint-preview=environment -o none
+  || az group create -n "$RESOURCE_GROUP" -l "$LOCATION" --tags "waypoint-preview=${RG_TAG_VALUE}" -o none
 
 # ---- 2. preview-only sign-in app ---------------------------------------------
 SPA_APP_ID="$(ensure_app "$SPA_NAME")"

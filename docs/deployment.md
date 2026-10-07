@@ -165,6 +165,19 @@ To debug a preview, stream its logs:
 To remove one by hand, run
 `PREVIEW_RESOURCE_GROUP=waypoint-preview-rg PR_NUMBER=<number> MSAL_CLIENT_ID=<preview app> bash tools/deploy/scripts/preview_web.sh destroy`.
 
+To remove PR previews entirely, run the uninstall. It deletes the `preview`
+GitHub environment, `waypoint-preview-rg` with every preview in it, and both
+preview app registrations, which takes their service principals, OIDC
+credential, Graph grant, and consent with them. It only deletes what setup
+tagged, and without `--yes` it prints the plan:
+
+```bash
+bash tools/deploy/scripts/preview_setup.sh --uninstall
+bash tools/deploy/scripts/preview_setup.sh --uninstall --yes
+```
+
+Deleted app registrations stay restorable in Entra for 30 days.
+
 ## Quality and optimization
 
 Agent quality and optimization run through `castia eval` and `castia optimize`.

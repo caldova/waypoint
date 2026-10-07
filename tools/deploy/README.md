@@ -26,7 +26,7 @@ Reusable helpers for the app deployment and acceptance checks:
 | `scripts/oidc.sh` | One-time GitHub-to-Azure OIDC bootstrap. |
 | `scripts/keyvault.sh` | Idempotent Key Vault and generated-secret helpers. |
 | `scripts/msal.sh` | Waypoint Entra application reconciliation, including adding and removing per-host SPA redirect URIs. |
-| `scripts/preview_setup.sh` | One-time setup for web PR previews (isolated resource group, preview sign-in app, OIDC deployer, `preview` environment). |
+| `scripts/preview_setup.sh` | One-time setup for web PR previews (isolated resource group, preview sign-in app, OIDC deployer, `preview` environment); `--uninstall` removes it all. |
 | `scripts/preview_web.sh` | Deploys, deletes, and sweeps per-PR web previews (`web-pr-<number>`). |
 | `scripts/verify_deployment.py` | Versioned HTTP acceptance probes. |
 | `scripts/verify_terminal_run.py` | Verifies a newly finalized assurance run. |
