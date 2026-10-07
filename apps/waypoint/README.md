@@ -99,8 +99,40 @@ uv run ruff format --check app/
 
 cd ../web
 npm run typecheck
+npm run i18n:check
 npm run build
 ```
+
+## Localization
+
+The web UI ships in English (`en`) and Latin American Spanish (`es`), using
+[i18next](https://www.i18next.com/) and `react-i18next`. Only the UI is
+translated. Agent findings, corpus data, and API messages stay in English.
+
+- **Strings** live in `web/app/i18n/locales/<locale>/<namespace>.json`, with one
+  namespace per page plus `common` for the shell and shared labels. English is
+  the source of truth: `t()` keys are type-checked against the English files,
+  so a missing key fails `npm run typecheck`.
+- **Language choice:** the `waypoint_lang` cookie (set from the language picker
+  in the user menu or on the sign-in page), then the browser's
+  `Accept-Language`, then English.
+- **Formatting:** use `useFormat()` from `web/app/i18n/format.ts` for currency,
+  numbers, percentages, and dates. Don't call `toLocaleString()` or hardcode `$`.
+  Decision, run-status, and action labels come from `useLabels()` in
+  `web/app/i18n/labels.ts`.
+- **Keep in English:** product, plane, and agent names (Caldova, Waypoint,
+  Foundry, FoundryIQ, WorkIQ, WebIQ, FabricIQ, Microsoft 365, Teams, Copilot,
+  OneLake, Assurance Orchestrator, and so on) and acronyms such as MSA and RFT.
+
+To add a string, add the key to the English file and to every other locale,
+then use `t("key")` from `useTranslation("<namespace>")`. Use `{{name}}`
+interpolation instead of concatenating strings. Plurals use `_one` and
+`_other`, and Spanish also needs `_many`. `npm run i18n:check` (also run in CI)
+fails when locales drift apart.
+
+To add a language, add a locale folder with every namespace and add the code to
+`SUPPORTED_LOCALES`, `LOCALE_NAMES`, and `INTL_LOCALES`. Then register its
+files in `web/app/i18n/resources.ts`.
 
 ## Configuration
 

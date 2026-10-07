@@ -15,10 +15,15 @@ import {
   Scripts,
   ScrollRestoration,
   useLoaderData,
+  useRouteLoaderData,
 } from "react-router";
 import { useEffect } from "react";
-import type { LinksFunction } from "react-router";
+import type { HeadersFunction, LinksFunction } from "react-router";
+import { useTranslation } from "react-i18next";
 import { AuthProvider } from "./components/AuthProvider";
+import { DEFAULT_LOCALE, isSupportedLocale } from "./i18n/config";
+import { LocaleProvider, useLocale } from "./i18n/LocaleProvider";
+import type { loader } from "./root.loader";
 
 import "./app.css";
 
@@ -31,12 +36,31 @@ export const links: LinksFunction = () => [
   { rel: "mask-icon", href: "/favicon.svg", color: "#2e6cfc" },
 ];
 
+// The rendered language depends on these request headers; child routes inherit this.
+export const headers: HeadersFunction = () => ({
+  Vary: "Accept-Language, Cookie",
+});
+
 /**
- * Document layout component.
+ * Document layout component. Wraps both the app and the error boundary so
+ * both render in the user's language.
  */
 export function Layout({ children }: { children: React.ReactNode }) {
+  const rootData = useRouteLoaderData<typeof loader>("root");
+  const initialLocale = isSupportedLocale(rootData?.locale) ? rootData.locale : DEFAULT_LOCALE;
+
   return (
-    <html lang="en">
+    <LocaleProvider initialLocale={initialLocale}>
+      <Document>{children}</Document>
+    </LocaleProvider>
+  );
+}
+
+function Document({ children }: { children: React.ReactNode }) {
+  const { locale } = useLocale();
+
+  return (
+    <html lang={locale}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -57,7 +81,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
  */
 export default function App() {
   const { otelConfig, msalConfig, env, qualityOperations, buildVersion } =
-    useLoaderData<typeof import("./root.loader").loader>();
+    useLoaderData<typeof loader>();
 
   // Initialize telemetry on mount
   useEffect(() => {
@@ -95,30 +119,25 @@ export default function App() {
 }
 
 /**
- * Error boundary for the root route.
+ * Error boundary for the root route. Rendered inside `Layout`, which already
+ * provides the document shell.
  */
 export function ErrorBoundary() {
+  const { t } = useTranslation();
+
   return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Error - Caldova</title>
-      </head>
-      <body className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 min-h-screen flex items-center justify-center">
-        <div className="text-center p-8">
-          <h1 className="text-4xl font-bold mb-4">Oops!</h1>
-          <p className="text-lg text-zinc-600 dark:text-zinc-400 mb-6">
-            Something went wrong. Please try again later.
-          </p>
-          <a
-            href="/"
-            className="inline-block px-6 py-3 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
-          >
-            Go Home
-          </a>
-        </div>
-      </body>
-    </html>
+    <div className="flex min-h-screen items-center justify-center">
+      <title>{t("error.documentTitle")}</title>
+      <div className="text-center p-8">
+        <h1 className="text-4xl font-bold mb-4">{t("error.title")}</h1>
+        <p className="text-lg text-zinc-600 dark:text-zinc-400 mb-6">{t("error.body")}</p>
+        <a
+          href="/"
+          className="inline-block px-6 py-3 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
+        >
+          {t("error.goHome")}
+        </a>
+      </div>
+    </div>
   );
 }

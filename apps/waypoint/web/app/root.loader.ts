@@ -4,9 +4,15 @@
  * This loader runs on the server and exposes:
  * - OpenTelemetry configuration for browser tracing
  * - Environment flags
+ * - The UI locale (cookie choice, then Accept-Language, then English)
  */
 
-export function loader() {
+import type { LoaderFunctionArgs } from "react-router";
+import { resolveLocale } from "./i18n/locale";
+
+export function loader({ request }: LoaderFunctionArgs) {
+  const locale = resolveLocale(request);
+
   // Browsers send spans to a same-origin proxy when the web container has an
   // OTLP endpoint. Server-side proxying keeps exporter headers out of the page.
   const hasOtlpEndpoint = Boolean(
@@ -27,6 +33,7 @@ export function loader() {
   };
 
   return {
+    locale,
     otelConfig,
     msalConfig: {
       enabled: parseBoolean(process.env.WAYPOINT_MSAL_ENABLED),

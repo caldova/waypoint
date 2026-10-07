@@ -1,0 +1,96 @@
+{
+  "app": {
+    "name": "Waypoint",
+    "skipToContent": "Saltar al contenido principal",
+    "menu": "Menú",
+    "primaryNavigation": "Navegación principal",
+    "logoAlt": "Caldova"
+  },
+  "nav": {
+    "overview": "Resumen",
+    "invoices": "Facturas",
+    "activity": "Actividad",
+    "agent": "Detalles del agente",
+    "quality": "Calidad"
+  },
+  "userMenu": {
+    "devMode": "Modo de desarrollo",
+    "devModeDetail": "La autenticación se omite en el entorno local.",
+    "signOut": "Cerrar sesión",
+    "backToLogin": "Volver al inicio de sesión"
+  },
+  "language": {
+    "label": "Idioma"
+  },
+  "meta": {
+    "home": {
+      "title": "Caldova",
+      "description": "Espacio de supervisión de proveedores de fabricación por contrato"
+    },
+    "login": {
+      "title": "Iniciar sesión - Caldova",
+      "description": "Inicia sesión en Caldova"
+    },
+    "activity": {
+      "title": "Actividad - Caldova",
+      "description": "Vista en vivo de las ejecuciones de agentes activas y pendientes, y su progreso"
+    },
+    "agent": {
+      "title": "Ejecuciones - Caldova",
+      "description": "Trabajo agregado de los agentes: ejecuciones por factura, uso de IQ y la evidencia que encontró cada ejecución"
+    },
+    "invoices": {
+      "title": "Facturas - Caldova",
+      "description": "Decisiones sobre facturas de Caldova y contexto de los agentes"
+    },
+    "quality": {
+      "title": "Calidad y optimización - Caldova",
+      "description": "Linaje de calidad, preparación y operaciones protegidas de GitHub para los agentes de Caldova"
+    }
+  },
+  "error": {
+    "documentTitle": "Error - Caldova",
+    "title": "¡Ups!",
+    "body": "Algo salió mal. Vuelve a intentarlo más tarde.",
+    "goHome": "Ir al inicio"
+  },
+  "decision": {
+    "approve": "Aprobar",
+    "review": "Revisar",
+    "recover": "Recuperar",
+    "escalate": "Escalar"
+  },
+  "runStatus": {
+    "pending": "Pendiente",
+    "queued": "En cola",
+    "waiting": "En espera",
+    "created": "Creada",
+    "running": "En ejecución",
+    "in_progress": "En curso",
+    "active": "Activa",
+    "partial": "Parcial",
+    "completed": "Completada",
+    "failed": "Fallida",
+    "error": "Error"
+  },
+  "action": {
+    "recommend_recover": "Recomendar recuperación",
+    "draft_supplier_dispute": "Redactar disputa con el proveedor",
+    "request_legal_escalation": "Solicitar escalamiento legal",
+    "request_quality_review": "Solicitar revisión de calidad"
+  },
+  "planeScope": {
+    "foundryiq": "Términos del contrato y política financiera",
+    "fabriciq": "Datos de OC, lotes y liberación en OneLake",
+    "workiq": "Tu correo, Teams y archivos de Microsoft 365",
+    "webiq": "Fuentes públicas de mercado y regulatorias"
+  },
+  "integrationScope": {
+    "oracle-erp": "Cuentas por pagar, compras y registros de proveedores en Oracle Database@Azure"
+  },
+  "score": {
+    "confidence": "{{value}}% de confianza",
+    "evidenceScore": "{{value}}% de puntuación de evidencia"
+  },
+  "unknown": "Desconocido"
+}

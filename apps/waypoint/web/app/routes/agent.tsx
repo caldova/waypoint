@@ -19,6 +19,8 @@ import {
   HiSearch,
   HiX,
 } from "react-icons/hi";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { INTEGRATIONS, integrationForLane } from "../../lib/integrations";
 import { authFetch } from "../../lib/msalAuth";
 import { AppHeader } from "../components/AppHeader";
@@ -26,14 +28,11 @@ import { useAuth } from "../components/AuthProvider";
 import { RequireAuth } from "../components/RequireAuth";
 import { useModalDialog } from "../hooks/useModalDialog";
 import { usePrefersReducedMotion } from "../hooks/usePrefersReducedMotion";
+import { useFormat, type Formatters } from "../i18n/format";
+import { normalizeDecision, useLabels, type Labels } from "../i18n/labels";
+import { pageMeta } from "../i18n/meta";
 
-export const meta: MetaFunction = () => [
-  { title: "Runs - Caldova" },
-  {
-    name: "description",
-    content: "Aggregated agent work: per-invoice runs, IQ usage, and the evidence each run found",
-  },
-];
+export const meta: MetaFunction = ({ matches }) => pageMeta(matches, "agent");
 
 interface FanoutEvidence {
   claim?: string;
@@ -86,12 +85,8 @@ async function tracedFetch(
   return traced(name, () => authFetch(input, init, { requireToken: true }));
 }
 
-function formatMoney(value: number | undefined): string {
-  const amount = typeof value === "number" && Number.isFinite(value) ? value : 0;
-  return `$${amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+function formatMoney(fmt: Formatters, value: number | undefined): string {
+  return fmt.currency(value, "USD", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 // Strip the internal knowledge-base chunk anchor from an evidence source_ref,
@@ -102,12 +97,18 @@ function cleanSourceRef(ref: string): string {
   return cleaned.length > 0 ? cleaned : ref;
 }
 
-function formatTimestamp(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleString();
+// Same fields as the previous `toLocaleString()` default: numeric date with seconds.
+const TIMESTAMP_FORMAT: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  second: "2-digit",
+};
+
+function formatTimestamp(fmt: Formatters, value: string): string {
+  return fmt.dateTime(value, TIMESTAMP_FORMAT) ?? value;
 }
 
 const DECISION_STYLES: Record<string, string> = {
@@ -123,9 +124,13 @@ function decisionStyle(decision: string | undefined): string {
   return DECISION_STYLES[(decision ?? "").toLowerCase()] ?? "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
-/** Same wording as the invoice panel: only a calibrated score is "confidence". */
-function scoreText(value: number, calibrated: boolean): string {
-  return `${Math.round(value * 100)}% ${calibrated ? "confidence" : "evidence score"}`;
+const DECISION_VALUES = new Set(["approve", "review", "recover", "escalate"]);
+
+/** Runs without a decision show their status instead; label whichever it is. */
+function outcomeLabel(labels: Labels, value: string | undefined): string {
+  return DECISION_VALUES.has(normalizeDecision(value))
+    ? labels.decision(value)
+    : labels.runStatus(value);
 }
 
 // ---------------------------------------------------------------------------
@@ -263,6 +268,11 @@ function metaForLane(lane: FanoutLane): IqMeta {
 
 function metaKey(meta: IqMeta): string {
   return meta.integrationKey ?? meta.key;
+}
+
+// The generic fallback has no brand name, so its "Expert" label is translated.
+function isGenericMeta(meta: IqMeta): boolean {
+  return meta.key === "other" && !meta.integrationKey;
 }
 
 // Distinct sources for a run's evidence: IQ planes first, then integrations.
@@ -535,20 +545,20 @@ function buildIqStats(runs: AgentRun[], groups: InvoiceGroup[]): IqStat[] {
 
 type TimeRangeKey = "7d" | "30d" | "90d" | "all";
 
-const TIME_RANGES: { key: TimeRangeKey; label: string; days: number | null }[] = [
-  { key: "7d", label: "7d", days: 7 },
-  { key: "30d", label: "30d", days: 30 },
-  { key: "90d", label: "90d", days: 90 },
-  { key: "all", label: "All", days: null },
-];
+const TIME_RANGES = [
+  { key: "7d", labelKey: "filters.range.days7", days: 7 },
+  { key: "30d", labelKey: "filters.range.days30", days: 30 },
+  { key: "90d", labelKey: "filters.range.days90", days: 90 },
+  { key: "all", labelKey: "filters.range.all", days: null },
+] as const satisfies readonly { key: TimeRangeKey; labelKey: string; days: number | null }[];
 
 type SortKey = "recent" | "money" | "confidence";
 
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "recent", label: "Most recent" },
-  { key: "money", label: "Money at risk" },
-  { key: "confidence", label: "Lowest confidence" },
-];
+const SORT_OPTIONS = [
+  { key: "recent", labelKey: "filters.sort.recent" },
+  { key: "money", labelKey: "filters.sort.money" },
+  { key: "confidence", labelKey: "filters.sort.confidence" },
+] as const satisfies readonly { key: SortKey; labelKey: string }[];
 
 const DAY_MS = 86_400_000;
 
@@ -571,15 +581,12 @@ function monthKeyOf(iso: string): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function monthLabelOf(key: string): string {
+function monthLabelOf(fmt: Formatters, key: string): string {
   const [year, month] = key.split("-").map(Number);
   if (!year || !month) {
     return key;
   }
-  return new Date(year, month - 1, 1).toLocaleString(undefined, {
-    month: "short",
-    year: "numeric",
-  });
+  return fmt.date(new Date(year, month - 1, 1), { month: "short", year: "numeric" }) ?? key;
 }
 
 interface TrendPoint {
@@ -612,6 +619,8 @@ function buildMoneyTrend(groups: InvoiceGroup[]): TrendPoint[] {
 
 export default function Agent() {
   const auth = useAuth();
+  const { t } = useTranslation("agent");
+  const fmt = useFormat();
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -623,6 +632,9 @@ export default function Agent() {
   const [decisionFilter, setDecisionFilter] = useState<string>("all");
   const [sort, setSort] = useState<SortKey>("recent");
   const [cashKey, setCashKey] = useState(0);
+  // Read through a ref so switching language doesn't refetch the runs.
+  const tRef = useRef(t);
+  tRef.current = t;
 
   const fetchRuns = useCallback(async () => {
     if (auth.status !== "authenticated") {
@@ -633,13 +645,13 @@ export default function Agent() {
     try {
       const response = await tracedFetch("fetchAgentRuns", "/api/runs");
       if (!response.ok) {
-        throw new Error(`Failed to fetch agent runs: ${response.statusText}`);
+        throw new Error(tRef.current("errors.fetchFailedStatus", { status: response.statusText }));
       }
       const data: AgentRun[] = await response.json();
       data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setRuns(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch agent runs");
+      setError(err instanceof Error ? err.message : tRef.current("errors.fetchFailed"));
     } finally {
       setLoading(false);
     }
@@ -680,7 +692,8 @@ export default function Agent() {
   const decisions = useMemo(() => {
     const set = new Set<string>();
     for (const group of allGroups) {
-      set.add(group.decision.toLowerCase());
+      // Fold aliases (e.g. "recovery") so each translated label appears once.
+      set.add(normalizeDecision(group.decision));
     }
     return Array.from(set).sort();
   }, [allGroups]);
@@ -689,7 +702,7 @@ export default function Agent() {
   const groups = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const filtered = allGroups.filter((group) => {
-      if (decisionFilter !== "all" && group.decision.toLowerCase() !== decisionFilter) {
+      if (decisionFilter !== "all" && normalizeDecision(group.decision) !== decisionFilter) {
         return false;
       }
       if (needle) {
@@ -767,12 +780,10 @@ export default function Agent() {
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
                 <div>
                   <h1 id="agent-heading" className="text-2xl font-semibold tracking-tight">
-                    Work done by invoice
+                    {t("page.heading")}
                   </h1>
                   <p className="mt-1 max-w-[65ch] text-sm leading-6 text-slate-600">
-                    Every Foundry Assurance Orchestrator run is grouped by the invoice it assured. Each row rolls
-                    up how many times the experts ran, the current decision, and money at risk.
-                    Open a run to see the IQ-by-IQ evidence trail of what it found.
+                    {t("page.intro")}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -782,7 +793,7 @@ export default function Agent() {
                     className="inline-flex min-h-9 items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 max-md:min-h-11"
                   >
                     <HiRefresh className="h-4 w-4" aria-hidden="true" />
-                    Refresh
+                    {t("page.refresh")}
                   </button>
                 </div>
               </div>
@@ -820,14 +831,14 @@ export default function Agent() {
 
               <div className="mt-3 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1">
                 {loading ? (
-                  <p className="px-1 py-6 text-sm text-slate-500">Loading runs…</p>
+                  <p className="px-1 py-6 text-sm text-slate-500">{t("page.loading")}</p>
                 ) : runs.length === 0 ? (
                   <EmptyState />
                 ) : groups.length === 0 ? (
                   <NoMatches onReset={resetFilters} />
                 ) : (
                   <>
-                  <h2 className="sr-only">Invoices</h2>
+                  <h2 className="sr-only">{t("page.invoices")}</h2>
                   <ol className="space-y-3">
                     {groups.map((group) => (
                       <InvoiceCard
@@ -846,10 +857,9 @@ export default function Agent() {
 
             <aside className="flex flex-col gap-2 xl:min-h-0 xl:overflow-auto">
               <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                <h2 className="type-section">Expert usage</h2>
+                <h2 className="type-section">{t("usage.heading")}</h2>
                 <p className="mt-1 type-meta leading-5">
-                  How often each expert ran across all work, and the evidence each
-                  contributed to the decision.
+                  {t("usage.description")}
                 </p>
                 {iqStats.length > 0 ? (
                   <ul className="mt-2.5 space-y-2">
@@ -859,29 +869,29 @@ export default function Agent() {
                   </ul>
                 ) : (
                   <p className="mt-2.5 rounded-md border border-dashed border-slate-200 bg-slate-50/60 p-2.5 text-xs leading-5 text-slate-500">
-                    No expert contributed cited evidence in the selected runs.
+                    {t("usage.empty")}
                   </p>
                 )}
               </section>
 
               <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                <h2 className="type-section">Across all runs</h2>
+                <h2 className="type-section">{t("totals.heading")}</h2>
                 <dl className="mt-2 grid grid-cols-3 gap-2">
-                  <Stat label="Invoices" value={String(totals.invoices)} />
-                  <Stat label="Runs" value={String(totals.runs)} />
+                  <Stat label={t("page.invoices")} value={String(totals.invoices)} />
+                  <Stat label={t("totals.runs")} value={String(totals.runs)} />
                   <Stat
-                    label="At risk"
-                    value={formatMoney(totals.moneyAtRisk)}
+                    label={t("shared.atRisk")}
+                    value={formatMoney(fmt, totals.moneyAtRisk)}
                     tone="text-emerald-700"
                     onClick={() => setCashKey((key) => key + 1)}
-                    hint="Make it rain"
+                    hint={t("totals.makeItRain")}
                   />
                 </dl>
                 {moneyTrend.length > 1 ? (
                   <div className="mt-3 border-t border-slate-100 pt-2.5">
                     <div className="flex items-center justify-between type-meta">
-                      <span className="font-medium text-slate-600">Money at risk over time</span>
-                      <span>{moneyTrend.length} days</span>
+                      <span className="font-medium text-slate-600">{t("totals.trendHeading")}</span>
+                      <span>{t("totals.days", { count: moneyTrend.length })}</span>
                     </div>
                     <Sparkline points={moneyTrend} className="mt-1.5" />
                   </div>
@@ -970,10 +980,13 @@ function FilterBar({
   sort: SortKey;
   onSort: (key: SortKey) => void;
 }) {
+  const { t } = useTranslation("agent");
+  const fmt = useFormat();
+  const labels = useLabels();
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-100 pb-3">
       <div className="flex items-center gap-1.5">
-        <span className="type-label">When</span>
+        <span className="type-label">{t("filters.when")}</span>
         <div className="inline-flex rounded-md border border-slate-200 p-0.5">
           {TIME_RANGES.map((range) => {
             const active = monthFilter === "all" && timeRange === range.key;
@@ -987,7 +1000,7 @@ function FilterBar({
                   active ? "bg-blue-700 text-white" : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                {range.label}
+                {t(range.labelKey)}
               </button>
             );
           })}
@@ -997,12 +1010,12 @@ function FilterBar({
             value={monthFilter}
             onChange={(event) => onMonthFilter(event.target.value)}
             className="min-h-8 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-blue-300 focus:outline-none max-md:min-h-11 max-md:text-base"
-            aria-label="Filter by month"
+            aria-label={t("filters.monthAriaLabel")}
           >
-            <option value="all">Any month</option>
+            <option value="all">{t("filters.anyMonth")}</option>
             {months.map((month) => (
               <option key={month} value={month}>
-                {monthLabelOf(month)}
+                {monthLabelOf(fmt, month)}
               </option>
             ))}
           </select>
@@ -1011,17 +1024,17 @@ function FilterBar({
 
       {decisions.length > 1 ? (
         <div className="flex items-center gap-1.5">
-          <span className="type-label">Decision</span>
+          <span className="type-label">{t("filters.decision")}</span>
           <div className="flex flex-wrap items-center gap-1">
             <DecisionChip
-              label="All"
+              label={t("filters.allDecisions")}
               active={decisionFilter === "all"}
               onClick={() => onDecisionFilter("all")}
             />
             {decisions.map((decision) => (
               <DecisionChip
                 key={decision}
-                label={decision}
+                label={outcomeLabel(labels, decision)}
                 active={decisionFilter === decision}
                 onClick={() => onDecisionFilter(decision)}
               />
@@ -1040,20 +1053,20 @@ function FilterBar({
             type="search"
             value={query}
             onChange={(event) => onQuery(event.target.value)}
-            placeholder="Search invoice…"
+            placeholder={t("filters.searchPlaceholder")}
             className="min-h-8 w-44 max-md:w-full rounded-md border border-slate-200 bg-white pl-7 pr-2 py-1 text-xs text-slate-700 placeholder:text-slate-500 focus:border-blue-300 focus:outline-none max-md:min-h-11 max-md:text-base"
-            aria-label="Search invoices"
+            aria-label={t("filters.searchAriaLabel")}
           />
         </div>
         <select
           value={sort}
           onChange={(event) => onSort(event.target.value as SortKey)}
           className="min-h-8 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-blue-300 focus:outline-none max-md:min-h-11 max-md:text-base"
-          aria-label="Sort invoices"
+          aria-label={t("filters.sortAriaLabel")}
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.key} value={option.key}>
-              {option.label}
+              {t(option.labelKey)}
             </option>
           ))}
         </select>
@@ -1076,7 +1089,7 @@ function DecisionChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ring-1 transition-colors max-md:min-h-11 max-md:px-3.5 ${
+      className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 transition-colors max-md:min-h-11 max-md:px-3.5 ${
         active
           ? "bg-slate-900 text-white ring-slate-900"
           : "bg-white text-slate-600 ring-slate-200 hover:bg-slate-50"
@@ -1088,6 +1101,7 @@ function DecisionChip({
 }
 
 function Sparkline({ points, className }: { points: TrendPoint[]; className?: string }) {
+  const { t } = useTranslation("agent");
   const width = 100;
   const height = 28;
   const values = points.map((point) => point.value);
@@ -1109,7 +1123,7 @@ function Sparkline({ points, className }: { points: TrendPoint[]; className?: st
       preserveAspectRatio="none"
       className={`h-8 w-full ${className ?? ""}`}
       role="img"
-      aria-label="Money at risk trend"
+      aria-label={t("totals.trendAriaLabel")}
     >
       <polygon points={area} fill="rgba(16,185,129,0.12)" />
       <polyline
@@ -1127,16 +1141,17 @@ function Sparkline({ points, className }: { points: TrendPoint[]; className?: st
 }
 
 function NoMatches({ onReset }: { onReset: () => void }) {
+  const { t } = useTranslation("agent");
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-1 py-12 text-center">
-      <p className="text-sm font-medium text-slate-600">No invoices match these filters.</p>
+      <p className="text-sm font-medium text-slate-600">{t("filters.noMatches")}</p>
       <button
         type="button"
         onClick={onReset}
         className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
       >
         <HiX className="h-3.5 w-3.5" aria-hidden="true" />
-        Clear filters
+        {t("filters.clear")}
       </button>
     </div>
   );
@@ -1261,6 +1276,8 @@ function IqLogo({ meta, size = "h-9 w-9" }: { meta: IqMeta; size?: string }) {
 }
 
 function IqUsageTile({ stat }: { stat: IqStat }) {
+  const { t } = useTranslation("agent");
+  const fmt = useFormat();
   const { meta } = stat;
   const idle = stat.runCount === 0;
   return (
@@ -1272,25 +1289,25 @@ function IqUsageTile({ stat }: { stat: IqStat }) {
         <div className="flex items-start justify-between gap-2">
           <span className="flex min-w-0 flex-wrap items-start gap-x-1.5 gap-y-1">
             <span className="text-sm font-semibold leading-5 text-slate-800">
-              {meta.agent}
+              {isGenericMeta(meta) ? t("shared.expert") : meta.agent}
             </span>
             {meta.stub ? (
               <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">
-                Stub
+                {t("usage.stub")}
               </span>
             ) : null}
           </span>
           <span className={`shrink-0 text-xs font-semibold ${meta.text}`}>
-            {idle ? "—" : `Ran ${stat.runCount}×`}
+            {idle ? "—" : t("shared.ranCount", { n: stat.runCount })}
           </span>
         </div>
         {meta.tool ? (
           <p className="mt-0.5 truncate type-meta">
-            Connected to {meta.tool}
+            {t("usage.connectedTo", { tool: meta.tool })}
           </p>
         ) : null}
         <div className="mt-0.5 text-xs text-slate-500">
-          {stat.claimCount} {stat.claimCount === 1 ? "citation" : "citations"} contributed
+          {t("usage.citationsContributed", { count: stat.claimCount })}
         </div>
         {!idle && stat.avgConfidence != null ? (
           <div className="mt-1.5 flex items-center gap-2">
@@ -1301,7 +1318,7 @@ function IqUsageTile({ stat }: { stat: IqStat }) {
               />
             </div>
             <span className="type-meta tabular-nums">
-              {Math.round(stat.avgConfidence * 100)}%
+              {fmt.percent(stat.avgConfidence, 0)}
             </span>
           </div>
         ) : null}
@@ -1311,12 +1328,13 @@ function IqUsageTile({ stat }: { stat: IqStat }) {
 }
 
 function IqChip({ meta }: { meta: IqMeta }) {
+  const { t } = useTranslation("agent");
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${meta.ring} ${meta.badge}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden="true" />
-      {meta.label}
+      {isGenericMeta(meta) ? t("shared.expert") : meta.label}
     </span>
   );
 }
@@ -1336,6 +1354,9 @@ function InvoiceCard({
   onToggle: () => void;
   onOpenRun: (runId: string) => void;
 }) {
+  const { t } = useTranslation("agent");
+  const fmt = useFormat();
+  const labels = useLabels();
   return (
     <li className="rounded-md border border-slate-200 bg-white">
       <button
@@ -1347,32 +1368,32 @@ function InvoiceCard({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className={`rounded-md px-2 py-0.5 text-xs font-semibold capitalize ring-1 ${decisionStyle(
+              className={`rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ${decisionStyle(
                 group.decision,
               )}`}
             >
-              {group.decision}
+              {outcomeLabel(labels, group.decision)}
             </span>
             <h3 className="text-base font-semibold leading-6">{group.label}</h3>
             {group.moneyAtRisk > 0 ? (
               <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-100">
-                {formatMoney(group.moneyAtRisk)} at risk
+                {t("shared.amountAtRisk", { amount: formatMoney(fmt, group.moneyAtRisk) })}
               </span>
             ) : null}
             <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-600">
               <HiRefresh className="h-3.5 w-3.5" aria-hidden="true" />
-              Ran {group.runCount}×
+              {t("shared.ranCount", { n: group.runCount })}
             </span>
             {group.confidence != null ? (
               <span
                 className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600"
                 title={
                   group.confidenceCalibrated
-                    ? "Calibrated decision confidence."
-                    : "Uncalibrated evidence score; not calibrated decision accuracy."
+                    ? t("invoice.calibratedHint")
+                    : t("invoice.uncalibratedHint")
                 }
               >
-                {scoreText(group.confidence, group.confidenceCalibrated)}
+                {labels.score(group.confidence, group.confidenceCalibrated)}
               </span>
             ) : null}
           </div>
@@ -1380,16 +1401,16 @@ function InvoiceCard({
             {group.sources.length > 0 ? (
               group.sources.map((meta) => <IqChip key={metaKey(meta)} meta={meta} />)
             ) : (
-              <span className="type-meta">No expert evidence recorded.</span>
+              <span className="type-meta">{t("invoice.noEvidence")}</span>
             )}
           </div>
           <p className="mt-1.5 flex items-center gap-1 type-meta">
             <HiClock className="h-3.5 w-3.5" aria-hidden="true" />
-            Last run {formatTimestamp(group.lastRunAt)}
+            {t("invoice.lastRun", { time: formatTimestamp(fmt, group.lastRunAt) })}
             {group.findingCount > 0 ? (
               <span>
                 {" "}
-                · {group.findingCount} {group.findingCount === 1 ? "finding" : "findings"}
+                · {t("invoice.findings", { count: group.findingCount })}
               </span>
             ) : null}
           </p>
@@ -1405,7 +1426,7 @@ function InvoiceCard({
 
       {expanded ? (
         <div className="border-t border-slate-100 px-3 py-2.5">
-          <h4 className="mb-1.5 type-label">Run history</h4>
+          <h4 className="mb-1.5 type-label">{t("invoice.runHistory")}</h4>
           <ol className="space-y-1.5">
             {group.runs.map((run, index) => (
               <RunRow
@@ -1434,6 +1455,9 @@ function RunRow({
   latest: boolean;
   onOpen: () => void;
 }) {
+  const { t } = useTranslation("agent");
+  const fmt = useFormat();
+  const labels = useLabels();
   const meta = run.metadata ?? {};
   const fanout = evidenceFanout(meta);
   const sources = sourceMetasFor(fanout);
@@ -1450,21 +1474,21 @@ function RunRow({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span
-              className={`rounded px-1.5 py-0.5 text-xs font-semibold capitalize ring-1 ${decisionStyle(
+              className={`rounded px-1.5 py-0.5 text-xs font-semibold ring-1 ${decisionStyle(
                 meta.decision || run.status,
               )}`}
             >
-              {meta.decision || run.status}
+              {outcomeLabel(labels, meta.decision || run.status)}
             </span>
             {latest ? (
               <span className="rounded bg-blue-50 px-1.5 py-0.5 text-xs font-semibold text-blue-700 ring-1 ring-blue-100">
-                Latest
+                {t("run.latest")}
               </span>
             ) : null}
-            <span className="max-w-full truncate type-meta">{formatTimestamp(run.created_at)}</span>
+            <span className="max-w-full truncate type-meta">{formatTimestamp(fmt, run.created_at)}</span>
           </div>
           <p className="mt-0.5 line-clamp-1 text-sm text-slate-600">
-            {run.summary || "No summary recorded."}
+            {run.summary || t("run.noSummary")}
           </p>
           {sources.length > 0 ? (
             <div className="mt-1 flex items-center gap-1">
@@ -1474,7 +1498,7 @@ function RunRow({
             </div>
           ) : null}
         </div>
-        <span className="shrink-0 text-xs font-semibold text-blue-700">View run →</span>
+        <span className="shrink-0 text-xs font-semibold text-blue-700">{t("run.view")}</span>
       </button>
     </li>
   );
@@ -1485,6 +1509,9 @@ function RunRow({
 // ---------------------------------------------------------------------------
 
 function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
+  const { t } = useTranslation("agent");
+  const fmt = useFormat();
+  const labels = useLabels();
   const meta = run.metadata ?? {};
   const fanout = evidenceFanout(meta);
   const analystLanes = useMemo(
@@ -1513,7 +1540,7 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 max-md:p-2 xl:absolute xl:z-30"
       role="dialog"
       aria-modal="true"
-      aria-label={`Run detail for ${invoiceLabel}`}
+      aria-label={t("lightbox.ariaLabel", { invoice: invoiceLabel })}
       onClick={onClose}
     >
       <section
@@ -1529,15 +1556,18 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
             >
               {invoiceLabel}
               <span
-                className={`rounded-md px-2 py-0.5 text-xs font-semibold capitalize ring-1 ${decisionStyle(
+                className={`rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ${decisionStyle(
                   meta.decision || run.status,
                 )}`}
               >
-                {meta.decision || run.status}
+                {outcomeLabel(labels, meta.decision || run.status)}
               </span>
             </h2>
             <p className="mt-0.5 text-sm text-slate-600">
-              Agent run on {formatTimestamp(run.created_at)} · {run.created_by}
+              {t("lightbox.ranOn", {
+                time: formatTimestamp(fmt, run.created_at),
+                author: run.created_by,
+              })}
             </p>
           </div>
           <button
@@ -1546,30 +1576,30 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
             onClick={onClose}
           >
             <HiX className="h-5 w-5" aria-hidden="true" />
-            <span className="sr-only">Close run detail</span>
+            <span className="sr-only">{t("lightbox.close")}</span>
           </button>
         </div>
 
         <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:flex sm:flex-wrap sm:gap-x-10">
             <Stat
-              label="At risk"
-              value={formatMoney(meta.money_at_risk)}
+              label={t("shared.atRisk")}
+              value={formatMoney(fmt, meta.money_at_risk)}
               tone="text-emerald-700"
               size="lg"
             />
             <Stat
-              label={meta.confidence_calibrated === true ? "Confidence" : "Evidence score"}
-              value={
-                typeof meta.confidence === "number"
-                  ? `${Math.round(meta.confidence * 100)}%`
-                  : "—"
+              label={
+                meta.confidence_calibrated === true
+                  ? t("lightbox.confidence")
+                  : t("lightbox.evidenceScore")
               }
+              value={typeof meta.confidence === "number" ? fmt.percent(meta.confidence, 0) : "—"}
               size="lg"
             />
-            <Stat label="Experts" value={String(fanout.length)} size="lg" />
+            <Stat label={t("lightbox.experts")} value={String(fanout.length)} size="lg" />
             <Stat
-              label="Findings"
+              label={t("lightbox.findings")}
               size="lg"
               value={typeof meta.finding_count === "number" ? String(meta.finding_count) : "—"}
             />
@@ -1591,7 +1621,7 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
           />
 
           <div>
-            <h3 className="text-sm font-semibold text-slate-800">Per-expert (IQ) evidence</h3>
+            <h3 className="text-sm font-semibold text-slate-800">{t("lightbox.perExpertHeading")}</h3>
             {fanout.length > 0 ? (
               <ol className="mt-1 divide-y divide-slate-100">
                 {fanout.map((lane, index) => (
@@ -1600,7 +1630,7 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
               </ol>
             ) : (
               <p className="mt-1 text-sm text-slate-500">
-                No per-expert evidence was recorded for this run.
+                {t("lightbox.noPerExpert")}
               </p>
             )}
           </div>
@@ -1609,18 +1639,18 @@ function RunLightbox({ run, onClose }: { run: AgentRun; onClose: () => void }) {
           run.foundry_conversation_id ||
           run.app_insights_operation_id ? (
             <div className="border-t border-slate-100 pt-4">
-              <h3 className="type-label">Telemetry</h3>
+              <h3 className="type-label">{t("lightbox.telemetry.heading")}</h3>
               <dl className="mt-1.5 space-y-1 text-xs text-slate-600">
                 {run.foundry_agent_name ? (
-                  <TelemetryRow label="Foundry agent" value={run.foundry_agent_name} />
+                  <TelemetryRow label={t("lightbox.telemetry.foundryAgent")} value={run.foundry_agent_name} />
                 ) : null}
                 {run.foundry_conversation_id ? (
-                  <TelemetryRow label="Conversation" value={run.foundry_conversation_id} />
+                  <TelemetryRow label={t("lightbox.telemetry.conversation")} value={run.foundry_conversation_id} />
                 ) : null}
                 {run.app_insights_operation_id ? (
-                  <TelemetryRow label="Operation" value={run.app_insights_operation_id} />
+                  <TelemetryRow label={t("lightbox.telemetry.operation")} value={run.app_insights_operation_id} />
                 ) : null}
-                <TelemetryRow label="Run id" value={run.id} />
+                <TelemetryRow label={t("lightbox.telemetry.runId")} value={run.id} />
               </dl>
             </div>
           ) : null}
@@ -1848,7 +1878,11 @@ function groupEvidenceLanes(fanout: FanoutLane[]): Map<string, LaneGroup> {
 
 // Third-party (non-IQ) evidence lanes. Empty today; the Integrations bubble
 // shows a placeholder until a connector contributes cited evidence.
-function buildIntegrationNodes(fanout: FanoutLane[]): MapNode[] {
+function buildIntegrationNodes(
+  fanout: FanoutLane[],
+  t: TFunction<"agent">,
+  fmt: Formatters,
+): MapNode[] {
   const groups = groupEvidenceLanes(fanout);
   const keys = [...groups.keys()].filter((key) => key.startsWith("other:")).sort();
   const positions = layoutAgents(Math.max(keys.length, 1), INTEGRATIONS_BUBBLE);
@@ -1857,9 +1891,9 @@ function buildIntegrationNodes(fanout: FanoutLane[]): MapNode[] {
       {
         key: "integrations-placeholder",
         ghost: true,
-        label: "None connected",
-        title: "Third-party integrations",
-        stats: "No integrations are connected yet",
+        label: t("map.node.integrationsPlaceholder.label"),
+        title: t("map.node.integrationsPlaceholder.title"),
+        stats: t("map.node.integrationsPlaceholder.stats"),
         lines: [],
         active: false,
         hex: "#0891b2",
@@ -1870,7 +1904,7 @@ function buildIntegrationNodes(fanout: FanoutLane[]): MapNode[] {
     ];
   }
   return keys.map((key, index) => {
-    const node = evidenceNodeFor(key, groups.get(key), positions[index]);
+    const node = evidenceNodeFor(key, groups.get(key), positions[index], t, fmt);
     // Known integrations keep their own logo and colour.
     return groups.get(key)?.meta.integrationKey
       ? node
@@ -1878,17 +1912,21 @@ function buildIntegrationNodes(fanout: FanoutLane[]): MapNode[] {
   });
 }
 
-function buildEvidenceNodes(fanout: FanoutLane[]): MapNode[] {
+function buildEvidenceNodes(fanout: FanoutLane[], t: TFunction<"agent">, fmt: Formatters): MapNode[] {
   const groups = groupEvidenceLanes(fanout);
   // Keep every IQ plane on the map so positions stay stable run to run.
   const positions = layoutEvidence(IQ_ORDER.length, MICROSOFT_BUBBLE);
-  return IQ_ORDER.map((key, index) => evidenceNodeFor(key, groups.get(key), positions[index]));
+  return IQ_ORDER.map((key, index) =>
+    evidenceNodeFor(key, groups.get(key), positions[index], t, fmt),
+  );
 }
 
 function evidenceNodeFor(
   key: string,
   group: LaneGroup | undefined,
   position: { x: number; y: number },
+  t: TFunction<"agent">,
+  fmt: Formatters,
 ): MapNode {
   const meta = group?.meta ?? IQ_META[key as IqKey];
   const lane = group?.lane ?? {};
@@ -1899,21 +1937,28 @@ function evidenceNodeFor(
       ? scored.reduce((acc, item) => acc + (item.confidence ?? 0), 0) / scored.length
       : null;
   const active = evidence.length > 0;
+  const generic = isGenericMeta(meta);
+  const agentId = lane.agent || lane.plane;
   return {
     key,
-    label:
-      meta.key === "other" && !meta.integrationKey
-        ? humanizeIdentifier(lane.plane || "Evidence source")
-        : meta.label,
-    title:
-      meta.key === "other" && !meta.integrationKey
-        ? humanizeIdentifier(lane.agent || lane.plane || "Integration")
-        : meta.agent,
+    label: generic
+      ? lane.plane
+        ? humanizeIdentifier(lane.plane)
+        : t("map.node.evidenceSourceFallback")
+      : meta.label,
+    title: generic
+      ? agentId
+        ? humanizeIdentifier(agentId)
+        : t("map.node.integrationFallback")
+      : meta.agent,
     stats: active
-      ? `${evidence.length} ${evidence.length === 1 ? "citation" : "citations"}${
-          avg !== null ? ` · ${Math.round(avg * 100)}%` : ""
-        }`
-      : "Not used in this run",
+      ? avg !== null
+        ? t("map.node.citationsWithScore", {
+            count: evidence.length,
+            percent: fmt.percent(avg, 0),
+          })
+        : t("shared.citations", { count: evidence.length })
+      : t("map.node.notUsed"),
     lines: [
       ...new Set(evidence.map((item) => cleanSourceRef(item.source_ref ?? "")).filter(Boolean)),
     ],
@@ -1945,6 +1990,9 @@ function buildMapBubbles({
   moneyAtRisk,
   confidence,
   confidenceCalibrated,
+  t,
+  fmt,
+  labels,
 }: {
   evidenceFanout: FanoutLane[];
   analystLanes: FanoutLane[];
@@ -1952,9 +2000,12 @@ function buildMapBubbles({
   moneyAtRisk: number | undefined;
   confidence: number | undefined;
   confidenceCalibrated: boolean;
+  t: TFunction<"agent">;
+  fmt: Formatters;
+  labels: Labels;
 }): MapBubble[] {
-  const evidenceNodes = buildEvidenceNodes(evidenceFanout);
-  const integrationNodes = buildIntegrationNodes(evidenceFanout);
+  const evidenceNodes = buildEvidenceNodes(evidenceFanout, t, fmt);
+  const integrationNodes = buildIntegrationNodes(evidenceFanout, t, fmt);
   const activeIq = evidenceNodes.filter((node) => node.active).length;
   const connectedIntegrations = integrationNodes.filter((node) => node.active).length;
   const activeSources = activeIq + connectedIntegrations;
@@ -1964,21 +2015,23 @@ function buildMapBubbles({
 
   const orchestrationPositions = layoutAgents(2, ORCHESTRATION_BUBBLE);
   const orchestratorLines = [
-    typeof moneyAtRisk === "number" && moneyAtRisk > 0 ? `${formatMoney(moneyAtRisk)} at risk` : "",
-    typeof confidence === "number" ? scoreText(confidence, confidenceCalibrated) : "",
+    typeof moneyAtRisk === "number" && moneyAtRisk > 0
+      ? t("shared.amountAtRisk", { amount: formatMoney(fmt, moneyAtRisk) })
+      : "",
+    typeof confidence === "number" ? labels.score(confidence, confidenceCalibrated) : "",
   ].filter(Boolean);
   const orchestration: MapBubble = {
     key: "orchestration",
-    title: "Orchestration",
+    title: t("map.bubbleName.orchestration"),
     ...ORCHESTRATION_BUBBLE,
     ...glassBubble("#4f46e5", "#eef2ff", "#dfe4ff"),
     titlePlacement: "below",
     nodes: [
       {
         key: "invoice-intake",
-        label: "Invoice intake",
+        label: t("map.node.intake.label"),
         title: "Content Understanding",
-        stats: "prebuilt-invoice model",
+        stats: t("map.node.intake.stats"),
         lines: [],
         active: true,
         hex: "#475569",
@@ -1989,10 +2042,10 @@ function buildMapBubbles({
       {
         key: "assurance-orchestrator",
         label: "Assurance Orchestrator",
-        title: "Coordinator",
-        stats: `Fanned out to ${activeSources} ${activeSources === 1 ? "source" : "sources"}`,
+        title: t("map.node.orchestrator.title"),
+        stats: t("map.node.orchestrator.fannedOut", { count: activeSources }),
         lines: orchestratorLines,
-        badge: { text: decision, className: decisionStyle(decision) },
+        badge: { text: outcomeLabel(labels, decision), className: decisionStyle(decision) },
         active: true,
         hex: "#4f46e5",
         icon: HiCube,
@@ -2004,7 +2057,7 @@ function buildMapBubbles({
 
   const caldova: MapBubble = {
     key: "caldova",
-    title: `Evidence (${activeSources} of ${totalSources} sources)`,
+    title: t("map.bubbleTitle.caldova", { active: activeSources, total: totalSources }),
     ...CALDOVA_BUBBLE,
     hex: "#6d28d9",
     background: CALDOVA_BACKGROUND,
@@ -2019,7 +2072,7 @@ function buildMapBubbles({
   const microsoft: MapBubble = {
     key: "microsoft",
     parent: "caldova",
-    title: "Microsoft IQ",
+    title: t("map.bubbleName.microsoft"),
     ...MICROSOFT_BUBBLE,
     hex: "#2e6cfc",
     background: MICROSOFT_BACKGROUND,
@@ -2033,7 +2086,7 @@ function buildMapBubbles({
   const integrations: MapBubble = {
     key: "integrations",
     parent: "caldova",
-    title: `Integrations (${connectedIntegrations})`,
+    title: t("map.bubbleTitle.integrations", { n: connectedIntegrations }),
     ...INTEGRATIONS_BUBBLE,
     hex: "#06b6d4",
     background:
@@ -2055,7 +2108,7 @@ function buildMapBubbles({
     : { cx: SIDE_CX, cy: MAP_MID_Y, r: 150 };
   const record: MapBubble = {
     key: "record",
-    title: "Governed record",
+    title: t("map.bubbleName.record"),
     ...recordBubbleShape,
     ...glassBubble("#059669", "#ecfdf5", "#d1fae5"),
     // Keep the title clear of the connector down to the analysts bubble.
@@ -2064,8 +2117,8 @@ function buildMapBubbles({
       {
         key: "waypoint-recorder",
         label: "Caldova Recorder",
-        title: "Sole writer of the governed record",
-        stats: "Writes run · case · recommendation",
+        title: t("map.node.recorder.title"),
+        stats: t("map.node.recorder.stats"),
         lines: [],
         active: true,
         hex: "#059669",
@@ -2082,15 +2135,18 @@ function buildMapBubbles({
     const analystPositions = layoutAgents(analystLanes.length, analystShape);
     bubbles.push({
       key: "analysts",
-      title: `Analysts (${analystLanes.length})`,
+      title: t("map.bubbleTitle.analysts", { n: analystLanes.length }),
       ...analystShape,
       ...glassBubble("#7c3aed", "#f5f3ff", "#ede9fe"),
       titlePlacement: "below",
       nodes: analystLanes.map((lane, index) => ({
         key: `analyst-${lane.agent || lane.plane || index}`,
-        label: humanizeIdentifier(lane.agent || lane.plane || "Analyst"),
-        title: "Read-only analyst",
-        stats: "Answers questions over the governed record",
+        label:
+          lane.agent || lane.plane
+            ? humanizeIdentifier(lane.agent || lane.plane || "")
+            : t("map.node.analyst.fallback"),
+        title: t("map.node.analyst.title"),
+        stats: t("map.node.analyst.stats"),
         lines: lane.summary ? [lane.summary] : [],
         active: true,
         hex: "#7c3aed",
@@ -2370,14 +2426,14 @@ function useMapView() {
   };
 }
 
-const BUBBLE_NAMES: Record<BubbleKey, string> = {
-  orchestration: "Orchestration",
-  caldova: "Caldova IQ",
-  microsoft: "Microsoft IQ",
-  integrations: "Integrations",
-  record: "Governed record",
-  analysts: "Analysts",
-};
+const BUBBLE_NAME_KEYS = {
+  orchestration: "map.bubbleName.orchestration",
+  caldova: "map.bubbleName.caldova",
+  microsoft: "map.bubbleName.microsoft",
+  integrations: "map.bubbleName.integrations",
+  record: "map.bubbleName.record",
+  analysts: "map.bubbleName.analysts",
+} as const satisfies Record<BubbleKey, string>;
 
 const PACKED_KEYS: BubbleKey[] = ["caldova", "microsoft", "integrations"];
 
@@ -2396,6 +2452,9 @@ function EvidenceMap({
   confidence: number | undefined;
   confidenceCalibrated: boolean;
 }) {
+  const { t } = useTranslation("agent");
+  const fmt = useFormat();
+  const labels = useLabels();
   const bubbles = useMemo(
     () =>
       buildMapBubbles({
@@ -2405,8 +2464,11 @@ function EvidenceMap({
         moneyAtRisk,
         confidence,
         confidenceCalibrated,
+        t,
+        fmt,
+        labels,
       }),
-    [fanout, analystLanes, decision, moneyAtRisk, confidence, confidenceCalibrated],
+    [fanout, analystLanes, decision, moneyAtRisk, confidence, confidenceCalibrated, t, fmt, labels],
   );
   const bubbleByKey = new Map(bubbles.map((bubble) => [bubble.key, bubble]));
   const caldovaBubble = bubbleByKey.get("caldova");
@@ -2433,7 +2495,7 @@ function EvidenceMap({
     { from: "caldova", to: "record" },
   ];
   if (bubbleByKey.has("analysts")) {
-    connectors.push({ from: "record", to: "analysts", label: "reads" });
+    connectors.push({ from: "record", to: "analysts", label: t("map.connector.reads") });
   }
 
   const map = useMapView();
@@ -2508,15 +2570,18 @@ function EvidenceMap({
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
-        <h3 className="text-sm font-semibold text-slate-800">Agent map</h3>
+        <h3 className="text-sm font-semibold text-slate-800">{t("map.heading")}</h3>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <p className="text-xs text-slate-600">
-            {agentCount} {agentCount === 1 ? "agent" : "agents"} · {activeSources} of{" "}
-            {sourceNodes.length} evidence sources used
+            {t("map.summary", {
+              count: agentCount,
+              active: activeSources,
+              total: sourceNodes.length,
+            })}
           </p>
           <div
             role="group"
-            aria-label="Agent map view"
+            aria-label={t("map.viewAriaLabel")}
             className="flex rounded-md border border-slate-200 bg-white p-0.5 text-xs font-medium"
           >
             {(["map", "list"] as const).map((option) => (
@@ -2531,7 +2596,7 @@ function EvidenceMap({
                     : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`}
               >
-                {option === "map" ? "Map" : "List"}
+                {option === "map" ? t("map.mode.map") : t("map.mode.list")}
               </button>
             ))}
           </div>
@@ -2553,7 +2618,7 @@ function EvidenceMap({
       <div hidden={mode !== "map"}>
         <div className="relative mt-2 overflow-clip rounded-xl bg-slate-50">
           <nav
-            aria-label="Map zoom level"
+            aria-label={t("map.zoomLevelAriaLabel")}
             className="absolute left-2 top-2 z-20 flex items-center gap-0.5 rounded-md border border-slate-200 bg-white/90 px-1 py-0.5 text-xs shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_-6px_rgba(15,23,42,0.18)] backdrop-blur"
           >
             <button
@@ -2564,7 +2629,7 @@ function EvidenceMap({
                 trail.length === 0 ? "text-slate-900" : "text-slate-600"
               }`}
             >
-              All agents
+              {t("map.allAgents")}
             </button>
             {trail.map((key, index) => {
               const bubble = bubbleByKey.get(key);
@@ -2580,25 +2645,25 @@ function EvidenceMap({
                       last ? "text-violet-700" : "text-slate-600"
                     }`}
                   >
-                    {BUBBLE_NAMES[key]}
+                    {t(BUBBLE_NAME_KEYS[key])}
                   </button>
                 </span>
               );
             })}
           </nav>
           <div className="absolute right-2 top-2 z-20 flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_4px_12px_-6px_rgba(15,23,42,0.18)]">
-            <MapControl label="Zoom in" onClick={map.zoomIn} disabled={!map.canZoomIn}>
+            <MapControl label={t("map.zoomIn")} onClick={map.zoomIn} disabled={!map.canZoomIn}>
               <HiPlus className="h-4 w-4" aria-hidden="true" />
             </MapControl>
-            <MapControl label="Zoom out" onClick={map.zoomOut} disabled={!map.canZoomOut} bordered>
+            <MapControl label={t("map.zoomOut")} onClick={map.zoomOut} disabled={!map.canZoomOut} bordered>
               <HiMinus className="h-4 w-4" aria-hidden="true" />
             </MapControl>
-            <MapControl label="Fit map to view" onClick={resetView} bordered>
+            <MapControl label={t("map.fit")} onClick={resetView} bordered>
               <HiArrowsExpand className="h-3.5 w-3.5" aria-hidden="true" />
             </MapControl>
           </div>
           <span className="pointer-events-none absolute bottom-2 left-3 z-20 text-xs text-slate-600">
-            Click a bubble to zoom in · click empty space to zoom out · scroll to zoom · drag to pan
+            {t("map.hint")}
           </span>
 
           <div
@@ -2622,12 +2687,11 @@ function EvidenceMap({
               if (!map.wasDragged()) zoomOut();
             }}
             role="group"
-            aria-label="Zoomable agent map"
+            aria-label={t("map.ariaLabel")}
             aria-describedby={hintId}
           >
             <p id={hintId} className="sr-only">
-              Tab through the bubbles and agents; press Enter on a bubble to zoom into it. Choose
-              List above for the full structure with citations and sources.
+              {t("map.srHint")}
             </p>
             <style>{`
               @keyframes em-pop {
@@ -2724,7 +2788,7 @@ function EvidenceMap({
                     <button
                       type="button"
                       inert={!visible}
-                      aria-label={`Zoom into ${BUBBLE_NAMES[bubble.key]}`}
+                      aria-label={t("map.zoomInto", { name: t(BUBBLE_NAME_KEYS[bubble.key]) })}
                       aria-current={focusKey === bubble.key ? "location" : undefined}
                       onFocus={revealOnKeyboardFocus}
                       onClick={(event) => {
@@ -2781,27 +2845,27 @@ function EvidenceMap({
                     aria-hidden={childrenInteractive ? true : undefined}
                   >
                     <span className="text-[34px] font-semibold leading-tight tracking-tight">
-                      Caldova IQ
+                      {t("map.bubbleName.caldova")}
                     </span>
                     <span className="mt-1 text-[104px] font-semibold leading-none tracking-[-0.035em] tabular-nums [text-shadow:0_4px_18px_rgb(30_27_75/0.35)]">
                       {allCitations}
                     </span>
                     <span className="mt-2 text-[21px] text-violet-100">
-                      {allCitations === 1 ? "citation" : "citations"}
+                      {t("map.citationUnit", { count: allCitations })}
                       {typeof confidence === "number"
-                        ? ` · ${scoreText(confidence, confidenceCalibrated)}`
+                        ? ` · ${labels.score(confidence, confidenceCalibrated)}`
                         : ""}
                     </span>
                     <span className="mt-7 flex items-center gap-2.5 text-[20px] font-medium">
-                      <PackChip dot="#60a5fa" label="Microsoft IQ" value={iqCitations} />
+                      <PackChip dot="#60a5fa" label={t("map.bubbleName.microsoft")} value={iqCitations} />
                       <PackChip
                         dot="#67e8f9"
-                        label="Integrations"
+                        label={t("map.bubbleName.integrations")}
                         value={allCitations - iqCitations}
                       />
                     </span>
                     <span className="mt-4 inline-flex items-center gap-1 text-[20px] font-medium text-violet-100">
-                      Click to explore
+                      {t("map.clickToExplore")}
                       <HiChevronRight className="h-4 w-4" aria-hidden="true" />
                     </span>
                   </div>
@@ -2815,7 +2879,7 @@ function EvidenceMap({
                     }}
                     aria-hidden="true"
                   >
-                    Caldova IQ
+                    {t("map.bubbleName.caldova")}
                   </div>
                 </>
               ) : null}
@@ -2833,15 +2897,15 @@ function EvidenceMap({
                   aria-hidden={childrenInteractive ? undefined : true}
                 >
                   <span className="text-[16px] font-semibold tracking-tight text-slate-900">
-                    Microsoft IQ
+                    {t("map.bubbleName.microsoft")}
                   </span>
                   <span className="mt-0.5 text-[38px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-slate-900">
                     {iqCitations}
                   </span>
                   <span className="mt-1 text-[16px] leading-snug text-slate-600">
-                    {iqCitations === 1 ? "citation" : "citations"}
+                    {t("map.citationUnit", { count: iqCitations })}
                     <span className="block">
-                      {activeIq} of {iqNodes.length} sources
+                      {t("map.sourcesOf", { active: activeIq, total: iqNodes.length })}
                     </span>
                   </span>
                 </div>
@@ -2903,10 +2967,7 @@ function EvidenceMap({
           </div>
         </div>
         <p className="mt-1.5 max-w-[100ch] text-xs leading-5 text-slate-600">
-          Caldova IQ holds every evidence source the orchestrator can call: Microsoft IQ (FabricIQ,
-          FoundryIQ, WebIQ, WorkIQ) and third-party integrations. Click it to zoom in. Tiles in
-          colour cited evidence in this run; faded tiles weren't used. Caldova Recorder remains the
-          sole writer of the governed run, case, and recommendation.
+          {t("map.footnote")}
         </p>
       </div>
     </div>
@@ -2937,17 +2998,19 @@ function useAgentMapMode(): [AgentMapMode, (mode: AgentMapMode) => void] {
   return [mode, update];
 }
 
-function nodeEvidenceSummary(node: MapNode): string {
+function nodeEvidenceSummary(node: MapNode, t: TFunction<"agent">, fmt: Formatters): string {
   if (node.citations === undefined) return node.stats;
-  if (!node.active) return "Not used in this run";
-  const parts = [`Used · ${node.citations} ${node.citations === 1 ? "citation" : "citations"}`];
+  if (!node.active) return t("map.node.notUsed");
+  const parts = [t("map.list.used", { count: node.citations })];
   if (typeof node.avgConfidence === "number") {
-    parts.push(`${Math.round(node.avgConfidence * 100)}% average confidence`);
+    parts.push(t("map.list.avgConfidence", { percent: fmt.percent(node.avgConfidence, 0) }));
   }
   return parts.join(" · ");
 }
 
 function AgentMapListNodes({ nodes }: { nodes: MapNode[] }) {
+  const { t } = useTranslation("agent");
+  const fmt = useFormat();
   return (
     <ul className="mt-1 divide-y divide-slate-200/70">
       {nodes.map((node) => {
@@ -2961,7 +3024,7 @@ function AgentMapListNodes({ nodes }: { nodes: MapNode[] }) {
               <span className="text-xs text-slate-600">{node.title}</span>
               {node.badge ? (
                 <span
-                  className={`rounded px-1.5 py-px text-xs font-semibold capitalize ring-1 ${node.badge.className}`}
+                  className={`rounded px-1.5 py-px text-xs font-semibold ring-1 ${node.badge.className}`}
                 >
                   {node.badge.text}
                 </span>
@@ -2972,12 +3035,12 @@ function AgentMapListNodes({ nodes }: { nodes: MapNode[] }) {
                 isSource && node.active ? "font-medium text-slate-800" : "text-slate-600"
               }`}
             >
-              {nodeEvidenceSummary(node)}
+              {nodeEvidenceSummary(node, t, fmt)}
             </p>
             {node.lines.length > 0 ? (
               isSource ? (
                 <div className="mt-1.5">
-                  <p className="text-xs text-slate-600">Sources</p>
+                  <p className="text-xs text-slate-600">{t("map.list.sources")}</p>
                   <ul className="mt-1 flex flex-wrap gap-1.5">
                     {node.lines.map((line) => (
                       <li key={line}>
@@ -3022,6 +3085,8 @@ function AgentMapList({
   confidence: number | undefined;
   confidenceCalibrated: boolean;
 }) {
+  const { t } = useTranslation("agent");
+  const labels = useLabels();
   const byKey = new Map(bubbles.map((bubble) => [bubble.key, bubble]));
   const children = (key: BubbleKey) => bubbles.filter((bubble) => bubble.parent === key);
   const topLevel = bubbles.filter((bubble) => !bubble.parent);
@@ -3033,23 +3098,28 @@ function AgentMapList({
   const summaryFor = (bubble: MapBubble): string => {
     switch (bubble.key) {
       case "caldova":
-        return `${allCitations} ${allCitations === 1 ? "citation" : "citations"}${
-          typeof confidence === "number" ? ` · ${scoreText(confidence, confidenceCalibrated)}` : ""
-        } · ${activeSources} of ${totalSources} evidence sources used`;
+        return [
+          t("shared.citations", { count: allCitations }),
+          typeof confidence === "number" ? labels.score(confidence, confidenceCalibrated) : "",
+          t("map.list.sourcesUsed", { active: activeSources, total: totalSources }),
+        ]
+          .filter(Boolean)
+          .join(" · ");
       case "microsoft":
-        return `${iqCitations} ${iqCitations === 1 ? "citation" : "citations"} · ${iqUsed} of ${
-          microsoft?.nodes.length ?? 0
-        } IQ sources used`;
+        return [
+          t("shared.citations", { count: iqCitations }),
+          t("map.list.iqSourcesUsed", { active: iqUsed, total: microsoft?.nodes.length ?? 0 }),
+        ].join(" · ");
       case "integrations":
         return connectedIntegrations > 0
-          ? `${connectedIntegrations} connected`
-          : "No third-party integrations are connected yet";
+          ? t("map.list.integrationsConnected", { count: connectedIntegrations })
+          : t("map.list.noIntegrations");
       case "orchestration":
-        return "Reads the invoice and fans out to the evidence sources";
+        return t("map.list.orchestration");
       case "record":
-        return "Writes the governed run, case and recommendation";
+        return t("map.list.record");
       case "analysts":
-        return "Read the governed record to answer questions";
+        return t("map.list.analysts");
       default:
         return "";
     }
@@ -3061,7 +3131,7 @@ function AgentMapList({
     const Heading = level === 0 ? "h4" : "h5";
     return (
       <>
-        <Heading className="text-sm font-semibold text-slate-900">{BUBBLE_NAMES[bubble.key]}</Heading>
+        <Heading className="text-sm font-semibold text-slate-900">{t(BUBBLE_NAME_KEYS[bubble.key])}</Heading>
         <p className="mt-0.5 text-xs text-slate-600">{summaryFor(bubble)}</p>
         {nodes.length > 0 ? <AgentMapListNodes nodes={nodes} /> : null}
         {nested.length > 0 ? (
@@ -3078,8 +3148,7 @@ function AgentMapList({
   return (
     <div className="mt-2 rounded-xl bg-slate-50 p-4">
       <p className="text-xs leading-5 text-slate-600">
-        Work flows from Orchestration through Caldova IQ's evidence sources to the governed
-        record{byKey.has("analysts") ? ", which the analysts then read" : ""}.
+        {byKey.has("analysts") ? t("map.list.flowWithAnalysts") : t("map.list.flow")}
       </p>
       <ol className="mt-3 space-y-4">
         {topLevel.map((bubble) => (
@@ -3148,6 +3217,7 @@ function MapTile({
   selected: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useTranslation("agent");
   const Icon = node.icon;
   const tileSize =
     level === "compact" ? "h-5 w-5 rounded-[5px] p-0.5" : "h-[34px] w-[34px] rounded-lg p-1";
@@ -3156,7 +3226,7 @@ function MapTile({
     <button
       type="button"
       onClick={onSelect}
-      aria-label={`${node.label} (${node.title}): ${node.stats}`}
+      aria-label={t("map.tile.ariaLabel", { label: node.label, title: node.title, stats: node.stats })}
       aria-pressed={selected}
       className="group flex flex-col items-center gap-1.5 rounded-xl p-1 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
     >
@@ -3192,7 +3262,7 @@ function MapTile({
 
       {level !== "compact" && node.badge ? (
         <span
-          className={`rounded px-1.5 py-px text-xs font-semibold capitalize ring-1 ${node.badge.className}`}
+          className={`rounded px-1.5 py-px text-xs font-semibold ring-1 ${node.badge.className}`}
         >
           {node.badge.text}
         </span>
@@ -3213,7 +3283,7 @@ function MapTile({
               ))}
               {node.lines.length > 3 ? (
                 <span className="block text-xs text-slate-500">
-                  +{node.lines.length - 3} more
+                  {t("map.tile.more", { n: node.lines.length - 3 })}
                 </span>
               ) : null}
             </span>
@@ -3226,6 +3296,8 @@ function MapTile({
 
 
 function ExpertLane({ lane }: { lane: FanoutLane }) {
+  const { t } = useTranslation("agent");
+  const fmt = useFormat();
   const evidence = citedEvidence(lane);
   const meta = metaForLane(lane);
   return (
@@ -3233,12 +3305,10 @@ function ExpertLane({ lane }: { lane: FanoutLane }) {
       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
         <IqLogo meta={meta} size="h-7 w-7" />
         <span className="font-semibold">
-          {meta.key === "other" && !meta.integrationKey
-            ? lane.agent || lane.plane || "Expert"
-            : meta.label}
+          {isGenericMeta(meta) ? lane.agent || lane.plane || t("shared.expert") : meta.label}
         </span>
         <span className="type-meta">
-          {evidence.length} {evidence.length === 1 ? "citation" : "citations"}
+          {t("shared.citations", { count: evidence.length })}
         </span>
       </div>
       {lane.summary ? <p className="mt-1 pl-9 text-sm text-slate-600">{lane.summary}</p> : null}
@@ -3246,17 +3316,17 @@ function ExpertLane({ lane }: { lane: FanoutLane }) {
         <ul className="mt-2 space-y-2 pl-9">
           {evidence.map((item, index) => (
             <li key={index} className="text-sm text-slate-600">
-              <span className="block">{item.claim || "(no citation text)"}</span>
+              <span className="block">{item.claim || t("lane.noCitationText")}</span>
               <span className="mt-0.5 flex flex-wrap items-center gap-2 type-meta">
                 {item.source_ref ? (
                   <code className="rounded bg-slate-50 px-1.5 py-0.5 text-xs text-slate-600 ring-1 ring-slate-200">
                     {cleanSourceRef(item.source_ref)}
                   </code>
                 ) : null}
-                {item.supports ? <span>· supports {item.supports}</span> : null}
+                {item.supports ? <span>· {t("lane.supports", { value: item.supports })}</span> : null}
                 {item.classification ? <span>· {item.classification}</span> : null}
                 {typeof item.confidence === "number" ? (
-                  <span>· {Math.round(item.confidence * 100)}%</span>
+                  <span>· {fmt.percent(item.confidence, 0)}</span>
                 ) : null}
               </span>
             </li>
@@ -3268,13 +3338,12 @@ function ExpertLane({ lane }: { lane: FanoutLane }) {
 }
 
 function EmptyState() {
+  const { t } = useTranslation("agent");
   return (
     <div className="rounded-md border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center">
-      <h3 className="text-base font-semibold text-slate-700">No agent runs yet</h3>
+      <h3 className="text-base font-semibold text-slate-700">{t("empty.heading")}</h3>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-        Open an invoice and choose Run assurance, or dispatch the repository operations
-        workflow. Completed runs appear here with a grounded decision and per-expert
-        evidence trail.
+        {t("empty.body")}
       </p>
     </div>
   );

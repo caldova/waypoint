@@ -1,9 +1,11 @@
 import { useEffect, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "./AuthProvider";
 
 export function RequireAuth({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -25,7 +27,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
             className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600"
           />
           <p className="mt-3 text-sm font-medium text-slate-700">
-            Checking your sign-in...
+            {t("checkingSignIn")}
           </p>
         </div>
       </div>

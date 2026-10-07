@@ -3,6 +3,7 @@ import type {
   AuthenticationResult,
   PublicClientApplication,
 } from "@azure/msal-browser";
+import { getDocumentT } from "../app/i18n/runtime";
 
 export interface MsalRuntimeConfig {
   enabled: boolean;
@@ -27,6 +28,24 @@ export const authStateChangedEvent = "waypoint:auth-state-changed";
 export const msalLogoutPopupStorageKey = "waypoint:msal:logout-popup";
 const graphUserReadScope = "User.Read";
 const graphMePhotoUrl = "https://graph.microsoft.com/v1.0/me/photo/$value";
+
+/** A sign-out is still in flight; the user should retry shortly. Message is localized. */
+export class SignOutPendingError extends Error {
+  readonly code = "sign_out_pending";
+  constructor() {
+    super(getDocumentT("auth")("errors.signOutPending"));
+    this.name = "SignOutPendingError";
+  }
+}
+
+/** No usable token for a request that requires one. Message is localized. */
+export class SessionRefreshRequiredError extends Error {
+  readonly code = "session_refresh_required";
+  constructor() {
+    super(getDocumentT("auth")("errors.sessionRefresh"));
+    this.name = "SessionRefreshRequiredError";
+  }
+}
 
 interface MsalTokenOptions {
   interactive?: MsalInteractionMode;
@@ -64,7 +83,7 @@ export async function authFetch(
   const accessToken = await getMsalAccessToken(options);
   if (!accessToken) {
     if (options.requireToken) {
-      throw new Error("Your Waypoint session needs to be refreshed.");
+      throw new SessionRefreshRequiredError();
     }
     return fetch(input, init);
   }
@@ -82,7 +101,7 @@ export async function getMsalAccessToken(options: MsalTokenOptions = {}) {
   if (options.interactive && options.interactive !== "none") {
     const logoutFinished = await waitForPendingMsalLogout(5_000);
     if (!logoutFinished) {
-      throw new Error("Sign-out is still finishing. Please try again in a moment.");
+      throw new SignOutPendingError();
     }
     tokenPromises.clear();
     const tokenKey = getTokenCacheKey(options);

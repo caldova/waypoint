@@ -9,62 +9,23 @@ import {
 } from "react-icons/hi";
 import { AppHeader } from "../components/AppHeader";
 import { RequireAuth } from "../components/RequireAuth";
+import { useTranslation } from "react-i18next";
+import { pageMeta } from "../i18n/meta";
 
-export const meta: MetaFunction = () => [
-  { title: "Caldova" },
-  {
-    name: "description",
-    content: "Contract manufacturing supplier oversight workspace",
-  },
-];
+export const meta: MetaFunction = ({ matches }) => pageMeta(matches, "home");
 
 const destinations = [
-  {
-    title: "Invoices",
-    description:
-      "Review invoice findings against purchase orders, MSAs, batch records, quality logs, and IP-sensitive process terms, then run assurance on the ones not yet reviewed.",
-    icon: HiDocumentSearch,
-    to: "/invoices",
-  },
-  {
-    title: "Activity",
-    description:
-      "Follow assurance runs while they execute and see what is queued next.",
-    icon: HiLightningBolt,
-    to: "/activity",
-  },
-  {
-    title: "Agent Details",
-    description:
-      "Every Foundry Assurance Orchestrator run grouped by invoice, with the per-expert evidence behind each decision.",
-    icon: HiShieldCheck,
-    to: "/agent",
-  },
-  {
-    title: "Quality",
-    description:
-      "Measure and improve the assurance agent, with approval required before any release.",
-    icon: HiChartBar,
-    to: "/quality",
-  },
-];
+  { key: "invoices", icon: HiDocumentSearch, to: "/invoices" },
+  { key: "activity", icon: HiLightningBolt, to: "/activity" },
+  { key: "agent", icon: HiShieldCheck, to: "/agent" },
+  { key: "quality", icon: HiChartBar, to: "/quality" },
+] as const;
 
-const principles = [
-  {
-    title: "Show the work",
-    detail: "Expose sources, intermediate steps, and why an action is recommended.",
-  },
-  {
-    title: "Keep control visible",
-    detail: "Make approval boundaries explicit before agents publish or mutate data.",
-  },
-  {
-    title: "Reduce review load",
-    detail: "Prioritize high-impact exceptions while keeping drill-down paths available.",
-  },
-];
+const principles = ["showWork", "keepControl", "reduceLoad"] as const;
 
 export default function Home() {
+  const { t } = useTranslation("home");
+
   return (
     <RequireAuth>
       <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -83,15 +44,10 @@ export default function Home() {
                 id="home-heading"
                 className="max-w-4xl text-2xl font-semibold tracking-tight text-balance sm:text-3xl"
               >
-                Caldova investigates supplier invoices,
-                protect IP-sensitive manufacturing commitments, and control
-                escalation of supplier-caused quality deviations.
+                {t("hero.heading")}
               </h1>
               <p className="mt-3 max-w-[65ch] text-base leading-7 text-slate-600">
-                Start the question in Teams or Copilot, then come here to
-                inspect invoice evidence, supplier behavior, batch records,
-                quality logs, and agent decisions before finance, procurement,
-                legal, or quality teams act.
+                {t("hero.body")}
               </p>
 
               <div className="mt-5 flex flex-wrap gap-2">
@@ -99,19 +55,19 @@ export default function Home() {
                   to="/invoices"
                   className="inline-flex min-h-10 items-center gap-2 rounded-md bg-blue-700 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 max-md:min-h-11"
                 >
-                  Review invoices
+                  {t("hero.reviewInvoices")}
                 </Link>
                 <Link
                   to="/agent"
                   className="inline-flex min-h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50 max-md:min-h-11"
                 >
-                  View agent runs
+                  {t("hero.viewAgentRuns")}
                 </Link>
               </div>
             </div>
 
             <nav
-              aria-label="Caldova areas"
+              aria-label={t("areasLabel")}
               className="border-t border-slate-200"
             >
               <ul className="grid gap-px bg-slate-100 md:grid-cols-2 xl:grid-cols-4">
@@ -127,14 +83,14 @@ export default function Home() {
                       />
                       <span className="min-w-0">
                         <span className="flex items-center gap-1 text-base font-semibold text-slate-950 group-hover:text-blue-700">
-                          {destination.title}
+                          {t(`destinations.${destination.key}.title`)}
                           <HiChevronRight
                             className="h-4 w-4 text-slate-500 transition-transform group-hover:translate-x-0.5 group-hover:text-blue-700"
                             aria-hidden="true"
                           />
                         </span>
                         <span className="mt-1 block text-sm leading-6 text-slate-600">
-                          {destination.description}
+                          {t(`destinations.${destination.key}.description`)}
                         </span>
                       </span>
                     </Link>
@@ -149,14 +105,14 @@ export default function Home() {
             className="mt-8 grid gap-6 px-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,3fr)] lg:px-2"
           >
             <h2 id="principles-heading" className="text-lg font-semibold">
-              Built for trust under data pressure
+              {t("principles.heading")}
             </h2>
             <dl className="grid gap-5 md:grid-cols-3">
               {principles.map((principle) => (
-                <div key={principle.title}>
-                  <dt className="font-semibold">{principle.title}</dt>
+                <div key={principle}>
+                  <dt className="font-semibold">{t(`principles.${principle}.title`)}</dt>
                   <dd className="mt-1 text-sm leading-6 text-slate-600">
-                    {principle.detail}
+                    {t(`principles.${principle}.detail`)}
                   </dd>
                 </div>
               ))}

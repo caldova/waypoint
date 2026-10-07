@@ -1,0 +1,96 @@
+{
+  "app": {
+    "name": "Waypoint",
+    "skipToContent": "Skip to main content",
+    "menu": "Menu",
+    "primaryNavigation": "Primary navigation",
+    "logoAlt": "Caldova"
+  },
+  "nav": {
+    "overview": "Overview",
+    "invoices": "Invoices",
+    "activity": "Activity",
+    "agent": "Agent Details",
+    "quality": "Quality"
+  },
+  "userMenu": {
+    "devMode": "Dev mode",
+    "devModeDetail": "Authentication is bypassed locally.",
+    "signOut": "Sign out",
+    "backToLogin": "Back to login"
+  },
+  "language": {
+    "label": "Language"
+  },
+  "meta": {
+    "home": {
+      "title": "Caldova",
+      "description": "Contract manufacturing supplier oversight workspace"
+    },
+    "login": {
+      "title": "Sign in - Caldova",
+      "description": "Sign in to Caldova"
+    },
+    "activity": {
+      "title": "Activity - Caldova",
+      "description": "Live view of active and pending agent runs and their progress"
+    },
+    "agent": {
+      "title": "Runs - Caldova",
+      "description": "Aggregated agent work: per-invoice runs, IQ usage, and the evidence each run found"
+    },
+    "invoices": {
+      "title": "Invoices - Caldova",
+      "description": "Caldova invoice decisions and agent context"
+    },
+    "quality": {
+      "title": "Quality & optimization - Caldova",
+      "description": "Quality lineage, readiness, and guarded GitHub operations for Caldova agents"
+    }
+  },
+  "error": {
+    "documentTitle": "Error - Caldova",
+    "title": "Oops!",
+    "body": "Something went wrong. Please try again later.",
+    "goHome": "Go Home"
+  },
+  "decision": {
+    "approve": "Approve",
+    "review": "Review",
+    "recover": "Recover",
+    "escalate": "Escalate"
+  },
+  "runStatus": {
+    "pending": "Pending",
+    "queued": "Queued",
+    "waiting": "Waiting",
+    "created": "Created",
+    "running": "Running",
+    "in_progress": "In progress",
+    "active": "Active",
+    "partial": "Partial",
+    "completed": "Completed",
+    "failed": "Failed",
+    "error": "Error"
+  },
+  "action": {
+    "recommend_recover": "Recommend recovery",
+    "draft_supplier_dispute": "Draft supplier dispute",
+    "request_legal_escalation": "Request legal escalation",
+    "request_quality_review": "Request quality review"
+  },
+  "planeScope": {
+    "foundryiq": "Contract terms and finance policy",
+    "fabriciq": "PO, batch and release data in OneLake",
+    "workiq": "Your Microsoft 365 mail, Teams and files",
+    "webiq": "Public market and regulatory sources"
+  },
+  "integrationScope": {
+    "oracle-erp": "Payables, purchasing and supplier records on Oracle Database@Azure"
+  },
+  "score": {
+    "confidence": "{{value}}% confidence",
+    "evidenceScore": "{{value}}% evidence score"
+  },
+  "unknown": "Unknown"
+}
