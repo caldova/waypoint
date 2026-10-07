@@ -55,6 +55,27 @@ environment and treats each agent folder as its own execution root, so local
 imports like `contract-agent/tools.py` resolve while browsing the whole
 portfolio.
 
+### Local Foundry telemetry
+
+`contract-policy-expert` can export clean local traces to the same App Insights
+resource as the hosted Foundry agent. Set `APPLICATIONINSIGHTS_CONNECTION_STRING`
+and `WAYPOINT_TRACE_FILTER=agent` (or `CASTIA_TRACE_FILTER=agent`) before running
+the agent locally. The helper stamps local spans with the hosted agent identity
+when `FOUNDRY_AGENT_VERSION` is set, while keeping `waypoint.execution.mode=local`.
+
+FoundryIQ toolbox calls should appear as:
+
+```text
+POST /responses
+└─ invoke_agent ...
+   └─ execute_tool foundry_iq_retrieve
+      └─ POST /api/projects/.../toolboxes/.../mcp
+         └─ tools/call contracts-kb-mcp___knowledge_base_retrieve
+```
+
+The toolbox POST injects both `traceparent` and `leaf_customer_span_id` from the
+POST span so the remote toolbox span is parented correctly.
+
 ## Deployment
 
 Deploy from the repo root:

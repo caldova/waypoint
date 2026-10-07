@@ -16,6 +16,11 @@ from castia.inference.tools import Tool
 import httpx
 from opentelemetry import trace
 
+from castia_foundry_telemetry import (
+    foundry_toolbox_post_span,
+    record_toolbox_post_response,
+)
+
 _OPTIMIZER_ENDPOINT = "https://example.invalid/toolboxes/contract-toolbox/mcp?api-version=v1"
 _KB_TOOL_NAME = "contracts-kb-mcp___knowledge_base_retrieve"
 # Telemetry label for the execute_tool span's gen_ai.tool.type. Castia 0.10 has
@@ -142,7 +147,11 @@ async def _call_foundryiq_toolbox(activity: Any, **kwargs: Any) -> dict[str, Any
 
     try:
         async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(endpoint, headers=headers, json=payload)
+            with foundry_toolbox_post_span(endpoint, headers) as post_span:
+                response = await client.post(endpoint, headers=headers, json=payload)
+                record_toolbox_post_response(
+                    post_span, response.status_code, is_error=response.is_error
+                )
             data = response.json()
     except Exception as exc:  # noqa: BLE001 - tool failures are fed back to the model.
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}

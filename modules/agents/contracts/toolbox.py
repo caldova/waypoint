@@ -10,6 +10,11 @@ import httpx
 from castia import resolve_toolbox_endpoint, toolbox_token
 from castia.inference.tools import Tool
 
+from castia_foundry_telemetry import (
+    foundry_toolbox_post_span,
+    record_toolbox_post_response,
+)
+
 # Model-facing name; Castia names the span "execute_tool foundry_iq_retrieve".
 FOUNDRY_IQ_TOOL_NAME = "foundry_iq_retrieve"
 # Underlying toolbox MCP tool the call is dispatched to.
@@ -119,7 +124,11 @@ async def _call_foundryiq_toolbox(activity: Any, *, query: str) -> dict[str, Any
 
     try:
         async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(endpoint, headers=headers, json=payload)
+            with foundry_toolbox_post_span(endpoint, headers) as post_span:
+                response = await client.post(endpoint, headers=headers, json=payload)
+                record_toolbox_post_response(
+                    post_span, response.status_code, is_error=response.is_error
+                )
             data = response.json()
     except Exception as exc:  # noqa: BLE001 - tool failures are fed back to the model.
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
