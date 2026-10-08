@@ -5,7 +5,7 @@ description = "Waypoint Contracts — Teams-first contract intake and evidence a
 requires-python = ">=3.11"
 dependencies = [
     "azure-identity>=1.26.0b2",
-    "castia[optimize]==0.14.2",
+    "castia[optimize]==0.15.0",
     "httpx>=0.28.1",
     "python-docx>=1.2.0",
     "python-dotenv>=1.0",
