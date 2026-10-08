@@ -2,29 +2,24 @@
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import Sequence
 from typing import Any
 
+import httpx
 from castia import (
+    ToolboxMcpClient,
     resolve_toolbox_endpoint,
     toolbox_mcp_tool,
-    toolbox_token,
 )
 from castia.inference.tools import Tool
 
-import httpx
 from opentelemetry import trace
-
-from castia_foundry_telemetry import (
-    foundry_toolbox_post_span,
-    record_toolbox_post_response,
-)
 
 _OPTIMIZER_ENDPOINT = "https://example.invalid/toolboxes/contract-toolbox/mcp?api-version=v1"
 _KB_TOOL_NAME = "contracts-kb-mcp___knowledge_base_retrieve"
-# Telemetry label for the execute_tool span's gen_ai.tool.type. Castia 0.10 has
-# no Tool.kind, so the impl stamps it onto the active execute_tool span.
+# Telemetry label for the execute_tool span's gen_ai.tool.type. The impl also
+# renames the span so traces use the shared FoundryIQ tool label while the
+# model-facing tool name stays the trained KB MCP name.
 FOUNDRY_IQ = "foundry_iq"
 # Matches the contracts agent's span; its tuned MAI model still calls _KB_TOOL_NAME.
 FOUNDRY_IQ_SPAN_NAME = "execute_tool foundry_iq_retrieve"
@@ -76,6 +71,7 @@ def foundryiq_runtime_tools(
             description=description,
             parameters=_runtime_parameters(optimized.get("parameters")),
             impl=_call_foundryiq_toolbox,
+            kind=FOUNDRY_IQ,
         )
     ]
 
@@ -130,46 +126,15 @@ async def _call_foundryiq_toolbox(activity: Any, **kwargs: Any) -> dict[str, Any
     if not cleaned:
         return {"ok": False, "error": "query is required."}
 
-    payload = {
-        "jsonrpc": "2.0",
-        "id": str(uuid.uuid4()),
-        "method": "tools/call",
-        "params": {
-            "name": _KB_TOOL_NAME,
-            "arguments": {"query_variants": [cleaned[:400]]},
-        },
-    }
-    headers = {
-        "Authorization": "Bearer " + await toolbox_token(),
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            with foundry_toolbox_post_span(endpoint, headers) as post_span:
-                response = await client.post(endpoint, headers=headers, json=payload)
-                record_toolbox_post_response(
-                    post_span, response.status_code, is_error=response.is_error
-                )
-            data = response.json()
+        async with httpx.AsyncClient(timeout=120) as http_client:
+            client = ToolboxMcpClient(endpoint, client=http_client)
+            result = await client.call_tool(
+                _KB_TOOL_NAME, {"query_variants": [cleaned[:400]]}
+            )
     except Exception as exc:  # noqa: BLE001 - tool failures are fed back to the model.
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
-    if not isinstance(data, dict):
-        return {"ok": False, "error": "Toolbox returned a non-object response."}
-    if response.is_error:
-        return {
-            "ok": False,
-            "error": {
-                "status_code": response.status_code,
-                "body": data,
-            },
-        }
-    if data.get("error"):
-        return {"ok": False, "error": data["error"]}
-
-    result = data.get("result")
     if not isinstance(result, dict):
         return {"ok": False, "error": "Toolbox response did not include a result."}
 

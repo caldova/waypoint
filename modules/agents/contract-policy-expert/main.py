@@ -15,11 +15,9 @@ from castia import (
 )
 from dotenv import load_dotenv
 
-from castia_foundry_telemetry import configure_foundry_local_telemetry
 from toolbox import foundryiq_runtime_tools, foundryiq_toolbox_tools
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
-configure_foundry_local_telemetry(agent_name="contract-policy-expert")
 
 app = Agent(name="contract-policy-expert")
 
