@@ -70,8 +70,9 @@ POST /responses
 Castia owns the local MCP toolbox HTTP trace path. Its client wraps the toolbox
 POST in an explicit child HTTP span, then injects both `traceparent` and
 `leaf_customer_span_id` from that POST span so the remote toolbox span is
-parented correctly. Use `castia>=0.14.1` for agents that execute toolbox MCP
-calls locally.
+parented correctly. Use `castia>=0.14.2` for agents that execute toolbox MCP
+calls locally; that version also suppresses fast Azure metadata/IMDS probe spans
+such as local `GET /metadata/identity/oauth2/token` failures.
 
 ## Deployment
 

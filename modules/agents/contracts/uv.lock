@@ -290,7 +290,7 @@ wheels = [
 
 [[package]]
 name = "castia"
-version = "0.14.1"
+version = "0.14.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-ai-projects", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -301,9 +301,9 @@ dependencies = [
     { name = "pyjwt", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "uvicorn", extra = ["standard"], marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/8f/c5e77835c5ac5a56924659d74740b7f00f7917231bd35355182a60080511/castia-0.14.1.tar.gz", hash = "sha256:bf18d7d0e16ee769030152a37c5b38f721a8e099adb54a1b4afab392986b0246", size = 365318, upload-time = "2026-10-07T23:51:28.147Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/69/eb/1e4874721bece1302e43fa022f1b79e068ae3ff07d9cd123566a0861e97c/castia-0.14.2.tar.gz", hash = "sha256:60d6e2bae861bf79ce516eadf53434d8e505bf70ea438edc7d15174a7fdc6faf", size = 365395, upload-time = "2026-10-08T01:00:22.032Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/09/10/add261a9dff908967c51ca5c680afca0e552080dd58426cd94b4e1e872d5/castia-0.14.1-py3-none-any.whl", hash = "sha256:665aa893de84d6d6db94e9ffe2c4d9435d237bf199b441d76c367a1076684447", size = 263489, upload-time = "2026-10-07T23:51:26.642Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/1d/f7e10c003e8a9e480ef74df7dc7b5f11ae83c2d75ffe1f05e5f24e311b16/castia-0.14.2-py3-none-any.whl", hash = "sha256:5c10c746e52d94cde85863a4ad730e2029a9544a7345d845ffa856c4062d2a60", size = 263379, upload-time = "2026-10-08T01:00:20.291Z" },
 ]
 
 [package.optional-dependencies]
@@ -565,7 +565,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "azure-identity", specifier = ">=1.26.0b2" },
-    { name = "castia", extras = ["optimize"], specifier = "==0.14.1" },
+    { name = "castia", extras = ["optimize"], specifier = "==0.14.2" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "python-docx", specifier = ">=1.2.0" },
     { name = "python-dotenv", specifier = ">=1.0" },
