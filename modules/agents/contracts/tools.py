@@ -11,19 +11,42 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
+from agent.domain.invoice_capture import record_invoice_result, record_review_document
+from agent.domain.invoice_review import (
+    build_invoice_review_markdown,
+    invoice_findings,
+    money_at_risk,
+    review_inputs,
+    verify_analyses,
+)
+from agent.domain.turn_status import (
+    CHECKING_INVOICES,
+    checking_invoice,
+    creating_review_document,
+    report_status,
+)
+from agent.integrations.activity_identity import has_agentic_user_identity
+from agent.integrations.corpus_text import fill_corpus_text
+from agent.integrations.requester import agentic_graph_token, requester_email
 from azure.identity.aio import DefaultAzureCredential
 from castia.inference.tools import Tool
-from dotenv import load_dotenv
-
-from contract_sources import ContractAttachment, contract_source
 from content_understanding import ContractExtraction, extract_contract_pdf
+from contract_sources import (
+    ContractAttachment,
+    HostedMailboxContractSource,
+    contract_source,
+    teams_attachments,
+)
+from dotenv import load_dotenv
 from report_publisher import report_publisher, sharepoint_report_publishing_configured
 from report_writer import render_report
+
 from toolbox import is_toolbox_configured
 
 load_dotenv()
@@ -61,6 +84,16 @@ def _contracts_inbox() -> str:
 
 def _contracts_owner() -> str:
     return _usable_env("CONTRACTS_DEV_USER_EMAIL") or "local.user@contracts.local"
+
+
+async def _turn_owner(activity: Any) -> str | None:
+    """On a Teams turn the requester owns the data and callers cannot override it.
+
+    Fails closed: a lookup error on a Teams turn raises rather than falling back.
+    """
+    if not has_agentic_user_identity(activity):
+        return None
+    return await requester_email(activity, await agentic_graph_token(activity))
 
 
 def _env_presence(names: list[str]) -> dict[str, bool]:
@@ -268,9 +301,6 @@ def _report_markdown(artifact: dict[str, Any], report_type: str) -> str:
         [
             f"# {title} - {report_type.replace('_', ' ').title()}",
             "",
-            "> Local generated report. In local smoke tests this Markdown is written to disk; "
-            "SharePoint upload/sharing is still a hosted workflow.",
-            "",
             "## Summary",
             "",
             f"- Artifact: `{artifact.get('id', 'unknown')}`",
@@ -299,6 +329,7 @@ async def _publish_rendered_report(
     rendered_docx: Path,
     rendered_markdown: Path,
     title: str,
+    activity: Any = None,
 ) -> dict[str, Any]:
     _telemetry_event(
         "contracts_report_publish_started",
@@ -309,7 +340,7 @@ async def _publish_rendered_report(
         sharepoint_configured=sharepoint_report_publishing_configured(),
     )
     try:
-        published = await report_publisher().publish(
+        published = await report_publisher(activity).publish(
             docx_path=rendered_docx,
             markdown_path=rendered_markdown,
             title=title,
@@ -341,6 +372,11 @@ async def _publish_rendered_report(
         "drive_item": published.drive_item,
         "metadata": published.metadata or {},
     }
+
+
+def _publication_shared_with(publication: dict[str, Any]) -> list[str]:
+    object_id = (publication.get("metadata") or {}).get("shared_with_object_id")
+    return [str(object_id)] if object_id else []
 
 
 def _api_share_status(publication: dict[str, Any]) -> str:
@@ -425,7 +461,7 @@ class _WaypointContractsClient:
             )
         if response.is_error:
             raise RuntimeError(
-                f"Waypoint {method} {path} failed with HTTP {response.status_code}: "
+                f"Caldova {method} {path} failed with HTTP {response.status_code}: "
                 f"{response.text[:500]}"
             )
         if not response.content:
@@ -444,7 +480,7 @@ async def _get_contracts_capabilities_impl(activity: Any) -> dict[str, Any]:
             "activity protocol for Teams-style chat",
             "invocations protocol for structured routine and agent-to-agent work commands",
             (
-                "Waypoint Contracts API tools"
+                "Caldova Contracts API tools"
                 if _waypoint_base_url()
                 else "local fixture tools for no-API playground testing"
             ),
@@ -514,7 +550,7 @@ async def _get_deployment_diagnostics_impl(activity: Any) -> dict[str, Any]:
             "CONTENT_UNDERSTANDING_ENDPOINT",
             "CONTENT_UNDERSTANDING_ANALYZER_ID",
             "TOOLBOX_NAME",
-            "TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT",
+            "TOOLBOX_CONTRACTS_TOOLBOX_MCP_ENDPOINT",
             "CONTRACTS_REPORTS_DRIVE_ID",
             "CONTRACTS_REPORTS_FOLDER_ITEM_ID",
             "CONTRACTS_REPORTS_SCOPE",
@@ -699,36 +735,118 @@ async def _poll_contracts_inbox_impl(
         return response
 
     client = _WaypointContractsClient()
-    owner = _contracts_owner()
+    source = contract_source()
+    requester: str | None = None
+    mailbox_error: str | None = None
     try:
-        attachment = contract_source().next_contract(
-            mailbox_id=_contracts_inbox(),
-            owner_user_id=owner,
-            artifact_type=artifact_type,
-        )
-    except NotImplementedError as exc:
+        if isinstance(source, HostedMailboxContractSource):
+            if not has_agentic_user_identity(activity):
+                return {
+                    "ok": False,
+                    "status": "needs_teams_turn",
+                    "inbox": _contracts_inbox(),
+                    "note": (
+                        "The agent's mailbox can only be read on a Teams turn, as the hired "
+                        f"agent. Ask in Teams after emailing a PDF to {_contracts_inbox()}."
+                    ),
+                }
+            token = await agentic_graph_token(activity)
+            requester = await requester_email(activity, token)
+            attachments = await teams_attachments(
+                activity, token=token, owner=requester, artifact_type=artifact_type
+            )
+            try:
+                attachments += await source.recent_attachments(
+                    token=token,
+                    mailbox_id=_contracts_inbox(),
+                    lookback_minutes=lookback_minutes,
+                    artifact_type=artifact_type,
+                    sender=requester,
+                )
+            except Exception as exc:  # still ingest a Teams attachment if the mailbox read fails
+                if not attachments:
+                    raise
+                mailbox_error = f"{type(exc).__name__}: {exc}"
+        else:
+            attachments = [
+                source.next_contract(
+                    mailbox_id=_contracts_inbox(),
+                    owner_user_id=_contracts_owner(),
+                    artifact_type=artifact_type,
+                )
+            ]
+    except Exception as exc:  # noqa: BLE001 - token, Graph, and lookup failures all surface to the model
         response = {
             "ok": False,
-            "status": "hosted_mailbox_not_implemented",
+            "status": "mailbox_read_failed",
             "inbox": _contracts_inbox(),
             "lookback_minutes": max(1, lookback_minutes),
-            "future_endpoint": _future_endpoint("/api/contracts/intake/messages/upsert"),
-            "note": str(exc),
+            "error": f"{type(exc).__name__}: {exc}",
         }
         _telemetry_event(
             "contracts_inbox_poll_completed",
             status=response["status"],
             artifact_type=artifact_type,
             processed_count=0,
+            error_type=type(exc).__name__,
         )
         return response
+
+    results = [
+        await _ingest_attachment(client, attachment, lookback_minutes)
+        for attachment in attachments
+    ]
+    processed = [item for item in results if item.get("created")]
+    response = {
+        "ok": all(item.get("ok") for item in results),
+        "status": "processed" if processed else "no_new_attachments",
+        "inbox": _contracts_inbox(),
+        "requester": requester,
+        "lookback_minutes": max(1, lookback_minutes),
+        "scanned_count": len(results),
+        "processed_count": len(processed),
+        "results": results,
+    }
+    if mailbox_error:
+        response["ok"] = False
+        response["mailbox_error"] = mailbox_error
+        response["note"] = "Teams attachments were processed, but the mailbox could not be read."
+    if processed:
+        response["next_step"] = (
+            "Review each processed artifact now: find_prior_contracts, foundry_iq_retrieve for "
+            "policy, then record_contract_findings, and summarize the findings for the user."
+        )
+    _telemetry_event(
+        "contracts_inbox_poll_completed",
+        status=response["status"],
+        artifact_type=artifact_type,
+        source_mode=attachments[0].source_mode if attachments else None,
+        processed_count=len(processed),
+    )
+    return response
+
+
+async def _ingest_attachment(
+    client: _WaypointContractsClient,
+    attachment: ContractAttachment,
+    lookback_minutes: int,
+) -> dict[str, Any]:
+    """Register one attachment; extract and record evidence only when it is new."""
+    fixture = attachment.source_mode == "local_pdf"
+    summary: dict[str, Any] = {
+        "file_name": attachment.file_name,
+        "artifact_type": attachment.artifact_type,
+        "sender": attachment.sender,
+        "subject": attachment.subject,
+        "sha256": attachment.sha256,
+    }
     body = {
         "mailbox_id": attachment.mailbox_id,
         "message_id": attachment.message_id,
         "sender": attachment.sender,
         "owner_user_id": attachment.owner_user_id,
         "subject": attachment.subject,
-        "source": "email",
+        "source": attachment.source,
         "attachments": [
             {
                 "attachment_id": attachment.attachment_id,
@@ -738,8 +856,8 @@ async def _poll_contracts_inbox_impl(
                 "original_file_uri": attachment.original_file_uri,
                 "artifact_type": attachment.artifact_type,
                 "metadata": {
-                    "fixture": True,
-                    "source": "contracts-agent-local-api",
+                    "fixture": fixture,
+                    "source": "contracts-agent",
                     "source_mode": attachment.source_mode,
                     "artifact_type": attachment.artifact_type,
                     "size_bytes": attachment.size_bytes,
@@ -754,40 +872,30 @@ async def _poll_contracts_inbox_impl(
     }
     result = await client.request("POST", "/api/contracts/intake/messages/upsert", json_body=body)
     assert isinstance(result, dict)
-    artifact = result["results"][0]["artifact"]
-    artifact_id = str(artifact["id"])
+    intake = result["results"][0]
+    artifact_id = str(intake["artifact"]["id"])
+    summary["artifact_id"] = artifact_id
+    # The upsert is idempotent; skip only artifacts that already hold a usable extraction,
+    # so a failed extraction is retried on the next check.
+    existing = intake["artifact"]
+    if not intake.get("created", True) and existing.get("latest_extraction_id") and existing.get(
+        "extraction_status"
+    ) in ("succeeded", "partial"):
+        return {"ok": True, "created": False, **summary}
+
     try:
         extracted = await extract_contract_pdf(attachment)
     except RuntimeError as exc:
-        response = {
+        return {
             "ok": False,
+            "created": True,
             "status": "content_understanding_failed",
-            "inbox": _contracts_inbox(),
-            "lookback_minutes": max(1, lookback_minutes),
-            "artifact_id": artifact_id,
             "error": str(exc),
-            "pdf": {
-                "file_name": attachment.file_name,
-                "artifact_type": attachment.artifact_type,
-                "content_type": attachment.content_type,
-                "size_bytes": attachment.size_bytes,
-                "sha256": attachment.sha256,
-                "uri": attachment.original_file_uri,
-            },
-            "note": "Waypoint registered the intake placeholder, but extraction failed; do not treat this artifact as processed.",
+            "note": "Intake registered, but extraction failed; do not treat as processed.",
+            **summary,
         }
-        _telemetry_event(
-            "contracts_inbox_poll_completed",
-            status=response["status"],
-            artifact_id=artifact_id,
-            artifact_type=attachment.artifact_type,
-            source_mode=attachment.source_mode,
-            processed_count=0,
-            error_type=type(exc).__name__,
-        )
-        return response
 
-    extraction = await client.request(
+    await client.request(
         "POST",
         f"/api/contracts/artifacts/{artifact_id}/extractions",
         json_body={
@@ -799,15 +907,16 @@ async def _poll_contracts_inbox_impl(
             "source_spans": extracted.source_spans,
             "metadata": {
                 **extracted.metadata,
-                "fixture": attachment.source_mode == "local_pdf",
+                "fixture": fixture,
                 "source_mode": attachment.source_mode,
                 "artifact_type": attachment.artifact_type,
             },
         },
     )
-    evidence_results = []
-    for evidence in _mock_artifact(owner, attachment, extracted)["evidence"]:
-        evidence_result = await client.request(
+    # Hosted findings are recorded by the review (record_contract_findings), not mocked here.
+    mock_evidence = _mock_artifact(attachment.owner_user_id, attachment, extracted)["evidence"] if fixture else []
+    for evidence in mock_evidence:
+        await client.request(
             "POST",
             f"/api/contracts/artifacts/{artifact_id}/evidence",
             json_body={
@@ -819,42 +928,15 @@ async def _poll_contracts_inbox_impl(
                 "claim": evidence["claim"],
                 "citation": evidence["citation"],
                 "confidence": evidence["confidence"],
-                "metadata": {"fixture": True, "source_type": evidence["source_type"]},
+                "metadata": {"fixture": fixture, "source_type": evidence["source_type"]},
             },
         )
-        evidence_results.append(evidence_result)
-    detail = await client.request("GET", f"/api/contracts/artifacts/{artifact_id}")
-    response = {
+    return {
         "ok": True,
-        "status": "api_local_pdf",
-        "inbox": _contracts_inbox(),
-        "lookback_minutes": max(1, lookback_minutes),
-        "intake": result,
-        "extraction": extraction,
-        "evidence": evidence_results,
-        "artifact_detail": detail,
-        "pdf": {
-            "file_name": attachment.file_name,
-            "artifact_type": attachment.artifact_type,
-            "content_type": attachment.content_type,
-            "size_bytes": attachment.size_bytes,
-            "sha256": attachment.sha256,
-            "uri": attachment.original_file_uri,
-        },
-        "note": (
-            "Waypoint API was used, but the intake payload came from a local fixture PDF; "
-            "no real email mailbox was read."
-        ),
+        "created": True,
+        "extraction": {"status": extracted.status, "values": extracted.values},
+        **summary,
     }
-    _telemetry_event(
-        "contracts_inbox_poll_completed",
-        status=response["status"],
-        artifact_id=artifact_id,
-        artifact_type=attachment.artifact_type,
-        source_mode=attachment.source_mode,
-        processed_count=1,
-    )
-    return response
 
 
 async def _get_last_contract_impl(
@@ -879,11 +961,11 @@ async def _get_last_contract_impl(
             "ok": True,
             "status": "local_fixture",
             "artifact": artifact,
-            "note": "Local fixture mode only; this is not live Waypoint data.",
+            "note": "Local fixture mode only; this is not live Caldova data.",
         }
 
     client = _WaypointContractsClient()
-    owner = owner_user_id or _contracts_owner()
+    owner = await _turn_owner(activity) or owner_user_id or _contracts_owner()
     latest = await client.request(
         "GET",
         "/api/contracts/artifacts/latest",
@@ -900,14 +982,156 @@ async def _get_last_contract_impl(
     }
 
 
+async def _find_prior_contracts_impl(
+    activity: Any,
+    *,
+    artifact_id: str = "",
+    artifact_type: str | None = None,
+    supplier: str = "",
+    limit: int = 5,
+) -> dict[str, Any]:
+    artifact_type = _artifact_type_filter(_coerce_artifact_type(artifact_type))
+    limit = max(1, min(int(limit or 5), 10))
+    needle = supplier.strip().lower()
+    if _local_fixture_enabled():
+        artifacts = [
+            item
+            for item in _load_state().get("artifacts", [])
+            if item.get("type") == artifact_type
+        ]
+        owner = None
+        source = "local_fixture"
+    else:
+        owner = await _turn_owner(activity) or _contracts_owner()
+        try:
+            listed = await _WaypointContractsClient().request(
+                "GET",
+                "/api/contracts/artifacts",
+                params={"owner_user_id": owner, "artifact_type": artifact_type, "limit": 25},
+            )
+        except Exception as exc:  # noqa: BLE001 - an older API without the list route should not stop a review
+            return {
+                "ok": False,
+                "status": "prior_unavailable",
+                "error": f"{type(exc).__name__}: {exc}"[:300],
+                "note": "Prior artifacts could not be listed; review without a comparison.",
+            }
+        artifacts = listed if isinstance(listed, list) else []
+        source = "api"
+
+    prior = []
+    for item in artifacts:
+        if item.get("id") == artifact_id:
+            continue
+        values = item.get("extracted_json") or {}
+        if needle and needle not in json.dumps(values).lower() and needle not in str(
+            item.get("subject") or item.get("title") or ""
+        ).lower():
+            continue
+        prior.append(
+            {
+                "id": item.get("id"),
+                "subject": item.get("subject") or item.get("title"),
+                "file_name": item.get("file_name") or (item.get("metadata") or {}).get("source_file_name"),
+                "received_at": item.get("received_at") or item.get("created_at"),
+                "extraction_status": item.get("extraction_status"),
+                "extracted_json": values,
+            }
+        )
+        if len(prior) >= limit:
+            break
+    return {
+        "ok": True,
+        "status": source,
+        "owner_user_id": owner,
+        "artifact_type": artifact_type,
+        "supplier_filter": needle or None,
+        "prior_count": len(prior),
+        "prior": prior,
+        "note": "Compare extracted terms only; cite FoundryIQ for what any contract or policy means.",
+    }
+
+
+_FINDING_SOURCES = {"foundryiq", "webiq", "workiq", "fabriciq", "waypoint", "user_file"}
+
+
+async def _record_contract_findings_impl(
+    activity: Any,
+    *,
+    artifact_id: str = "",
+    findings: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    cleaned = []
+    for finding in (findings or [])[:10]:
+        claim = str(finding.get("claim") or "").strip()
+        citation = str(finding.get("citation") or "").strip()
+        source_type = str(finding.get("source_type") or "").strip().lower()
+        if not claim or not citation or source_type not in _FINDING_SOURCES:
+            continue
+        confidence = finding.get("confidence")
+        cleaned.append(
+            {
+                "source_type": source_type,
+                "claim": claim,
+                "citation": citation,
+                "confidence": max(0.0, min(float(confidence), 1.0))
+                if isinstance(confidence, (int, float))
+                else None,
+                "metadata": {
+                    "severity": str(finding.get("severity") or "info"),
+                    "recorded_by": "contracts-agent-review",
+                },
+            }
+        )
+    if not artifact_id or not cleaned:
+        return {
+            "ok": False,
+            "status": "invalid_findings",
+            "note": "Need artifact_id and findings with claim, citation, and a known source_type.",
+        }
+    if _local_fixture_enabled():
+        return {
+            "ok": True,
+            "status": "local_fixture",
+            "artifact_id": artifact_id,
+            "recorded_count": 0,
+            "findings": cleaned,
+            "note": "Local fixture mode; findings were not written to Caldova.",
+        }
+
+    client = _WaypointContractsClient()
+    expected_owner = (await _turn_owner(activity) or _contracts_owner()).lower()
+    detail = await client.request("GET", f"/api/contracts/artifacts/{artifact_id}")
+    assert isinstance(detail, dict)
+    owner = str((detail.get("artifact") or {}).get("owner_user_id") or "").lower()
+    if owner != expected_owner:
+        raise RuntimeError("That artifact does not belong to the requester.")
+    for body in cleaned:
+        await client.request(
+            "POST", f"/api/contracts/artifacts/{artifact_id}/evidence", json_body=body
+        )
+    await client.request(
+        "PATCH",
+        f"/api/contracts/artifacts/{artifact_id}",
+        json_body={"processing_status": "processed", "metadata": {"reviewed_at": _now()}},
+    )
+    _telemetry_event(
+        "contracts_findings_recorded", artifact_id=artifact_id, recorded_count=len(cleaned)
+    )
+    return {"ok": True, "status": "api", "artifact_id": artifact_id, "recorded_count": len(cleaned)}
+
+
 async def _draft_contract_report_impl(
     activity: Any,
     *,
     artifact_id: str = "",
     report_type: str = "contract_brief",
     artifact_type: str | None = None,
+    markdown: str = "",
+    title: str = "",
 ) -> dict[str, Any]:
     artifact_type = _coerce_artifact_type(artifact_type)
+    authored = markdown.strip()
     if _local_fixture_enabled():
         state = _load_state()
         artifact = (
@@ -931,15 +1155,16 @@ async def _draft_contract_report_impl(
         report_id = f"report-{artifact['id']}-{report_type}"
         rendered = render_report(
             report_id=report_id,
-            markdown=_report_markdown(artifact, report_type),
+            markdown=authored or _report_markdown(artifact, report_type),
             output_dir=_state_dir() / "reports",
         )
-        title = f"{report_type.replace('_', ' ').title()} for {artifact['id']}"
+        title = title.strip() or f"{report_type.replace('_', ' ').title()} for {artifact['id']}"
         try:
             publication = await _publish_rendered_report(
                 rendered_docx=rendered.docx_path,
                 rendered_markdown=rendered.markdown_path,
                 title=title,
+                activity=activity,
             )
         except RuntimeError as exc:
             response = {
@@ -1007,12 +1232,13 @@ async def _draft_contract_report_impl(
         return response
 
     client = _WaypointContractsClient()
+    turn_owner = await _turn_owner(activity)
     if not artifact_id:
         latest = await client.request(
             "GET",
             "/api/contracts/artifacts/latest",
             params={
-                "owner_user_id": _contracts_owner(),
+                "owner_user_id": turn_owner or _contracts_owner(),
                 "artifact_type": _artifact_type_filter(artifact_type),
             },
         )
@@ -1023,19 +1249,23 @@ async def _draft_contract_report_impl(
     else:
         detail = await client.request("GET", f"/api/contracts/artifacts/{artifact_id}")
         assert isinstance(detail, dict)
+        owner = str((detail.get("artifact") or {}).get("owner_user_id") or "").lower()
+        if turn_owner and owner != turn_owner:
+            raise RuntimeError("That artifact does not belong to the requester.")
 
     report_id = f"report-{artifact_id}-{report_type}"
     rendered = render_report(
         report_id=report_id,
-        markdown=_report_markdown(detail, report_type),
+        markdown=authored or _report_markdown(detail, report_type),
         output_dir=_state_dir() / "reports",
     )
-    title = f"{report_type.replace('_', ' ').title()} for {artifact_id}"
+    title = title.strip() or f"{report_type.replace('_', ' ').title()} for {artifact_id}"
     try:
         publication = await _publish_rendered_report(
             rendered_docx=rendered.docx_path,
             rendered_markdown=rendered.markdown_path,
             title=title,
+            activity=activity,
         )
     except RuntimeError as exc:
         response = {
@@ -1066,20 +1296,20 @@ async def _draft_contract_report_impl(
             "file_url": publication["file_url"],
             "title": title,
             "share_status": _api_share_status(publication),
+            "shared_with": _publication_shared_with(publication),
             "metadata": {
-                "fixture": True,
+                "fixture": publication["storage"] == "local",
                 **publication["metadata"],
                 "storage": publication["storage"],
                 "teams_link_url": publication["teams_link_url"],
                 "web_url": publication["web_url"],
                 "share_url": publication["share_url"],
-                "note": "Local DOCX report generated for playground testing.",
             },
         },
     )
     response = {
         "ok": True,
-        "status": "api_fixture_report_metadata",
+        "status": "report_recorded",
         "artifact_id": artifact_id,
         "report": report,
         "teams_link_url": publication["teams_link_url"],
@@ -1089,7 +1319,7 @@ async def _draft_contract_report_impl(
             "markdown": rendered.markdown_path.as_uri(),
         },
         "note": (
-            "Waypoint API recorded DOCX report metadata for playground testing. "
+            "Caldova API recorded the DOCX report. "
             f"Publication storage: {publication['storage']}."
         ),
     }
@@ -1102,6 +1332,13 @@ async def _draft_contract_report_impl(
         share_status=publication["share_status"],
     )
     return response
+
+
+_INVOICE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
+
+
+def _valid_invoice_id(value: str) -> bool:
+    return _INVOICE_ID.fullmatch(value) is not None
 
 
 def _summarize_invoice_detail(detail: dict[str, Any]) -> dict[str, Any]:
@@ -1154,7 +1391,7 @@ async def _query_invoices_impl(
             "ok": False,
             "status": "waypoint_api_required",
             "note": (
-                "Invoice queries use the Waypoint records/work APIs; set "
+                "Invoice queries use the Caldova records/work APIs; set "
                 "WAYPOINT_API_BASE_URL to query seeded Aspire data."
             ),
         }
@@ -1173,6 +1410,11 @@ async def _query_invoices_impl(
         limit = 5
     limit = max(1, min(limit, 10))
     selected_id = invoice_id.strip()
+    if selected_id and not _valid_invoice_id(selected_id):
+        return {"ok": False, "status": "invalid_invoice_id", "invoice_id": selected_id}
+    await report_status(
+        checking_invoice(selected_id) if selected_id else CHECKING_INVOICES
+    )
 
     if not selected_id:
         params = {
@@ -1222,7 +1464,7 @@ async def _query_invoices_impl(
         "invoices": [_summarize_invoice_detail(detail) for detail in details],
         "context": context,
         "note": (
-            "Invoice data came from the Waypoint records/work APIs. Contract, policy, "
+            "Invoice data came from the Caldova records/work APIs. Contract, policy, "
             "and evidence text in context is API-backed; live contract/policy "
             "interpretation should still be grounded through the FoundryIQ toolbox."
         ),
@@ -1235,6 +1477,215 @@ async def _query_invoices_impl(
         include_context=include_context,
         had_context=context is not None,
     )
+    record_invoice_result(response)
+    return response
+
+
+_REVIEW_BUNDLE_TTL_SECONDS = 30 * 60
+_REVIEW_BUNDLE_MAX = 32
+# invoice_id -> (loaded_at, detail, context, clauses_filled); gather fills it so the
+# save call verifies quotes against exactly the text the model read.
+_review_bundles: dict[str, tuple[float, dict[str, Any], dict[str, Any] | None, int]] = {}
+
+
+def _review_invoice_id(invoice_id: str) -> tuple[str, dict[str, Any] | None]:
+    selected_id = invoice_id.strip()
+    if not selected_id:
+        return selected_id, {"ok": False, "status": "invoice_id_required"}
+    if not _valid_invoice_id(selected_id):
+        return selected_id, {
+            "ok": False,
+            "status": "invalid_invoice_id",
+            "invoice_id": selected_id,
+        }
+    if _local_fixture_enabled():
+        return selected_id, {
+            "ok": False,
+            "status": "waypoint_api_required",
+            "note": "Invoice review documents need WAYPOINT_API_BASE_URL.",
+        }
+    return selected_id, None
+
+
+async def _load_review_bundle(
+    invoice_id: str, *, refresh: bool
+) -> tuple[dict[str, Any], dict[str, Any] | None, int]:
+    """Invoice detail + context with FoundryIQ clause text; raises RuntimeError on API failure."""
+    now = datetime.now(UTC).timestamp()
+    cached = _review_bundles.get(invoice_id)
+    if cached and not refresh and now - cached[0] < _REVIEW_BUNDLE_TTL_SECONDS:
+        return cached[1], cached[2], cached[3]
+    client = _WaypointContractsClient()
+    detail = await client.request("GET", f"/api/invoices/{invoice_id}")
+    assert isinstance(detail, dict)
+    context = await client.request(
+        "GET",
+        f"/api/invoices/{invoice_id}/context",
+        params={"include_sensitive": "false"},
+    )
+    context = context if isinstance(context, dict) else None
+    clauses_filled = await fill_corpus_text(context, invoice_findings(detail, context))
+    if len(_review_bundles) >= _REVIEW_BUNDLE_MAX:
+        _review_bundles.pop(min(_review_bundles, key=lambda k: _review_bundles[k][0]))
+    _review_bundles[invoice_id] = (now, detail, context, clauses_filled)
+    return detail, context, clauses_filled
+
+
+async def _gather_invoice_review_impl(
+    activity: Any, *, invoice_id: str = ""
+) -> dict[str, Any]:
+    del activity
+    selected_id, error = _review_invoice_id(invoice_id)
+    if error:
+        return error
+    await report_status(creating_review_document(selected_id))
+    try:
+        detail, context, clauses_filled = await _load_review_bundle(
+            selected_id, refresh=True
+        )
+    except RuntimeError as exc:
+        _telemetry_event(
+            "contracts_invoice_review_gathered",
+            status="invoice_lookup_failed",
+            invoice_id=selected_id,
+        )
+        return {
+            "ok": False,
+            "status": "invoice_lookup_failed",
+            "invoice_id": selected_id,
+            "error": str(exc),
+        }
+    inputs = review_inputs(detail, context)
+    _telemetry_event(
+        "contracts_invoice_review_gathered",
+        status="ok",
+        invoice_id=selected_id,
+        finding_count=len(inputs["findings"]),
+        clauses_filled=clauses_filled,
+    )
+    return {
+        "ok": True,
+        "status": "review_inputs",
+        "invoice_id": selected_id,
+        **inputs,
+        "note": (
+            "Invoice facts come from Caldova records; document text comes from the "
+            "Caldova contract knowledge base (FoundryIQ). Reason over them, then call "
+            "save_invoice_review. Quote clauses verbatim from documents[].text; "
+            "paraphrased or invented quotes are dropped. Do not restate amounts, "
+            "line items, or evidence lists; the document lays those out itself."
+        ),
+    }
+
+
+async def _save_invoice_review_impl(
+    activity: Any,
+    *,
+    invoice_id: str = "",
+    summary: str = "",
+    recommendation: str = "",
+    next_steps: list[str] | str | None = None,
+    findings: list[dict[str, Any]] | None = None,
+    title: str = "",
+) -> dict[str, Any]:
+    selected_id, error = _review_invoice_id(invoice_id)
+    if error:
+        return error
+    await report_status(creating_review_document(selected_id))
+    try:
+        detail, context, clauses_filled = await _load_review_bundle(
+            selected_id, refresh=False
+        )
+    except RuntimeError as exc:
+        _telemetry_event(
+            "contracts_invoice_review_completed",
+            status="invoice_lookup_failed",
+            invoice_id=selected_id,
+        )
+        return {
+            "ok": False,
+            "status": "invoice_lookup_failed",
+            "invoice_id": selected_id,
+            "error": str(exc),
+        }
+    analyses, dropped = verify_analyses(findings, detail, context)
+    invoice_finding_list = invoice_findings(detail, context)
+    number = str(detail.get("invoice_number") or selected_id)
+    supplier = detail.get("supplier") if isinstance(detail.get("supplier"), dict) else {}
+    title = title.strip() or f"Invoice review: {number}"
+    rendered = render_report(
+        report_id=f"invoice-review-{selected_id}",
+        markdown=build_invoice_review_markdown(
+            detail,
+            context,
+            summary=summary,
+            recommendation=recommendation,
+            next_steps=(
+                [next_steps] if isinstance(next_steps, str) else list(next_steps or [])
+            ),
+            prepared_on=_now()[:10],
+            analyses=analyses,
+        ),
+        output_dir=_state_dir() / "reports",
+    )
+    quotes_kept = sum(len(entry["clauses"]) for entry in analyses.values())
+    base = {
+        "invoice_id": selected_id,
+        "invoice_number": number,
+        "supplier_name": supplier.get("name"),
+        "currency": detail.get("currency") or "USD",
+        "finding_count": len(invoice_finding_list),
+        "money_at_risk": str(money_at_risk(invoice_finding_list)),
+        "title": title,
+        "quotes_kept": quotes_kept,
+        "quotes_dropped": dropped,
+    }
+    try:
+        publication = await _publish_rendered_report(
+            rendered_docx=rendered.docx_path,
+            rendered_markdown=rendered.markdown_path,
+            title=title,
+            activity=activity,
+        )
+    except RuntimeError as exc:
+        _telemetry_event(
+            "contracts_invoice_review_completed",
+            status="report_publish_failed",
+            invoice_id=selected_id,
+        )
+        return {
+            **base,
+            "ok": False,
+            "status": "report_publish_failed",
+            "error": str(exc),
+            "note": "The document was rendered but publishing failed; do not post a link.",
+        }
+    response = {
+        **base,
+        "ok": True,
+        "status": "review_published",
+        "teams_link_url": publication["teams_link_url"],
+        "web_url": publication["web_url"],
+        "share_status": publication["share_status"],
+        "storage": publication["storage"],
+        "note": (
+            "Teams shows a card with an Open document button; do not paste the link."
+            if publication["storage"] != "local"
+            else "Saved locally only; it was not shared."
+        ),
+    }
+    _telemetry_event(
+        "contracts_invoice_review_completed",
+        status=response["status"],
+        invoice_id=selected_id,
+        storage=publication["storage"],
+        share_status=publication["share_status"],
+        finding_count=len(invoice_finding_list),
+        clauses_filled=clauses_filled,
+        quotes_kept=quotes_kept,
+        quotes_dropped=len(dropped),
+    )
+    record_review_document(response)
     return response
 
 
@@ -1244,7 +1695,7 @@ def contracts_tools() -> list[Tool]:
             name="get_contracts_capabilities",
             description=(
                 "Report what the Contracts agent can do now and whether it is using the "
-                "Waypoint Contracts API or local fixture mode."
+                "Caldova Contracts API or local fixture mode."
             ),
             parameters={
                 "type": "object",
@@ -1272,9 +1723,13 @@ def contracts_tools() -> list[Tool]:
         Tool(
             name="poll_contracts_inbox",
             description=(
-                "Run the contracts inbox intake path. With WAYPOINT_API_BASE_URL configured, "
-                "registers a fixture email attachment through the live Waypoint Contracts API; "
-                "without it, uses local fixture state. Does not read a real mailbox yet."
+                "Check for PDFs the user sent and register them in Caldova: PDFs attached to "
+                "the current Teams message, plus PDFs they emailed to the contracts inbox. Use "
+                "when the user attaches a PDF, says they sent or emailed a contract or "
+                "invoice, or asks whether the agent got their email. Hosted (Teams only), it "
+                "reads the agent's own mailbox for messages from the asking user over the "
+                "lookback window and extracts only new attachments (intake is idempotent). "
+                "Locally, it processes a fixture PDF."
             ),
             parameters={
                 "type": "object",
@@ -1282,12 +1737,12 @@ def contracts_tools() -> list[Tool]:
                     "lookback_minutes": {
                         "type": "integer",
                         "minimum": 1,
-                        "description": "How far back the future mailbox poll should look.",
+                        "description": "How far back to scan the inbox (default 15).",
                     },
                     "artifact_type": {
                         "type": "string",
                         "enum": ["contract", "invoice"],
-                        "description": "Optional local fixture artifact kind to process for this call.",
+                        "description": "Force the artifact kind; otherwise inferred from subject/file name.",
                     },
                 },
                 "required": [],
@@ -1299,7 +1754,7 @@ def contracts_tools() -> list[Tool]:
             name="get_last_contract",
             description=(
                 "Resolve the latest contract artifact for the signed-in user or supplied "
-                "owner_user_id, using the Waypoint Contracts API when configured."
+                "owner_user_id, using the Caldova Contracts API when configured."
             ),
             parameters={
                 "type": "object",
@@ -1320,15 +1775,90 @@ def contracts_tools() -> list[Tool]:
             impl=_get_last_contract_impl,
         ),
         Tool(
-            name="draft_contract_report",
+            name="find_prior_contracts",
             description=(
-                "Record or create a contract report placeholder for an artifact. With the "
-                "Waypoint API configured, records report metadata only; it does not create "
-                "or share a SharePoint document."
+                "List the requester's earlier contract (or invoice) artifacts with their "
+                "extracted terms, newest first, excluding artifact_id. Use during a review to "
+                "compare a newly ingested document against prior ones from the same supplier."
             ),
             parameters={
                 "type": "object",
                 "properties": {
+                    "artifact_id": {
+                        "type": "string",
+                        "description": "The artifact under review; it is excluded from results.",
+                    },
+                    "artifact_type": {"type": "string", "enum": ["contract", "invoice"]},
+                    "supplier": {
+                        "type": "string",
+                        "description": "Optional supplier/counterparty name to match in extracted terms.",
+                    },
+                    "limit": {"type": "integer", "minimum": 1, "maximum": 10},
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+            impl=_find_prior_contracts_impl,
+        ),
+        Tool(
+            name="record_contract_findings",
+            description=(
+                "Record review findings as evidence on an artifact and mark it processed. "
+                "Each finding needs a claim, a citation (FoundryIQ source, prior artifact id, "
+                "or URL), and source_type. Only record findings you can cite."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "artifact_id": {"type": "string"},
+                    "findings": {
+                        "type": "array",
+                        "maxItems": 10,
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "claim": {"type": "string"},
+                                "citation": {"type": "string"},
+                                "source_type": {
+                                    "type": "string",
+                                    "enum": sorted(_FINDING_SOURCES),
+                                },
+                                "severity": {"type": "string", "enum": ["info", "warning", "issue"]},
+                                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                            },
+                            "required": ["claim", "citation", "source_type"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["artifact_id", "findings"],
+                "additionalProperties": False,
+            },
+            impl=_record_contract_findings_impl,
+        ),
+        Tool(
+            name="draft_contract_report",
+            description=(
+                "Render a Word (.docx) contract report from Markdown you write, publish it, "
+                "and record it on the artifact. On a Teams turn the document is saved to the "
+                "agent's own OneDrive and shared with the requesting user; elsewhere it is "
+                "saved locally. Returns teams_link_url when the document is shared."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "markdown": {
+                        "type": "string",
+                        "description": (
+                            "Full report body in Markdown (headings, lists, tables). Ground "
+                            "contract claims in foundry_iq_retrieve results and cite sources "
+                            "inline. If omitted, a minimal metadata summary is rendered."
+                        ),
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Document title.",
+                    },
                     "artifact_id": {
                         "type": "string",
                         "description": "Contract artifact id to report on.",
@@ -1349,9 +1879,138 @@ def contracts_tools() -> list[Tool]:
             impl=_draft_contract_report_impl,
         ),
         Tool(
+            name="gather_invoice_review",
+            description=(
+                "Step 1 of an invoice review document. Returns everything needed to "
+                "write it: invoice facts, findings with basis and evidence excerpts, "
+                "line items, and the full text of the governing contracts and policies "
+                "from the Caldova contract knowledge base (FoundryIQ). Read it, reason "
+                "about each finding against the contract text, then call "
+                "save_invoice_review. Use when the user asks for a review document for "
+                "an invoice."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "invoice_id": {
+                        "type": "string",
+                        "description": "Caldova invoice id, for example INV-2026-08034.",
+                    },
+                },
+                "required": ["invoice_id"],
+                "additionalProperties": False,
+            },
+            impl=_gather_invoice_review_impl,
+        ),
+        Tool(
+            name="save_invoice_review",
+            description=(
+                "Step 2 of an invoice review document, after gather_invoice_review. "
+                "Pass your written analysis; the tool adds the headline, at-a-glance "
+                "figures, finding facts, line items, evidence, sources, and sign-off, "
+                "verifies each clause quote verbatim against the retrieved text, then "
+                "renders a Word document and shares it with the requesting user."
+            ),
+            parameters={
+                "type": "object",
+                "properties": {
+                    "invoice_id": {
+                        "type": "string",
+                        "description": "Caldova invoice id, for example INV-2026-08034.",
+                    },
+                    "summary": {
+                        "type": "string",
+                        "description": (
+                            "Executive summary, one short paragraph in Markdown: what "
+                            "happened on this invoice, which contract terms it runs "
+                            "against, and what is at stake."
+                        ),
+                    },
+                    "findings": {
+                        "type": "array",
+                        "description": "One entry per finding from gather_invoice_review.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "finding_id": {
+                                    "type": "string",
+                                    "description": "finding_id from gather_invoice_review.",
+                                },
+                                "analysis": {
+                                    "type": "string",
+                                    "description": (
+                                        "Two to four sentences in Markdown: why the "
+                                        "charge does or does not hold up under the "
+                                        "quoted terms and the evidence, and what that "
+                                        "means for payment. No restated amounts tables."
+                                    ),
+                                },
+                                "clauses": {
+                                    "type": "array",
+                                    "description": (
+                                        "The one or two passages that decide this "
+                                        "finding. Omit when no passage applies."
+                                    ),
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "document_id": {
+                                                "type": "string",
+                                                "description": "documents[].document_id",
+                                            },
+                                            "section": {
+                                                "type": "string",
+                                                "description": (
+                                                    "Section label as written in the "
+                                                    "document, e.g. '§4 Contamination "
+                                                    "and deviation costs'."
+                                                ),
+                                            },
+                                            "quote": {
+                                                "type": "string",
+                                                "description": (
+                                                    "Exact words copied from "
+                                                    "documents[].text, at most about "
+                                                    "80 words; use '…' to skip text."
+                                                ),
+                                            },
+                                        },
+                                        "required": ["document_id", "quote"],
+                                        "additionalProperties": False,
+                                    },
+                                },
+                            },
+                            "required": ["finding_id", "analysis"],
+                            "additionalProperties": False,
+                        },
+                    },
+                    "recommendation": {
+                        "type": "string",
+                        "description": (
+                            "One short paragraph in Markdown: the recommended disposition "
+                            "(pay, hold, short-pay, recover, escalate) and why."
+                        ),
+                    },
+                    "next_steps": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": (
+                            "Three to five concrete actions for the reviewer, each one "
+                            "sentence, with an owner role when known (for example "
+                            "'AP: short-pay the invoice by $111,000.00')."
+                        ),
+                    },
+                    "title": {"type": "string", "description": "Optional document title."},
+                },
+                "required": ["invoice_id", "summary", "findings", "recommendation"],
+                "additionalProperties": False,
+            },
+            impl=_save_invoice_review_impl,
+        ),
+        Tool(
             name="query_invoices",
             description=(
-                "Query seeded or live invoice data through the Waypoint records/work APIs. "
+                "Query seeded or live invoice data through the Caldova records/work APIs. "
                 "Use this for conversation about prior invoices, findings, evidence, and invoice context."
             ),
             parameters={

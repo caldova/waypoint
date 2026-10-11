@@ -25,7 +25,10 @@ def render_report(
     docx_path = output_dir / f"{report_id}.docx"
 
     markdown_path.write_text(markdown, encoding="utf-8")
-    doc = quilldown.render_docx(quilldown.markdown_to_ir(markdown))
+    doc = quilldown.render_docx(
+        quilldown.markdown_to_ir(markdown),
+        {"theme": "github", "page_size": "letter", "page_numbers": True},
+    )
     doc.save(docx_path)
 
     return RenderedReport(
