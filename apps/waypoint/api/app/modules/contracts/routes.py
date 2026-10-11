@@ -78,6 +78,35 @@ async def get_latest_artifact(
     return artifact
 
 
+@router.get("/artifacts", response_model=list[Artifact])
+async def list_artifacts(
+    user: Reader,
+    service: Service,
+    owner_user_id: str | None = Query(
+        default=None, description="Owner to list. Defaults to the signed-in user."
+    ),
+    artifact_type: ArtifactType = Query(default="contract"),
+    limit: int = Query(default=10, ge=1, le=50),
+) -> list[Artifact]:
+    """Most recent artifacts for one owner, newest first.
+
+    People may list only their own artifacts; app-only callers (the agent) must name the owner.
+    """
+
+    owner = _list_owner(user, owner_user_id)
+    with trace_span("contracts_list_artifacts_endpoint", attributes={"type": artifact_type}):
+        return await service.list_artifacts(owner, artifact_type, limit)
+
+
+def _list_owner(user: UserContext, owner_user_id: str | None) -> str:
+    email = (user.email or "").strip().lower()
+    if email and not email.endswith(_NON_USER_PRINCIPAL_SUFFIXES):
+        if owner_user_id and owner_user_id.strip().lower() != email:
+            raise HTTPException(status_code=403, detail="You can only list your own artifacts.")
+        return email
+    return owner_user_id or _signed_in_user(user)
+
+
 @router.get("/artifacts/{artifact_id}", response_model=ArtifactDetail)
 async def get_artifact(artifact_id: str, _user: Reader, service: Service) -> ArtifactDetail:
     with trace_span("contracts_get_artifact_endpoint", attributes={"artifact_id": artifact_id}):
