@@ -290,7 +290,7 @@ wheels = [
 
 [[package]]
 name = "castia"
-version = "0.10.0"
+version = "0.15.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-ai-projects", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -301,9 +301,9 @@ dependencies = [
     { name = "pyjwt", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "uvicorn", extra = ["standard"], marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/66/1ea649bc8c5a4c1b50d4d41587da5a9405364b85d37df64becd43a2878da/castia-0.10.0.tar.gz", hash = "sha256:338764af285d0abdf38423e35a49deb11ff0bfffe5e12cc0e41edf1fe5c815ba", size = 328099, upload-time = "2026-09-24T21:20:15.107Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/14/57/161278d15dd3e382406a436055e1daecffa030c7e1e7f65c4260b7927427/castia-0.15.0.tar.gz", hash = "sha256:4dd592f08b29ce8dd5b82b55c92dc938f583ac17de086f9b3009ae950f293172", size = 369544, upload-time = "2026-10-08T01:17:38.436Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/71/107831dd80863d6c64dc1830e861f3028cb3cc4dbbabfdb1a3fe2ad78d8d/castia-0.10.0-py3-none-any.whl", hash = "sha256:7ef9e5db67cd239291b8aaaa02241d1b514ba93edee478470e827f0650596585", size = 242156, upload-time = "2026-09-24T21:20:13.681Z" },
+    { url = "https://files.pythonhosted.org/packages/36/49/b1e2711d98d5e266e0f94c1e5924b6dfe1b153aed2af58ecca61826cdb05/castia-0.15.0-py3-none-any.whl", hash = "sha256:06833091fa6199df65eb2d5af16504946d04af6eca85dc28b276d740a2e4d4e4", size = 265519, upload-time = "2026-10-08T01:17:36.571Z" },
 ]
 
 [package.optional-dependencies]
@@ -561,7 +561,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "castia", extras = ["optimize"], specifier = "==0.10.0" },
+    { name = "castia", extras = ["optimize"], specifier = "==0.15.0" },
     { name = "httpx", specifier = ">=0.28.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
 ]

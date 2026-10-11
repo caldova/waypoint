@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import Sequence
 from typing import Any
 
 import httpx
-from castia import resolve_toolbox_endpoint, toolbox_token
+from castia import ToolboxMcpClient, resolve_toolbox_endpoint
 from castia.inference.tools import Tool
 
 # Model-facing name; Castia names the span "execute_tool foundry_iq_retrieve".
@@ -102,36 +101,15 @@ async def _call_foundryiq_toolbox(activity: Any, *, query: str) -> dict[str, Any
     if not cleaned:
         return {"ok": False, "error": "query is required."}
 
-    payload = {
-        "jsonrpc": "2.0",
-        "id": str(uuid.uuid4()),
-        "method": "tools/call",
-        "params": {
-            "name": _KB_TOOL_NAME,
-            "arguments": {"query_variants": [cleaned[:400]]},
-        },
-    }
-    headers = {
-        "Authorization": "Bearer " + await toolbox_token(),
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(endpoint, headers=headers, json=payload)
-            data = response.json()
+        async with httpx.AsyncClient(timeout=120) as http_client:
+            client = ToolboxMcpClient(endpoint, client=http_client)
+            result = await client.call_tool(
+                _KB_TOOL_NAME, {"query_variants": [cleaned[:400]]}
+            )
     except Exception as exc:  # noqa: BLE001 - tool failures are fed back to the model.
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}"}
 
-    if not isinstance(data, dict):
-        return {"ok": False, "error": "Toolbox returned a non-object response."}
-    if response.is_error:
-        return {"ok": False, "error": {"status_code": response.status_code, "body": data}}
-    if data.get("error"):
-        return {"ok": False, "error": data["error"]}
-
-    result = data.get("result")
     if not isinstance(result, dict):
         return {"ok": False, "error": "Toolbox response did not include a result."}
 
