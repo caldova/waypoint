@@ -55,6 +55,25 @@ environment and treats each agent folder as its own execution root, so local
 imports like `contract-agent/tools.py` resolve while browsing the whole
 portfolio.
 
+### Local FoundryIQ telemetry
+
+FoundryIQ toolbox calls should appear as:
+
+```text
+POST /responses
+└─ invoke_agent ...
+   └─ execute_tool foundry_iq_retrieve
+      └─ POST /api/projects/.../toolboxes/.../mcp
+         └─ tools/call contracts-kb-mcp___knowledge_base_retrieve
+```
+
+Castia owns the local MCP toolbox HTTP trace path. Its client wraps the toolbox
+POST in an explicit child HTTP span, then injects both `traceparent` and
+`leaf_customer_span_id` from that POST span so the remote toolbox span is
+parented correctly. Use `castia>=0.15.0` for agents that execute toolbox MCP
+calls locally; that version also suppresses fast Azure metadata/IMDS probe spans
+such as local `GET /metadata/identity/oauth2/token` failures.
+
 ## Deployment
 
 Deploy from the repo root:
