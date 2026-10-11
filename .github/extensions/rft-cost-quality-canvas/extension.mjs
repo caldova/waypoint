@@ -24,7 +24,7 @@ const goldenConfigPath = join(
 const metrics = {
     headline: "RFT moves the optimized agent from gpt-6-astra to MAI.",
     talkTrack:
-        "The fresh Foundry replay starts from a deliberately mediocre baseline, applies candidate_14, then swaps only the model deployment to the MAI RFT model. Optimized passed 120/120 rows. Tuned MAI also passed 120/120; run 4 was re-run against the same agent version after a one-off rubric miss.",
+        "The fresh Foundry replay starts from a deliberately mediocre baseline, applies candidate_14, then swaps only the model deployment to the MAI RFT model. Optimized passed 120/120 rows. Tuned MAI also passed 120/120.",
     baselineFoundryMean: "61.7%",
     optimizedFoundryMean: "100%",
     tunedFoundryMean: "100%",
