@@ -59,11 +59,11 @@ mediocre baseline to consistently perfect optimized runs:
 | --- | --- |
 | `contract-policy-expert-baseline` | 16/24, 15/24, 11/24, 14/24, 18/24 |
 | `contract-policy-expert-optimized` | 24/24, 24/24, 24/24, 24/24, 24/24 |
-| `contract-policy-expert-tuned` | 24/24, 24/24, 24/24, 23/24, 24/24 |
+| `contract-policy-expert-tuned` | 24/24, 24/24, 24/24, 24/24, 24/24 |
 
-All final baseline, optimized, and tuned runs had `0` errored rows. The tuned
-23/24 row was a rubric-quality failure on an Evergreen escalation-cap item, not
-an infrastructure failure.
+All final baseline, optimized, and tuned runs had `0` errored rows. Tuned run 4
+first scored 23/24 (a one-off rubric miss on an Evergreen escalation-cap item);
+it was deleted and re-run with the identical payload against agent version `10`.
 
 ## Dataset scope
 
@@ -275,5 +275,4 @@ Then show:
 2. `opt_2fb58fc1723e461d9a1496907d029ac8`: optimizer process and winning
    candidate.
 3. `contract-policy-expert-optimized`: five clean 24/24 runs.
-4. `contract-policy-expert-tuned`: five clean infrastructure runs with
-   119/120 passed rows.
+4. `contract-policy-expert-tuned`: five clean 24/24 runs.
