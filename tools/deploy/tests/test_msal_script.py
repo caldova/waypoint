@@ -71,6 +71,55 @@ class MsalScriptTests(unittest.TestCase):
                     "waypoint-repository=seller/waypoint-demo",
                 },
             )
+    def test_redirect_and_unredirect_touch_only_one_host(self) -> None:
+        prod = ["https://app.example.com/auth/msal/callback", "https://app.example.com/login"]
+        with tempfile.TemporaryDirectory() as directory:
+            tmp_path = Path(directory)
+            state_path = tmp_path / "state.json"
+            state_path.write_text(
+                json.dumps(
+                    {
+                        "appId": "00000000-0000-0000-0000-000000000001",
+                        "id": "00000000-0000-0000-0000-000000000002",
+                        "spa": list(prod),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            az_path = tmp_path / "az"
+            az_path.write_text(_fake_az(), encoding="utf-8")
+            az_path.chmod(0o755)
+            env = {
+                **os.environ,
+                "PATH": f"{tmp_path}:{os.environ['PATH']}",
+                "FAKE_AZ_STATE": str(state_path),
+                "MSAL_CLIENT_ID": "00000000-0000-0000-0000-000000000001",
+                "WEB_FQDN": "web-pr-7.preview.example.io",
+                "MSAL_GRAPH_RETRY_DELAY_SECONDS": "0",
+            }
+            env.pop("GITHUB_OUTPUT", None)
+
+            def spa() -> list[str]:
+                return json.loads(state_path.read_text(encoding="utf-8"))["spa"]
+
+            subprocess.run(["bash", str(SCRIPT), "redirect"], check=True, env=env)
+            subprocess.run(["bash", str(SCRIPT), "redirect"], check=True, env=env)
+            self.assertEqual(
+                sorted(spa()),
+                sorted(
+                    prod
+                    + [
+                        "https://web-pr-7.preview.example.io/auth/msal/callback",
+                        "https://web-pr-7.preview.example.io/login",
+                    ]
+                ),
+            )
+
+            subprocess.run(["bash", str(SCRIPT), "unredirect"], check=True, env=env)
+            self.assertEqual(sorted(spa()), sorted(prod))
+            # Idempotent: removing an absent host is a no-op.
+            subprocess.run(["bash", str(SCRIPT), "unredirect"], check=True, env=env)
+            self.assertEqual(sorted(spa()), sorted(prod))
 
 
 def _fake_az() -> str:
@@ -99,7 +148,9 @@ elif args[:3] == ["ad", "sp", "create"]:
     state["servicePrincipal"] = True
 elif args[0] == "rest" and args[args.index("--method") + 1] == "GET":
     query = args[args.index("--query") + 1] if "--query" in args else ""
-    if query == "length(api.oauth2PermissionScopes[?value == 'user_impersonation'])":
+    if query == "spa.redirectUris":
+        print(json.dumps(state.get("spa", [])))
+    elif query == "length(api.oauth2PermissionScopes[?value == 'user_impersonation'])":
         print(sum(scope.get("value") == "user_impersonation" for scope in state["api"]["oauth2PermissionScopes"]))
     else:
         print(json.dumps({
@@ -123,6 +174,8 @@ elif args[0] == "rest" and args[args.index("--method") + 1] == "PATCH":
         state["appRoles"] = body["appRoles"]
     if "tags" in body:
         state["tags"] = body["tags"]
+    if "spa" in body:
+        state["spa"] = body["spa"]["redirectUris"]
 else:
     raise SystemExit(f"unsupported fake az invocation: {args}")
 

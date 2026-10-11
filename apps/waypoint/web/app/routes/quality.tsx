@@ -17,17 +17,15 @@ import {
 } from "react-icons/hi2";
 import type { MetaFunction } from "react-router";
 import { useOutletContext } from "react-router";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { fetchDrilldownConfig, type DrilldownConfig } from "../../lib/waypointConfig";
 import { AppHeader } from "../components/AppHeader";
 import { RequireAuth } from "../components/RequireAuth";
+import { useFormat, type Formatters } from "../i18n/format";
+import { pageMeta } from "../i18n/meta";
 
-export const meta: MetaFunction = () => [
-  { title: "Quality & optimization - Caldova" },
-  {
-    name: "description",
-    content: "Quality lineage, readiness, and guarded GitHub operations for Caldova agents",
-  },
-];
+export const meta: MetaFunction = ({ location }) => pageMeta(location, "quality");
 
 type EvidenceState = "current" | "reference-only" | "stale";
 type OperationAvailability = "available" | "guarded" | "blocked";
@@ -121,43 +119,68 @@ interface QualityOutletContext {
 
 const MANIFEST_URL = "/quality/evidence-manifest.v1.json";
 
-const OPERATION_STAGES: Array<{
-  id: OperationStage;
-  step: number;
-  title: string;
-  detail: string;
-}> = [
+const OPERATION_STAGES = [
   {
     id: "run",
     step: 1,
-    title: "Run assurance",
-    detail: "Generate live, governed evidence from an invoice.",
+    titleKey: "stages.run.title",
+    detailKey: "stages.run.detail",
   },
   {
     id: "inspect",
     step: 2,
-    title: "Inspect the run",
-    detail: "Correlate the result with sanitized operational traces.",
+    titleKey: "stages.inspect.title",
+    detailKey: "stages.inspect.detail",
   },
   {
     id: "measure",
     step: 3,
-    title: "Measure quality",
-    detail: "Evaluate the current agent and verify its quality assets.",
+    titleKey: "stages.measure.title",
+    detailKey: "stages.measure.detail",
   },
   {
     id: "improve",
     step: 4,
-    title: "Improve the agent",
-    detail: "Search and prepare candidates without applying them.",
+    titleKey: "stages.improve.title",
+    detailKey: "stages.improve.detail",
   },
   {
     id: "release",
     step: 5,
-    title: "Release with approval",
-    detail: "Keep live training behind review, spend, and command gates.",
+    titleKey: "stages.release.title",
+    detailKey: "stages.release.detail",
   },
-];
+] as const satisfies ReadonlyArray<{
+  id: OperationStage;
+  step: number;
+  titleKey: string;
+  detailKey: string;
+}>;
+
+/** UI copy for each evidence state (the manifest's own labels stay as evidence data). */
+const EVIDENCE_STATE_KEYS = {
+  current: {
+    labelKey: "evidenceState.current.label",
+    descriptionKey: "evidenceState.current.description",
+  },
+  "reference-only": {
+    labelKey: "evidenceState.referenceOnly.label",
+    descriptionKey: "evidenceState.referenceOnly.description",
+  },
+  stale: {
+    labelKey: "evidenceState.stale.label",
+    descriptionKey: "evidenceState.stale.description",
+  },
+} as const satisfies Record<EvidenceState, unknown>;
+
+/** The manifest request answered with an error status (message is translated at render). */
+class ManifestStatusError extends Error {
+  constructor(readonly status: number) {
+    super(`Evidence manifest returned ${status}`);
+  }
+}
+
+type LoadFailure = { status: number } | { message: string | null };
 
 function safeHttpsUrl(value: string): string | null {
   try {
@@ -168,17 +191,16 @@ function safeHttpsUrl(value: string): string | null {
   }
 }
 
-function formatPercent(value: number): string {
-  return `${(value * 100).toFixed(1)}%`;
+function formatPercent(value: number, fmt: Formatters): string {
+  return fmt.percent(value, 1);
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "Unknown";
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+function formatScore(value: number, fmt: Formatters): string {
+  return fmt.number(value, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+}
+
+function formatDate(value: string, fmt: Formatters, t: TFunction<["quality", "common"]>): string {
+  return fmt.dateTime(value, { dateStyle: "medium", timeStyle: "short" }) ?? t("common:unknown");
 }
 
 function effectiveState(manifest: QualityManifest): EvidenceState {
@@ -188,17 +210,18 @@ function effectiveState(manifest: QualityManifest): EvidenceState {
 }
 
 export default function Quality() {
+  const { t } = useTranslation("quality");
   const { qualityOperations } = useOutletContext<QualityOutletContext>();
   const [manifest, setManifest] = useState<QualityManifest | null>(null);
   const [drilldown, setDrilldown] = useState<DrilldownConfig | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoadFailure | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     void Promise.all([
       fetch(MANIFEST_URL, { signal: controller.signal }).then(async (response) => {
         if (!response.ok) {
-          throw new Error(`Evidence manifest returned ${response.status}`);
+          throw new ManifestStatusError(response.status);
         }
         return (await response.json()) as QualityManifest;
       }),
@@ -210,12 +233,22 @@ export default function Quality() {
       },
       (reason: unknown) => {
         if (!controller.signal.aborted) {
-          setError(reason instanceof Error ? reason.message : "Quality evidence is unavailable");
+          setError(
+            reason instanceof ManifestStatusError
+              ? { status: reason.status }
+              : { message: reason instanceof Error ? reason.message : null },
+          );
         }
       },
     );
     return () => controller.abort();
   }, []);
+
+  const errorMessage = !error
+    ? null
+    : "status" in error
+      ? t("errors.manifestStatus", { status: error.status })
+      : (error.message ?? t("errors.unavailable"));
 
   const repositoryUrl = safeHttpsUrl(qualityOperations.repositoryUrl);
   const workflowUrl = repositoryUrl
@@ -231,8 +264,8 @@ export default function Quality() {
       <div className="min-h-screen bg-slate-50 text-slate-950">
         <AppHeader />
         <main id="main-content" className="mx-auto max-w-[1500px] px-3 py-4 2xl:px-4">
-          {error ? <QualityError message={error} /> : null}
-          {!manifest && !error ? <QualitySkeleton /> : null}
+          {errorMessage ? <QualityError message={errorMessage} /> : null}
+          {!manifest && !errorMessage ? <QualitySkeleton /> : null}
           {manifest ? (
             <>
               <Hero
@@ -272,6 +305,7 @@ function Hero({
   foundryUrl: string | null;
 }) {
   const state = effectiveState(manifest);
+  const { t } = useTranslation("quality");
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -279,24 +313,22 @@ function Hero({
           <div className="flex flex-wrap items-center gap-2">
             <StateBadge state={state} />
             <span className="text-xs font-medium text-slate-500">
-              Schema v{manifest.schemaVersion}
+              {t("hero.schemaVersion", { version: manifest.schemaVersion })}
             </span>
           </div>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight text-slate-950">
-            Quality &amp; optimization
+            {t("hero.title")}
           </h1>
           <p className="mt-2 max-w-[65ch] text-sm leading-6 text-slate-600">
-            Follow one controlled loop: generate invoice evidence, inspect its trace, measure the
-            agent, improve it, and require approval before release. GitHub Actions and Foundry own
-            the work; this browser only explains the path and links to it.
+            {t("hero.description")}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
           <ExternalAction href={workflowUrl} icon={HiOutlineBolt} primary>
-            Open agent quality workflow
+            {t("hero.openWorkflow")}
           </ExternalAction>
           <ExternalAction href={foundryUrl} icon={HiOutlineArrowTopRightOnSquare}>
-            Open Foundry project
+            {t("hero.openFoundry")}
           </ExternalAction>
         </div>
       </div>
@@ -305,19 +337,19 @@ function Hero({
 }
 
 function GovernanceStrip({ environment }: { environment: string }) {
+  const { t } = useTranslation("quality");
   return (
     <section
-      aria-label="Control plane boundary"
+      aria-label={t("governance.ariaLabel")}
       className="mt-4 grid gap-4 rounded-xl border border-blue-200 bg-blue-50 p-4 md:grid-cols-[auto_1fr_auto] md:items-center"
     >
       <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-blue-700 shadow-sm">
         <HiOutlineShieldCheck className="h-5 w-5" aria-hidden="true" />
       </span>
       <div>
-        <h2 className="text-sm font-semibold text-blue-950">Why these operations are guarded</h2>
+        <h2 className="text-sm font-semibold text-blue-950">{t("governance.title")}</h2>
         <p className="mt-1 max-w-[80ch] text-sm leading-6 text-blue-800">
-          Every cloud action runs in GitHub Actions so inputs, credentials, evidence, and
-          approvals stay auditable. This page never runs cloud commands in your browser.
+          {t("governance.description")}
         </p>
       </div>
       <code className="w-fit rounded-md border border-blue-200 bg-white px-3 py-2 text-xs font-semibold text-blue-800">
@@ -328,27 +360,32 @@ function GovernanceStrip({ environment }: { environment: string }) {
 }
 
 function MetricGrid({ manifest }: { manifest: QualityManifest }) {
+  const { t } = useTranslation("quality");
+  const fmt = useFormat();
   const optimizerLift =
     manifest.lineage.optimizer.acceptedScore - manifest.lineage.optimizer.baselineScore;
   return (
-    <section className="mt-6 grid gap-4 md:grid-cols-3" aria-label="Reference quality outcomes">
+    <section className="mt-6 grid gap-4 md:grid-cols-3" aria-label={t("metrics.ariaLabel")}>
       <MetricCard
         icon={HiOutlineArrowTrendingUp}
-        label="Estimated inference reduction"
-        value={formatPercent(manifest.lineage.rft.estimatedCostReduction)}
-        detail="Reference comparison per evidence request"
+        label={t("metrics.inferenceReduction.label")}
+        value={formatPercent(manifest.lineage.rft.estimatedCostReduction, fmt)}
+        detail={t("metrics.inferenceReduction.detail")}
       />
       <MetricCard
         icon={HiOutlineBeaker}
-        label="RFT aggregate pass rate"
-        value={formatPercent(manifest.lineage.rft.aggregatePassRate)}
-        detail={`${manifest.lineage.dataset.samplesPerRun} samples × ${manifest.lineage.baseline.runs} runs`}
+        label={t("metrics.rftPassRate.label")}
+        value={formatPercent(manifest.lineage.rft.aggregatePassRate, fmt)}
+        detail={t("metrics.rftPassRate.detail", {
+          samples: manifest.lineage.dataset.samplesPerRun,
+          runs: manifest.lineage.baseline.runs,
+        })}
       />
       <MetricCard
         icon={HiOutlineArrowTrendingDown}
-        label="Optimizer score lift"
-        value={`+${optimizerLift.toFixed(4)}`}
-        detail={`${manifest.lineage.optimizer.baselineScore.toFixed(4)} → ${manifest.lineage.optimizer.acceptedScore.toFixed(4)}`}
+        label={t("metrics.optimizerLift.label")}
+        value={`+${formatScore(optimizerLift, fmt)}`}
+        detail={`${formatScore(manifest.lineage.optimizer.baselineScore, fmt)} → ${formatScore(manifest.lineage.optimizer.acceptedScore, fmt)}`}
       />
     </section>
   );
@@ -378,46 +415,54 @@ function MetricCard({
 }
 
 function LineagePanel({ manifest }: { manifest: QualityManifest }) {
+  const { t } = useTranslation("quality");
+  const fmt = useFormat();
   const { lineage } = manifest;
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <PanelHeader
-        title={`${lineage.agent} quality path`}
-        detail={`Measured on ${lineage.dataset.name} v${lineage.dataset.version} · evaluator v${lineage.evaluator.version}`}
+        title={t("lineage.title", { agent: lineage.agent })}
+        detail={t("lineage.detail", {
+          dataset: lineage.dataset.name,
+          datasetVersion: lineage.dataset.version,
+          evaluatorVersion: lineage.evaluator.version,
+        })}
       />
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-slate-200 type-label">
             <tr>
-              <th className="px-5 py-3 font-semibold">Stage</th>
-              <th className="px-5 py-3 font-semibold">Lineage</th>
-              <th className="px-5 py-3 font-semibold">Quality</th>
-              <th className="px-5 py-3 font-semibold">Evidence</th>
+              <th className="px-5 py-3 font-semibold">{t("lineage.columns.stage")}</th>
+              <th className="px-5 py-3 font-semibold">{t("lineage.columns.lineage")}</th>
+              <th className="px-5 py-3 font-semibold">{t("lineage.columns.quality")}</th>
+              <th className="px-5 py-3 font-semibold">{t("lineage.columns.evidence")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             <LineageRow
-              stage="Hosted baseline"
-              identifier={`agent v${lineage.baseline.agentVersion}`}
+              stage={t("lineage.baseline.stage")}
+              identifier={t("lineage.baseline.identifier", {
+                version: lineage.baseline.agentVersion,
+              })}
               model={lineage.baseline.model}
-              quality={formatPercent(lineage.baseline.aggregatePassRate)}
-              detail={`${lineage.baseline.runs} evaluation runs`}
+              quality={formatPercent(lineage.baseline.aggregatePassRate, fmt)}
+              detail={t("lineage.baseline.evaluationRuns", { count: lineage.baseline.runs })}
               state={lineage.baseline.state}
             />
             <LineageRow
-              stage="Agent Optimizer"
+              stage={t("lineage.optimizer.stage")}
               identifier={lineage.optimizer.acceptedCandidateId}
               model={lineage.optimizer.strategy}
-              quality={lineage.optimizer.acceptedScore.toFixed(4)}
-              detail={`Job ${lineage.optimizer.jobId}`}
+              quality={formatScore(lineage.optimizer.acceptedScore, fmt)}
+              detail={t("lineage.job", { id: lineage.optimizer.jobId })}
               state={lineage.optimizer.state}
             />
             <LineageRow
-              stage="RFT cost transfer"
+              stage={t("lineage.rft.stage")}
               identifier={lineage.rft.deployment}
               model="o4-mini RFT"
-              quality={formatPercent(lineage.rft.aggregatePassRate)}
-              detail={`Job ${lineage.rft.jobId}`}
+              quality={formatPercent(lineage.rft.aggregatePassRate, fmt)}
+              detail={t("lineage.job", { id: lineage.rft.jobId })}
               state={lineage.rft.state}
             />
           </tbody>
@@ -473,11 +518,12 @@ function OperationsPanel({
   operations: Operation[];
   workflowUrl: string | null;
 }) {
+  const { t } = useTranslation("quality");
   return (
     <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:p-6">
       <PanelHeader
-        title="From invoice evidence to a safe release"
-        detail="A controlled quality loop. Use the steps in order for a new quality cycle, or open the operation you need for an existing run."
+        title={t("operations.title")}
+        detail={t("operations.detail")}
         flush
       />
       <ol className="mt-6">
@@ -503,10 +549,10 @@ function OperationsPanel({
               </span>
               <div className="min-w-0 pt-1">
                 <h3 className="text-base font-semibold text-slate-950">
-                  <span className="sr-only">Step {stage.step}: </span>
-                  {stage.title}
+                  <span className="sr-only">{t("operations.step", { step: stage.step })} </span>
+                  {t(stage.titleKey)}
                 </h3>
-                <p className="mt-0.5 text-sm leading-6 text-slate-600">{stage.detail}</p>
+                <p className="mt-0.5 text-sm leading-6 text-slate-600">{t(stage.detailKey)}</p>
                 <ul className="mt-2 divide-y divide-slate-100">
                   {stageOperations.map((operation) => (
                     <OperationRow
@@ -532,17 +578,18 @@ function OperationRow({
   operation: Operation;
   workflowUrl: string | null;
 }) {
+  const { t } = useTranslation("quality");
   const execution = {
     bounded: {
-      label: "Completes in Actions",
+      label: t("operations.execution.bounded"),
       icon: HiOutlineClock,
     },
     "no-wait": {
-      label: "Starts an asynchronous job",
+      label: t("operations.execution.noWait"),
       icon: HiOutlineQueueList,
     },
     protected: {
-      label: "Requires protected approval",
+      label: t("operations.execution.protected"),
       icon: HiOutlineLockClosed,
     },
   }[operation.execution];
@@ -561,11 +608,11 @@ function OperationRow({
             <ExecutionIcon className="h-4 w-4 text-blue-600" aria-hidden="true" />
             {execution.label}
           </span>
-          <code>Workflow option: {operation.id}</code>
+          <code>{t("operations.workflowOption", { id: operation.id })}</code>
         </p>
         <details className="text-xs text-slate-600">
           <summary className="min-h-11 w-fit cursor-pointer rounded-md py-3 font-semibold text-slate-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500">
-            View prerequisites
+            {t("operations.viewPrerequisites")}
           </summary>
           <ul className="space-y-2 pb-2 leading-5">
             {operation.prerequisites.map((prerequisite) => (
@@ -580,7 +627,7 @@ function OperationRow({
       <a
         href={workflowUrl ?? undefined}
         aria-disabled={!workflowUrl}
-        aria-label={`Open ${operation.label} in GitHub Actions`}
+        aria-label={t("operations.openInActionsAriaLabel", { operation: operation.label })}
         className={[
           "inline-flex min-h-11 items-center gap-2 self-start rounded-md text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500",
           workflowUrl
@@ -590,7 +637,7 @@ function OperationRow({
         target={workflowUrl ? "_blank" : undefined}
         rel={workflowUrl ? "noreferrer" : undefined}
       >
-        Open in GitHub Actions
+        {t("operations.openInActions")}
         <HiOutlineArrowTopRightOnSquare className="h-4 w-4" aria-hidden="true" />
       </a>
     </li>
@@ -598,11 +645,13 @@ function OperationRow({
 }
 
 function EvidencePanel({ manifest }: { manifest: QualityManifest }) {
+  const { t } = useTranslation(["quality", "common"]);
+  const fmt = useFormat();
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <PanelHeader
-        title="Evidence freshness & source"
-        detail={`Reviewed ${formatDate(manifest.reviewedAt)}`}
+        title={t("evidence.title")}
+        detail={t("evidence.reviewed", { date: formatDate(manifest.reviewedAt, fmt, t) })}
         flush
       />
       <div className="mt-5 space-y-4">
@@ -617,19 +666,21 @@ function EvidencePanel({ manifest }: { manifest: QualityManifest }) {
         ))}
       </div>
       <div className="mt-5 border-t border-slate-100 pt-4">
-        <h3 className="type-label">Source</h3>
+        <h3 className="type-label">{t("evidence.source")}</h3>
         <code className="mt-1 block break-all text-xs leading-5 text-slate-700">
           {manifest.source.workflow}
         </code>
         <p className="mt-2 text-xs text-slate-500">
-          Stale after {formatDate(manifest.staleAfter)}
+          {t("evidence.staleAfter", { date: formatDate(manifest.staleAfter, fmt, t) })}
         </p>
       </div>
       <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
         {manifest.stateDefinitions.map((definition) => (
           <div key={definition.state} className="flex items-start gap-3">
             <StateBadge state={definition.state} compact />
-            <p className="text-xs leading-5 text-slate-600">{definition.description}</p>
+            <p className="text-xs leading-5 text-slate-600">
+              {t(EVIDENCE_STATE_KEYS[definition.state].descriptionKey)}
+            </p>
           </div>
         ))}
       </div>
@@ -646,29 +697,28 @@ function LaunchPolicy({
   workflowUrl: string | null;
   foundryUrl: string | null;
 }) {
+  const { t } = useTranslation("quality");
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-950">
         <HiOutlineLockClosed className="h-5 w-5 text-blue-700" aria-hidden="true" />
-        Safety boundary
+        {t("safety.title")}
       </h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        The workflow can run, inspect, measure, and prepare. It never auto-applies an optimizer
-        candidate, promotes a model, or deploys an agent.
+        {t("safety.description")}
       </p>
       <div className="mt-5 border-t border-slate-100 pt-4">
-        <h3 className="type-label">Live RFT gate</h3>
+        <h3 className="type-label">{t("safety.liveRftGate")}</h3>
         <code className="mt-1 block break-all text-xs font-semibold text-blue-900">
           {environment}
         </code>
         <p className="mt-2 text-xs leading-5 text-slate-600">
-          Required reviewers and explicit spend acknowledgement are prerequisites. Submission
-          remains blocked until a committed first-class command exists.
+          {t("safety.gateDetail")}
         </p>
       </div>
       <div className="mt-5 grid gap-2">
-        <PolicyLink href={workflowUrl}>Review workflow controls</PolicyLink>
-        <PolicyLink href={foundryUrl}>Inspect current Foundry status</PolicyLink>
+        <PolicyLink href={workflowUrl}>{t("safety.reviewControls")}</PolicyLink>
+        <PolicyLink href={foundryUrl}>{t("safety.inspectFoundry")}</PolicyLink>
       </div>
     </section>
   );
@@ -726,19 +776,17 @@ function PolicyLink({ href, children }: { href: string | null; children: ReactNo
 }
 
 function StateBadge({ state, compact = false }: { state: EvidenceState; compact?: boolean }) {
-  const styles: Record<EvidenceState, { label: string; classes: string; icon: IconType }> = {
+  const { t } = useTranslation("quality");
+  const styles: Record<EvidenceState, { classes: string; icon: IconType }> = {
     current: {
-      label: "Current",
       classes: "border-emerald-200 bg-emerald-50 text-emerald-700",
       icon: HiOutlineCheckCircle,
     },
     "reference-only": {
-      label: "Reference only",
       classes: "border-blue-200 bg-blue-50 text-blue-700",
       icon: HiOutlineCodeBracketSquare,
     },
     stale: {
-      label: "Stale",
       classes: "border-amber-200 bg-amber-50 text-amber-700",
       icon: HiOutlineExclamationTriangle,
     },
@@ -754,12 +802,19 @@ function StateBadge({ state, compact = false }: { state: EvidenceState; compact?
       ].join(" ")}
     >
       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-      {style.label}
+      {t(EVIDENCE_STATE_KEYS[state].labelKey)}
     </span>
   );
 }
 
+const AVAILABILITY_KEYS = {
+  available: "operations.availability.available",
+  guarded: "operations.availability.guarded",
+  blocked: "operations.availability.blocked",
+} as const satisfies Record<OperationAvailability, string>;
+
 function AvailabilityBadge({ availability }: { availability: OperationAvailability }) {
+  const { t } = useTranslation("quality");
   const classes: Record<OperationAvailability, string> = {
     available: "border-emerald-200 bg-emerald-50 text-emerald-700",
     guarded: "border-blue-200 bg-blue-50 text-blue-700",
@@ -767,9 +822,9 @@ function AvailabilityBadge({ availability }: { availability: OperationAvailabili
   };
   return (
     <span
-      className={`rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${classes[availability]}`}
+      className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${classes[availability]}`}
     >
-      {availability}
+      {t(AVAILABILITY_KEYS[availability])}
     </span>
   );
 }
@@ -792,8 +847,9 @@ function PanelHeader({
 }
 
 function QualitySkeleton() {
+  const { t } = useTranslation("quality");
   return (
-    <div aria-label="Loading quality evidence" className="animate-pulse space-y-6">
+    <div aria-label={t("loading")} className="animate-pulse space-y-6">
       <div className="h-64 rounded-xl border border-slate-200 bg-white" />
       <div className="grid gap-4 md:grid-cols-3">
         {[0, 1, 2].map((item) => (
@@ -806,13 +862,14 @@ function QualitySkeleton() {
 }
 
 function QualityError({ message }: { message: string }) {
+  const { t } = useTranslation("quality");
   return (
     <section className="rounded-xl border border-rose-200 bg-white p-8 text-center shadow-sm">
       <HiOutlineExclamationTriangle className="mx-auto h-8 w-8 text-rose-600" />
-      <h1 className="mt-4 text-lg font-semibold text-slate-950">Quality evidence unavailable</h1>
+      <h1 className="mt-4 text-lg font-semibold text-slate-950">{t("errors.title")}</h1>
       <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-600">{message}</p>
       <p className="mt-3 text-xs text-slate-500">
-        Verify that the versioned public evidence manifest is included in this deployment.
+        {t("errors.hint")}
       </p>
     </section>
   );

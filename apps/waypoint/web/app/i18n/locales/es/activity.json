@@ -1,0 +1,47 @@
+{
+  "header": {
+    "title": "Ejecuciones activas y pendientes",
+    "description": "Ejecuciones en vivo abiertas por el proceso de aseguramiento, que se actualizan automáticamente. Abre una ejecución para revisar la distribución completa entre expertos en Detalles del agente.",
+    "updatedAgo": "Actualizado hace {{duration}}",
+    "refresh": "Actualizar"
+  },
+  "focus": {
+    "reused": "Se reutilizó la ejecución de aseguramiento activa de la factura {{invoice}}; no se inició una ejecución duplicada en Foundry.",
+    "accepted": "Se aceptó el aseguramiento de la factura {{invoice}}. Esta página se actualiza mientras se completa la ejecución alojada."
+  },
+  "buckets": {
+    "active": "Activas",
+    "pending": "Pendientes",
+    "moneyAtRiskActive": "Monto en riesgo (activas)",
+    "showCompleted": "Mostrar completadas recientemente ({{total}})",
+    "hideCompleted": "Ocultar completadas recientemente ({{total}})"
+  },
+  "empty": {
+    "loading": "Cargando…",
+    "noActive": "No hay ejecuciones en curso en este momento.",
+    "startFromQueue": "Las ejecuciones se inician desde la <invoiceLink>cola de facturas</invoiceLink>.",
+    "reviewCompleted_one": "<button>Revisa {{count}} ejecución completada recientemente</button>.",
+    "reviewCompleted_many": "<button>Revisa las {{count}} ejecuciones completadas recientemente</button>.",
+    "reviewCompleted_other": "<button>Revisa las {{count}} ejecuciones completadas recientemente</button>.",
+    "noPending": "No hay nada en cola."
+  },
+  "run": {
+    "invoice": "Factura {{invoice}}",
+    "decision": "Decisión: {{decision}}",
+    "elapsed": "transcurrido: {{duration}}",
+    "startedAgo": "iniciada hace {{duration}}",
+    "details": "Detalles",
+    "openTrace": "Abrir traza",
+    "experts": "Expertos"
+  },
+  "duration": {
+    "seconds": "{{s}} s",
+    "minutes": "{{m}} min {{s}} s",
+    "hours": "{{h}} h {{m}} min",
+    "days": "{{d}} d {{h}} h"
+  },
+  "errors": {
+    "fetchFailed": "No se pudieron obtener las ejecuciones",
+    "fetchFailedStatus": "No se pudieron obtener las ejecuciones: {{status}}"
+  }
+}

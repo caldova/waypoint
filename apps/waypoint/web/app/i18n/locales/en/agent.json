@@ -1,0 +1,192 @@
+{
+  "page": {
+    "heading": "Work done by invoice",
+    "intro": "Every Foundry Assurance Orchestrator run is grouped by the invoice it assured. Each row rolls up how many times the experts ran, the current decision, and money at risk. Open a run to see the IQ-by-IQ evidence trail of what it found.",
+    "refresh": "Refresh",
+    "loading": "Loading runs…",
+    "invoices": "Invoices"
+  },
+  "errors": {
+    "fetchFailed": "Failed to fetch agent runs",
+    "fetchFailedStatus": "Failed to fetch agent runs: {{status}}"
+  },
+  "shared": {
+    "atRisk": "At risk",
+    "amountAtRisk": "{{amount}} at risk",
+    "ranCount": "Ran {{n}}×",
+    "citations_one": "{{count}} citation",
+    "citations_other": "{{count}} citations",
+    "expert": "Expert"
+  },
+  "usage": {
+    "heading": "Expert usage",
+    "description": "How often each expert ran across all work, and the evidence each contributed to the decision.",
+    "empty": "No expert contributed cited evidence in the selected runs.",
+    "stub": "Stub",
+    "connectedTo": "Connected to {{tool}}",
+    "citationsContributed_one": "{{count}} citation contributed",
+    "citationsContributed_other": "{{count}} citations contributed"
+  },
+  "totals": {
+    "heading": "Across all runs",
+    "runs": "Runs",
+    "makeItRain": "Make it rain",
+    "trendHeading": "Money at risk over time",
+    "trendAriaLabel": "Money at risk trend",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days"
+  },
+  "filters": {
+    "when": "When",
+    "range": {
+      "days7": "7d",
+      "days30": "30d",
+      "days90": "90d",
+      "all": "All"
+    },
+    "monthAriaLabel": "Filter by month",
+    "anyMonth": "Any month",
+    "decision": "Decision",
+    "allDecisions": "All",
+    "searchPlaceholder": "Search invoice…",
+    "searchAriaLabel": "Search invoices",
+    "sortAriaLabel": "Sort invoices",
+    "sort": {
+      "recent": "Most recent",
+      "money": "Money at risk",
+      "confidence": "Lowest confidence"
+    },
+    "noMatches": "No invoices match these filters.",
+    "clear": "Clear filters"
+  },
+  "invoice": {
+    "calibratedHint": "Calibrated decision confidence.",
+    "uncalibratedHint": "Uncalibrated evidence score; not calibrated decision accuracy.",
+    "noEvidence": "No expert evidence recorded.",
+    "lastRun": "Last run {{time}}",
+    "findings_one": "{{count}} finding",
+    "findings_other": "{{count}} findings",
+    "runHistory": "Run history"
+  },
+  "run": {
+    "latest": "Latest",
+    "noSummary": "No summary recorded.",
+    "view": "View run →"
+  },
+  "lightbox": {
+    "ariaLabel": "Run detail for {{invoice}}",
+    "ranOn": "Agent run on {{time}} · {{author}}",
+    "close": "Close run detail",
+    "confidence": "Confidence",
+    "evidenceScore": "Evidence score",
+    "experts": "Experts",
+    "findings": "Findings",
+    "perExpertHeading": "Per-expert (IQ) evidence",
+    "noPerExpert": "No per-expert evidence was recorded for this run.",
+    "telemetry": {
+      "heading": "Telemetry",
+      "foundryAgent": "Foundry agent",
+      "conversation": "Conversation",
+      "operation": "Operation",
+      "runId": "Run id"
+    }
+  },
+  "lane": {
+    "noCitationText": "(no citation text)",
+    "supports": "supports {{value}}"
+  },
+  "map": {
+    "heading": "Agent map",
+    "summary_one": "{{count}} agent · {{active}} of {{total}} evidence sources used",
+    "summary_other": "{{count}} agents · {{active}} of {{total}} evidence sources used",
+    "viewAriaLabel": "Agent map view",
+    "mode": {
+      "map": "Map",
+      "list": "List"
+    },
+    "zoomLevelAriaLabel": "Map zoom level",
+    "allAgents": "All agents",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "fit": "Fit map to view",
+    "hint": "Click a bubble to zoom in · click empty space to zoom out · scroll to zoom · drag to pan",
+    "ariaLabel": "Zoomable agent map",
+    "srHint": "Tab through the bubbles and agents; press Enter on a bubble to zoom into it. Choose List above for the full structure with citations and sources.",
+    "zoomInto": "Zoom into {{name}}",
+    "clickToExplore": "Click to explore",
+    "citationUnit_one": "citation",
+    "citationUnit_other": "citations",
+    "sourcesOf": "{{active}} of {{total}} sources",
+    "footnote": "Caldova IQ holds every evidence source the orchestrator can call: Microsoft IQ (FabricIQ, FoundryIQ, WebIQ, WorkIQ) and third-party integrations. Click it to zoom in. Tiles in colour cited evidence in this run; faded tiles weren't used. Caldova Recorder remains the sole writer of the governed run, case, and recommendation.",
+    "connector": {
+      "reads": "reads"
+    },
+    "bubbleName": {
+      "orchestration": "Orchestration",
+      "caldova": "Caldova IQ",
+      "microsoft": "Microsoft IQ",
+      "integrations": "Integrations",
+      "record": "Governed record",
+      "analysts": "Analysts"
+    },
+    "bubbleTitle": {
+      "caldova": "Evidence ({{active}} of {{total}} sources)",
+      "integrations": "Integrations ({{n}})",
+      "analysts": "Analysts ({{n}})"
+    },
+    "node": {
+      "intake": {
+        "label": "Invoice intake",
+        "stats": "prebuilt-invoice model"
+      },
+      "orchestrator": {
+        "title": "Coordinator",
+        "fannedOut_one": "Fanned out to {{count}} source",
+        "fannedOut_other": "Fanned out to {{count}} sources"
+      },
+      "recorder": {
+        "title": "Sole writer of the governed record",
+        "stats": "Writes run · case · recommendation"
+      },
+      "analyst": {
+        "fallback": "Analyst",
+        "title": "Read-only analyst",
+        "stats": "Answers questions over the governed record"
+      },
+      "integrationsPlaceholder": {
+        "label": "None connected",
+        "title": "Third-party integrations",
+        "stats": "No integrations are connected yet"
+      },
+      "evidenceSourceFallback": "Evidence Source",
+      "integrationFallback": "Integration",
+      "citationsWithScore_one": "{{count}} citation · {{percent}}",
+      "citationsWithScore_other": "{{count}} citations · {{percent}}",
+      "notUsed": "Not used in this run"
+    },
+    "tile": {
+      "ariaLabel": "{{label}} ({{title}}): {{stats}}",
+      "more": "+{{n}} more"
+    },
+    "list": {
+      "flow": "Work flows from Orchestration through Caldova IQ's evidence sources to the governed record.",
+      "flowWithAnalysts": "Work flows from Orchestration through Caldova IQ's evidence sources to the governed record, which the analysts then read.",
+      "sources": "Sources",
+      "used_one": "Used · {{count}} citation",
+      "used_other": "Used · {{count}} citations",
+      "avgConfidence": "{{percent}} average confidence",
+      "sourcesUsed": "{{active}} of {{total}} evidence sources used",
+      "iqSourcesUsed": "{{active}} of {{total}} IQ sources used",
+      "integrationsConnected_one": "{{count}} connected",
+      "integrationsConnected_other": "{{count}} connected",
+      "noIntegrations": "No third-party integrations are connected yet",
+      "orchestration": "Reads the invoice and fans out to the evidence sources",
+      "record": "Writes the governed run, case and recommendation",
+      "analysts": "Read the governed record to answer questions"
+    }
+  },
+  "empty": {
+    "heading": "No agent runs yet",
+    "body": "Open an invoice and choose Run assurance, or dispatch the repository operations workflow. Completed runs appear here with a grounded decision and per-expert evidence trail."
+  }
+}

@@ -1,0 +1,397 @@
+{
+  "header": {
+    "title": "Supplier invoices",
+    "intro": "The complete invoice work queue. Select any unreviewed invoices to run assurance, then inspect recorded decisions, evidence, and recovery."
+  },
+  "tiles": {
+    "shown": "Shown",
+    "invoices": "Invoices",
+    "pending": "Pending",
+    "escalations": "Escalations",
+    "filterToEscalations": "Filter to escalations",
+    "recoverable": "Recoverable"
+  },
+  "summary": {
+    "loading": "Loading supplier invoice decisions…",
+    "recoverable_one": "{{amount}} recoverable across {{count}} reviewed invoice",
+    "recoverable_other": "{{amount}} recoverable across {{count}} reviewed invoices",
+    "escalations_one": "{{count}} escalation",
+    "escalations_other": "{{count}} escalations",
+    "pending_one": "{{count}} pending",
+    "pending_other": "{{count}} pending",
+    "readyToRun_one": "{{count}} ready to run",
+    "readyToRun_other": "{{count}} ready to run",
+    "line": "{{facts}}. Human approvals and citations stay attached to every recommendation."
+  },
+  "list": {
+    "label": "Invoices",
+    "loading": "Loading…",
+    "showing": "Showing {{shown}} of {{total}}",
+    "count_one": "{{count}} invoice",
+    "count_other": "{{count}} invoices",
+    "selectVisible": "Select visible",
+    "clearVisible": "Clear visible",
+    "refresh": "Refresh",
+    "loadingInvoices": "Loading invoices…",
+    "empty": "No invoices are available.",
+    "loadingInsights": "Loading insights…"
+  },
+  "table": {
+    "selectAllVisible": "Select all visible invoices",
+    "clearAllVisible": "Clear all visible invoices",
+    "selectInvoice": "Select invoice {{number}}",
+    "columns": {
+      "invoice": "Invoice",
+      "reasoning": "Reasoning",
+      "decision": "Decision",
+      "category": "Category",
+      "basis": "Basis",
+      "confidence": "Confidence",
+      "evidence": "Evidence",
+      "evidenceHint": "How many independent experts corroborated the decision, and how many evidence sources they cited.",
+      "overpayment": "Overpayment"
+    }
+  },
+  "run": {
+    "of": "Run {{index}} of {{total}}",
+    "number": "Run {{number}}",
+    "agentsWorking": "Agents working…",
+    "viewLiveProgress": "View live progress in Activity",
+    "viewActiveRun": "View active run"
+  },
+  "decisionState": {
+    "pending": "Pending",
+    "notRun": "Not run",
+    "closed": "Closed"
+  },
+  "severity": {
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium",
+    "moderate": "Moderate",
+    "low": "Low"
+  },
+  "basis": {
+    "contract": "Contract",
+    "policy": "Policy",
+    "unmapped": "Unmapped"
+  },
+  "actions": {
+    "cancel": "Cancel",
+    "open": "Open"
+  },
+  "batch": {
+    "selected_one": "{{count}} invoice selected",
+    "selected_other": "{{count}} invoices selected",
+    "tooLarge": "Reduce the selection to {{max}} invoices or fewer.",
+    "limit": "Batch limit {{max}} · up to {{concurrency}} starts at once",
+    "clear": "Clear",
+    "review": "Review batch",
+    "processed": "Batch request processed",
+    "outcomes": "{{accepted}} started · {{reused}} reused · {{notFound}} not found · {{failed}} failed to start",
+    "viewActivity": "View Activity"
+  },
+  "batchConfirm": {
+    "title_one": "Start assurance for {{count}} invoice?",
+    "title_other": "Start assurance for {{count}} invoices?",
+    "close": "Close batch confirmation",
+    "guidance": "Each newly accepted invoice starts a hosted agent orchestration and may incur usage cost. Active runs are reused automatically. Caldova starts at most {{concurrency}} invoices concurrently and accepts up to {{max}} per batch.",
+    "currentRecoverable": "Current recoverable amount",
+    "starting": "Starting batch…",
+    "start": "Start batch assurance"
+  },
+  "filters": {
+    "decision": "Decision",
+    "all": "All",
+    "category": "Category",
+    "categoryAria": "Filter by category",
+    "allCategories": "All categories",
+    "severity": "Severity",
+    "severityAria": "Filter by severity",
+    "anySeverity": "Any severity",
+    "supplier": "Supplier",
+    "supplierAria": "Filter by supplier",
+    "allSuppliers": "All suppliers",
+    "searchPlaceholder": "Search invoice or supplier…",
+    "searchInvoices": "Search invoices",
+    "sortAria": "Sort invoices",
+    "sortBy": "Sort by",
+    "sort": {
+      "recent": "Most recent",
+      "overpayment": "Highest overpayment",
+      "confidence": "Lowest confidence",
+      "supplier": "Supplier A–Z"
+    },
+    "filters": "Filters",
+    "activeCount_one": ", {{count}} active",
+    "activeCount_other": ", {{count}} active",
+    "activeFilters": "Active filters",
+    "clearAll": "Clear all",
+    "showResults_one": "Show {{count}} invoice",
+    "showResults_other": "Show {{count}} invoices",
+    "chips": {
+      "removeDecision": "Remove decision filter: {{value}}",
+      "removeCategory": "Remove category filter: {{value}}",
+      "severity": "{{severity}} severity",
+      "removeSeverity": "Remove severity filter: {{value}}",
+      "removeSupplier": "Remove supplier filter: {{value}}",
+      "sorted": "Sorted: {{sort}}",
+      "resetSort": "Reset sort to {{sort}}"
+    }
+  },
+  "card": {
+    "noOverpayment": "No overpayment",
+    "recoverable": "Recoverable",
+    "atRisk": "At risk",
+    "experts_one": "{{count}} expert",
+    "experts_other": "{{count}} experts",
+    "sourcesCited_one": "{{count}} source cited",
+    "sourcesCited_other": "{{count}} sources cited"
+  },
+  "noMatches": {
+    "title": "No invoices match these filters",
+    "body": "Try widening the decision, severity, or supplier filters, or clear them to see the full register.",
+    "clear": "Clear filters"
+  },
+  "insights": {
+    "decisionMix": "Decision mix",
+    "noDecisions": "No decisions in view.",
+    "recoveryBySupplier": "Recovery by supplier",
+    "noRecoverable": "No recoverable overpayment in view.",
+    "severity": "Severity",
+    "topOverpayments": "Top overpayments",
+    "recoveryTrend": "Recovery trend",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "sparklineLabel": "Recovery over time"
+  },
+  "confidence": {
+    "calibratedTitle": "Calibrated decision confidence.",
+    "uncalibratedTitle": "Uncalibrated evidence score; not calibrated decision accuracy.",
+    "notCalibrated": "Not calibrated"
+  },
+  "drawer": {
+    "title": "<sr>Decision context for invoice </sr>{{number}}",
+    "copyInvoiceId": "Copy invoice ID {{number}}",
+    "invoiced": "{{total}} invoiced",
+    "close": "Close decision context",
+    "olderRun": "You're viewing an older run. The current decision is Run {{run}}: {{decision}}.",
+    "olderRunPending": "pending",
+    "confidence": "Confidence",
+    "notReported": "Not reported",
+    "calibrated": "Calibrated",
+    "evidenceScoreNotCalibrated": "Evidence score, not calibrated",
+    "decided": "Decided",
+    "notRecorded": "Not recorded",
+    "run": "Run",
+    "loadingEvidence": "Loading clauses and evidence…",
+    "footerActive": "A new assurance run is in progress.",
+    "footerRerun": "A re-run opens a new case. Earlier runs stay in the history.",
+    "starting": "Starting…",
+    "rerun": "Re-run assurance…"
+  },
+  "verdict": {
+    "recover": "Recover <money>{{amount}}</money> from {{supplier}}",
+    "escalate": "Escalate <money>{{amount}}</money> before payment",
+    "review": "Hold <money>{{amount}}</money> for human review",
+    "approveTotal": "Approve <money>{{total}}</money> for payment",
+    "approve": "Approve for payment",
+    "other": "{{label}}: <money>{{amount}}</money> at risk"
+  },
+  "runSwitcher": {
+    "label_one": "{{count}} run on this invoice, newest first",
+    "label_other": "{{count}} runs on this invoice, newest first",
+    "current": "· current"
+  },
+  "stance": {
+    "governing": "Governing term",
+    "supports": "Supports {{decision}}",
+    "pointsTo": "Points to {{decision}}"
+  },
+  "citation": {
+    "noText": "(no citation text)"
+  },
+  "clauses": {
+    "title": "Contract and policy basis",
+    "cited_one": "{{count}} clause cited",
+    "cited_other": "{{count}} clauses cited",
+    "empty": "No contract or policy basis is attached to this decision. Treat it as unsupported until a reviewer ties it to a clause.",
+    "noCitations": "FoundryIQ didn't record clause-level citations for this run. The documents below are the basis on file."
+  },
+  "evidence": {
+    "title": "Evidence by source",
+    "citations_one": "{{count}} citation",
+    "citations_other": "{{count}} citations",
+    "records_one": "{{count}} record",
+    "records_other": "{{count}} records",
+    "sources_one": "{{count}} source",
+    "sources_other": "{{count}} sources",
+    "nothingRecorded": "Nothing recorded for this run.",
+    "clausesListed": "Clauses are listed under Contract and policy basis.",
+    "noClauseCitations": "No clause-level citations recorded.",
+    "expertFallback": "Expert",
+    "thirdPartySource": "Third-party source",
+    "invoiceRecords": "Invoice records",
+    "recordsScope": "Records attached to the finding",
+    "openRecord": "Open record",
+    "none": "No evidence"
+  },
+  "copy": {
+    "copied": "Copied",
+    "failed": "Couldn't copy",
+    "failedSelect": "Couldn't copy. Select the text instead."
+  },
+  "supplier": {
+    "title": "For {{supplier}}",
+    "copyParagraph": "Copy paragraph",
+    "draftedBy": "Drafted by {{author}} on {{date}}. Read it before you send it.",
+    "nothingToSend": "Nothing to send. Approved invoices don't need a supplier message.",
+    "noDraft": "No supplier draft was written for this run. The reasoning at the top is for reviewers, not the supplier. If you dispute the line, write your message from the clauses above."
+  },
+  "nextStep": {
+    "title": "Your next step",
+    "recover": {
+      "title": "Request a {{amount}} credit from {{supplier}}",
+      "body": "Copy the paragraph above into an email from your supplier mailbox, attach the invoice PDF, then record the credit in AP."
+    },
+    "review": {
+      "title": "Hold {{amount}} and make the call",
+      "body": "The agents couldn't settle this one. Read the clauses and the evidence that points the other way, then approve or dispute the line."
+    },
+    "escalate": {
+      "title": "Hold {{amount}} and escalate",
+      "body": "Don't pay or dispute this line yet. Send the escalation packet to the owner named in the dispute procedure."
+    },
+    "approve": {
+      "title": "Release for payment",
+      "body": "The invoice reconciles to the contract and operations data. Nothing to recover."
+    },
+    "fallback": {
+      "title": "Decide what to do with {{amount}}",
+      "body": "Read the clauses and evidence above before acting."
+    },
+    "copyEscalation": "Copy escalation packet",
+    "openContract": "Open the contract",
+    "agentProposed": "<label>Agent proposed: </label>{{actions}}.",
+    "openPdf": "Open invoice PDF",
+    "noSend": "Caldova records the case. It doesn't send email or post approvals from this panel.",
+    "reviewerNotes": "Reviewer notes ({{count}})"
+  },
+  "notRun": {
+    "activeTitle": "Agents are working on this invoice",
+    "activeBody": "The case appears here once the run records a decision. Follow each expert's progress in Activity.",
+    "title": "No decision yet",
+    "body": "Running assurance sends this invoice to the cloud agent pipeline. Four experts check it against their sources, then Caldova records one decision: approve, review, recover or escalate.",
+    "whatYouGet": "You'll get the verdict and amount, the clauses it rests on, evidence by source, a paragraph for the supplier when there's something to send, and your next step.",
+    "starting": "Starting assurance…",
+    "run": "Run assurance…",
+    "hint": "Can take several minutes. You'll confirm first."
+  },
+  "record": {
+    "lines": "Invoice lines",
+    "lineCount_one": "{{count}} line",
+    "lineCount_other": "{{count}} lines",
+    "sku": "SKU {{sku}}",
+    "noSku": "No SKU",
+    "noPo": "No PO",
+    "loadingLines": "Loading invoice lines…",
+    "noLines": "No invoice lines were imported.",
+    "oneLake": "Documents come from Microsoft OneLake",
+    "trail": "Decision trail"
+  },
+  "trail": {
+    "assurance": {
+      "title": "Assurance",
+      "detail": "No governed decision has been recorded for this invoice yet."
+    },
+    "finding": {
+      "title": "Recorded finding"
+    },
+    "ingest": {
+      "title": "Ingest",
+      "detail_one": "{{count}} invoice line imported into Caldova.",
+      "detail_other": "{{count}} invoice lines imported into Caldova."
+    },
+    "decision": {
+      "title": "Decision"
+    },
+    "context": {
+      "title": "Manufacturing context"
+    },
+    "basis": {
+      "title": "Contract / policy basis",
+      "detail_one": "{{count}} basis type attached",
+      "detail_other": "{{count}} basis types attached"
+    },
+    "evidence": {
+      "title": "Evidence",
+      "detail_one": "{{source}} ({{count}} reference)",
+      "detail_other": "{{source}} ({{count}} references)"
+    }
+  },
+  "runConfirm": {
+    "title": "Run assurance for {{number}}?",
+    "pipeline": "This starts the cloud agent pipeline for {{supplier}}. Four experts gather evidence, then a decision is recorded. It can take several minutes, and you'll follow it in Activity.",
+    "reuse": "If a run is already active for this invoice, Caldova reuses it instead of starting another. Each new run uses hosted agent capacity and may incur usage cost.",
+    "runNumber": "This will be run {{number}}. Earlier runs stay in the run history.",
+    "start": "Start assurance run"
+  },
+  "sourceCount": {
+    "noneTitle": "No expert evidence recorded for this invoice yet.",
+    "experts_one": "<num>{{count}}</num> expert",
+    "experts_other": "<num>{{count}}</num> experts",
+    "citations_one": "<num>{{count}}</num> citation",
+    "citations_other": "<num>{{count}}</num> citations",
+    "independentExperts_one": "{{count}} independent expert",
+    "independentExperts_other": "{{count}} independent experts",
+    "tooltipPlanes_one": "{{count}} citation corroborated across {{experts}} (e.g. WorkIQ, FabricIQ). Open the row to see each expert's citations.",
+    "tooltipPlanes_other": "{{count}} citations corroborated across {{experts}} (e.g. WorkIQ, FabricIQ). Open the row to see each expert's citations.",
+    "tooltipSources_one": "{{count}} citation recorded. Open the row to see the details.",
+    "tooltipSources_other": "{{count}} citations recorded. Open the row to see the details."
+  },
+  "empty": {
+    "none": "None"
+  },
+  "preview": {
+    "ariaLabel": "Preview {{title}}",
+    "close": "Close preview",
+    "pdfTitle": "{{number}} PDF",
+    "loadingTitle": "Loading document",
+    "viewer": "Document viewer",
+    "loadingDocument": "Loading document…",
+    "contractDocument": "Contract document",
+    "policyDocument": "Policy document",
+    "invoicePdf": "Invoice PDF",
+    "documentId": "Document ID",
+    "supplierId": "Supplier ID",
+    "type": "Type",
+    "effective": "Effective",
+    "notSpecified": "Not specified",
+    "policyId": "Policy ID",
+    "severity": "Severity",
+    "noPolicyDescription": "No policy description is available for this policy.",
+    "documentContent": "Document content",
+    "contentUnavailableTitle": "Document content not available here",
+    "contentUnavailableBody": "The full document lives in the Caldova corpus lake, which isn't connected in this environment. The reference below stays attached to this finding.",
+    "loadingPdf": "Loading PDF…",
+    "pdfUnavailableTitle": "PDF not available here",
+    "pdfErrorTitle": "Couldn’t load this PDF",
+    "pdfUnavailableBody": "The source PDF lives in the Caldova corpus lake, which isn’t connected in this environment. The reference below stays attached to this finding.",
+    "pdfErrorBody": "Something went wrong while loading the document. You can try reopening it.",
+    "metadata": "Metadata"
+  },
+  "errors": {
+    "fetchDecisions": "Failed to fetch invoice decisions",
+    "fetchDecisionsStatus": "Failed to fetch invoice decisions: {{status}}",
+    "fetchDetail": "Failed to fetch invoice detail",
+    "fetchDetailStatus": "Failed to fetch invoice detail: {{status}}",
+    "contractPreview": "Failed to fetch contract preview",
+    "contractPreviewStatus": "Failed to fetch contract preview: {{status}}",
+    "policyPreview": "Failed to fetch policy preview",
+    "policyPreviewStatus": "Failed to fetch policy preview: {{status}}",
+    "startAssurance": "Unable to start assurance.",
+    "startAssuranceStatus": "Unable to start assurance ({{status}}).",
+    "startBatch": "Unable to start batch assurance.",
+    "startBatchStatus": "Unable to start batch assurance ({{status}})."
+  }
+}

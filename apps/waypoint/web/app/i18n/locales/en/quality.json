@@ -1,0 +1,127 @@
+{
+  "stages": {
+    "run": {
+      "title": "Run assurance",
+      "detail": "Generate live, governed evidence from an invoice."
+    },
+    "inspect": {
+      "title": "Inspect the run",
+      "detail": "Correlate the result with sanitized operational traces."
+    },
+    "measure": {
+      "title": "Measure quality",
+      "detail": "Evaluate the current agent and verify its quality assets."
+    },
+    "improve": {
+      "title": "Improve the agent",
+      "detail": "Search and prepare candidates without applying them."
+    },
+    "release": {
+      "title": "Release with approval",
+      "detail": "Keep live training behind review, spend, and command gates."
+    }
+  },
+  "errors": {
+    "manifestStatus": "Evidence manifest returned {{status}}",
+    "unavailable": "Quality evidence is unavailable",
+    "title": "Quality evidence unavailable",
+    "hint": "Verify that the versioned public evidence manifest is included in this deployment."
+  },
+  "loading": "Loading quality evidence",
+  "hero": {
+    "schemaVersion": "Schema v{{version}}",
+    "title": "Quality & optimization",
+    "description": "Follow one controlled loop: generate invoice evidence, inspect its trace, measure the agent, improve it, and require approval before release. GitHub Actions and Foundry own the work; this browser only explains the path and links to it.",
+    "openWorkflow": "Open agent quality workflow",
+    "openFoundry": "Open Foundry project"
+  },
+  "governance": {
+    "ariaLabel": "Control plane boundary",
+    "title": "Why these operations are guarded",
+    "description": "Every cloud action runs in GitHub Actions so inputs, credentials, evidence, and approvals stay auditable. This page never runs cloud commands in your browser."
+  },
+  "metrics": {
+    "ariaLabel": "Reference quality outcomes",
+    "inferenceReduction": {
+      "label": "Estimated inference reduction",
+      "detail": "Reference comparison per evidence request"
+    },
+    "rftPassRate": {
+      "label": "RFT aggregate pass rate",
+      "detail": "{{samples}} samples × {{runs}} runs"
+    },
+    "optimizerLift": {
+      "label": "Optimizer score lift"
+    }
+  },
+  "lineage": {
+    "title": "{{agent}} quality path",
+    "detail": "Measured on {{dataset}} v{{datasetVersion}} · evaluator v{{evaluatorVersion}}",
+    "columns": {
+      "stage": "Stage",
+      "lineage": "Lineage",
+      "quality": "Quality",
+      "evidence": "Evidence"
+    },
+    "baseline": {
+      "stage": "Hosted baseline",
+      "identifier": "agent v{{version}}",
+      "evaluationRuns_one": "{{count}} evaluation run",
+      "evaluationRuns_other": "{{count}} evaluation runs"
+    },
+    "optimizer": {
+      "stage": "Agent Optimizer"
+    },
+    "rft": {
+      "stage": "RFT cost transfer"
+    },
+    "job": "Job {{id}}"
+  },
+  "operations": {
+    "title": "From invoice evidence to a safe release",
+    "detail": "A controlled quality loop. Use the steps in order for a new quality cycle, or open the operation you need for an existing run.",
+    "step": "Step {{step}}:",
+    "execution": {
+      "bounded": "Completes in Actions",
+      "noWait": "Starts an asynchronous job",
+      "protected": "Requires protected approval"
+    },
+    "availability": {
+      "available": "Available",
+      "guarded": "Guarded",
+      "blocked": "Blocked"
+    },
+    "workflowOption": "Workflow option: {{id}}",
+    "viewPrerequisites": "View prerequisites",
+    "openInActionsAriaLabel": "Open {{operation}} in GitHub Actions",
+    "openInActions": "Open in GitHub Actions"
+  },
+  "evidence": {
+    "title": "Evidence freshness & source",
+    "reviewed": "Reviewed {{date}}",
+    "source": "Source",
+    "staleAfter": "Stale after {{date}}"
+  },
+  "evidenceState": {
+    "current": {
+      "label": "Current",
+      "description": "Verified by the named source within its freshness window."
+    },
+    "referenceOnly": {
+      "label": "Reference only",
+      "description": "Commit-safe lineage for review, not a live control-plane response."
+    },
+    "stale": {
+      "label": "Stale",
+      "description": "Past its freshness window or awaiting a new live verification."
+    }
+  },
+  "safety": {
+    "title": "Safety boundary",
+    "description": "The workflow can run, inspect, measure, and prepare. It never auto-applies an optimizer candidate, promotes a model, or deploys an agent.",
+    "liveRftGate": "Live RFT gate",
+    "gateDetail": "Required reviewers and explicit spend acknowledgement are prerequisites. Submission remains blocked until a committed first-class command exists.",
+    "reviewControls": "Review workflow controls",
+    "inspectFoundry": "Inspect current Foundry status"
+  }
+}

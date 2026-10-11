@@ -1,0 +1,251 @@
+name: Preview Waypoint web
+
+# Per-PR preview of the Waypoint web app, like Azure Static Web Apps or Netlify
+# deploy previews: every same-repo PR that touches the web app gets its own URL,
+# updated on each push and deleted when the PR closes. A nightly sweep removes
+# anything a missed close event left behind.
+#
+# Previews run in an isolated resource group (infra/preview/) and call
+# the shared production API through the web server's /api proxy. Fork PRs are
+# skipped because they can't get Azure credentials.
+#
+# One-time setup: tools/deploy/scripts/preview_setup.sh (see docs/deployment.md).
+# It creates the `preview` GitHub Environment with these variables:
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID   preview deployer (OIDC)
+#   PREVIEW_RESOURCE_GROUP                                     isolated preview resource group
+#   PREVIEW_MSAL_CLIENT_ID                                     preview-only sign-in app
+#   WAYPOINT_MSAL_TENANT_ID, WAYPOINT_MSAL_API_SCOPE           production API sign-in settings
+#   WAYPOINT_PREVIEW_API_URL                                   API the previews proxy to
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - apps/waypoint/web/**
+      - .github/workflows/preview-web.yml
+      - tools/deploy/scripts/preview_web.sh
+      - tools/deploy/scripts/msal.sh
+      - infra/preview/app.bicep
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: preview-web-${{ github.event.pull_request.number || 'sweep' }}
+  # A newer push (or the PR closing) supersedes an in-flight deploy.
+  cancel-in-progress: true
+
+env:
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+
+jobs:
+  deploy:
+    name: Deploy preview
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Check preview setup
+        id: setup
+        env:
+          PREVIEW_RESOURCE_GROUP: ${{ vars.PREVIEW_RESOURCE_GROUP }}
+        run: |
+          if [ -z "$PREVIEW_RESOURCE_GROUP" ]; then
+            echo "::notice::PR previews aren't set up yet. Run tools/deploy/scripts/preview_setup.sh (see docs/deployment.md)."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.setup.outputs.configured == 'true'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: azure/login@v2
+        if: steps.setup.outputs.configured == 'true'
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Find the preview environment
+        if: steps.setup.outputs.configured == 'true'
+        id: discover
+        env:
+          PREVIEW_RESOURCE_GROUP: ${{ vars.PREVIEW_RESOURCE_GROUP }}
+        run: bash tools/deploy/scripts/preview_web.sh discover
+
+      - name: Name the image
+        if: steps.setup.outputs.configured == 'true'
+        id: image
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REGISTRY: ${{ steps.discover.outputs.registry_server }}
+        run: |
+          tag="pr-${PR_NUMBER}-${HEAD_SHA::7}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "ref=${REGISTRY}/waypoint-web:${tag}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.setup.outputs.configured == 'true'
+
+      - name: Log in to the preview registry
+        if: steps.setup.outputs.configured == 'true'
+        run: az acr login --name "${{ steps.discover.outputs.registry_name }}"
+
+      - name: Build and push the web image
+        if: steps.setup.outputs.configured == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/waypoint/web
+          push: true
+          tags: ${{ steps.image.outputs.ref }}
+          build-args: BUILD_VERSION=${{ steps.image.outputs.tag }}
+          cache-from: type=gha,scope=waypoint-web-preview
+          cache-to: type=gha,mode=max,scope=waypoint-web-preview
+
+      - name: Deploy the preview
+        if: steps.setup.outputs.configured == 'true'
+        id: deploy
+        env:
+          PREVIEW_RESOURCE_GROUP: ${{ vars.PREVIEW_RESOURCE_GROUP }}
+          IMAGE: ${{ steps.image.outputs.ref }}
+          API_URL: ${{ vars.WAYPOINT_PREVIEW_API_URL }}
+          MSAL_CLIENT_ID: ${{ vars.PREVIEW_MSAL_CLIENT_ID }}
+          MSAL_TENANT_ID: ${{ vars.WAYPOINT_MSAL_TENANT_ID }}
+          MSAL_API_SCOPE: ${{ vars.WAYPOINT_MSAL_API_SCOPE }}
+        run: bash tools/deploy/scripts/preview_web.sh deploy
+
+      - name: Post the preview link
+        if: always() && steps.setup.outputs.configured == 'true'
+        uses: actions/github-script@v7
+        env:
+          STATUS: ${{ job.status }}
+          URL: ${{ steps.deploy.outputs.url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          script: |
+            const { STATUS, URL, HEAD_SHA } = process.env;
+            const sha = HEAD_SHA.slice(0, 7);
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            let body;
+            if (STATUS === "success") {
+              body = [
+                "### Waypoint web preview",
+                "",
+                "| | |",
+                "| --- | --- |",
+                `| **English** | ${URL} |`,
+                `| **Español** | ${URL}/es |`,
+                `| **Commit** | \`${sha}\` |`,
+                "",
+                "Sign in with your Caldova account. The preview calls the shared production API, " +
+                  "so actions such as **Run assurance** change real demo data. It scales to zero when idle " +
+                  "(the first load can take about 20 seconds) and is deleted when this PR closes.",
+              ].join("\n");
+            } else if (STATUS === "cancelled") {
+              return;
+            } else {
+              body = `### Waypoint web preview\n\nThe preview for \`${sha}\` failed to deploy. [See the run](${run}).`;
+            }
+            await upsertComment(body);
+
+            async function upsertComment(text) {
+              const marker = "<!-- waypoint-web-preview -->";
+              const issue_number = context.payload.pull_request.number;
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                ...context.repo,
+                issue_number,
+              });
+              const existing = comments.find((c) => c.body?.includes(marker));
+              const full = `${marker}\n${text}`;
+              if (existing) {
+                await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body: full });
+              } else {
+                await github.rest.issues.createComment({ ...context.repo, issue_number, body: full });
+              }
+            }
+
+  destroy:
+    name: Delete preview
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action == 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@v4
+        if: vars.PREVIEW_RESOURCE_GROUP != ''
+        with:
+          # The merge ref can be gone once a PR is merged; the head commit stays reachable.
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - uses: azure/login@v2
+        if: vars.PREVIEW_RESOURCE_GROUP != ''
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Delete the preview
+        if: vars.PREVIEW_RESOURCE_GROUP != ''
+        env:
+          PREVIEW_RESOURCE_GROUP: ${{ vars.PREVIEW_RESOURCE_GROUP }}
+          MSAL_CLIENT_ID: ${{ vars.PREVIEW_MSAL_CLIENT_ID }}
+        run: bash tools/deploy/scripts/preview_web.sh destroy
+
+      - name: Update the preview comment
+        if: vars.PREVIEW_RESOURCE_GROUP != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const marker = "<!-- waypoint-web-preview -->";
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo,
+              issue_number,
+            });
+            const existing = comments.find((c) => c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: existing.id,
+                body: `${marker}\n### Waypoint web preview\n\nThis preview was deleted when the PR closed.`,
+              });
+            }
+
+  sweep:
+    name: Sweep closed-PR previews
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@v4
+        if: vars.PREVIEW_RESOURCE_GROUP != ''
+
+      - uses: azure/login@v2
+        if: vars.PREVIEW_RESOURCE_GROUP != ''
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Delete previews whose PR is closed
+        if: vars.PREVIEW_RESOURCE_GROUP != ''
+        env:
+          PREVIEW_RESOURCE_GROUP: ${{ vars.PREVIEW_RESOURCE_GROUP }}
+          GH_TOKEN: ${{ github.token }}
+          MSAL_CLIENT_ID: ${{ vars.PREVIEW_MSAL_CLIENT_ID }}
+        run: bash tools/deploy/scripts/preview_web.sh sweep

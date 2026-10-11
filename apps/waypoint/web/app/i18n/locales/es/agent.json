@@ -1,0 +1,202 @@
+{
+  "page": {
+    "heading": "Trabajo realizado por factura",
+    "intro": "Cada ejecución del Foundry Assurance Orchestrator se agrupa por la factura que aseguró. Cada fila resume cuántas veces se ejecutaron los expertos, la decisión actual y el monto en riesgo. Abre una ejecución para ver el rastro de evidencia, IQ por IQ, de lo que encontró.",
+    "refresh": "Actualizar",
+    "loading": "Cargando ejecuciones…",
+    "invoices": "Facturas"
+  },
+  "errors": {
+    "fetchFailed": "No se pudieron obtener las ejecuciones de agentes",
+    "fetchFailedStatus": "No se pudieron obtener las ejecuciones de agentes: {{status}}"
+  },
+  "shared": {
+    "atRisk": "En riesgo",
+    "amountAtRisk": "{{amount}} en riesgo",
+    "ranCount": "Se ejecutó {{n}}×",
+    "citations_one": "{{count}} cita",
+    "citations_many": "{{count}} citas",
+    "citations_other": "{{count}} citas",
+    "expert": "Experto"
+  },
+  "usage": {
+    "heading": "Uso de expertos",
+    "description": "Con qué frecuencia se ejecutó cada experto en todo el trabajo y la evidencia que aportó cada uno a la decisión.",
+    "empty": "Ningún experto aportó evidencia citada en las ejecuciones seleccionadas.",
+    "stub": "Simulado",
+    "connectedTo": "Conectado a {{tool}}",
+    "citationsContributed_one": "{{count}} cita aportada",
+    "citationsContributed_many": "{{count}} citas aportadas",
+    "citationsContributed_other": "{{count}} citas aportadas"
+  },
+  "totals": {
+    "heading": "En todas las ejecuciones",
+    "runs": "Ejecuciones",
+    "makeItRain": "¡Que llueva dinero!",
+    "trendHeading": "Monto en riesgo a lo largo del tiempo",
+    "trendAriaLabel": "Tendencia del monto en riesgo",
+    "days_one": "{{count}} día",
+    "days_many": "{{count}} días",
+    "days_other": "{{count}} días"
+  },
+  "filters": {
+    "when": "Cuándo",
+    "range": {
+      "days7": "7 d",
+      "days30": "30 d",
+      "days90": "90 d",
+      "all": "Todo"
+    },
+    "monthAriaLabel": "Filtrar por mes",
+    "anyMonth": "Cualquier mes",
+    "decision": "Decisión",
+    "allDecisions": "Todas",
+    "searchPlaceholder": "Buscar factura…",
+    "searchAriaLabel": "Buscar facturas",
+    "sortAriaLabel": "Ordenar facturas",
+    "sort": {
+      "recent": "Más recientes",
+      "money": "Monto en riesgo",
+      "confidence": "Menor confianza"
+    },
+    "noMatches": "Ninguna factura coincide con estos filtros.",
+    "clear": "Borrar filtros"
+  },
+  "invoice": {
+    "calibratedHint": "Confianza calibrada de la decisión.",
+    "uncalibratedHint": "Puntuación de evidencia sin calibrar; no es la precisión calibrada de la decisión.",
+    "noEvidence": "No se registró evidencia de expertos.",
+    "lastRun": "Última ejecución: {{time}}",
+    "findings_one": "{{count}} hallazgo",
+    "findings_many": "{{count}} hallazgos",
+    "findings_other": "{{count}} hallazgos",
+    "runHistory": "Historial de ejecuciones"
+  },
+  "run": {
+    "latest": "Más reciente",
+    "noSummary": "No se registró un resumen.",
+    "view": "Ver ejecución →"
+  },
+  "lightbox": {
+    "ariaLabel": "Detalle de la ejecución de {{invoice}}",
+    "ranOn": "Ejecución del agente el {{time}} · {{author}}",
+    "close": "Cerrar el detalle de la ejecución",
+    "confidence": "Confianza",
+    "evidenceScore": "Puntuación de evidencia",
+    "experts": "Expertos",
+    "findings": "Hallazgos",
+    "perExpertHeading": "Evidencia por experto (IQ)",
+    "noPerExpert": "No se registró evidencia por experto para esta ejecución.",
+    "telemetry": {
+      "heading": "Telemetría",
+      "foundryAgent": "Agente de Foundry",
+      "conversation": "Conversación",
+      "operation": "Operación",
+      "runId": "ID de ejecución"
+    }
+  },
+  "lane": {
+    "noCitationText": "(sin texto de cita)",
+    "supports": "respalda {{value}}"
+  },
+  "map": {
+    "heading": "Mapa de agentes",
+    "summary_one": "{{count}} agente · {{active}} de {{total}} fuentes de evidencia usadas",
+    "summary_many": "{{count}} agentes · {{active}} de {{total}} fuentes de evidencia usadas",
+    "summary_other": "{{count}} agentes · {{active}} de {{total}} fuentes de evidencia usadas",
+    "viewAriaLabel": "Vista del mapa de agentes",
+    "mode": {
+      "map": "Mapa",
+      "list": "Lista"
+    },
+    "zoomLevelAriaLabel": "Nivel de zoom del mapa",
+    "allAgents": "Todos los agentes",
+    "zoomIn": "Acercar",
+    "zoomOut": "Alejar",
+    "fit": "Ajustar el mapa a la vista",
+    "hint": "Haz clic en una burbuja para acercar · haz clic en un espacio vacío para alejar · desplázate para hacer zoom · arrastra para moverte",
+    "ariaLabel": "Mapa de agentes con zoom",
+    "srHint": "Recorre las burbujas y los agentes con Tab; presiona Enter en una burbuja para acercarte a ella. Elige Lista arriba para ver la estructura completa con citas y fuentes.",
+    "zoomInto": "Acercar a {{name}}",
+    "clickToExplore": "Haz clic para explorar",
+    "citationUnit_one": "cita",
+    "citationUnit_many": "citas",
+    "citationUnit_other": "citas",
+    "sourcesOf": "{{active}} de {{total}} fuentes",
+    "footnote": "Caldova IQ reúne todas las fuentes de evidencia que el orquestador puede consultar: Microsoft IQ (FabricIQ, FoundryIQ, WebIQ, WorkIQ) e integraciones de terceros. Haz clic en él para acercarte. Los mosaicos en color citaron evidencia en esta ejecución; los atenuados no se usaron. Caldova Recorder sigue siendo el único que escribe la ejecución, el caso y la recomendación gobernados.",
+    "connector": {
+      "reads": "lee"
+    },
+    "bubbleName": {
+      "orchestration": "Orquestación",
+      "caldova": "Caldova IQ",
+      "microsoft": "Microsoft IQ",
+      "integrations": "Integraciones",
+      "record": "Registro gobernado",
+      "analysts": "Analistas"
+    },
+    "bubbleTitle": {
+      "caldova": "Evidencia ({{active}} de {{total}} fuentes)",
+      "integrations": "Integraciones ({{n}})",
+      "analysts": "Analistas ({{n}})"
+    },
+    "node": {
+      "intake": {
+        "label": "Recepción de facturas",
+        "stats": "Modelo prebuilt-invoice"
+      },
+      "orchestrator": {
+        "title": "Coordinador",
+        "fannedOut_one": "Distribuido a {{count}} fuente",
+        "fannedOut_many": "Distribuido a {{count}} fuentes",
+        "fannedOut_other": "Distribuido a {{count}} fuentes"
+      },
+      "recorder": {
+        "title": "Único escritor del registro gobernado",
+        "stats": "Escribe ejecución · caso · recomendación"
+      },
+      "analyst": {
+        "fallback": "Analista",
+        "title": "Analista de solo lectura",
+        "stats": "Responde preguntas sobre el registro gobernado"
+      },
+      "integrationsPlaceholder": {
+        "label": "Ninguna conectada",
+        "title": "Integraciones de terceros",
+        "stats": "Aún no hay integraciones conectadas"
+      },
+      "evidenceSourceFallback": "Fuente de evidencia",
+      "integrationFallback": "Integración",
+      "citationsWithScore_one": "{{count}} cita · {{percent}}",
+      "citationsWithScore_many": "{{count}} citas · {{percent}}",
+      "citationsWithScore_other": "{{count}} citas · {{percent}}",
+      "notUsed": "No se usó en esta ejecución"
+    },
+    "tile": {
+      "ariaLabel": "{{label}} ({{title}}): {{stats}}",
+      "more": "+{{n}} más"
+    },
+    "list": {
+      "flow": "El trabajo fluye desde la orquestación, a través de las fuentes de evidencia de Caldova IQ, hasta el registro gobernado.",
+      "flowWithAnalysts": "El trabajo fluye desde la orquestación, a través de las fuentes de evidencia de Caldova IQ, hasta el registro gobernado, que luego leen los analistas.",
+      "sources": "Fuentes",
+      "used_one": "Usada · {{count}} cita",
+      "used_many": "Usada · {{count}} citas",
+      "used_other": "Usada · {{count}} citas",
+      "avgConfidence": "{{percent}} de confianza promedio",
+      "sourcesUsed": "{{active}} de {{total}} fuentes de evidencia usadas",
+      "iqSourcesUsed": "{{active}} de {{total}} fuentes IQ usadas",
+      "integrationsConnected_one": "{{count}} conectada",
+      "integrationsConnected_many": "{{count}} conectadas",
+      "integrationsConnected_other": "{{count}} conectadas",
+      "noIntegrations": "Aún no hay integraciones de terceros conectadas",
+      "orchestration": "Lee la factura y distribuye el trabajo a las fuentes de evidencia",
+      "record": "Escribe la ejecución, el caso y la recomendación gobernados",
+      "analysts": "Leen el registro gobernado para responder preguntas"
+    }
+  },
+  "empty": {
+    "heading": "Aún no hay ejecuciones de agentes",
+    "body": "Abre una factura y elige Ejecutar aseguramiento, o inicia el flujo de trabajo de operaciones del repositorio. Las ejecuciones completadas aparecen aquí con una decisión fundamentada y el rastro de evidencia por experto."
+  }
+}
