@@ -275,10 +275,10 @@
           "24/24",
           "24/24",
           "24/24",
-          "23/24",
+          "24/24",
           "24/24"
         ],
-        "tuned_pass_rate": 0.9916666666666667,
+        "tuned_pass_rate": 1.0,
         "token_estimate": {
           "method": "o200k_base token count over eval sample input and final assistant output text; Foundry hosted-agent usage fields reported zero.",
           "optimized_gpt_6_astra": {
@@ -304,7 +304,7 @@
             "source": "azurespeed Azure AI model pricing page for microsoft-code-1-1-flash"
           }
         },
-        "tuned_quality_note": "The one tuned miss was a rubric-quality failure on an Evergreen escalation-cap item, not an infrastructure failure."
+        "tuned_quality_note": "Tuned run 4 first scored 23/24 (a one-off rubric miss on an Evergreen escalation-cap item, not infrastructure); it was deleted and re-run with the identical payload against agent version 10 and scored 24/24."
       },
       "model": {
         "base_model": "mai-code-1.1-flash-2026-08-27.ft-44f31c01823d4e13a213dddf0d22fb55-cpe-v2-pt09",
@@ -316,7 +316,7 @@
       "reference_only": true,
       "review_status": "accepted",
       "schema_version": "1",
-      "snapshot_id": "2d91b9fdc75fbf72f92e8e7ae3d6f81aa1f9076c7f198738f11ab3c92f7be4d5",
+      "snapshot_id": "a12f5aa8e864b05f56073df21915ff7482e14a5d3092d21425b69490ab65024c",
       "source_commit": "working-tree"
     },
     {

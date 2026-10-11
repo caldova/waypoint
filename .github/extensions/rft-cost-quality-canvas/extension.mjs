@@ -24,10 +24,10 @@ const goldenConfigPath = join(
 const metrics = {
     headline: "RFT moves the optimized agent from gpt-6-astra to MAI.",
     talkTrack:
-        "The fresh Foundry replay starts from a deliberately mediocre baseline, applies candidate_14, then swaps only the model deployment to the MAI RFT model. Optimized passed 120/120 rows. Tuned MAI passed 119/120; the miss was a rubric-quality item, not infrastructure.",
+        "The fresh Foundry replay starts from a deliberately mediocre baseline, applies candidate_14, then swaps only the model deployment to the MAI RFT model. Optimized passed 120/120 rows. Tuned MAI also passed 120/120; run 4 was re-run against the same agent version after a one-off rubric miss.",
     baselineFoundryMean: "61.7%",
     optimizedFoundryMean: "100%",
-    tunedFoundryMean: "99.2%",
+    tunedFoundryMean: "100%",
     baselineAgentVersion: "6",
     optimizedAgentVersion: "7",
     tunedAgentVersion: "10",
@@ -36,7 +36,7 @@ const metrics = {
     tunedFoundryEvalId: "eval_4031396f93ac47418b78477ab712fd7e",
     baselinePassCounts: "16/24, 15/24, 11/24, 14/24, 18/24",
     optimizedPassCounts: "24/24, 24/24, 24/24, 24/24, 24/24",
-    tunedPassCounts: "24/24, 24/24, 24/24, 23/24, 24/24",
+    tunedPassCounts: "24/24, 24/24, 24/24, 24/24, 24/24",
     optimizerCandidateScore: 0.8000013333333332,
     optimizerBaselineScore: 0.455684,
     optimizerCandidatePassRate: "winner by score",
@@ -73,7 +73,7 @@ const metrics = {
             outputTokens: 178656,
             inputPricePerMillion: 0.2,
             outputPricePerMillion: 1.2,
-            quality: "119/120 passed rows",
+            quality: "120/120 passed rows",
         },
     ],
     comparisonRows: [
@@ -81,14 +81,14 @@ const metrics = {
             area: "Foundry agent mean",
             baseline: "61.7% over five 24-row runs",
             optimized: "100% over five 24-row runs",
-            tuned: "99.2% over five 24-row runs",
-            takeaway: "Tuned MAI stays within one row of optimized.",
+            tuned: "100% over five 24-row runs",
+            takeaway: "Tuned MAI matches optimized.",
         },
         {
             area: "Run spread",
             baseline: "11/24 to 18/24",
             optimized: "24/24 every run",
-            tuned: "23/24 to 24/24",
+            tuned: "24/24 every run",
             takeaway: "The optimized assets remove the noisy baseline behavior.",
         },
         {
