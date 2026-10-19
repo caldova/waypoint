@@ -121,6 +121,14 @@ class ContractsService:
         )
 
     @trace
+    async def list_artifacts(
+        self, owner_user_id: str, artifact_type: ArtifactType, limit: int = 10
+    ) -> list[Artifact]:
+        return await self.repository.list_contract_artifacts(
+            owner_user_id.strip().lower(), artifact_type, max(1, min(limit, 50))
+        )
+
+    @trace
     async def get_artifact_detail(self, artifact_id: str) -> ArtifactDetail:
         artifact = await self._require_artifact(artifact_id)
         return ArtifactDetail(

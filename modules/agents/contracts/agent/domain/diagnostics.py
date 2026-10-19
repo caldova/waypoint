@@ -18,14 +18,24 @@ from agent.integrations.activity_identity import (
 from agent.toolsets import Toolsets
 
 
-def version_response(agent_name: str, *, live_foundry_agent_version: str | None = None) -> str:
+def version_response(
+    agent_name: str,
+    *,
+    live_foundry_agent_version: str | None = None,
+    live_lookup_error: str | None = None,
+) -> str:
     configured_version = foundry_agent_version()
+    fields: dict[str, Any] = {
+        "agent": agent_name,
+        "foundry_agent_version": live_foundry_agent_version or configured_version,
+        "foundry_agent_version_source": "live" if live_foundry_agent_version else "configured-env",
+    }
+    if live_lookup_error:
+        fields["foundry_agent_version_error"] = live_lookup_error
     return format_debug(
         "Contracts version",
         {
-            "agent": agent_name,
-            "foundry_agent_version": live_foundry_agent_version or configured_version,
-            "foundry_agent_version_source": "live" if live_foundry_agent_version else "configured-env",
+            **fields,
             "configured_foundry_agent_version": configured_version,
             "m365_app_version": os.environ.get("CONTRACTS_M365_APP_VERSION", "<unset>"),
             "model": os.environ.get("AZURE_AI_MODEL_DEPLOYMENT_NAME", "<unset>"),
@@ -39,10 +49,11 @@ def version_response(agent_name: str, *, live_foundry_agent_version: str | None 
     )
 
 
-async def get_live_foundry_agent_version(agent_name: str) -> str | None:
+async def get_live_foundry_agent_version(agent_name: str) -> tuple[str | None, str | None]:
+    """Return (latest_version, error) from Foundry; error is a short reason when the lookup fails."""
     endpoint = foundry_project_endpoint()
     if not endpoint:
-        return None
+        return None, "no Foundry project endpoint configured"
 
     credential = DefaultAzureCredential(exclude_interactive_browser_credential=True)
     try:
@@ -53,13 +64,14 @@ async def get_live_foundry_agent_version(agent_name: str) -> str | None:
                 params={"api-version": "2025-11-15-preview"},
                 headers={"Authorization": f"Bearer {token}"},
             )
-        response.raise_for_status()
+        if response.status_code >= 400:
+            return None, f"HTTP {response.status_code}: {response.text[:200]}"
         body = response.json()
         latest = (body.get("versions") or {}).get("latest") or {}
         version = latest.get("version")
-        return str(version) if version else None
-    except Exception:
-        return None
+        return (str(version), None) if version else (None, "response had no versions.latest.version")
+    except Exception as exc:
+        return None, f"{type(exc).__name__}: {str(exc)[:200]}"
     finally:
         await credential.close()
 

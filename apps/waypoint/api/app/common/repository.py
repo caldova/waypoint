@@ -377,6 +377,10 @@ class WaypointRepository(Protocol):
         self, owner_user_id: str, artifact_type: ArtifactType
     ) -> Artifact | None: ...
 
+    async def list_contract_artifacts(
+        self, owner_user_id: str, artifact_type: ArtifactType, limit: int
+    ) -> list[Artifact]: ...
+
     async def compare_and_swap_contract_artifact(
         self, artifact: Artifact, expected: Artifact
     ) -> bool: ...
@@ -781,6 +785,16 @@ class InMemoryWaypointRepository:
         if not candidates:
             return None
         return max(candidates, key=_contract_artifact_recency_key)
+
+    async def list_contract_artifacts(
+        self, owner_user_id: str, artifact_type: ArtifactType, limit: int
+    ) -> list[Artifact]:
+        candidates = [
+            artifact
+            for artifact in self.contract_artifacts.values()
+            if artifact.owner_user_id == owner_user_id and artifact.type == artifact_type
+        ]
+        return sorted(candidates, key=_contract_artifact_recency_key, reverse=True)[:limit]
 
     async def compare_and_swap_contract_artifact(
         self, artifact: Artifact, expected: Artifact
@@ -1504,6 +1518,22 @@ class PostgresWaypointRepository:
             (owner_user_id, artifact_type),
         )
         return Artifact(**payloads[0]) if payloads else None
+
+    async def list_contract_artifacts(
+        self, owner_user_id: str, artifact_type: ArtifactType, limit: int
+    ) -> list[Artifact]:
+        payloads = await self._fetch_payloads(
+            "contract_artifacts",
+            """
+            where owner_user_id = %s and artifact_type = %s
+            order by (payload->>'received_at')::timestamptz desc,
+                     (payload->>'created_at')::timestamptz desc,
+                     id desc
+            limit %s
+            """,
+            (owner_user_id, artifact_type, limit),
+        )
+        return [Artifact(**payload) for payload in payloads]
 
     async def compare_and_swap_contract_artifact(
         self, artifact: Artifact, expected: Artifact
