@@ -1,6 +1,8 @@
 import type { MetaFunction } from "react-router";
 import { Link, useSearchParams } from "react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   HiChevronDown,
   HiChevronRight,
@@ -19,14 +21,12 @@ import {
 import { AppHeader } from "../components/AppHeader";
 import { useAuth } from "../components/AuthProvider";
 import { RequireAuth } from "../components/RequireAuth";
+import { useFormat, type Formatters } from "../i18n/format";
+import { useLabels } from "../i18n/labels";
+import { pageMeta } from "../i18n/meta";
+import { useLocale } from "../i18n/LocaleProvider";
 
-export const meta: MetaFunction = () => [
-  { title: "Activity - Caldova" },
-  {
-    name: "description",
-    content: "Live view of active and pending agent runs and their progress",
-  },
-];
+export const meta: MetaFunction = ({ location }) => pageMeta(location, "activity");
 
 // ---------------------------------------------------------------------------
 // Types (mirror the Waypoint /api/runs AgentRun schema)
@@ -85,57 +85,67 @@ function bucketOf(status: string): Bucket {
 
 const POLL_INTERVAL_MS = 5000;
 
-function formatMoney(value: number | undefined): string {
+function formatMoney(value: number | undefined, fmt: Formatters): string {
   const amount = typeof value === "number" && Number.isFinite(value) ? value : 0;
-  return `$${amount.toLocaleString(undefined, {
+  return fmt.currency(amount, "USD", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-  })}`;
+  });
 }
 
-function statusStyle(status: string): { dot: string; badge: string; label: string } {
+/** `status` is the normalized run-status key, translated at render. */
+function statusStyle(status: string): { dot: string; badge: string; status: string } {
   const key = (status ?? "").toLowerCase();
   switch (bucketOf(key)) {
     case "active":
       return {
         dot: "bg-blue-500",
         badge: "border-blue-200 bg-blue-50 text-blue-700",
-        label: key || "running",
+        status: key || "running",
       };
     case "pending":
       return {
         dot: "bg-amber-500",
         badge: "border-amber-200 bg-amber-50 text-amber-700",
-        label: key || "pending",
+        status: key || "pending",
       };
     default:
       if (key === "failed" || key === "error") {
         return {
           dot: "bg-rose-500",
           badge: "border-rose-200 bg-rose-50 text-rose-700",
-          label: key,
+          status: key,
         };
       }
       return {
         dot: "bg-emerald-500",
         badge: "border-emerald-200 bg-emerald-50 text-emerald-700",
-        label: key || "completed",
+        status: key || "completed",
       };
   }
 }
 
-function relativeTime(iso: string, now: number): string {
+function relativeTime(iso: string, now: number, t: TFunction<"activity">): string {
   const then = new Date(iso).getTime();
   if (!Number.isFinite(then)) return "";
   const seconds = Math.max(0, Math.round((now - then) / 1000));
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) return t("duration.seconds", { s: seconds });
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ${seconds % 60}s`;
+  if (minutes < 60) return t("duration.minutes", { m: minutes, s: seconds % 60 });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ${minutes % 60}m`;
+  if (hours < 24) return t("duration.hours", { h: hours, m: minutes % 60 });
   const days = Math.floor(hours / 24);
-  return `${days}d ${hours % 24}h`;
+  return t("duration.days", { d: days, h: hours % 24 });
 }
+
+/** The runs API answered with an error status (message is translated at render). */
+class RunsFetchError extends Error {
+  constructor(readonly statusText: string) {
+    super(`Failed to fetch runs: ${statusText}`);
+  }
+}
+
+type FetchFailure = { statusText: string } | { message: string | null };
 
 /** Coerce a metadata field that may be an array, a plain count, or missing. */
 function toCount(value: unknown): number {
@@ -173,10 +183,13 @@ async function tracedFetch(
 // ---------------------------------------------------------------------------
 
 export default function Activity() {
+  const { t } = useTranslation("activity");
+  const { localize } = useLocale();
+  const fmt = useFormat();
   const auth = useAuth();
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<FetchFailure | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [searchParams] = useSearchParams();
@@ -198,7 +211,7 @@ export default function Activity() {
       try {
         const response = await tracedFetch("fetchActivityRuns", "/api/runs");
         if (!response.ok) {
-          throw new Error(`Failed to fetch runs: ${response.statusText}`);
+          throw new RunsFetchError(response.statusText);
         }
         const data: AgentRun[] = await response.json();
         data.sort(
@@ -208,7 +221,11 @@ export default function Activity() {
         setError(null);
         setLastUpdated(Date.now());
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch runs");
+        setError(
+          err instanceof RunsFetchError
+            ? { statusText: err.statusText }
+            : { message: err instanceof Error ? err.message : null },
+        );
       } finally {
         setLoading(false);
       }
@@ -257,6 +274,12 @@ export default function Activity() {
     [active],
   );
 
+  const errorMessage = !error
+    ? null
+    : "statusText" in error
+      ? t("errors.fetchFailedStatus", { status: error.statusText })
+      : (error.message ?? t("errors.fetchFailed"));
+
   return (
     <RequireAuth>
       <div className="min-h-screen bg-slate-50 text-slate-950">
@@ -267,17 +290,18 @@ export default function Activity() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">
-                Active &amp; pending runs
+                {t("header.title")}
               </h1>
               <p className="mt-1 max-w-[65ch] text-sm leading-6 text-slate-600">
-                Live runs opened by the assurance pipeline, refreshed automatically. Open a
-                run to inspect the full expert fan-out in Agent Details.
+                {t("header.description")}
               </p>
             </div>
             <div className="flex items-center gap-3">
               {lastUpdated ? (
                 <span className="text-xs text-slate-500">
-                  Updated {relativeTime(new Date(lastUpdated).toISOString(), nowTick)} ago
+                  {t("header.updatedAgo", {
+                    duration: relativeTime(new Date(lastUpdated).toISOString(), nowTick, t),
+                  })}
                 </span>
               ) : null}
               <button
@@ -289,7 +313,7 @@ export default function Activity() {
                   className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
                   aria-hidden="true"
                 />
-                Refresh
+                {t("header.refresh")}
               </button>
             </div>
           </div>
@@ -297,60 +321,74 @@ export default function Activity() {
           {focusInvoice ? (
             <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
               {reused
-                ? `Reused the active assurance run for invoice ${focusInvoice}; no duplicate Foundry run was started.`
-                : `Assurance was accepted for invoice ${focusInvoice}. This page refreshes while the hosted run completes.`}
+                ? t("focus.reused", { invoice: focusInvoice })
+                : t("focus.accepted", { invoice: focusInvoice })}
             </div>
           ) : null}
 
           {/* Summary strip */}
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <SummaryStat label="Active" value={active.length} tone="blue" pulse={active.length > 0} />
-            <SummaryStat label="Pending" value={pending.length} tone="amber" />
             <SummaryStat
-              label="Money at risk (active)"
-              value={formatMoney(activeMoney)}
+              label={t("buckets.active")}
+              value={active.length}
+              tone="blue"
+              pulse={active.length > 0}
+            />
+            <SummaryStat label={t("buckets.pending")} value={pending.length} tone="amber" />
+            <SummaryStat
+              label={t("buckets.moneyAtRiskActive")}
+              value={formatMoney(activeMoney, fmt)}
               tone="slate"
             />
           </div>
 
-          {error ? (
+          {errorMessage ? (
             <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-              {error}
+              {errorMessage}
             </div>
           ) : null}
 
           {/* Active */}
-          <Section title="Active" count={active.length} accent="blue">
+          <Section title={t("buckets.active")} count={active.length} accent="blue">
             {active.length === 0 ? (
-              <EmptyRow loading={loading} message="No runs are executing right now.">
+              <EmptyRow loading={loading} message={t("empty.noActive")}>
                 <p className="mt-1">
-                  Runs start from the{" "}
-                  <Link
-                    to="/invoices"
-                    className="font-semibold text-blue-700 underline-offset-2 hover:underline"
-                  >
-                    invoice queue
-                  </Link>
-                  .
+                  <Trans
+                    t={t}
+                    i18nKey="empty.startFromQueue"
+                    components={{
+                      invoiceLink: (
+                        <Link
+                          to={localize("/invoices")}
+                          className="font-semibold text-blue-700 underline-offset-2 hover:underline"
+                        />
+                      ),
+                    }}
+                  />
                   {done.length > 0 ? (
                     <>
                       {" "}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowDone(true);
-                          requestAnimationFrame(() =>
-                            document
-                              .getElementById("activity-completed-runs")
-                              ?.scrollIntoView({ block: "nearest" }),
-                          );
+                      <Trans
+                        t={t}
+                        i18nKey="empty.reviewCompleted"
+                        count={done.length}
+                        components={{
+                          button: (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowDone(true);
+                                requestAnimationFrame(() =>
+                                  document
+                                    .getElementById("activity-completed-runs")
+                                    ?.scrollIntoView({ block: "nearest" }),
+                                );
+                              }}
+                              className="font-semibold text-blue-700 underline-offset-2 hover:underline"
+                            />
+                          ),
                         }}
-                        className="font-semibold text-blue-700 underline-offset-2 hover:underline"
-                      >
-                        Review the {done.length} recently completed
-                        {done.length === 1 ? " run" : " runs"}
-                      </button>
-                      .
+                      />
                     </>
                   ) : null}
                 </p>
@@ -372,9 +410,9 @@ export default function Activity() {
           </Section>
 
           {/* Pending */}
-          <Section title="Pending" count={pending.length} accent="amber">
+          <Section title={t("buckets.pending")} count={pending.length} accent="amber">
             {pending.length === 0 ? (
-              <EmptyRow loading={loading} message="Nothing queued." />
+              <EmptyRow loading={loading} message={t("empty.noPending")} />
             ) : (
               <div className="grid gap-2">
                 {pending.map((run) => (
@@ -405,7 +443,9 @@ export default function Activity() {
                 ) : (
                   <HiChevronRight className="h-4 w-4" aria-hidden="true" />
                 )}
-                {showDone ? "Hide" : "Show"} recently completed ({done.length})
+                {showDone
+                  ? t("buckets.hideCompleted", { total: done.length })
+                  : t("buckets.showCompleted", { total: done.length })}
               </button>
               {showDone ? (
                 <div id="activity-completed-runs" className="mt-2 grid gap-2">
@@ -501,10 +541,11 @@ function EmptyRow({
   message: string;
   children?: React.ReactNode;
 }) {
+  const { t } = useTranslation("activity");
   return (
     <div className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm text-slate-600">
       {loading ? (
-        "Loading…"
+        t("empty.loading")
       ) : (
         <>
           <p className="font-medium text-slate-700">{message}</p>
@@ -535,11 +576,15 @@ function RunCard({
   highlight?: boolean;
   drilldownConfig: DrilldownConfig | null;
 }) {
+  const { t } = useTranslation("activity");
+  const { localize } = useLocale();
+  const fmt = useFormat();
+  const labels = useLabels();
   const style = statusStyle(run.status);
   const meta = run.metadata ?? {};
   const progress = runProgress(run);
   const invoice = meta.invoice_number ?? meta.invoice_id;
-  const startedAgo = relativeTime(run.created_at, now);
+  const startedAgo = relativeTime(run.created_at, now, t);
   const cardRef = useRef<HTMLDivElement>(null);
   const traceLink = drilldownConfig
     ? appInsightsOperationLink(drilldownConfig, run.app_insights_operation_id)
@@ -566,9 +611,9 @@ function RunCard({
             <span className={`h-2 w-2 rounded-full ${style.dot}`} />
             <h3 className="truncate text-sm font-semibold text-slate-900">{run.name}</h3>
             <span
-              className={`rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${style.badge}`}
+              className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${style.badge}`}
             >
-              {style.label}
+              {labels.runStatus(style.status)}
             </span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
@@ -578,13 +623,15 @@ function RunCard({
                 {run.foundry_agent_name}
               </span>
             ) : null}
-            {invoice ? <span>Invoice {invoice}</span> : null}
+            {invoice ? <span>{t("run.invoice", { invoice })}</span> : null}
             {meta.decision ? (
-              <span className="capitalize">Decision: {meta.decision}</span>
+              <span>{t("run.decision", { decision: labels.decision(meta.decision) })}</span>
             ) : null}
             <span className="inline-flex items-center gap-1">
               <HiOutlineClock className="h-3.5 w-3.5" />
-              {live ? `${startedAgo} elapsed` : `started ${startedAgo} ago`}
+              {live
+                ? t("run.elapsed", { duration: startedAgo })
+                : t("run.startedAgo", { duration: startedAgo })}
             </span>
           </div>
         </div>
@@ -593,14 +640,14 @@ function RunCard({
           {typeof meta.money_at_risk === "number" && meta.money_at_risk > 0 ? (
             <span className="inline-flex items-center gap-1 text-sm font-semibold text-slate-700">
               <HiOutlineCurrencyDollar className="h-4 w-4 text-slate-500" aria-hidden="true" />
-              {formatMoney(meta.money_at_risk)}
+              {formatMoney(meta.money_at_risk, fmt)}
             </span>
           ) : null}
           <Link
-            to="/agent"
+            to={localize("/agent")}
             className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 max-md:min-h-11 max-md:px-3"
           >
-            Details
+            {t("run.details")}
             <HiOutlineExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
           {traceLink ? (
@@ -610,7 +657,7 @@ function RunCard({
               rel="noreferrer"
               className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 max-md:min-h-11 max-md:px-3"
             >
-              Open trace
+              {t("run.openTrace")}
               <HiOutlineExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
             </a>
           ) : null}
@@ -625,7 +672,7 @@ function RunCard({
       {progress.total > 0 ? (
         <div className="mt-2">
           <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
-            <span>Experts</span>
+            <span>{t("run.experts")}</span>
             <span>
               {progress.done}/{progress.total}
             </span>

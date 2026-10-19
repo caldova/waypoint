@@ -2,6 +2,8 @@ import type { MetaFunction } from "react-router";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import type { TFunction } from "i18next";
+import { Trans, useTranslation } from "react-i18next";
 import {
   HiAdjustments,
   HiCheck,
@@ -23,14 +25,12 @@ import { AppHeader } from "../components/AppHeader";
 import { useAuth } from "../components/AuthProvider";
 import { RequireAuth } from "../components/RequireAuth";
 import { useModalDialog } from "../hooks/useModalDialog";
+import { useFormat, type Formatters } from "../i18n/format";
+import { normalizeDecision, useLabels, type Labels } from "../i18n/labels";
+import { pageMeta } from "../i18n/meta";
+import { useLocale } from "../i18n/LocaleProvider";
 
-export const meta: MetaFunction = () => [
-  { title: "Invoices - Caldova" },
-  {
-    name: "description",
-    content: "Caldova invoice decisions and agent context",
-  },
-];
+export const meta: MetaFunction = ({ location }) => pageMeta(location, "invoices");
 
 interface InvoiceDecision {
   invoice_id: string;
@@ -284,12 +284,12 @@ async function tracedFetch(
 
 type SortKey = "recent" | "overpayment" | "confidence" | "supplier";
 
-const SORT_OPTIONS: Array<{ key: SortKey; label: string }> = [
-  { key: "recent", label: "Most recent" },
-  { key: "overpayment", label: "Highest overpayment" },
-  { key: "confidence", label: "Lowest confidence" },
-  { key: "supplier", label: "Supplier A–Z" },
-];
+const SORT_OPTIONS = [
+  { key: "recent", labelKey: "filters.sort.recent" },
+  { key: "overpayment", labelKey: "filters.sort.overpayment" },
+  { key: "confidence", labelKey: "filters.sort.confidence" },
+  { key: "supplier", labelKey: "filters.sort.supplier" },
+] as const satisfies ReadonlyArray<{ key: SortKey; labelKey: string }>;
 
 function overpaymentAmount(row: InvoiceDecision): number {
   const amount = Number(row.overpayment_amount);
@@ -336,21 +336,41 @@ function severityColor(severity: string): string {
   return "#64748b";
 }
 
-// Canonical labels for the known proposed-action ids (mirrors the backend
-// ActionType.name values). Falls back to humanizing the raw id so any future
-// action still renders as prose instead of a snake_case token.
-const ACTION_LABELS: Record<string, string> = {
-  recommend_recover: "Recommend recovery",
-  draft_supplier_dispute: "Draft supplier dispute",
-  request_legal_escalation: "Request legal escalation",
-  request_quality_review: "Request quality review",
-};
+// Register rows carry display-cased decisions plus a few workflow states that
+// aren't assurance decisions; translate those here and defer the rest to the
+// shared decision labels.
+function decisionDisplayLabel(value: string, t: TFunction<"invoices">, labels: Labels): string {
+  switch (value.trim().toLowerCase()) {
+    case "pending":
+      return t("decisionState.pending");
+    case "not run":
+      return t("decisionState.notRun");
+    case "closed":
+      return t("decisionState.closed");
+    default:
+      return labels.decision(value);
+  }
+}
 
-function formatActionLabel(action: string): string {
-  return (
-    ACTION_LABELS[action] ??
-    action.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
-  );
+function useDecisionLabel(): (value: string) => string {
+  const { t } = useTranslation("invoices");
+  const labels = useLabels();
+  return useCallback((value: string) => decisionDisplayLabel(value, t, labels), [t, labels]);
+}
+
+const SEVERITY_KEYS = {
+  critical: "severity.critical",
+  high: "severity.high",
+  medium: "severity.medium",
+  moderate: "severity.moderate",
+  low: "severity.low",
+} as const;
+
+function severityLabel(value: string, t: TFunction<"invoices">): string {
+  const normalized = value.trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(SEVERITY_KEYS, normalized)
+    ? t(SEVERITY_KEYS[normalized as keyof typeof SEVERITY_KEYS])
+    : sentenceCase(value);
 }
 
 // Evidence source_ref values arrive with a trailing knowledge-base chunk anchor
@@ -366,6 +386,13 @@ function cleanSourceRef(ref: string): string {
 
 export default function Invoices() {
   const auth = useAuth();
+  const { t } = useTranslation("invoices");
+  const fmt = useFormat();
+  // Data loaders read `t` through a ref so switching language doesn't refetch.
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
   const [decisions, setDecisions] = useState<InvoiceDecision[]>([]);
   const [selectedDecision, setSelectedDecision] = useState<InvoiceDecision | null>(null);
   const [invoiceDetail, setInvoiceDetail] = useState<InvoiceDetail | null>(null);
@@ -387,7 +414,13 @@ export default function Invoices() {
   const [batchError, setBatchError] = useState<string | null>(null);
   const [batchResult, setBatchResult] = useState<BatchAssuranceResult | null>(null);
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+  const routerNavigate = useNavigate();
+  const { localize } = useLocale();
+  // In-app links keep the current language prefix (`/es/...`).
+  const navigate = useCallback(
+    (to: string) => routerNavigate(localize(to)),
+    [routerNavigate, localize],
+  );
   const deepLinkAppliedRef = useRef(false);
 
   const [decisionFilter, setDecisionFilter] = useState<string>("all");
@@ -407,11 +440,13 @@ export default function Invoices() {
     try {
       const response = await tracedFetch("fetchInvoiceDecisions", "/api/invoice-decisions");
       if (!response.ok) {
-        throw new Error(`Failed to fetch invoice decisions: ${response.statusText}`);
+        throw new Error(
+          tRef.current("errors.fetchDecisionsStatus", { status: response.statusText }),
+        );
       }
       setDecisions(await response.json());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch invoice decisions");
+      setError(err instanceof Error ? err.message : tRef.current("errors.fetchDecisions"));
     } finally {
       setLoading(false);
     }
@@ -502,7 +537,11 @@ export default function Invoices() {
             : `/api/policies/${id}?include_content=true`;
         const response = await tracedFetch("fetchDocumentPreview", endpoint);
         if (!response.ok) {
-          throw new Error(`Failed to fetch ${type} preview: ${response.statusText}`);
+          throw new Error(
+            t(type === "contract" ? "errors.contractPreviewStatus" : "errors.policyPreviewStatus", {
+              status: response.statusText,
+            }),
+          );
         }
         if (type === "contract") {
           setPreview({ kind: "contract", document: await response.json() });
@@ -510,12 +549,16 @@ export default function Invoices() {
           setPreview({ kind: "policy", policy: await response.json() });
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : `Failed to fetch ${type} preview`);
+        setError(
+          err instanceof Error
+            ? err.message
+            : t(type === "contract" ? "errors.contractPreview" : "errors.policyPreview"),
+        );
       } finally {
         setPreviewLoading(false);
       }
     },
-    [auth.status],
+    [auth.status, t],
   );
 
   useEffect(() => {
@@ -528,7 +571,9 @@ export default function Invoices() {
     tracedFetch("fetchInvoiceDetail", `/api/invoices/${selectedDecision.invoice_id}`)
       .then((response) => {
         if (!response.ok) {
-          throw new Error(`Failed to fetch invoice detail: ${response.statusText}`);
+          throw new Error(
+            tRef.current("errors.fetchDetailStatus", { status: response.statusText }),
+          );
         }
         return response.json();
       })
@@ -539,7 +584,7 @@ export default function Invoices() {
       })
       .catch((err: unknown) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to fetch invoice detail");
+          setError(err instanceof Error ? err.message : tRef.current("errors.fetchDetail"));
         }
       })
       .finally(() => {
@@ -565,7 +610,9 @@ export default function Invoices() {
         );
         if (!response.ok) {
           const body = (await response.json().catch(() => null)) as { detail?: string } | null;
-          throw new Error(body?.detail || `Unable to start assurance (${response.status}).`);
+          throw new Error(
+            body?.detail || t("errors.startAssuranceStatus", { status: response.status }),
+          );
         }
         const result = (await response.json()) as AssuranceRunTriggerResult;
         await fetchDecisions();
@@ -578,12 +625,12 @@ export default function Invoices() {
         }
         navigate(`/activity?${params.toString()}`);
       } catch (err) {
-        setTriggerError(err instanceof Error ? err.message : "Unable to start assurance.");
+        setTriggerError(err instanceof Error ? err.message : t("errors.startAssurance"));
       } finally {
         setTriggeringInvoiceId(null);
       }
     },
-    [fetchDecisions, navigate],
+    [fetchDecisions, navigate, t],
   );
 
   useEffect(() => {
@@ -711,14 +758,16 @@ export default function Invoices() {
     };
   }, [auth.status, selectedDecision]);
 
+  // One option per translated label: aliases such as "Recovery" fold into "Recover".
   const decisionOptions = useMemo(() => {
-    const set = new Set<string>();
+    const byKey = new Map<string, string>();
     for (const row of decisions) {
-      if (row.decision) {
-        set.add(row.decision);
+      const key = normalizeDecision(row.decision);
+      if (row.decision && !byKey.has(key)) {
+        byKey.set(key, row.decision);
       }
     }
-    return Array.from(set).sort();
+    return Array.from(byKey.values()).sort();
   }, [decisions]);
 
   const severityOptions = useMemo(() => {
@@ -758,7 +807,10 @@ export default function Invoices() {
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const filtered = decisions.filter((row) => {
-      if (decisionFilter !== "all" && row.decision !== decisionFilter) {
+      if (
+        decisionFilter !== "all" &&
+        normalizeDecision(row.decision) !== normalizeDecision(decisionFilter)
+      ) {
         return false;
       }
       if (severityFilter !== "all" && row.severity !== severityFilter) {
@@ -898,7 +950,7 @@ export default function Invoices() {
         },
       );
       if (!response.ok) {
-        throw new Error(`Unable to start batch assurance (${response.status}).`);
+        throw new Error(t("errors.startBatchStatus", { status: response.status }));
       }
       const result = (await response.json()) as BatchAssuranceResult;
       setBatchResult(result);
@@ -906,13 +958,11 @@ export default function Invoices() {
       setSelectedInvoiceIds(new Set());
       await fetchDecisions();
     } catch (err) {
-      setBatchError(
-        err instanceof Error ? err.message : "Unable to start batch assurance.",
-      );
+      setBatchError(err instanceof Error ? err.message : t("errors.startBatch"));
     } finally {
       setBatchLoading(false);
     }
-  }, [fetchDecisions, selectedRows]);
+  }, [fetchDecisions, selectedRows, t]);
 
   const openBatchActivity = useCallback(() => {
     const item = batchResult?.items.find(
@@ -949,31 +999,30 @@ export default function Invoices() {
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <h1 className="text-2xl font-semibold tracking-tight">
-                      Supplier invoices
+                      {t("header.title")}
                     </h1>
                     <p className="mt-1 max-w-[65ch] text-sm leading-6 text-slate-600">
-                      The complete invoice work queue. Select any unreviewed invoices to run
-                      assurance, then inspect recorded decisions, evidence, and recovery.
+                      {t("header.intro")}
                     </p>
                   </div>
                   <div
                     className={`grid w-full sm:w-auto ${pendingCount > 0 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"} gap-2 text-right text-sm`}
                   >
                     <InfoTile
-                      label={filtersActive ? "Shown" : "Invoices"}
+                      label={filtersActive ? t("tiles.shown") : t("tiles.invoices")}
                       value={loading ? "..." : String(visible.length)}
                     />
                     {pendingCount > 0 ? (
                       <InfoTile
-                        label="Pending"
+                        label={t("tiles.pending")}
                         value={loading ? "..." : String(pendingCount)}
                         reviewing
                         onClick={() => navigate("/activity")}
-                        title="View live progress in Activity"
+                        title={t("run.viewLiveProgress")}
                       />
                     ) : null}
                     <InfoTile
-                      label="Escalations"
+                      label={t("tiles.escalations")}
                       value={loading ? "..." : String(escalationCount)}
                       escalation={escalationCount > 0}
                       onClick={
@@ -984,11 +1033,11 @@ export default function Invoices() {
                               )
                           : undefined
                       }
-                      title={escalationCount > 0 ? "Filter to escalations" : undefined}
+                      title={escalationCount > 0 ? t("tiles.filterToEscalations") : undefined}
                     />
                     <InfoTile
-                      label="Recoverable"
-                      value={loading ? "..." : formatMoney(totalOverpayment)}
+                      label={t("tiles.recoverable")}
+                      value={loading ? "..." : formatMoney(fmt, totalOverpayment)}
                       emphasized
                     />
                   </div>
@@ -996,20 +1045,22 @@ export default function Invoices() {
                 <p className="mt-2 flex max-w-[90ch] items-center gap-1.5 text-xs text-slate-500 max-md:items-start">
                   <HiSparkles className="h-3.5 w-3.5 shrink-0 text-blue-600 max-md:mt-px" aria-hidden="true" />
                   {loading
-                    ? "Loading supplier invoice decisions…"
-                    : `${formatMoney(totalOverpayment)} recoverable across ${reviewedCount} reviewed invoice${
-                        reviewedCount === 1 ? "" : "s"
-                      } · ${escalationCount} escalation${
-                        escalationCount === 1 ? "" : "s"
-                      }${
-                        pendingCount > 0
-                          ? ` · ${pendingCount} pending`
-                          : ""
-                      }${
-                        unreviewedCount > 0
-                          ? ` · ${unreviewedCount} ready to run`
-                          : ""
-                      }. Human approvals and citations stay attached to every recommendation.`}
+                    ? t("summary.loading")
+                    : t("summary.line", {
+                        facts: [
+                          t("summary.recoverable", {
+                            count: reviewedCount,
+                            amount: formatMoney(fmt, totalOverpayment),
+                          }),
+                          t("summary.escalations", { count: escalationCount }),
+                          pendingCount > 0 ? t("summary.pending", { count: pendingCount }) : null,
+                          unreviewedCount > 0
+                            ? t("summary.readyToRun", { count: unreviewedCount })
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · "),
+                      })}
                 </p>
               </div>
 
@@ -1066,10 +1117,10 @@ export default function Invoices() {
               <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-sm text-slate-600">
                 <span>
                   {loading
-                    ? "Loading…"
+                    ? t("list.loading")
                     : filtersActive
-                      ? `Showing ${visible.length} of ${decisions.length}`
-                      : `${decisions.length} invoice${decisions.length === 1 ? "" : "s"}`}
+                      ? t("list.showing", { shown: visible.length, total: decisions.length })
+                      : t("list.count", { count: decisions.length })}
                 </span>
                 <div className="flex items-center gap-2">
                   {!loading && visible.length > 0 ? (
@@ -1078,7 +1129,7 @@ export default function Invoices() {
                       className="min-h-9 rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 max-md:min-h-11"
                       onClick={toggleVisibleSelection}
                     >
-                      {allVisibleSelected ? "Clear visible" : "Select visible"}
+                      {allVisibleSelected ? t("list.clearVisible") : t("list.selectVisible")}
                     </button>
                   ) : null}
                   <button
@@ -1088,23 +1139,23 @@ export default function Invoices() {
                     disabled={loading || auth.status !== "authenticated"}
                   >
                     <HiRefresh className={loading ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-                    Refresh
+                    {t("list.refresh")}
                   </button>
                 </div>
               </div>
 
               <div className="overflow-x-auto xl:min-h-0 xl:flex-1 xl:overflow-auto">
                 {loading ? (
-                  <p className="px-3 py-6 text-sm text-slate-500">Loading invoices…</p>
+                  <p className="px-3 py-6 text-sm text-slate-500">{t("list.loadingInvoices")}</p>
                 ) : decisions.length === 0 ? (
                   <p className="px-3 py-6 text-sm text-slate-500">
-                    No invoices are available.
+                    {t("list.empty")}
                   </p>
                 ) : visible.length === 0 ? (
                   <NoMatches onReset={resetFilters} />
                 ) : (
                   <>
-                  <ul className="divide-y divide-slate-100 md:hidden" aria-label="Invoices">
+                  <ul className="divide-y divide-slate-100 md:hidden" aria-label={t("list.label")}>
                     {visible.map((row) => (
                       <InvoiceCard
                         key={row.invoice_id}
@@ -1140,25 +1191,25 @@ export default function Invoices() {
                               mixed={someVisibleSelected && !allVisibleSelected}
                               label={
                                 allVisibleSelected
-                                  ? "Clear all visible invoices"
-                                  : "Select all visible invoices"
+                                  ? t("table.clearAllVisible")
+                                  : t("table.selectAllVisible")
                               }
                               onChange={toggleVisibleSelection}
                             />
                           </label>
                         </th>
-                        <th className="px-3 py-2" scope="col">Invoice</th>
-                        <th className="px-3 py-2" scope="col">Reasoning</th>
-                        <th className="px-3 py-2" scope="col">Decision</th>
-                        <th className="px-3 py-2" scope="col">Category</th>
-                        <th className="px-3 py-2" scope="col">Basis</th>
-                        <th className="px-3 py-2" scope="col">Confidence</th>
+                        <th className="px-3 py-2" scope="col">{t("table.columns.invoice")}</th>
+                        <th className="px-3 py-2" scope="col">{t("table.columns.reasoning")}</th>
+                        <th className="px-3 py-2" scope="col">{t("table.columns.decision")}</th>
+                        <th className="px-3 py-2" scope="col">{t("table.columns.category")}</th>
+                        <th className="px-3 py-2" scope="col">{t("table.columns.basis")}</th>
+                        <th className="px-3 py-2" scope="col">{t("table.columns.confidence")}</th>
                         <th className="px-3 py-2" scope="col">
-                          <span title="How many independent experts corroborated the decision, and how many evidence sources they cited.">
-                            Evidence
+                          <span title={t("table.columns.evidenceHint")}>
+                            {t("table.columns.evidence")}
                           </span>
                         </th>
-                        <th className="px-3 py-2" scope="col">Overpayment</th>
+                        <th className="px-3 py-2" scope="col">{t("table.columns.overpayment")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1188,7 +1239,7 @@ export default function Invoices() {
                             >
                               <SelectionCheckbox
                                 checked={selectedInvoiceIds.has(row.invoice_id)}
-                                label={`Select invoice ${row.invoice_number}`}
+                                label={t("table.selectInvoice", { number: row.invoice_number })}
                                 onChange={() => toggleInvoiceSelection(row.invoice_id)}
                               />
                             </label>
@@ -1204,20 +1255,22 @@ export default function Invoices() {
                               <span className="mt-0.5 flex flex-col type-meta font-normal">
                                 {row.agent_run_at ? (
                                   <span className="whitespace-nowrap">
-                                    {formatRunDateTime(row.agent_run_at)}
+                                    {formatRunDateTime(fmt, row.agent_run_at)}
                                   </span>
                                 ) : null}
                                 <span className="flex items-center gap-1 whitespace-nowrap">
                                   <HiSparkles className="h-3 w-3 shrink-0 text-blue-500" aria-hidden="true" />
-                                  Run {row.agent_run_index ?? row.agent_run_count} of{" "}
-                                  {row.agent_run_count}
+                                  {t("run.of", {
+                                    index: row.agent_run_index ?? row.agent_run_count,
+                                    total: row.agent_run_count,
+                                  })}
                                 </span>
                               </span>
                             ) : null}
                             {row.has_active_run && !row.has_agent_decision ? (
                               <span className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-xs font-normal text-indigo-600">
                                 <HiSparkles className="h-3 w-3 shrink-0 animate-pulse" aria-hidden="true" />
-                                Agents working…
+                                {t("run.agentsWorking")}
                               </span>
                             ) : null}
                           </td>
@@ -1235,14 +1288,14 @@ export default function Invoices() {
                                     event.stopPropagation();
                                     openRow(row);
                                   }}
-                                  title="View live progress in Activity"
+                                  title={t("run.viewLiveProgress")}
                                   className="inline-flex items-center gap-1.5 rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200 transition hover:bg-indigo-100 hover:ring-indigo-300"
                                 >
                                   <span
                                     className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-indigo-300 border-t-indigo-600"
                                     aria-hidden="true"
                                   />
-                                  Pending
+                                  {t("decisionState.pending")}
                                   <HiExternalLink className="h-3 w-3 text-indigo-400" aria-hidden="true" />
                                 </button>
                               ) : (
@@ -1297,7 +1350,7 @@ export default function Invoices() {
             <aside className="flex flex-col gap-2 xl:min-h-0 xl:overflow-auto">
               {loading ? (
                 <section className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-500 shadow-sm">
-                  Loading insights…
+                  {t("list.loadingInsights")}
                 </section>
               ) : decisions.length > 0 ? (
                 <InsightsSidebar rows={visible} onSelect={setSelectedDecision} />
@@ -1328,7 +1381,7 @@ export default function Invoices() {
                 onOpenPdf={(uri) =>
                   setPreview({
                     kind: "invoice-pdf",
-                    title: `${selectedDecision.invoice_number} PDF`,
+                    title: t("preview.pdfTitle", { number: selectedDecision.invoice_number }),
                     uri,
                     invoiceId: selectedDecision.invoice_id,
                   })
@@ -1427,6 +1480,7 @@ function BatchAssuranceBar({
   onClear: () => void;
   onViewActivity: () => void;
 }) {
+  const { t } = useTranslation("invoices");
   const hasActivityRuns = Boolean(
     result?.items.some(
       (item) =>
@@ -1443,7 +1497,7 @@ function BatchAssuranceBar({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-slate-900">
-              {selectedCount} invoice{selectedCount === 1 ? "" : "s"} selected
+              {t("batch.selected", { count: selectedCount })}
             </p>
             <p
               className={`text-xs ${
@@ -1451,8 +1505,11 @@ function BatchAssuranceBar({
               }`}
             >
               {selectionTooLarge
-                ? `Reduce the selection to ${MAX_BATCH_ASSURANCE_INVOICES} invoices or fewer.`
-                : `Batch limit ${MAX_BATCH_ASSURANCE_INVOICES} · up to ${BATCH_ASSURANCE_CONCURRENCY} starts at once`}
+                ? t("batch.tooLarge", { max: MAX_BATCH_ASSURANCE_INVOICES })
+                : t("batch.limit", {
+                    max: MAX_BATCH_ASSURANCE_INVOICES,
+                    concurrency: BATCH_ASSURANCE_CONCURRENCY,
+                  })}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -1461,7 +1518,7 @@ function BatchAssuranceBar({
               className="rounded-md px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100 max-md:min-h-11"
               onClick={onClear}
             >
-              Clear
+              {t("batch.clear")}
             </button>
             <button
               type="button"
@@ -1470,7 +1527,7 @@ function BatchAssuranceBar({
               disabled={selectionTooLarge}
             >
               <HiSparkles className="h-4 w-4" aria-hidden="true" />
-              Review batch
+              {t("batch.review")}
             </button>
           </div>
         </div>
@@ -1479,11 +1536,15 @@ function BatchAssuranceBar({
           <div>
             <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
               <HiCheckCircle className="h-4 w-4 text-emerald-600" aria-hidden="true" />
-              Batch request processed
+              {t("batch.processed")}
             </p>
             <p className="mt-0.5 text-xs text-slate-600">
-              {result.accepted} started · {result.reused} reused · {result.not_found} not found ·{" "}
-              {result.start_failed} failed to start
+              {t("batch.outcomes", {
+                accepted: result.accepted,
+                reused: result.reused,
+                notFound: result.not_found,
+                failed: result.start_failed,
+              })}
             </p>
           </div>
           <button
@@ -1492,7 +1553,7 @@ function BatchAssuranceBar({
             onClick={onViewActivity}
             disabled={!hasActivityRuns}
           >
-            View Activity
+            {t("batch.viewActivity")}
             <HiExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
@@ -1518,6 +1579,8 @@ function BatchAssuranceConfirmation({
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("invoices");
+  const fmt = useFormat();
   const totalAtRisk = rows.reduce(
     (sum, row) => sum + overpaymentAmount(row),
     0,
@@ -1543,7 +1606,7 @@ function BatchAssuranceConfirmation({
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-4">
           <div>
             <h2 id="batch-assurance-title" className="text-xl font-semibold">
-              Start assurance for {rows.length} invoice{rows.length === 1 ? "" : "s"}?
+              {t("batchConfirm.title", { count: rows.length })}
             </h2>
           </div>
           <button
@@ -1553,7 +1616,7 @@ function BatchAssuranceConfirmation({
             disabled={loading}
           >
             <HiX className="h-5 w-5" aria-hidden="true" />
-            <span className="sr-only">Close batch confirmation</span>
+            <span className="sr-only">{t("batchConfirm.close")}</span>
           </button>
         </div>
 
@@ -1562,15 +1625,15 @@ function BatchAssuranceConfirmation({
             id="batch-assurance-guidance"
             className="rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm leading-5 text-blue-950"
           >
-            Each newly accepted invoice starts a hosted agent orchestration and may incur usage
-            cost. Active runs are reused automatically. Caldova starts at most{" "}
-            {BATCH_ASSURANCE_CONCURRENCY} invoices concurrently and accepts up to{" "}
-            {MAX_BATCH_ASSURANCE_INVOICES} per batch.
+            {t("batchConfirm.guidance", {
+              concurrency: BATCH_ASSURANCE_CONCURRENCY,
+              max: MAX_BATCH_ASSURANCE_INVOICES,
+            })}
           </div>
 
           <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-500">Current recoverable amount</span>
-            <span className="font-semibold text-emerald-700">{formatMoney(totalAtRisk)}</span>
+            <span className="text-slate-500">{t("batchConfirm.currentRecoverable")}</span>
+            <span className="font-semibold text-emerald-700">{formatMoney(fmt, totalAtRisk)}</span>
           </div>
 
           <ul className="max-h-40 divide-y divide-slate-100 overflow-auto rounded-lg border border-slate-200">
@@ -1599,7 +1662,7 @@ function BatchAssuranceConfirmation({
             onClick={onClose}
             disabled={loading}
           >
-            Cancel
+            {t("actions.cancel")}
           </button>
           <button
             type="button"
@@ -1613,7 +1676,7 @@ function BatchAssuranceConfirmation({
             ) : (
               <HiSparkles className="h-4 w-4" aria-hidden="true" />
             )}
-            {loading ? "Starting batch…" : "Start batch assurance"}
+            {loading ? t("batchConfirm.starting") : t("batchConfirm.start")}
           </button>
         </div>
       </section>
@@ -1662,21 +1725,23 @@ function FilterBar({
 }) {
   const selectClass =
     "min-h-8 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-blue-300 focus:outline-none";
+  const { t } = useTranslation("invoices");
+  const decisionLabel = useDecisionLabel();
   return (
     <div className="hidden flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-100 px-3 py-2.5 md:flex">
       {decisions.length > 1 ? (
         <div className="flex items-center gap-1.5">
-          <span className="type-label">Decision</span>
+          <span className="type-label">{t("filters.decision")}</span>
           <div className="flex flex-wrap items-center gap-1">
             <DecisionChip
-              label="All"
+              label={t("filters.all")}
               active={decisionFilter === "all"}
               onClick={() => onDecisionFilter("all")}
             />
             {decisions.map((decision) => (
               <DecisionChip
                 key={decision}
-                label={decision}
+                label={decisionLabel(decision)}
                 active={decisionFilter === decision}
                 onClick={() => onDecisionFilter(decision)}
               />
@@ -1690,9 +1755,9 @@ function FilterBar({
           value={categoryFilter}
           onChange={(event) => onCategoryFilter(event.target.value)}
           className={`max-w-44 ${selectClass}`}
-          aria-label="Filter by category"
+          aria-label={t("filters.categoryAria")}
         >
-          <option value="all">All categories</option>
+          <option value="all">{t("filters.allCategories")}</option>
           {categories.map((category) => (
             <option key={category} value={category}>
               {formatCategory(category)}
@@ -1706,12 +1771,12 @@ function FilterBar({
           value={severityFilter}
           onChange={(event) => onSeverityFilter(event.target.value)}
           className={selectClass}
-          aria-label="Filter by severity"
+          aria-label={t("filters.severityAria")}
         >
-          <option value="all">Any severity</option>
+          <option value="all">{t("filters.anySeverity")}</option>
           {severities.map((severity) => (
             <option key={severity} value={severity}>
-              {sentenceCase(severity)}
+              {severityLabel(severity, t)}
             </option>
           ))}
         </select>
@@ -1722,9 +1787,9 @@ function FilterBar({
           value={supplierFilter}
           onChange={(event) => onSupplierFilter(event.target.value)}
           className={`max-w-44 ${selectClass}`}
-          aria-label="Filter by supplier"
+          aria-label={t("filters.supplierAria")}
         >
-          <option value="all">All suppliers</option>
+          <option value="all">{t("filters.allSuppliers")}</option>
           {suppliers.map((supplier) => (
             <option key={supplier} value={supplier}>
               {supplier}
@@ -1743,20 +1808,20 @@ function FilterBar({
             type="search"
             value={query}
             onChange={(event) => onQuery(event.target.value)}
-            placeholder="Search invoice or supplier…"
+            placeholder={t("filters.searchPlaceholder")}
             className="min-h-8 w-48 rounded-md border border-slate-200 bg-white py-1 pl-7 pr-2 text-xs text-slate-700 placeholder:text-slate-500 focus:border-blue-300 focus:outline-none"
-            aria-label="Search invoices"
+            aria-label={t("filters.searchInvoices")}
           />
         </div>
         <select
           value={sort}
           onChange={(event) => onSort(event.target.value as SortKey)}
           className={selectClass}
-          aria-label="Sort invoices"
+          aria-label={t("filters.sortAria")}
         >
           {SORT_OPTIONS.map((option) => (
             <option key={option.key} value={option.key}>
-              {option.label}
+              {t(option.labelKey)}
             </option>
           ))}
         </select>
@@ -1819,13 +1884,16 @@ function MobileFilters({
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const { t } = useTranslation("invoices");
+  const decisionLabel = useDecisionLabel();
 
   const chips: ActiveFilterChip[] = [];
   if (decisionFilter !== "all") {
+    const value = decisionLabel(decisionFilter);
     chips.push({
       key: "decision",
-      label: decisionFilter,
-      removeLabel: `Remove decision filter: ${decisionFilter}`,
+      label: value,
+      removeLabel: t("filters.chips.removeDecision", { value }),
       onRemove: () => onDecisionFilter("all"),
     });
   }
@@ -1833,15 +1901,16 @@ function MobileFilters({
     chips.push({
       key: "category",
       label: formatCategory(categoryFilter),
-      removeLabel: `Remove category filter: ${formatCategory(categoryFilter)}`,
+      removeLabel: t("filters.chips.removeCategory", { value: formatCategory(categoryFilter) }),
       onRemove: () => onCategoryFilter("all"),
     });
   }
   if (severityFilter !== "all") {
+    const value = severityLabel(severityFilter, t);
     chips.push({
       key: "severity",
-      label: `${sentenceCase(severityFilter)} severity`,
-      removeLabel: `Remove severity filter: ${severityFilter}`,
+      label: t("filters.chips.severity", { severity: value }),
+      removeLabel: t("filters.chips.removeSeverity", { value }),
       onRemove: () => onSeverityFilter("all"),
     });
   }
@@ -1849,17 +1918,17 @@ function MobileFilters({
     chips.push({
       key: "supplier",
       label: supplierFilter,
-      removeLabel: `Remove supplier filter: ${supplierFilter}`,
+      removeLabel: t("filters.chips.removeSupplier", { value: supplierFilter }),
       onRemove: () => onSupplierFilter("all"),
     });
   }
   const activeCount = chips.length;
-  const sortLabel = SORT_OPTIONS.find((option) => option.key === sort)?.label;
-  if (sort !== "recent" && sortLabel) {
+  const sortOption = SORT_OPTIONS.find((option) => option.key === sort);
+  if (sort !== "recent" && sortOption) {
     chips.push({
       key: "sort",
-      label: `Sorted: ${sortLabel}`,
-      removeLabel: `Reset sort to ${SORT_OPTIONS[0].label}`,
+      label: t("filters.chips.sorted", { sort: t(sortOption.labelKey) }),
+      removeLabel: t("filters.chips.resetSort", { sort: t(SORT_OPTIONS[0].labelKey) }),
       onRemove: () => onSort("recent"),
     });
   }
@@ -1880,9 +1949,9 @@ function MobileFilters({
             type="search"
             value={query}
             onChange={(event) => onQuery(event.target.value)}
-            placeholder="Search invoices"
+            placeholder={t("filters.searchInvoices")}
             className={`${fieldClass} pl-9 placeholder:text-slate-500`}
-            aria-label="Search invoices"
+            aria-label={t("filters.searchInvoices")}
           />
         </div>
         <button
@@ -1898,7 +1967,7 @@ function MobileFilters({
           }`}
         >
           <HiAdjustments className="h-4 w-4" aria-hidden="true" />
-          Filters
+          {t("filters.filters")}
           {activeCount > 0 ? (
             <>
               <span
@@ -1907,7 +1976,7 @@ function MobileFilters({
               >
                 {activeCount}
               </span>
-              <span className="sr-only">, {activeCount} active</span>
+              <span className="sr-only">{t("filters.activeCount", { count: activeCount })}</span>
             </>
           ) : null}
           <HiChevronDown
@@ -1918,7 +1987,7 @@ function MobileFilters({
       </div>
 
       {chips.length > 0 ? (
-        <ul className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-3" aria-label="Active filters">
+        <ul className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-3" aria-label={t("filters.activeFilters")}>
           {chips.map((chip) => (
             <li key={chip.key} className="min-w-0 max-w-full">
               <button
@@ -1942,7 +2011,7 @@ function MobileFilters({
                 }}
                 className="relative inline-flex h-8 items-center rounded-md px-2 text-xs font-semibold text-blue-700 after:absolute after:-inset-y-1.5 after:inset-x-0 after:content-[''] active:bg-blue-50"
               >
-                Clear all
+                {t("filters.clearAll")}
               </button>
             </li>
           ) : null}
@@ -1952,10 +2021,10 @@ function MobileFilters({
       <div id={panelId} hidden={!open} className="mt-3 space-y-4">
         {decisions.length > 1 ? (
           <fieldset>
-            <legend className="type-label">Decision</legend>
+            <legend className="type-label">{t("filters.decision")}</legend>
             <div className="mt-1.5 flex flex-wrap gap-2">
               <DecisionChip
-                label="All"
+                label={t("filters.all")}
                 active={decisionFilter === "all"}
                 onClick={() => onDecisionFilter("all")}
                 className="min-h-11 px-4"
@@ -1963,7 +2032,7 @@ function MobileFilters({
               {decisions.map((decision) => (
                 <DecisionChip
                   key={decision}
-                  label={decision}
+                  label={decisionLabel(decision)}
                   active={decisionFilter === decision}
                   onClick={() => onDecisionFilter(decision)}
                   className="min-h-11 px-4"
@@ -1976,13 +2045,13 @@ function MobileFilters({
         <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
           {categories.length > 1 ? (
             <label className="block min-w-0">
-              <span className="type-label">Category</span>
+              <span className="type-label">{t("filters.category")}</span>
               <select
                 value={categoryFilter}
                 onChange={(event) => onCategoryFilter(event.target.value)}
                 className={`mt-1 ${fieldClass}`}
               >
-                <option value="all">All categories</option>
+                <option value="all">{t("filters.allCategories")}</option>
                 {categories.map((category) => (
                   <option key={category} value={category}>
                     {formatCategory(category)}
@@ -1993,16 +2062,16 @@ function MobileFilters({
           ) : null}
           {severities.length > 1 ? (
             <label className="block min-w-0">
-              <span className="type-label">Severity</span>
+              <span className="type-label">{t("filters.severity")}</span>
               <select
                 value={severityFilter}
                 onChange={(event) => onSeverityFilter(event.target.value)}
                 className={`mt-1 ${fieldClass}`}
               >
-                <option value="all">Any severity</option>
+                <option value="all">{t("filters.anySeverity")}</option>
                 {severities.map((severity) => (
                   <option key={severity} value={severity}>
-                    {sentenceCase(severity)}
+                    {severityLabel(severity, t)}
                   </option>
                 ))}
               </select>
@@ -2010,13 +2079,13 @@ function MobileFilters({
           ) : null}
           {suppliers.length > 1 ? (
             <label className="block min-w-0">
-              <span className="type-label">Supplier</span>
+              <span className="type-label">{t("filters.supplier")}</span>
               <select
                 value={supplierFilter}
                 onChange={(event) => onSupplierFilter(event.target.value)}
                 className={`mt-1 ${fieldClass}`}
               >
-                <option value="all">All suppliers</option>
+                <option value="all">{t("filters.allSuppliers")}</option>
                 {suppliers.map((supplier) => (
                   <option key={supplier} value={supplier}>
                     {supplier}
@@ -2026,7 +2095,7 @@ function MobileFilters({
             </label>
           ) : null}
           <label className="block min-w-0">
-            <span className="type-label">Sort by</span>
+            <span className="type-label">{t("filters.sortBy")}</span>
             <select
               value={sort}
               onChange={(event) => onSort(event.target.value as SortKey)}
@@ -2034,7 +2103,7 @@ function MobileFilters({
             >
               {SORT_OPTIONS.map((option) => (
                 <option key={option.key} value={option.key}>
-                  {option.label}
+                  {t(option.labelKey)}
                 </option>
               ))}
             </select>
@@ -2049,7 +2118,7 @@ function MobileFilters({
           }}
           className="min-h-11 w-full rounded-md bg-blue-700 px-4 text-sm font-semibold text-white shadow-sm active:bg-blue-800"
         >
-          Show {resultCount} invoice{resultCount === 1 ? "" : "s"}
+          {t("filters.showResults", { count: resultCount })}
         </button>
       </div>
     </div>
@@ -2070,31 +2139,38 @@ function InvoiceCard({
   onOpen: () => void;
 }) {
   const id = useId();
+  const { t } = useTranslation("invoices");
+  const fmt = useFormat();
   const pending = row.has_active_run && !row.has_agent_decision;
   const amount = overpaymentAmount(row);
   const summary = row.agent_title ?? row.reasoning;
 
   let amountLabel: string | null = null;
   if (row.has_agent_decision) {
-    amountLabel = amount <= 0 ? "No overpayment" : row.decision === "Recover" ? "Recoverable" : "At risk";
+    amountLabel =
+      amount <= 0
+        ? t("card.noOverpayment")
+        : row.decision === "Recover"
+          ? t("card.recoverable")
+          : t("card.atRisk");
   }
 
   // Not-run cards already say so in the decision chip.
   let evidence: string | null = null;
   if (pending) {
-    evidence = "Agents working…";
+    evidence = t("run.agentsWorking");
   } else if (!row.has_agent_decision) {
     evidence = null;
   } else if (row.agent_plane_count > 0) {
-    const experts = `${row.agent_plane_count} expert${row.agent_plane_count === 1 ? "" : "s"}`;
+    const experts = t("card.experts", { count: row.agent_plane_count });
     evidence =
       row.agent_source_count > 0
-        ? `${experts} · ${row.agent_source_count} source${row.agent_source_count === 1 ? "" : "s"} cited`
+        ? `${experts} · ${t("card.sourcesCited", { count: row.agent_source_count })}`
         : experts;
   } else if (row.agent_source_count > 0) {
-    evidence = `${row.agent_source_count} source${row.agent_source_count === 1 ? "" : "s"} cited`;
+    evidence = t("card.sourcesCited", { count: row.agent_source_count });
   } else {
-    evidence = "No evidence";
+    evidence = t("evidence.none");
   }
 
   return (
@@ -2106,7 +2182,7 @@ function InvoiceCard({
       <label className="mt-1.5 inline-flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center">
         <SelectionCheckbox
           checked={selected}
-          label={`Select invoice ${row.invoice_number}`}
+          label={t("table.selectInvoice", { number: row.invoice_number })}
           onChange={onToggleSelected}
         />
       </label>
@@ -2169,9 +2245,12 @@ function InvoiceCard({
             {row.has_agent_decision && row.agent_run_at ? (
               <span className="mt-1 flex items-center gap-1 type-meta">
                 <HiSparkles className="h-3 w-3 shrink-0 text-blue-600" aria-hidden="true" />
-                {formatRunDateTime(row.agent_run_at)}
+                {formatRunDateTime(fmt, row.agent_run_at)}
                 {row.agent_run_count > 1
-                  ? ` · Run ${row.agent_run_index ?? row.agent_run_count} of ${row.agent_run_count}`
+                  ? ` · ${t("run.of", {
+                      index: row.agent_run_index ?? row.agent_run_count,
+                      total: row.agent_run_count,
+                    })}`
                   : ""}
               </span>
             ) : null}
@@ -2211,19 +2290,19 @@ function DecisionChip({
 }
 
 function NoMatches({ onReset }: { onReset: () => void }) {
+  const { t } = useTranslation("invoices");
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-3 py-10 text-center">
-      <p className="text-sm font-semibold text-slate-700">No invoices match these filters</p>
+      <p className="text-sm font-semibold text-slate-700">{t("noMatches.title")}</p>
       <p className="max-w-sm text-xs text-slate-500">
-        Try widening the decision, severity, or supplier filters, or clear them to see the full
-        register.
+        {t("noMatches.body")}
       </p>
       <button
         type="button"
         onClick={onReset}
         className="mt-1 inline-flex items-center rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
       >
-        Clear filters
+        {t("noMatches.clear")}
       </button>
     </div>
   );
@@ -2264,16 +2343,17 @@ function InsightsSidebar({
   onSelect: (row: InvoiceDecision) => void;
 }) {
   const decisionMix = useMemo(() => {
-    const counts = new Map<string, number>();
+    const counts = new Map<string, { decision: string; count: number }>();
     for (const row of rows) {
       if (row.decision === "Pending" || row.decision === "Not run") {
         continue;
       }
-      counts.set(row.decision, (counts.get(row.decision) ?? 0) + 1);
+      const key = normalizeDecision(row.decision);
+      const entry = counts.get(key) ?? { decision: row.decision, count: 0 };
+      entry.count += 1;
+      counts.set(key, entry);
     }
-    return Array.from(counts.entries())
-      .map(([decision, count]) => ({ decision, count }))
-      .sort((a, b) => b.count - a.count);
+    return Array.from(counts.values()).sort((a, b) => b.count - a.count);
   }, [rows]);
 
   const recoveryBySupplier = useMemo(() => {
@@ -2314,6 +2394,9 @@ function InsightsSidebar({
   );
 
   const trend = useMemo(() => buildRecoveryTrend(rows), [rows]);
+  const { t } = useTranslation("invoices");
+  const fmt = useFormat();
+  const decisionLabel = useDecisionLabel();
 
   const total = decisionMix.reduce((sum, item) => sum + item.count, 0);
   const recoverySupplierMax = recoveryBySupplier[0]?.amount ?? 0;
@@ -2321,7 +2404,7 @@ function InsightsSidebar({
   return (
     <>
       <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-        <h2 className="type-section">Decision mix</h2>
+        <h2 className="type-section">{t("insights.decisionMix")}</h2>
         {decisionMix.length > 0 ? (
           <>
             <div className="mt-2 flex h-2.5 overflow-hidden rounded-full bg-slate-100">
@@ -2332,7 +2415,7 @@ function InsightsSidebar({
                     width: `${(item.count / total) * 100}%`,
                     backgroundColor: decisionColor(item.decision),
                   }}
-                  title={`${item.decision}: ${item.count}`}
+                  title={`${decisionLabel(item.decision)}: ${item.count}`}
                 />
               ))}
             </div>
@@ -2347,22 +2430,22 @@ function InsightsSidebar({
                       className="h-2 w-2 rounded-full"
                       style={{ backgroundColor: decisionColor(item.decision) }}
                     />
-                    {item.decision}
+                    {decisionLabel(item.decision)}
                   </span>
                   <span className="tabular-nums text-slate-500">
-                    {item.count} · {Math.round((item.count / total) * 100)}%
+                    {item.count} · {fmt.percent(item.count / total, 0)}
                   </span>
                 </li>
               ))}
             </ul>
           </>
         ) : (
-          <p className="mt-2 type-meta">No decisions in view.</p>
+          <p className="mt-2 type-meta">{t("insights.noDecisions")}</p>
         )}
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-        <h2 className="type-section">Recovery by supplier</h2>
+        <h2 className="type-section">{t("insights.recoveryBySupplier")}</h2>
         {recoveryBySupplier.length > 0 ? (
           <ul className="mt-2.5 space-y-2">
             {recoveryBySupplier.map((item) => (
@@ -2370,7 +2453,7 @@ function InsightsSidebar({
                 <div className="flex items-center justify-between gap-2 text-xs">
                   <span className="truncate font-medium text-slate-700">{item.supplier}</span>
                   <span className="shrink-0 tabular-nums font-semibold text-emerald-700">
-                    {formatMoney(item.amount)}
+                    {formatMoney(fmt, item.amount)}
                   </span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
@@ -2385,13 +2468,13 @@ function InsightsSidebar({
             ))}
           </ul>
         ) : (
-          <p className="mt-2 type-meta">No recoverable overpayment in view.</p>
+          <p className="mt-2 type-meta">{t("insights.noRecoverable")}</p>
         )}
       </section>
 
       {severityBreakdown.length > 0 ? (
         <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <h2 className="type-section">Severity</h2>
+          <h2 className="type-section">{t("insights.severity")}</h2>
           <ul className="mt-2.5 space-y-1.5">
             {severityBreakdown.map((item) => (
               <li
@@ -2404,7 +2487,7 @@ function InsightsSidebar({
                     style={{ backgroundColor: severityColor(item.severity) }}
                     aria-hidden="true"
                   />
-                  {sentenceCase(item.severity)}
+                  {severityLabel(item.severity, t)}
                 </span>
                 <span className="tabular-nums text-slate-500">{item.count}</span>
               </li>
@@ -2415,7 +2498,7 @@ function InsightsSidebar({
 
       {topOverpayments.length > 0 ? (
         <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-          <h2 className="type-section">Top overpayments</h2>
+          <h2 className="type-section">{t("insights.topOverpayments")}</h2>
           <ul className="mt-2 space-y-1">
             {topOverpayments.map((row) => (
               <li key={row.invoice_id}>
@@ -2447,8 +2530,8 @@ function InsightsSidebar({
       {trend.length > 1 ? (
         <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <h2 className="type-section">Recovery trend</h2>
-            <span className="type-meta">{trend.length} days</span>
+            <h2 className="type-section">{t("insights.recoveryTrend")}</h2>
+            <span className="type-meta">{t("insights.days", { count: trend.length })}</span>
           </div>
           <Sparkline points={trend} className="mt-2" />
         </section>
@@ -2458,6 +2541,7 @@ function InsightsSidebar({
 }
 
 function Sparkline({ points, className }: { points: TrendPoint[]; className?: string }) {
+  const { t } = useTranslation("invoices");
   const width = 100;
   const height = 28;
   const values = points.map((point) => point.value);
@@ -2479,7 +2563,7 @@ function Sparkline({ points, className }: { points: TrendPoint[]; className?: st
       preserveAspectRatio="none"
       className={`h-8 w-full ${className ?? ""}`}
       role="img"
-      aria-label="Recovery over time"
+      aria-label={t("insights.sparklineLabel")}
     >
       <polygon points={area} fill="rgba(16,185,129,0.12)" />
       <polyline
@@ -2507,11 +2591,11 @@ const PLANE_LABELS: Record<string, string> = {
 
 // The four IQ planes in the order an auditor reads them: terms first, then the
 // operational record, then people, then the outside world.
-const IQ_PLANES: Array<{ key: PlaneKey; label: string; scope: string }> = [
-  { key: "foundryiq", label: "FoundryIQ", scope: "Contract terms and finance policy" },
-  { key: "fabriciq", label: "FabricIQ", scope: "PO, batch and release data in OneLake" },
-  { key: "workiq", label: "WorkIQ", scope: "Your Microsoft 365 mail, Teams and files" },
-  { key: "webiq", label: "WebIQ", scope: "Public market and regulatory sources" },
+const IQ_PLANES: Array<{ key: PlaneKey; label: string }> = [
+  { key: "foundryiq", label: "FoundryIQ" },
+  { key: "fabriciq", label: "FabricIQ" },
+  { key: "workiq", label: "WorkIQ" },
+  { key: "webiq", label: "WebIQ" },
 ];
 
 const AGENT_PLANES: Record<string, PlaneKey> = {
@@ -2523,9 +2607,9 @@ const AGENT_PLANES: Record<string, PlaneKey> = {
   policy: "foundryiq",
 };
 
-function planeLabel(lane: FanoutLane): string {
+function planeLabel(lane: FanoutLane, fallback: string): string {
   const key = (lane.plane ?? lane.agent ?? "").toLowerCase().replace(/-expert$/, "");
-  return PLANE_LABELS[key] ?? formatCategory(lane.agent || lane.plane || "Expert");
+  return PLANE_LABELS[key] ?? formatCategory(lane.agent || lane.plane || fallback);
 }
 
 function lanePlaneKey(lane: FanoutLane): PlaneKey | null {
@@ -2560,20 +2644,19 @@ function parseConfidenceScore(confidence: string | number | null | undefined): n
   return Number.isFinite(score) ? score : null;
 }
 
-function confidenceTitle(calibrated: boolean): string {
-  return calibrated
-    ? "Calibrated decision confidence."
-    : "Uncalibrated evidence score; not calibrated decision accuracy.";
+function confidenceTitle(calibrated: boolean) {
+  return calibrated ? ("confidence.calibratedTitle" as const) : ("confidence.uncalibratedTitle" as const);
 }
 
-function formatAgentMoney(value: string | undefined): string {
-  const amount = Number(value ?? 0);
-  return `$${(Number.isFinite(amount) ? amount : 0).toLocaleString(undefined, {
+function formatAgentMoney(fmt: Formatters, value: string | undefined): string {
+  return fmt.currency(value ?? 0, "USD", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`;
+  });
 }
 
+// Canonical register-style decision ("Recover", "Escalate", …) used for style
+// lookups and comparisons; display text goes through the translated labels.
 function agentDecisionToLabel(decision: string): string {
   const normalized = decision.toLowerCase();
   if (normalized === "recover" || normalized === "recovery") return "Recover";
@@ -2583,32 +2666,16 @@ function agentDecisionToLabel(decision: string): string {
   return decision ? decision.charAt(0).toUpperCase() + decision.slice(1) : decision;
 }
 
-function formatRunDate(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+function formatRunDate(fmt: Formatters, iso: string): string {
+  return fmt.date(iso) ?? iso;
 }
 
-function formatRunTime(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? ""
-    : date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+function formatRunTime(fmt: Formatters, iso: string): string {
+  return fmt.time(iso) ?? "";
 }
 
-function formatRunDateTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return iso;
-  }
-  return date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+function formatRunDateTime(fmt: Formatters, iso: string): string {
+  return fmt.dateTime(iso) ?? iso;
 }
 
 const primaryButton =
@@ -2663,6 +2730,9 @@ function DecisionDrawer({
   onClose: () => void;
 }) {
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null);
+  const { t } = useTranslation("invoices");
+  const fmt = useFormat();
+  const decisionLabel = useDecisionLabel();
   useEffect(() => {
     setSelectedCaseId(null);
   }, [decision.invoice_id]);
@@ -2748,8 +2818,8 @@ function DecisionDrawer({
   ).toLowerCase();
   const verdictLabel = agentDecisionToLabel(verdictKey);
   const amount = recommendation
-    ? formatAgentMoney(recommendation.money_at_risk)
-    : formatAgentMoney(decision.overpayment_amount);
+    ? formatAgentMoney(fmt, recommendation.money_at_risk)
+    : formatAgentMoney(fmt, decision.overpayment_amount);
   const confidenceScore = parseConfidenceScore(
     recommendation ? recommendation.confidence : decision.confidence,
   );
@@ -2764,7 +2834,7 @@ function DecisionDrawer({
   const runId =
     recommendation?.metadata?.waypoint_run_id ?? selectedEntry?.run?.id ?? null;
   const reasoning = recommendation?.reasoning || finding?.summary || decision.reasoning;
-  const invoiceTotal = detail ? formatCurrency(detail.total_amount, detail.currency) : null;
+  const invoiceTotal = detail ? formatCurrency(fmt, detail.total_amount, detail.currency) : null;
 
   const hasDecision = decision.has_agent_decision;
   const activeRun = decision.has_active_run;
@@ -2808,18 +2878,22 @@ function DecisionDrawer({
                 tabIndex={-1}
                 className="truncate rounded-sm text-lg font-semibold text-slate-950 focus-visible:outline-offset-0"
               >
-                <span className="sr-only">Decision context for invoice </span>
-                {decision.invoice_number}
+                <Trans
+                  t={t}
+                  i18nKey="drawer.title"
+                  values={{ number: decision.invoice_number }}
+                  components={{ sr: <span className="sr-only" /> }}
+                />
               </h2>
               <CopyButton
                 text={decision.invoice_number}
-                label={`Copy invoice ID ${decision.invoice_number}`}
+                label={t("drawer.copyInvoiceId", { number: decision.invoice_number })}
                 variant="inline"
               />
             </div>
             <p id="decision-drawer-subtitle" className="truncate text-sm text-slate-600">
               {decision.supplier_name}
-              {invoiceTotal ? ` · ${invoiceTotal} invoiced` : ""}
+              {invoiceTotal ? ` · ${t("drawer.invoiced", { total: invoiceTotal })}` : ""}
             </p>
           </div>
           <button
@@ -2828,7 +2902,7 @@ function DecisionDrawer({
             onClick={onClose}
           >
             <HiX className="h-5 w-5" aria-hidden="true" />
-            <span className="sr-only">Close decision context</span>
+            <span className="sr-only">{t("drawer.close")}</span>
           </button>
         </header>
 
@@ -2853,7 +2927,7 @@ function DecisionDrawer({
                 >
                   <VerdictHeadline
                     verdict={verdictKey}
-                    label={verdictLabel}
+                    label={decisionLabel(verdictKey)}
                     amount={amount}
                     supplier={decision.supplier_name}
                     invoiceTotal={invoiceTotal}
@@ -2865,44 +2939,50 @@ function DecisionDrawer({
 
                 {viewingOlderRun && newestEntry ? (
                   <p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-inset ring-amber-200">
-                    You're viewing an older run. The current decision is Run {entries.length}:{" "}
-                    {agentDecisionToLabel(
-                      newestEntry.recommendation?.decision ??
-                        newestEntry.run?.metadata?.decision ??
-                        "",
-                    ) || "pending"}
-                    .
+                    {t("drawer.olderRun", {
+                      run: entries.length,
+                      decision:
+                        decisionLabel(
+                          newestEntry.recommendation?.decision ??
+                            newestEntry.run?.metadata?.decision ??
+                            "",
+                        ) || t("drawer.olderRunPending"),
+                    })}
                   </p>
                 ) : null}
 
                 <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-slate-200 pt-3 text-sm">
                   <div className="min-w-0">
-                    <dt className="text-xs text-slate-600">Confidence</dt>
+                    <dt className="text-xs text-slate-600">{t("drawer.confidence")}</dt>
                     <dd
                       className="mt-0.5 font-semibold tabular-nums text-slate-950"
-                      title={confidenceScore === null ? undefined : confidenceTitle(calibrated)}
+                      title={confidenceScore === null ? undefined : t(confidenceTitle(calibrated))}
                     >
-                      {confidenceScore === null ? "Not reported" : `${Math.round(confidenceScore * 100)}%`}
+                      {confidenceScore === null
+                        ? t("drawer.notReported")
+                        : fmt.percent(confidenceScore, 0)}
                     </dd>
                     {confidenceScore !== null ? (
                       <dd className="text-xs text-slate-600">
-                        {calibrated ? "Calibrated" : "Evidence score, not calibrated"}
+                        {calibrated ? t("drawer.calibrated") : t("drawer.evidenceScoreNotCalibrated")}
                       </dd>
                     ) : null}
                   </div>
                   <div className="min-w-0">
-                    <dt className="text-xs text-slate-600">Decided</dt>
+                    <dt className="text-xs text-slate-600">{t("drawer.decided")}</dt>
                     <dd className="mt-0.5 font-semibold text-slate-950">
-                      {decidedAt ? formatRunDate(decidedAt) : "Not recorded"}
+                      {decidedAt ? formatRunDate(fmt, decidedAt) : t("drawer.notRecorded")}
                     </dd>
                     {decidedAt ? (
-                      <dd className="text-xs text-slate-600">{formatRunTime(decidedAt)}</dd>
+                      <dd className="text-xs text-slate-600">{formatRunTime(fmt, decidedAt)}</dd>
                     ) : null}
                   </div>
                   <div className="min-w-0">
-                    <dt className="text-xs text-slate-600">Run</dt>
+                    <dt className="text-xs text-slate-600">{t("drawer.run")}</dt>
                     <dd className="mt-0.5 font-semibold text-slate-950">
-                      {runTotal > 0 ? `Run ${runNumber} of ${runTotal}` : "Not recorded"}
+                      {runTotal > 0
+                        ? t("run.of", { index: runNumber, total: runTotal })
+                        : t("drawer.notRecorded")}
                     </dd>
                     {runId ? (
                       <dd className="truncate font-mono text-xs text-slate-600" title={runId}>
@@ -2922,7 +3002,7 @@ function DecisionDrawer({
               </section>
 
               {agentLoading ? (
-                <p className="px-5 py-6 text-sm text-slate-600">Loading clauses and evidence…</p>
+                <p className="px-5 py-6 text-sm text-slate-600">{t("drawer.loadingEvidence")}</p>
               ) : (
                 <>
                   <ClauseSection
@@ -2979,9 +3059,7 @@ function DecisionDrawer({
         {hasDecision ? (
           <footer className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-5 py-3">
             <p className="min-w-0 text-xs text-slate-600">
-              {activeRun
-                ? "A new assurance run is in progress."
-                : "A re-run opens a new case. Earlier runs stay in the history."}
+              {activeRun ? t("drawer.footerActive") : t("drawer.footerRerun")}
             </p>
             {activeRun ? (
               <button
@@ -2989,7 +3067,7 @@ function DecisionDrawer({
                 onClick={onViewActivity}
                 className={`${secondaryButton} shrink-0 whitespace-nowrap`}
               >
-                View active run
+                {t("run.viewActiveRun")}
                 <HiExternalLink className="h-4 w-4" aria-hidden="true" />
               </button>
             ) : (
@@ -3003,7 +3081,7 @@ function DecisionDrawer({
                   className={triggering ? "h-4 w-4 animate-spin" : "h-4 w-4"}
                   aria-hidden="true"
                 />
-                {triggering ? "Starting…" : "Re-run assurance…"}
+                {triggering ? t("drawer.starting") : t("drawer.rerun")}
               </button>
             )}
           </footer>
@@ -3026,32 +3104,42 @@ function VerdictHeadline({
   supplier: string;
   invoiceTotal: string | null;
 }) {
-  const money = <span className="tabular-nums">{amount}</span>;
+  const { t } = useTranslation("invoices");
+  const money = <span className="tabular-nums" />;
   switch (verdict) {
     case "recover":
     case "recovery":
       return (
-        <>
-          Recover {money} from {supplier}
-        </>
+        <Trans
+          t={t}
+          i18nKey="verdict.recover"
+          values={{ amount, supplier }}
+          components={{ money }}
+        />
       );
     case "escalate":
-      return <>Escalate {money} before payment</>;
+      return <Trans t={t} i18nKey="verdict.escalate" values={{ amount }} components={{ money }} />;
     case "review":
-      return <>Hold {money} for human review</>;
+      return <Trans t={t} i18nKey="verdict.review" values={{ amount }} components={{ money }} />;
     case "approve":
       return invoiceTotal ? (
-        <>
-          Approve <span className="tabular-nums">{invoiceTotal}</span> for payment
-        </>
+        <Trans
+          t={t}
+          i18nKey="verdict.approveTotal"
+          values={{ total: invoiceTotal }}
+          components={{ money }}
+        />
       ) : (
-        <>Approve for payment</>
+        <>{t("verdict.approve")}</>
       );
     default:
       return (
-        <>
-          {label}: {money} at risk
-        </>
+        <Trans
+          t={t}
+          i18nKey="verdict.other"
+          values={{ label, amount }}
+          components={{ money }}
+        />
       );
   }
 }
@@ -3066,10 +3154,13 @@ function RunSwitcher({
   onSelectCase: (caseId: string) => void;
 }) {
   const count = entries.length;
+  const { t } = useTranslation("invoices");
+  const fmt = useFormat();
+  const labels = useLabels();
   return (
     <div className="mt-3">
       <p id="run-switcher-label" className="text-xs text-slate-600">
-        {count} runs on this invoice, newest first
+        {t("runSwitcher.label", { count })}
       </p>
       <div
         className="mt-1.5 flex flex-wrap gap-1.5"
@@ -3090,7 +3181,7 @@ function RunSwitcher({
               role="radio"
               aria-checked={active}
               onClick={() => onSelectCase(entry.case.id)}
-              title={formatRunDateTime(entry.case.created_at)}
+              title={formatRunDateTime(fmt, entry.case.created_at)}
               className={[
                 "inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors max-md:min-h-11",
                 active
@@ -3103,9 +3194,9 @@ function RunSwitcher({
                 style={{ backgroundColor: decisionColor(agentDecisionToLabel(runDecision)) }}
                 aria-hidden="true"
               />
-              <span className="font-semibold">Run {count - index}</span>
-              {runDecision ? <span>{agentDecisionToLabel(runDecision)}</span> : null}
-              {index === 0 ? <span className="text-slate-600">· current</span> : null}
+              <span className="font-semibold">{t("run.number", { number: count - index })}</span>
+              {runDecision ? <span>{labels.decision(runDecision)}</span> : null}
+              {index === 0 ? <span className="text-slate-600">{t("runSwitcher.current")}</span> : null}
             </button>
           );
         })}
@@ -3139,6 +3230,8 @@ function CaseSection({
 }
 
 function StanceTag({ supports, verdict }: { supports?: string; verdict: string }) {
+  const { t } = useTranslation("invoices");
+  const labels = useLabels();
   if (!supports) {
     return null;
   }
@@ -3146,18 +3239,19 @@ function StanceTag({ supports, verdict }: { supports?: string; verdict: string }
   if (stance === "governs") {
     return (
       <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-700">
-        Governing term
+        {t("stance.governing")}
       </span>
     );
   }
   const agrees = agentDecisionToLabel(stance) === agentDecisionToLabel(verdict);
+  const stanceLabel = labels.decision(stance).toLowerCase();
   return agrees ? (
     <span className="rounded bg-slate-100 px-1.5 py-0.5 font-medium text-slate-700">
-      Supports {agentDecisionToLabel(stance).toLowerCase()}
+      {t("stance.supports", { decision: stanceLabel })}
     </span>
   ) : (
     <span className="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-900 ring-1 ring-inset ring-amber-200">
-      Points to {agentDecisionToLabel(stance).toLowerCase()}
+      {t("stance.pointsTo", { decision: stanceLabel })}
     </span>
   );
 }
@@ -3220,10 +3314,12 @@ function CitationItem({
   onOpenDocument: (type: "contract" | "policy", id: string) => void;
   quote?: boolean;
 }) {
+  const { t } = useTranslation("invoices");
+  const labels = useLabels();
   return (
     <li className="py-2.5">
       <p className="text-sm leading-6 text-slate-800">
-        {item.claim ? (quote ? `“${item.claim}”` : item.claim) : "(no citation text)"}
+        {item.claim ? (quote ? `“${item.claim}”` : item.claim) : t("citation.noText")}
       </p>
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
         {item.source_ref ? (
@@ -3235,7 +3331,7 @@ function CitationItem({
         ) : null}
         <StanceTag supports={item.supports} verdict={verdict} />
         {typeof item.confidence === "number" ? (
-          <span className="tabular-nums">{Math.round(item.confidence * 100)}% confidence</span>
+          <span className="tabular-nums">{labels.score(item.confidence, true)}</span>
         ) : null}
       </div>
     </li>
@@ -3259,21 +3355,17 @@ function ClauseSection({
     .filter((lane) => lanePlaneKey(lane) === "foundryiq")
     .flatMap((lane) => lane.evidence ?? []);
   const empty = !basisSummary && clauses.length === 0 && documents.length === 0;
+  const { t } = useTranslation("invoices");
 
   return (
     <CaseSection
       id="case-clauses"
-      title="Contract and policy basis"
-      meta={
-        clauses.length > 0
-          ? `${clauses.length} clause${clauses.length === 1 ? "" : "s"} cited`
-          : undefined
-      }
+      title={t("clauses.title")}
+      meta={clauses.length > 0 ? t("clauses.cited", { count: clauses.length }) : undefined}
     >
       {empty ? (
         <p className="text-sm leading-6 text-slate-600">
-          No contract or policy basis is attached to this decision. Treat it as unsupported until
-          a reviewer ties it to a clause.
+          {t("clauses.empty")}
         </p>
       ) : (
         <>
@@ -3295,8 +3387,7 @@ function ClauseSection({
             </ol>
           ) : (
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              FoundryIQ didn't record clause-level citations for this run. The documents below
-              are the basis on file.
+              {t("clauses.noCitations")}
             </p>
           )}
           {documents.length > 0 ? (
@@ -3321,10 +3412,10 @@ function ClauseSection({
                         {document.title}
                       </span>
                       <span className="block text-xs text-slate-600">
-                        {document.type === "contract" ? "Contract" : "Policy"}
+                        {document.type === "contract" ? t("basis.contract") : t("basis.policy")}
                       </span>
                     </span>
-                    <span className="shrink-0 text-xs font-semibold text-blue-700">Open</span>
+                    <span className="shrink-0 text-xs font-semibold text-blue-700">{t("actions.open")}</span>
                   </button>
                 </li>
               ))}
@@ -3349,6 +3440,8 @@ function EvidenceSection({
   documents: BasisDocument[];
   onOpenDocument: (type: "contract" | "policy", id: string) => void;
 }) {
+  const { t } = useTranslation("invoices");
+  const labels = useLabels();
   const byPlane = new Map<PlaneKey, FanoutLane[]>();
   const other = new Map<string, FanoutLane[]>();
   for (const lane of fanout) {
@@ -3356,7 +3449,7 @@ function EvidenceSection({
     if (key) {
       byPlane.set(key, [...(byPlane.get(key) ?? []), lane]);
     } else {
-      const label = integrationForLane(lane)?.label ?? planeLabel(lane);
+      const label = integrationForLane(lane)?.label ?? planeLabel(lane, t("evidence.expertFallback"));
       other.set(label, [...(other.get(label) ?? []), lane]);
     }
   }
@@ -3366,10 +3459,10 @@ function EvidenceSection({
   return (
     <CaseSection
       id="case-evidence"
-      title="Evidence by source"
+      title={t("evidence.title")}
       meta={
         citationTotal > 0
-          ? `${citationTotal} citation${citationTotal === 1 ? "" : "s"} · ${planesUsed} source${planesUsed === 1 ? "" : "s"}`
+          ? `${t("evidence.citations", { count: citationTotal })} · ${t("evidence.sources", { count: planesUsed })}`
           : undefined
       }
     >
@@ -3382,17 +3475,17 @@ function EvidenceSection({
             <EvidenceGroup
               key={plane.key}
               label={plane.label}
-              scope={plane.scope}
+              scope={labels.planeScope(plane.key)}
               count={items.length}
             >
               {lanes.length === 0 ? (
-                <p className="text-sm text-slate-600">Nothing recorded for this run.</p>
+                <p className="text-sm text-slate-600">{t("evidence.nothingRecorded")}</p>
               ) : plane.key === "foundryiq" ? (
                 <p className="text-sm leading-6 text-slate-600">
                   {summary ? `${summary} ` : ""}
                   {items.length > 0
-                    ? "Clauses are listed under Contract and policy basis."
-                    : "No clause-level citations recorded."}
+                    ? t("evidence.clausesListed")
+                    : t("evidence.noClauseCitations")}
                 </p>
               ) : (
                 <>
@@ -3423,7 +3516,7 @@ function EvidenceSection({
             <EvidenceGroup
               key={label}
               label={label}
-              scope={integration?.scope ?? "Third-party source"}
+              scope={integration ? labels.integrationScope(integration) : t("evidence.thirdPartySource")}
               count={items.length}
               logo={integration?.img}
             >
@@ -3444,8 +3537,8 @@ function EvidenceSection({
         })}
         {records.length > 0 ? (
           <EvidenceGroup
-            label="Invoice records"
-            scope="Records attached to the finding"
+            label={t("evidence.invoiceRecords")}
+            scope={t("evidence.recordsScope")}
             count={records.length}
             noun="record"
           >
@@ -3459,7 +3552,7 @@ function EvidenceSection({
                   <p className="mt-1 text-xs text-slate-600">
                     {formatCategory(record.evidence_type)}
                   </p>
-                  <DocumentLink label="Open record" uri={record.uri} compact />
+                  <DocumentLink label={t("evidence.openRecord")} uri={record.uri} compact />
                 </li>
               ))}
             </ul>
@@ -3481,10 +3574,11 @@ function EvidenceGroup({
   label: string;
   scope: string;
   count: number;
-  noun?: string;
+  noun?: "citation" | "record";
   logo?: string;
   children: ReactNode;
 }) {
+  const { t } = useTranslation("invoices");
   return (
     <div className="py-3">
       <div className="flex items-baseline justify-between gap-3">
@@ -3501,8 +3595,9 @@ function EvidenceGroup({
         </p>
         {count > 0 ? (
           <span className="shrink-0 text-xs tabular-nums text-slate-600">
-            {count} {noun}
-            {count === 1 ? "" : "s"}
+            {noun === "record"
+              ? t("evidence.records", { count })
+              : t("evidence.citations", { count })}
           </span>
         ) : null}
       </div>
@@ -3521,6 +3616,7 @@ function CopyButton({
   variant?: "primary" | "secondary" | "inline";
 }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  const { t } = useTranslation("invoices");
   useEffect(() => {
     if (state === "idle") {
       return;
@@ -3552,7 +3648,7 @@ function CopyButton({
           <HiClipboardCopy className="h-4 w-4" aria-hidden="true" />
         )}
         <span aria-live="polite" className={state === "idle" ? "sr-only" : undefined}>
-          {state === "copied" ? "Copied" : state === "failed" ? "Couldn't copy" : label}
+          {state === "copied" ? t("copy.copied") : state === "failed" ? t("copy.failed") : label}
         </span>
       </button>
     );
@@ -3571,9 +3667,9 @@ function CopyButton({
       )}
       <span aria-live="polite">
         {state === "copied"
-          ? "Copied"
+          ? t("copy.copied")
           : state === "failed"
-            ? "Couldn't copy. Select the text instead."
+            ? t("copy.failedSelect")
             : label}
       </span>
     </button>
@@ -3590,9 +3686,11 @@ function SupplierSection({
   drafts: CaseDraft[];
 }) {
   const draft = drafts.find((candidate) => candidate.draft_type === "supplier_dispute") ?? null;
+  const { t } = useTranslation("invoices");
+  const fmt = useFormat();
 
   return (
-    <CaseSection id="case-supplier" title={`For ${supplier}`}>
+    <CaseSection id="case-supplier" title={t("supplier.title", { supplier })}>
       {draft ? (
         <>
           <p className="text-sm font-semibold text-slate-900">{draft.title}</p>
@@ -3600,45 +3698,34 @@ function SupplierSection({
             {draft.body}
           </blockquote>
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <CopyButton text={draft.body} label="Copy paragraph" />
+            <CopyButton text={draft.body} label={t("supplier.copyParagraph")} />
             <p className="text-xs text-slate-600">
-              Drafted by {draft.created_by} on {formatRunDateTime(draft.created_at)}. Read it
-              before you send it.
+              {t("supplier.draftedBy", {
+                author: draft.created_by,
+                date: formatRunDateTime(fmt, draft.created_at),
+              })}
             </p>
           </div>
         </>
       ) : verdict === "approve" ? (
         <p className="text-sm leading-6 text-slate-600">
-          Nothing to send. Approved invoices don't need a supplier message.
+          {t("supplier.nothingToSend")}
         </p>
       ) : (
         <p className="text-sm leading-6 text-slate-600">
-          No supplier draft was written for this run. The reasoning at the top is for reviewers,
-          not the supplier. If you dispute the line, write your message from the clauses above.
+          {t("supplier.noDraft")}
         </p>
       )}
     </CaseSection>
   );
 }
 
-const NEXT_STEPS: Record<string, { title: (supplier: string, amount: string) => string; body: string }> = {
-  recover: {
-    title: (supplier, amount) => `Request a ${amount} credit from ${supplier}`,
-    body: "Copy the paragraph above into an email from your supplier mailbox, attach the invoice PDF, then record the credit in AP.",
-  },
-  review: {
-    title: (_supplier, amount) => `Hold ${amount} and make the call`,
-    body: "The agents couldn't settle this one. Read the clauses and the evidence that points the other way, then approve or dispute the line.",
-  },
-  escalate: {
-    title: (_supplier, amount) => `Hold ${amount} and escalate`,
-    body: "Don't pay or dispute this line yet. Send the escalation packet to the owner named in the dispute procedure.",
-  },
-  approve: {
-    title: () => "Release for payment",
-    body: "The invoice reconciles to the contract and operations data. Nothing to recover.",
-  },
-};
+const NEXT_STEPS = {
+  recover: { title: "nextStep.recover.title", body: "nextStep.recover.body" },
+  review: { title: "nextStep.review.title", body: "nextStep.review.body" },
+  escalate: { title: "nextStep.escalate.title", body: "nextStep.escalate.body" },
+  approve: { title: "nextStep.approve.title", body: "nextStep.approve.body" },
+} as const;
 
 function NextStepSection({
   verdict,
@@ -3661,8 +3748,12 @@ function NextStepSection({
   onOpenPdf: (uri: string) => void;
   onOpenDocument: (type: "contract" | "policy", id: string) => void;
 }) {
+  const { t } = useTranslation("invoices");
+  const labels = useLabels();
   const key = verdict === "recovery" ? "recover" : verdict;
-  const step = NEXT_STEPS[key];
+  const step = Object.prototype.hasOwnProperty.call(NEXT_STEPS, key)
+    ? NEXT_STEPS[key as keyof typeof NEXT_STEPS]
+    : undefined;
   const escalationDraft = drafts.find((draft) => draft.draft_type === "escalation_packet");
   const reviewerNotes = drafts.filter((draft) => draft.draft_type !== "supplier_dispute");
   const proposed = recommendation?.proposed_next_actions ?? [];
@@ -3671,7 +3762,11 @@ function NextStepSection({
   let primary: ReactNode = null;
   if (key === "escalate" && escalationDraft) {
     primary = (
-      <CopyButton text={escalationDraft.body} label="Copy escalation packet" variant="primary" />
+      <CopyButton
+        text={escalationDraft.body}
+        label={t("nextStep.copyEscalation")}
+        variant="primary"
+      />
     );
   } else if (key === "review" && contract) {
     primary = (
@@ -3681,23 +3776,27 @@ function NextStepSection({
         onClick={() => onOpenDocument(contract.type, contract.id)}
       >
         <HiDocumentText className="h-4 w-4" aria-hidden="true" />
-        Open the contract
+        {t("nextStep.openContract")}
       </button>
     );
   }
 
   return (
-    <CaseSection id="case-next-step" title="Your next step">
+    <CaseSection id="case-next-step" title={t("nextStep.title")}>
       <p className="text-base font-semibold text-slate-950">
-        {step ? step.title(supplier, amount) : `Decide what to do with ${amount}`}
+        {step ? t(step.title, { supplier, amount }) : t("nextStep.fallback.title", { amount })}
       </p>
       <p className="mt-1 max-w-[65ch] text-sm leading-6 text-slate-700">
-        {step ? step.body : "Read the clauses and evidence above before acting."}
+        {step ? t(step.body) : t("nextStep.fallback.body")}
       </p>
       {proposed.length > 0 ? (
         <p className="mt-2 text-sm text-slate-700">
-          <span className="text-slate-600">Agent proposed: </span>
-          {proposed.map(formatActionLabel).join(", ")}.
+          <Trans
+            t={t}
+            i18nKey="nextStep.agentProposed"
+            values={{ actions: proposed.map((action) => labels.action(action)).join(", ") }}
+            components={{ label: <span className="text-slate-600" /> }}
+          />
         </p>
       ) : null}
       <div className="mt-3 flex flex-wrap gap-2">
@@ -3709,12 +3808,12 @@ function NextStepSection({
             onClick={() => onOpenPdf(pdfUri)}
           >
             <HiDocumentText className="h-4 w-4" aria-hidden="true" />
-            Open invoice PDF
+            {t("nextStep.openPdf")}
           </button>
         ) : null}
       </div>
       <p className="mt-3 text-xs text-slate-600">
-        Caldova records the case. It doesn't send email or post approvals from this panel.
+        {t("nextStep.noSend")}
       </p>
       {reviewerNotes.length > 0 ? (
         <details className="group mt-3 border-t border-slate-200 pt-3">
@@ -3723,7 +3822,7 @@ function NextStepSection({
               className="h-4 w-4 text-slate-500 transition-transform group-open:rotate-90"
               aria-hidden="true"
             />
-            Reviewer notes ({reviewerNotes.length})
+            {t("nextStep.reviewerNotes", { count: reviewerNotes.length })}
           </summary>
           <ul className="mt-2 space-y-3">
             {reviewerNotes.map((draft) => (
@@ -3753,19 +3852,20 @@ function NotRunCase({
   onRunAssurance: () => void;
   onViewActivity: () => void;
 }) {
+  const { t } = useTranslation("invoices");
+  const labels = useLabels();
   if (activeRun) {
     return (
       <section aria-labelledby="case-verdict" className="border-b border-slate-200 px-5 py-6">
         <DecisionPill decision="Pending" />
         <h3 id="case-verdict" className="mt-2 text-xl font-semibold text-slate-950 sm:text-2xl">
-          Agents are working on this invoice
+          {t("notRun.activeTitle")}
         </h3>
         <p className="mt-2 max-w-[65ch] text-sm leading-6 text-slate-700">
-          The case appears here once the run records a decision. Follow each expert's progress in
-          Activity.
+          {t("notRun.activeBody")}
         </p>
         <button type="button" onClick={onViewActivity} className={`mt-4 ${primaryButton}`}>
-          View active run
+          {t("run.viewActiveRun")}
           <HiExternalLink className="h-4 w-4" aria-hidden="true" />
         </button>
       </section>
@@ -3776,24 +3876,21 @@ function NotRunCase({
     <section aria-labelledby="case-verdict" className="border-b border-slate-200 px-5 py-6">
       <DecisionPill decision="Not run" />
       <h3 id="case-verdict" className="mt-2 text-xl font-semibold text-slate-950 sm:text-2xl">
-        No decision yet
+        {t("notRun.title")}
       </h3>
       <p className="mt-2 max-w-[65ch] text-sm leading-6 text-slate-700">
-        Running assurance sends this invoice to the cloud agent pipeline. Four experts check it
-        against their sources, then Caldova records one decision: approve, review, recover or
-        escalate.
+        {t("notRun.body")}
       </p>
       <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
         {IQ_PLANES.map((plane) => (
           <li key={plane.key} className="flex items-baseline justify-between gap-4 py-2 text-sm">
             <span className="font-semibold text-slate-950">{plane.label}</span>
-            <span className="text-right text-slate-700">{plane.scope}</span>
+            <span className="text-right text-slate-700">{labels.planeScope(plane.key)}</span>
           </li>
         ))}
       </ul>
       <p className="mt-4 max-w-[65ch] text-sm leading-6 text-slate-700">
-        You'll get the verdict and amount, the clauses it rests on, evidence by source, a
-        paragraph for the supplier when there's something to send, and your next step.
+        {t("notRun.whatYouGet")}
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
         <button
@@ -3806,9 +3903,9 @@ function NotRunCase({
             className={triggering ? "h-4 w-4 animate-pulse" : "h-4 w-4"}
             aria-hidden="true"
           />
-          {triggering ? "Starting assurance…" : "Run assurance…"}
+          {triggering ? t("notRun.starting") : t("notRun.run")}
         </button>
-        <p className="text-xs text-slate-600">Can take several minutes. You'll confirm first.</p>
+        <p className="text-xs text-slate-600">{t("notRun.hint")}</p>
       </div>
     </section>
   );
@@ -3827,10 +3924,13 @@ function InvoiceRecordDetails({
   loading: boolean;
   onOpenPdf: (uri: string) => void;
 }) {
+  const { t } = useTranslation("invoices");
+  const fmt = useFormat();
+  const decisionLabel = useDecisionLabel();
   const lines = detail?.lines ?? [];
-  const trail = decisionTrail(decision, detail);
+  const trail = decisionTrail(decision, detail, t, decisionLabel);
   if (finding?.summary) {
-    trail.splice(1, 0, { title: "Recorded finding", detail: finding.summary });
+    trail.splice(1, 0, { title: t("trail.finding.title"), detail: finding.summary });
   }
   const summaryClass =
     "flex min-h-11 cursor-pointer list-none items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50";
@@ -3846,9 +3946,9 @@ function InvoiceRecordDetails({
       <details className="group">
         <summary className={summaryClass}>
           {chevron}
-          Invoice lines
+          {t("record.lines")}
           <span className="ml-auto text-xs font-normal text-slate-600">
-            {loading ? "Loading…" : `${lines.length} line${lines.length === 1 ? "" : "s"}`}
+            {loading ? t("list.loading") : t("record.lineCount", { count: lines.length })}
           </span>
         </summary>
         <div className="px-5 pb-4">
@@ -3859,26 +3959,31 @@ function InvoiceRecordDetails({
                   <div className="flex items-start justify-between gap-3">
                     <p className="font-medium text-slate-900">{line.description}</p>
                     <p className="shrink-0 font-semibold tabular-nums text-slate-900">
-                      {formatCurrency(line.amount, detail?.currency)}
+                      {formatCurrency(fmt, line.amount, detail?.currency)}
                     </p>
                   </div>
                   <p className="mt-0.5 text-xs text-slate-600">
-                    {line.sku ? `SKU ${line.sku}` : "No SKU"}
-                    {line.purchase_order ? ` · ${line.purchase_order}` : " · No PO"}
+                    {line.sku ? t("record.sku", { sku: line.sku }) : t("record.noSku")}
+                    {" · "}
+                    {line.purchase_order || t("record.noPo")}
                   </p>
                 </li>
               ))}
             </ul>
           ) : (
             <p className="text-sm text-slate-600">
-              {loading ? "Loading invoice lines…" : "No invoice lines were imported."}
+              {loading ? t("record.loadingLines") : t("record.noLines")}
             </p>
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <PreviewDocumentButton label="Invoice PDF" uri={decision.pdf_uri} onOpen={onOpenPdf} />
+            <PreviewDocumentButton
+              label={t("preview.invoicePdf")}
+              uri={decision.pdf_uri}
+              onOpen={onOpenPdf}
+            />
             <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
               <OneLakeIcon className="h-4 w-4 shrink-0" />
-              Documents come from Microsoft OneLake
+              {t("record.oneLake")}
             </span>
           </div>
         </div>
@@ -3886,7 +3991,7 @@ function InvoiceRecordDetails({
       <details className="group">
         <summary className={summaryClass}>
           {chevron}
-          Decision trail
+          {t("record.trail")}
         </summary>
         <ol className="px-5 pb-4">
           {trail.map((item) => (
@@ -3926,6 +4031,7 @@ function RunAssuranceConfirmation({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const { t } = useTranslation("invoices");
   useModalDialog(dialogRef, { onClose, initialFocusRef: cancelRef, canClose: !triggering });
 
   return (
@@ -3944,21 +4050,18 @@ function RunAssuranceConfirmation({
       >
         <div className="px-5 pb-2 pt-5">
           <h2 id="run-assurance-title" className="text-lg font-semibold text-slate-950">
-            Run assurance for {decision.invoice_number}?
+            {t("runConfirm.title", { number: decision.invoice_number })}
           </h2>
           <div id="run-assurance-guidance" className="mt-2 space-y-2 text-sm leading-6 text-slate-700">
             <p>
-              This starts the cloud agent pipeline for {decision.supplier_name}. Four experts
-              gather evidence, then a decision is recorded. It can take several minutes, and
-              you'll follow it in Activity.
+              {t("runConfirm.pipeline", { supplier: decision.supplier_name })}
             </p>
             <p>
-              If a run is already active for this invoice, Caldova reuses it instead of starting
-              another. Each new run uses hosted agent capacity and may incur usage cost.
+              {t("runConfirm.reuse")}
             </p>
             {runCount > 0 ? (
               <p>
-                This will be run {runCount + 1}. Earlier runs stay in the run history.
+                {t("runConfirm.runNumber", { number: runCount + 1 })}
               </p>
             ) : null}
           </div>
@@ -3979,7 +4082,7 @@ function RunAssuranceConfirmation({
             onClick={onClose}
             disabled={triggering}
           >
-            Cancel
+            {t("actions.cancel")}
           </button>
           <button
             type="button"
@@ -3992,7 +4095,7 @@ function RunAssuranceConfirmation({
             ) : (
               <HiSparkles className="h-4 w-4" aria-hidden="true" />
             )}
-            {triggering ? "Starting assurance…" : "Start assurance run"}
+            {triggering ? t("notRun.starting") : t("runConfirm.start")}
           </button>
         </div>
       </section>
@@ -4263,6 +4366,7 @@ function cleanDocumentPath(uri: string) {
 }
 
 function DecisionPill({ decision }: { decision: string }) {
+  const decisionLabel = useDecisionLabel();
   if (decision === "Pending") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700">
@@ -4270,7 +4374,7 @@ function DecisionPill({ decision }: { decision: string }) {
           className="h-3 w-3 animate-spin rounded-full border-[1.5px] border-indigo-300 border-t-indigo-600"
           aria-hidden="true"
         />
-        Pending
+        {decisionLabel(decision)}
         <HiExternalLink className="h-3 w-3 text-indigo-400" aria-hidden="true" />
       </span>
     );
@@ -4279,7 +4383,7 @@ function DecisionPill({ decision }: { decision: string }) {
     return (
       <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
         <span className="h-2 w-2 rounded-full bg-slate-500" aria-hidden="true" />
-        Not run
+        {decisionLabel(decision)}
       </span>
     );
   }
@@ -4306,7 +4410,7 @@ function DecisionPill({ decision }: { decision: string }) {
         style={{ backgroundColor: decisionColor(decision) }}
         aria-hidden="true"
       />
-      {decision}
+      {decisionLabel(decision)}
     </span>
   );
 }
@@ -4320,15 +4424,17 @@ function ConfidenceBadge({
   calibrated: boolean;
   hasDecision: boolean;
 }) {
+  const { t } = useTranslation("invoices");
+  const fmt = useFormat();
   const score = parseConfidenceScore(confidence);
   if (score === null) {
     if (hasDecision && !calibrated) {
       return (
         <span
           className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
-          title={confidenceTitle(false)}
+          title={t(confidenceTitle(false))}
         >
-          Not calibrated
+          {t("confidence.notCalibrated")}
         </span>
       );
     }
@@ -4338,59 +4444,72 @@ function ConfidenceBadge({
     return (
       <span
         className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200"
-        title={confidenceTitle(false)}
+        title={t(confidenceTitle(false))}
       >
-        {Math.round(score * 100)}%
+        {fmt.percent(score, 0)}
       </span>
     );
   }
   return (
     <span
       className={`inline-flex rounded-md px-2 py-0.5 text-xs font-semibold ring-1 ${confidenceTone(score)}`}
-      title={confidenceTitle(true)}
+      title={t(confidenceTitle(true))}
     >
-      {Math.round(score * 100)}%
+      {fmt.percent(score, 0)}
     </span>
   );
 }
 
 function EmptyValue() {
+  const { t } = useTranslation("invoices");
   return (
-    <span className="type-meta" role="img" aria-label="None">
+    <span className="type-meta" role="img" aria-label={t("empty.none")}>
       —
     </span>
   );
 }
 
 function SourceCount({ sources, planes }: { sources: number; planes: number }) {
+  const { t } = useTranslation("invoices");
   if (sources <= 0 && planes <= 0) {
     return (
-      <span className="type-meta" title="No expert evidence recorded for this invoice yet.">
-        No evidence
+      <span className="type-meta" title={t("sourceCount.noneTitle")}>
+        {t("evidence.none")}
       </span>
     );
   }
-  const expertWord = planes === 1 ? "expert" : "experts";
-  const citationWord = sources === 1 ? "citation" : "citations";
   const tooltip =
     planes > 0
-      ? `${sources} ${citationWord} corroborated across ${planes} independent ${expertWord} (e.g. WorkIQ, FabricIQ). Open the row to see each expert's citations.`
-      : `${sources} ${citationWord} recorded. Open the row to see the details.`;
+      ? t("sourceCount.tooltipPlanes", {
+          count: sources,
+          experts: t("sourceCount.independentExperts", { count: planes }),
+        })
+      : t("sourceCount.tooltipSources", { count: sources });
   if (planes <= 0) {
     return (
       <span className="text-xs text-slate-600" title={tooltip}>
-        <span className="font-semibold text-slate-700">{sources}</span> {citationWord}
+        <Trans
+          t={t}
+          i18nKey="sourceCount.citations"
+          count={sources}
+          components={{ num: <span className="font-semibold text-slate-700" /> }}
+        />
       </span>
     );
   }
   return (
     <span className="flex flex-col leading-tight" title={tooltip}>
       <span className="text-xs text-slate-700">
-        <span className="font-semibold">{planes}</span> {expertWord}
+        <Trans
+          t={t}
+          i18nKey="sourceCount.experts"
+          count={planes}
+          components={{ num: <span className="font-semibold" /> }}
+        />
       </span>
       {sources > 0 ? (
         <span className="type-meta">
-          {sources} {citationWord}
+          {t("evidence.citations", { count: sources })}
         </span>
       ) : null}
     </span>
@@ -4398,8 +4517,9 @@ function SourceCount({ sources, planes }: { sources: number; planes: number }) {
 }
 
 function BasisPills({ basisTypes }: { basisTypes: Array<"contract" | "policy"> }) {
+  const { t } = useTranslation("invoices");
   if (basisTypes.length === 0) {
-    return <span className="type-meta">Unmapped</span>;
+    return <span className="type-meta">{t("basis.unmapped")}</span>;
   }
   return (
     <div className="flex flex-wrap gap-1">
@@ -4412,7 +4532,7 @@ function BasisPills({ basisTypes }: { basisTypes: Array<"contract" | "policy"> }
               : "rounded-md bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-800"
           }
         >
-          {basisType === "contract" ? "Contract" : "Policy"}
+          {basisType === "contract" ? t("basis.contract") : t("basis.policy")}
         </span>
       ))}
     </div>
@@ -4434,6 +4554,7 @@ function LightboxShell({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const { t } = useTranslation("invoices");
   useModalDialog(dialogRef, { onClose, initialFocusRef: headingRef });
 
   return (
@@ -4442,7 +4563,7 @@ function LightboxShell({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm sm:p-6"
       role="dialog"
       aria-modal="true"
-      aria-label={`Preview ${title}`}
+      aria-label={t("preview.ariaLabel", { title })}
       onClick={onClose}
     >
       <section
@@ -4466,7 +4587,7 @@ function LightboxShell({
             onClick={onClose}
           >
             <HiX className="h-5 w-5" aria-hidden="true" />
-            <span className="sr-only">Close preview</span>
+            <span className="sr-only">{t("preview.close")}</span>
           </button>
         </div>
         <div
@@ -4484,11 +4605,16 @@ function LightboxShell({
 }
 
 function DocumentPreviewLoading({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation("invoices");
   return (
-    <LightboxShell title="Loading document" subtitle="Document viewer" onClose={onClose}>
+    <LightboxShell
+      title={t("preview.loadingTitle")}
+      subtitle={t("preview.viewer")}
+      onClose={onClose}
+    >
       <div className="flex items-center justify-center gap-2 py-16 text-sm text-slate-500">
         <HiRefresh className="h-5 w-5 animate-spin" />
-        Loading document…
+        {t("preview.loadingDocument")}
       </div>
     </LightboxShell>
   );
@@ -4501,6 +4627,7 @@ function DocumentPreviewModal({
   preview: DocumentPreview;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("invoices");
   const title =
     preview.kind === "contract"
       ? preview.document.title
@@ -4509,10 +4636,10 @@ function DocumentPreviewModal({
         : preview.title;
   const subtitle =
     preview.kind === "contract"
-      ? "Contract document"
+      ? t("preview.contractDocument")
       : preview.kind === "policy"
-        ? "Policy document"
-        : "Invoice PDF";
+        ? t("preview.policyDocument")
+        : t("preview.invoicePdf");
 
   return (
     <LightboxShell
@@ -4533,13 +4660,17 @@ function DocumentPreviewModal({
 }
 
 function ContractPreview({ document }: { document: ContractDocument }) {
+  const { t } = useTranslation("invoices");
   return (
     <>
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <InfoTile label="Document ID" value={document.id} />
-        <InfoTile label="Supplier ID" value={document.supplier_id} />
-        <InfoTile label="Type" value={formatCategory(document.document_type)} />
-        <InfoTile label="Effective" value={document.effective_date ?? "Not specified"} />
+        <InfoTile label={t("preview.documentId")} value={document.id} />
+        <InfoTile label={t("preview.supplierId")} value={document.supplier_id} />
+        <InfoTile label={t("preview.type")} value={formatCategory(document.document_type)} />
+        <InfoTile
+          label={t("preview.effective")}
+          value={document.effective_date ?? t("preview.notSpecified")}
+        />
       </div>
       {document.text && document.text.trim() ? (
         <FullTextBlock text={document.text} />
@@ -4552,14 +4683,15 @@ function ContractPreview({ document }: { document: ContractDocument }) {
 }
 
 function PolicyPreview({ policy }: { policy: PolicyDocument }) {
+  const { t } = useTranslation("invoices");
   return (
     <>
       <div className="grid grid-cols-2 gap-2 text-sm">
-        <InfoTile label="Policy ID" value={policy.id} />
-        <InfoTile label="Severity" value={formatCategory(policy.severity)} />
+        <InfoTile label={t("preview.policyId")} value={policy.id} />
+        <InfoTile label={t("preview.severity")} value={severityLabel(policy.severity, t)} />
       </div>
       <p className="rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-700">
-        {policy.description || "No policy description is available for this policy."}
+        {policy.description || t("preview.noPolicyDescription")}
       </p>
       {policy.text && policy.text.trim() ? <FullTextBlock text={policy.text} /> : null}
       <MetadataPreview metadata={policy.metadata} />
@@ -4568,10 +4700,11 @@ function PolicyPreview({ policy }: { policy: PolicyDocument }) {
 }
 
 function FullTextBlock({ text }: { text: string }) {
+  const { t } = useTranslation("invoices");
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
       <div className="border-b border-slate-100 px-4 py-2 type-label">
-        Document content
+        {t("preview.documentContent")}
       </div>
       <pre className="max-h-[55vh] overflow-auto whitespace-pre-wrap break-words px-4 py-3 font-sans text-sm leading-6 text-slate-700">
         {text}
@@ -4581,12 +4714,12 @@ function FullTextBlock({ text }: { text: string }) {
 }
 
 function DocumentUnavailable({ uri }: { uri: string | null }) {
+  const { t } = useTranslation("invoices");
   return (
     <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
-      <p className="text-sm font-semibold text-slate-800">Document content not available here</p>
+      <p className="text-sm font-semibold text-slate-800">{t("preview.contentUnavailableTitle")}</p>
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        The full document lives in the Caldova corpus lake, which isn&apos;t connected in this
-        environment. The reference below stays attached to this finding.
+        {t("preview.contentUnavailableBody")}
       </p>
       {uri ? (
         <p className="mt-3 break-all rounded-md bg-white p-3 font-mono text-xs text-slate-700">
@@ -4608,6 +4741,7 @@ function InvoicePdfPreview({
 }) {
   const [state, setState] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const { t } = useTranslation("invoices");
 
   useEffect(() => {
     let cancelled = false;
@@ -4653,7 +4787,7 @@ function InvoicePdfPreview({
     return (
       <div className="flex h-full items-center justify-center gap-2 text-sm text-slate-500">
         <HiRefresh className="h-5 w-5 animate-spin" />
-        Loading PDF…
+        {t("preview.loadingPdf")}
       </div>
     );
   }
@@ -4669,13 +4803,13 @@ function InvoicePdfPreview({
       <div className="max-w-md rounded-lg border border-dashed border-slate-300 bg-white p-5 text-center">
         <p className="text-sm font-semibold text-slate-800">
           {state === "unavailable"
-            ? "PDF not available here"
-            : "Couldn’t load this PDF"}
+            ? t("preview.pdfUnavailableTitle")
+            : t("preview.pdfErrorTitle")}
         </p>
         <p className="mt-2 text-sm leading-6 text-slate-600">
           {state === "unavailable"
-            ? "The source PDF lives in the Caldova corpus lake, which isn’t connected in this environment. The reference below stays attached to this finding."
-            : "Something went wrong while loading the document. You can try reopening it."}
+            ? t("preview.pdfUnavailableBody")
+            : t("preview.pdfErrorBody")}
         </p>
         <p className="mt-3 inline-flex items-center gap-1.5 break-all rounded-md bg-slate-50 p-3 font-mono text-xs text-slate-700">
           <HiDownload className="h-3.5 w-3.5 shrink-0" />
@@ -4687,13 +4821,14 @@ function InvoicePdfPreview({
 }
 
 function MetadataPreview({ metadata }: { metadata: Record<string, unknown> }) {
+  const { t } = useTranslation("invoices");
   const entries = Object.entries(metadata).filter(([, value]) => value !== null && value !== "");
   if (entries.length === 0) {
     return null;
   }
   return (
     <div className="rounded-md border border-slate-100 p-3">
-      <p className="type-label">Metadata</p>
+      <p className="type-label">{t("preview.metadata")}</p>
       <dl className="mt-2 space-y-2 text-sm">
         {entries.slice(0, 6).map(([key, value]) => (
           <div key={key} className="grid grid-cols-[130px_minmax(0,1fr)] gap-3">
@@ -4706,57 +4841,70 @@ function MetadataPreview({ metadata }: { metadata: Record<string, unknown> }) {
   );
 }
 
-function decisionTrail(decision: InvoiceDecision, detail: InvoiceDetail | null) {
+function decisionTrail(
+  decision: InvoiceDecision,
+  detail: InvoiceDetail | null,
+  t: TFunction<"invoices">,
+  decisionLabel: (value: string) => string,
+) {
+  const lineCount = detail?.lines.length ?? decision.metadata.line_count ?? 0;
   if (!decision.has_agent_decision) {
     return [
       {
-        title: "Assurance",
-        detail: "No governed decision has been recorded for this invoice yet.",
+        title: t("trail.assurance.title"),
+        detail: t("trail.assurance.detail"),
       },
       {
-        title: "Ingest",
-        detail: `${detail?.lines.length ?? decision.metadata.line_count ?? 0} invoice lines imported into Caldova.`,
+        title: t("trail.ingest.title"),
+        detail: t("trail.ingest.detail", { count: lineCount }),
       },
     ];
   }
   return [
     {
-      title: "Decision",
-      detail: `${decision.decision} · ${decision.category} · ${decision.overpayment_display}`,
+      title: t("trail.decision.title"),
+      detail: `${decisionLabel(decision.decision)} · ${decision.category} · ${decision.overpayment_display}`,
     },
     {
-      title: "Manufacturing context",
+      title: t("trail.context.title"),
       detail: `${decision.supplier_name}${decision.scenario_name ? ` · ${decision.scenario_name}` : ""}`,
     },
     {
-      title: "Contract / policy basis",
-      detail: decision.basis_summary ?? `${decision.basis_types.length} basis types attached`,
+      title: t("trail.basis.title"),
+      detail:
+        decision.basis_summary ??
+        t("trail.basis.detail", { count: decision.basis_types.length }),
     },
     {
-      title: "Evidence",
-      detail: `${decision.source} (${detail?.evidence.length ?? decision.evidence_count} references)`,
+      title: t("trail.evidence.title"),
+      detail: t("trail.evidence.detail", {
+        source: decision.source,
+        count: detail?.evidence.length ?? decision.evidence_count,
+      }),
     },
     {
-      title: "Ingest",
-      detail: `${detail?.lines.length ?? decision.metadata.line_count ?? 0} invoice lines imported into Caldova.`,
+      title: t("trail.ingest.title"),
+      detail: t("trail.ingest.detail", { count: lineCount }),
     },
   ];
 }
 
-function formatMoney(value: number) {
-  return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+function formatMoney(fmt: Formatters, value: number) {
+  return fmt.currency(value, "USD", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
-function formatCurrency(value: string, currency = "USD") {
+function formatCurrency(fmt: Formatters, value: string, currency = "USD") {
   const amount = Number(value);
   if (!Number.isFinite(amount)) {
     return value;
   }
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
+  return fmt.currency(
+    amount,
     currency,
-    maximumFractionDigits: amount % 1 === 0 ? 0 : 2,
-  }).format(amount);
+    amount % 1 === 0
+      ? { minimumFractionDigits: 0, maximumFractionDigits: 0 }
+      : { maximumFractionDigits: 2 },
+  );
 }
 
 const CATEGORY_ACRONYMS = new Set(["api", "gmp", "ip", "msa", "po", "qa", "qc", "sku", "sow"]);

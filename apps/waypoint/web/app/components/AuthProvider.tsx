@@ -19,9 +19,11 @@ import {
   configureMsal,
   getMsalUserPhotoUrl,
   isMsalLogoutInProgress,
+  SignOutPendingError,
   signOutWithMsal,
   type MsalRuntimeConfig,
 } from "../../lib/msalAuth";
+import { getDocumentT } from "../i18n/runtime";
 
 export interface UserProfile {
   email: string;
@@ -200,7 +202,7 @@ export function AuthProvider({
           setAuthState(
             "unauthenticated",
             null,
-            "Microsoft sign-in is not configured.",
+            getDocumentT("auth")("errors.notConfigured"),
             "not_configured",
           );
           span?.setAttribute("auth.refresh.result", "not_configured");
@@ -471,11 +473,8 @@ async function traceClientAuthOperation<T>(
 }
 
 function getUserFacingAuthError(error: unknown) {
-  const details = getAuthErrorDetails(error);
-  if (details.errorMessage?.startsWith("Sign-out is still finishing.")) {
-    return details.errorMessage;
-  }
-  return "Sign-in failed.";
+  const t = getDocumentT("auth");
+  return error instanceof SignOutPendingError ? t("errors.signOutPending") : t("errors.signInFailed");
 }
 
 function getAuthErrorDetails(error: unknown) {

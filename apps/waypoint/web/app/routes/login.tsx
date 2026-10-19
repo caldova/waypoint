@@ -2,23 +2,26 @@ import type { MetaFunction } from "react-router";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useEffect, useState } from "react";
 import { HiArrowRight } from "react-icons/hi";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useAuth } from "../components/AuthProvider";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
+import { pageMeta } from "../i18n/meta";
+import { useLocale } from "../i18n/LocaleProvider";
+import { splitLocalePath } from "../i18n/paths";
+import { SignOutPendingError } from "../../lib/msalAuth";
 
-export const meta: MetaFunction = () => [
-  { title: "Sign in - Caldova" },
-  {
-    name: "description",
-    content: "Sign in to Caldova",
-  },
-];
+export const meta: MetaFunction = ({ location }) => pageMeta(location, "login");
 
 export default function Login() {
   const auth = useAuth();
+  const { t } = useTranslation(["auth", "common"]);
+  const { localize } = useLocale();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"));
+  const returnTo = sanitizeReturnTo(searchParams.get("returnTo"), localize("/"));
 
   useEffect(() => {
     if (auth.status === "authenticated") {
@@ -33,7 +36,7 @@ export default function Login() {
       await auth.signIn();
       navigate(returnTo, { replace: true });
     } catch (error) {
-      setMessage(getSignInErrorMessage(error));
+      setMessage(getSignInErrorMessage(error, t));
     } finally {
       setIsSigningIn(false);
     }
@@ -48,15 +51,15 @@ export default function Login() {
         <div className="flex items-center gap-3">
           <img src="/favicon.svg" alt="" className="h-9 w-9" />
           <div>
-            <p className="text-sm font-semibold text-blue-900">Waypoint</p>
+            <p className="text-sm font-semibold text-blue-900">{t("common:app.name")}</p>
             <h1 className="text-xl font-semibold tracking-tight text-slate-950">
-              Sign in
+              {t("login.heading")}
             </h1>
           </div>
         </div>
 
         <p className="mt-5 text-sm leading-6 text-slate-600">
-          Use your Microsoft account to continue.
+          {t("login.intro")}
         </p>
 
         <div className="mt-5">
@@ -65,7 +68,7 @@ export default function Login() {
               to={returnTo}
               className="flex min-h-11 w-full items-center justify-center rounded-md bg-blue-700 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800"
             >
-              Continue
+              {t("login.continue")}
             </Link>
           ) : (
             <button
@@ -75,10 +78,10 @@ export default function Login() {
               className="flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-blue-700 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {auth.isSigningOut
-                ? "Finishing sign-out..."
+                ? t("login.finishingSignOut")
                 : isSigningIn || auth.status === "checking"
-                ? "Checking sign-in..."
-                : "Sign in"}
+                ? t("login.checkingSignIn")
+                : t("login.signIn")}
               <HiArrowRight className="h-4 w-4" aria-hidden="true" />
             </button>
           )}
@@ -92,27 +95,31 @@ export default function Login() {
 
         {!auth.isConfigured ? (
           <p className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-5 text-slate-600">
-            Microsoft sign-in is not configured for this environment.
+            {t("login.notConfigured")}
           </p>
         ) : null}
+
+        <LanguageSwitcher className="mt-5 border-t border-slate-100 pt-4" />
       </section>
     </main>
   );
 }
 
-function sanitizeReturnTo(value: string | null) {
+function sanitizeReturnTo(value: string | null, home: string) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
-    return "/";
+    return home;
   }
-  if (value.startsWith("/login") || value.startsWith("/auth/msal/callback")) {
-    return "/";
+  // Compare without the locale prefix so `/es/login` is rejected too.
+  const { path } = splitLocalePath(value.split(/[?#]/)[0]);
+  if (path.startsWith("/login") || path.startsWith("/auth/msal/callback")) {
+    return home;
   }
   return value;
 }
 
-function getSignInErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message.startsWith("Sign-out is still finishing.")) {
-    return error.message;
+function getSignInErrorMessage(error: unknown, t: TFunction<"auth">) {
+  if (error instanceof SignOutPendingError) {
+    return t("errors.signOutPending");
   }
-  return "We couldn't sign you in. Please try again.";
+  return t("login.failed");
 }

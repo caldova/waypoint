@@ -3,7 +3,10 @@ import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useOutletContext } from "react-router";
 import type { ReactNode } from "react";
 import { HiChevronDown, HiLogout, HiMenu, HiX } from "react-icons/hi";
+import { useTranslation } from "react-i18next";
 import { useAuth, type UserProfile } from "./AuthProvider";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { useLocale } from "../i18n/LocaleProvider";
 
 interface RootOutletContext {
   env: {
@@ -15,6 +18,8 @@ interface RootOutletContext {
 export function AppHeader() {
   const { env, buildVersion } = useOutletContext<RootOutletContext>();
   const auth = useAuth();
+  const { t } = useTranslation();
+  const { localize } = useLocale();
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
@@ -71,7 +76,7 @@ export function AppHeader() {
   const handleSignOut = async () => {
     await auth.signOut();
     setIsUserMenuOpen(false);
-    navigate("/login", { replace: true });
+    navigate(localize("/login"), { replace: true });
   };
 
   return (
@@ -80,30 +85,30 @@ export function AppHeader() {
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-blue-700 focus:shadow-lg"
       >
-        Skip to main content
+        {t("app.skipToContent")}
       </a>
       <header className="relative z-40 border-b border-slate-200 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-3 py-1.5 2xl:px-4">
           <div className="flex items-center gap-3">
             <img
               src="/caldova-logo.png"
-              alt="Caldova"
+              alt={t("app.logoAlt")}
               className="h-8 w-auto"
             />
             <span
               className="h-7 w-px bg-slate-200"
               aria-hidden="true"
             />
-            <p className="text-sm font-semibold text-blue-900">Waypoint</p>
+            <p className="text-sm font-semibold text-blue-900">{t("app.name")}</p>
           </div>
           <div className="flex items-center gap-1.5">
             <nav
               className="hidden items-center gap-1.5 lg:flex"
-              aria-label="Primary navigation"
+              aria-label={t("app.primaryNavigation")}
             >
               {NAV_ITEMS.map((item) => (
-                <AppNavLink key={item.to} to={item.to}>
-                  {item.label}
+                <AppNavLink key={item.to} to={localize(item.to)} end={item.to === "/"}>
+                  {t(item.labelKey)}
                 </AppNavLink>
               ))}
             </nav>
@@ -131,7 +136,7 @@ export function AppHeader() {
               ) : (
                 <HiMenu className="h-5 w-5" aria-hidden="true" />
               )}
-              <span className="sr-only">Menu</span>
+              <span className="sr-only">{t("app.menu")}</span>
             </button>
           </div>
         </div>
@@ -139,13 +144,13 @@ export function AppHeader() {
           id="app-nav-menu"
           hidden={!isNavOpen}
           className="border-t border-slate-200 px-3 py-2 lg:hidden"
-          aria-label="Primary navigation"
+          aria-label={t("app.primaryNavigation")}
         >
           <ul className="mx-auto grid max-w-[1500px] gap-1 sm:grid-cols-2">
             {NAV_ITEMS.map((item) => (
               <li key={item.to}>
-                <AppNavLink to={item.to} block>
-                  {item.label}
+                <AppNavLink to={localize(item.to)} end={item.to === "/"} block>
+                  {t(item.labelKey)}
                 </AppNavLink>
               </li>
             ))}
@@ -157,12 +162,12 @@ export function AppHeader() {
 }
 
 const NAV_ITEMS = [
-  { to: "/", label: "Overview" },
-  { to: "/invoices", label: "Invoices" },
-  { to: "/activity", label: "Activity" },
-  { to: "/agent", label: "Agent Details" },
-  { to: "/quality", label: "Quality" },
-];
+  { to: "/", labelKey: "nav.overview" },
+  { to: "/invoices", labelKey: "nav.invoices" },
+  { to: "/activity", labelKey: "nav.activity" },
+  { to: "/agent", labelKey: "nav.agent" },
+  { to: "/quality", labelKey: "nav.quality" },
+] as const;
 
 function UserMenu({
   user,
@@ -181,6 +186,7 @@ function UserMenu({
   onSignOut: () => void;
   ref: React.RefObject<HTMLDivElement | null>;
 }) {
+  const { t } = useTranslation();
   const initials = user.name
     .split(/\s+/)
     .map((part) => part[0])
@@ -225,13 +231,12 @@ function UserMenu({
             <p className="truncate text-xs text-slate-500">{user.email}</p>
             {isLocalMode ? (
               <div className="mt-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5">
-                <p className="text-xs font-semibold text-emerald-800">Dev mode</p>
-                <p className="text-xs text-emerald-700">
-                  Authentication is bypassed locally.
-                </p>
+                <p className="text-xs font-semibold text-emerald-800">{t("userMenu.devMode")}</p>
+                <p className="text-xs text-emerald-700">{t("userMenu.devModeDetail")}</p>
               </div>
             ) : null}
           </div>
+          <LanguageSwitcher className="border-b border-slate-100 px-2 py-2" />
           <button
             type="button"
             role="menuitem"
@@ -239,7 +244,7 @@ function UserMenu({
             className="mt-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-100"
           >
             <HiLogout className="h-4 w-4 text-slate-500" aria-hidden="true" />
-            {isLocalMode ? "Back to login" : "Sign out"}
+            {isLocalMode ? t("userMenu.backToLogin") : t("userMenu.signOut")}
           </button>
           <p className="border-t border-slate-100 pr-2 pt-1.5 text-right type-meta">
             {buildVersion}
@@ -252,17 +257,19 @@ function UserMenu({
 
 function AppNavLink({
   to,
+  end = false,
   block = false,
   children,
 }: {
   to: string;
+  end?: boolean;
   block?: boolean;
   children: ReactNode;
 }) {
   return (
     <NavLink
       to={to}
-      end={to === "/"}
+      end={end}
       className={({ isActive }) =>
         [
           block

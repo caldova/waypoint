@@ -46,6 +46,7 @@ jobs:
           cache-dependency-path: apps/waypoint/web/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run i18n:check
       - run: npm run build
 
   corpus:
@@ -105,3 +106,5 @@ jobs:
       - run: python -m compileall -q tools/deploy/scripts
       - run: python -m json.tool tools/deploy/deployment.manifest.json > /dev/null
       - run: python -m unittest discover -s tools/deploy/tests -v
+      - name: Build PR preview Bicep
+        run: for f in infra/preview/*.bicep; do az bicep build --file "$f" --stdout > /dev/null; done

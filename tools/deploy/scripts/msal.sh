@@ -11,15 +11,17 @@
 # Everything is look-up-before-write so a re-run against an already-correct app is a no-op.
 # Uses Microsoft Graph via `az rest` for the app-roles / SPA-redirect patches.
 #
-# Usage: msal.sh ensure | msal.sh redirect
+#   unredirect — remove one web FQDN's SPA redirect URIs (PR preview cleanup; idempotent).
+#
+# Usage: msal.sh ensure | msal.sh redirect | msal.sh unredirect
 # Required env (ensure):   AZURE_TENANT_ID
 # Optional env (ensure):   MSAL_CLIENT_ID (from discover; else looked up / created),
 #                          MSAL_DISPLAY_NAME (default "waypoint"),
 #                          MSAL_ALLOWED_APP_IDS (default "")
-# Required env (redirect): MSAL_CLIENT_ID, WEB_FQDN
+# Required env (redirect, unredirect): MSAL_CLIENT_ID, WEB_FQDN
 set -euo pipefail
 
-mode="${1:?usage: msal.sh ensure|redirect}"
+mode="${1:?usage: msal.sh ensure|redirect|unredirect}"
 display_name="${MSAL_DISPLAY_NAME:-waypoint}"
 graph="https://graph.microsoft.com/v1.0"
 retry_delay_seconds="${MSAL_GRAPH_RETRY_DELAY_SECONDS:-5}"
@@ -271,6 +273,27 @@ PY
   fi
   emit msal_redirect_uri "$cb"
   log "redirect complete"
+elif [[ "$mode" == "unredirect" ]]; then
+  : "${WEB_FQDN:?WEB_FQDN required}"
+  resolve_app
+  existing_spa="$(az rest --method GET --uri "${graph}/applications/${OBJ_ID}" --query "spa.redirectUris" -o json 2>/dev/null || echo '[]')"
+  # Remove only this host's two URIs; every other redirect URI is preserved.
+  body="$(CB="https://${WEB_FQDN}/auth/msal/callback" LOGIN="https://${WEB_FQDN}/login" python3 - "$existing_spa" <<'PY'
+import json, os, sys
+uris = set(json.loads(sys.argv[1] or "[]"))
+remaining = uris - {os.environ["CB"], os.environ["LOGIN"]}
+print(json.dumps({"spa": {"redirectUris": sorted(remaining)}, "_changed": remaining != uris}))
+PY
+)"
+  changed="$(echo "$body" | python3 -c 'import json,sys;print(json.load(sys.stdin).get("_changed"))')"
+  patch="$(echo "$body" | python3 -c 'import json,sys;d=json.load(sys.stdin);d.pop("_changed",None);print(json.dumps(d))')"
+  if [[ "$changed" == "True" ]]; then
+    log "removing SPA redirect URIs for web FQDN $WEB_FQDN"
+    graph_patch "${graph}/applications/${OBJ_ID}" "$patch"
+  else
+    log "SPA redirect URIs do not include $WEB_FQDN (no-op)"
+  fi
+  log "unredirect complete"
 else
-  echo "::error::unknown mode '$mode' (use ensure|redirect)" >&2; exit 2
+  echo "::error::unknown mode '$mode' (use ensure|redirect|unredirect)" >&2; exit 2
 fi

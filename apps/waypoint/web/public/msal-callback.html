@@ -35,6 +35,25 @@
     <script>
       (function () {
         var message = document.getElementById("message");
+        // Mirrors the app's locale choice: waypoint_lang cookie, then browser language.
+        var strings = {
+          en: {
+            signingIn: "Completing sign-in…",
+            signedOut: "Sign-out is complete. You can close this window.",
+            failed: "Unable to complete sign-in. Close this window and try again.",
+          },
+          es: {
+            signingIn: "Completando el inicio de sesión…",
+            signedOut: "Se cerró la sesión. Puedes cerrar esta ventana.",
+            failed: "No se pudo completar el inicio de sesión. Cierra esta ventana y vuelve a intentarlo.",
+          },
+        };
+        var cookie = document.cookie.match(/(?:^|;\s*)waypoint_lang=([^;]+)/);
+        var lang = ((cookie && cookie[1]) || navigator.language || "en").slice(0, 2).toLowerCase();
+        var text = strings[lang] || strings.en;
+        document.documentElement.lang = strings[lang] ? lang : "en";
+        document.title = text.signingIn.replace("…", "");
+        message.textContent = text.signingIn;
         var query = new URLSearchParams(window.location.search);
         var hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
         var hasAuthResponse =
@@ -47,19 +66,19 @@
         }
 
         if (!hasAuthResponse) {
-          message.textContent = "Sign-out is complete. You can close this window.";
+          message.textContent = text.signedOut;
           window.close();
           return;
         }
 
         if (!window.msalRedirectBridge) {
-          message.textContent = "Unable to complete sign-in. Close this window and try again.";
+          message.textContent = text.failed;
           return;
         }
 
         Promise.resolve(window.msalRedirectBridge.broadcastResponseToMainFrame()).catch(
           function () {
-            message.textContent = "Unable to complete sign-in. Close this window and try again.";
+            message.textContent = text.failed;
           },
         );
       })();

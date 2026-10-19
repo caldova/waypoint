@@ -1,0 +1,128 @@
+{
+  "stages": {
+    "run": {
+      "title": "Ejecuta el aseguramiento",
+      "detail": "Genera evidencia en vivo y gobernada a partir de una factura."
+    },
+    "inspect": {
+      "title": "Inspecciona la ejecución",
+      "detail": "Correlaciona el resultado con trazas operativas depuradas."
+    },
+    "measure": {
+      "title": "Mide la calidad",
+      "detail": "Evalúa el agente actual y verifica sus recursos de calidad."
+    },
+    "improve": {
+      "title": "Mejora el agente",
+      "detail": "Busca y prepara candidatos sin aplicarlos."
+    },
+    "release": {
+      "title": "Publica la versión con aprobación",
+      "detail": "Mantén el entrenamiento en vivo detrás de controles de revisión, gasto y comandos."
+    }
+  },
+  "errors": {
+    "manifestStatus": "El manifiesto de evidencia devolvió {{status}}",
+    "unavailable": "La evidencia de calidad no está disponible",
+    "title": "Evidencia de calidad no disponible",
+    "hint": "Verifica que el manifiesto público y versionado de evidencia esté incluido en esta implementación."
+  },
+  "loading": "Cargando la evidencia de calidad",
+  "hero": {
+    "schemaVersion": "Esquema v{{version}}",
+    "title": "Calidad y optimización",
+    "description": "Sigue un único ciclo controlado: genera evidencia de la factura, inspecciona su traza, mide el agente, mejóralo y exige aprobación antes de publicar la versión. GitHub Actions y Foundry se encargan del trabajo; este navegador solo explica el proceso y enlaza a él.",
+    "openWorkflow": "Abrir el flujo de trabajo de calidad del agente",
+    "openFoundry": "Abrir el proyecto de Foundry"
+  },
+  "governance": {
+    "ariaLabel": "Límite del plano de control",
+    "title": "Por qué estas operaciones están protegidas",
+    "description": "Cada acción en la nube se ejecuta en GitHub Actions para que las entradas, las credenciales, la evidencia y las aprobaciones sigan siendo auditables. Esta página nunca ejecuta comandos en la nube desde tu navegador."
+  },
+  "metrics": {
+    "ariaLabel": "Resultados de calidad de referencia",
+    "inferenceReduction": {
+      "label": "Reducción estimada de inferencia",
+      "detail": "Comparación de referencia por solicitud de evidencia"
+    },
+    "rftPassRate": {
+      "label": "Tasa de aprobación agregada de RFT",
+      "detail": "{{samples}} muestras × {{runs}} ejecuciones"
+    },
+    "optimizerLift": {
+      "label": "Mejora de puntuación del optimizador"
+    }
+  },
+  "lineage": {
+    "title": "Ruta de calidad de {{agent}}",
+    "detail": "Medido con {{dataset}} v{{datasetVersion}} · evaluador v{{evaluatorVersion}}",
+    "columns": {
+      "stage": "Etapa",
+      "lineage": "Linaje",
+      "quality": "Calidad",
+      "evidence": "Evidencia"
+    },
+    "baseline": {
+      "stage": "Línea base alojada",
+      "identifier": "agente v{{version}}",
+      "evaluationRuns_one": "{{count}} ejecución de evaluación",
+      "evaluationRuns_many": "{{count}} ejecuciones de evaluación",
+      "evaluationRuns_other": "{{count}} ejecuciones de evaluación"
+    },
+    "optimizer": {
+      "stage": "Agent Optimizer"
+    },
+    "rft": {
+      "stage": "Transferencia de costo con RFT"
+    },
+    "job": "Trabajo {{id}}"
+  },
+  "operations": {
+    "title": "De la evidencia de la factura a una versión segura",
+    "detail": "Un ciclo de calidad controlado. Sigue los pasos en orden para un nuevo ciclo de calidad o abre la operación que necesitas para una ejecución existente.",
+    "step": "Paso {{step}}:",
+    "execution": {
+      "bounded": "Se completa en Actions",
+      "noWait": "Inicia un trabajo asíncrono",
+      "protected": "Requiere aprobación protegida"
+    },
+    "availability": {
+      "available": "Disponible",
+      "guarded": "Protegida",
+      "blocked": "Bloqueada"
+    },
+    "workflowOption": "Opción del flujo de trabajo: {{id}}",
+    "viewPrerequisites": "Ver requisitos previos",
+    "openInActionsAriaLabel": "Abrir {{operation}} en GitHub Actions",
+    "openInActions": "Abrir en GitHub Actions"
+  },
+  "evidence": {
+    "title": "Vigencia y fuente de la evidencia",
+    "reviewed": "Revisada el {{date}}",
+    "source": "Fuente",
+    "staleAfter": "Desactualizada a partir del {{date}}"
+  },
+  "evidenceState": {
+    "current": {
+      "label": "Vigente",
+      "description": "Verificada por la fuente indicada dentro de su ventana de vigencia."
+    },
+    "referenceOnly": {
+      "label": "Solo referencia",
+      "description": "Linaje seguro para confirmar en el repositorio, destinado a revisión; no es una respuesta en vivo del plano de control."
+    },
+    "stale": {
+      "label": "Desactualizada",
+      "description": "Fuera de su ventana de vigencia o en espera de una nueva verificación en vivo."
+    }
+  },
+  "safety": {
+    "title": "Límite de seguridad",
+    "description": "El flujo de trabajo puede ejecutar, inspeccionar, medir y preparar. Nunca aplica automáticamente un candidato del optimizador, ni promueve un modelo, ni implementa un agente.",
+    "liveRftGate": "Control de RFT en vivo",
+    "gateDetail": "Se requieren revisores obligatorios y una confirmación explícita del gasto. El envío sigue bloqueado hasta que exista un comando dedicado confirmado en el repositorio.",
+    "reviewControls": "Revisar los controles del flujo de trabajo",
+    "inspectFoundry": "Inspeccionar el estado actual de Foundry"
+  }
+}

@@ -1,0 +1,423 @@
+{
+  "header": {
+    "title": "Facturas de proveedores",
+    "intro": "La cola de trabajo completa de facturas. Selecciona las facturas sin revisar para ejecutar el aseguramiento y luego inspecciona las decisiones registradas, la evidencia y la recuperación."
+  },
+  "tiles": {
+    "shown": "Mostradas",
+    "invoices": "Facturas",
+    "pending": "Pendientes",
+    "escalations": "Escalamientos",
+    "filterToEscalations": "Filtrar por escalamientos",
+    "recoverable": "Recuperable"
+  },
+  "summary": {
+    "loading": "Cargando las decisiones sobre facturas de proveedores…",
+    "recoverable_one": "{{amount}} recuperable en {{count}} factura revisada",
+    "recoverable_many": "{{amount}} recuperable en {{count}} facturas revisadas",
+    "recoverable_other": "{{amount}} recuperable en {{count}} facturas revisadas",
+    "escalations_one": "{{count}} escalamiento",
+    "escalations_many": "{{count}} escalamientos",
+    "escalations_other": "{{count}} escalamientos",
+    "pending_one": "{{count}} pendiente",
+    "pending_many": "{{count}} pendientes",
+    "pending_other": "{{count}} pendientes",
+    "readyToRun_one": "{{count}} lista para ejecutar",
+    "readyToRun_many": "{{count}} listas para ejecutar",
+    "readyToRun_other": "{{count}} listas para ejecutar",
+    "line": "{{facts}}. Las aprobaciones humanas y las citas permanecen vinculadas a cada recomendación."
+  },
+  "list": {
+    "label": "Facturas",
+    "loading": "Cargando…",
+    "showing": "Mostrando {{shown}} de {{total}}",
+    "count_one": "{{count}} factura",
+    "count_many": "{{count}} facturas",
+    "count_other": "{{count}} facturas",
+    "selectVisible": "Seleccionar visibles",
+    "clearVisible": "Deseleccionar visibles",
+    "refresh": "Actualizar",
+    "loadingInvoices": "Cargando facturas…",
+    "empty": "No hay facturas disponibles.",
+    "loadingInsights": "Cargando análisis…"
+  },
+  "table": {
+    "selectAllVisible": "Seleccionar todas las facturas visibles",
+    "clearAllVisible": "Deseleccionar todas las facturas visibles",
+    "selectInvoice": "Seleccionar la factura {{number}}",
+    "columns": {
+      "invoice": "Factura",
+      "reasoning": "Razonamiento",
+      "decision": "Decisión",
+      "category": "Categoría",
+      "basis": "Fundamento",
+      "confidence": "Confianza",
+      "evidence": "Evidencia",
+      "evidenceHint": "Cuántos expertos independientes corroboraron la decisión y cuántas fuentes de evidencia citaron.",
+      "overpayment": "Sobrepago"
+    }
+  },
+  "run": {
+    "of": "Ejecución {{index}} de {{total}}",
+    "number": "Ejecución {{number}}",
+    "agentsWorking": "Agentes trabajando…",
+    "viewLiveProgress": "Ver el progreso en vivo en Actividad",
+    "viewActiveRun": "Ver la ejecución activa"
+  },
+  "decisionState": {
+    "pending": "Pendiente",
+    "notRun": "Sin ejecutar",
+    "closed": "Cerrada"
+  },
+  "severity": {
+    "critical": "Crítica",
+    "high": "Alta",
+    "medium": "Media",
+    "moderate": "Moderada",
+    "low": "Baja"
+  },
+  "basis": {
+    "contract": "Contrato",
+    "policy": "Política",
+    "unmapped": "Sin asignar"
+  },
+  "actions": {
+    "cancel": "Cancelar",
+    "open": "Abrir"
+  },
+  "batch": {
+    "selected_one": "{{count}} factura seleccionada",
+    "selected_many": "{{count}} facturas seleccionadas",
+    "selected_other": "{{count}} facturas seleccionadas",
+    "tooLarge": "Reduce la selección a {{max}} facturas o menos.",
+    "limit": "Límite del lote: {{max}} · hasta {{concurrency}} inicios a la vez",
+    "clear": "Borrar",
+    "review": "Revisar lote",
+    "processed": "Solicitud de lote procesada",
+    "outcomes": "Iniciadas: {{accepted}} · Reutilizadas: {{reused}} · No encontradas: {{notFound}} · Error al iniciar: {{failed}}",
+    "viewActivity": "Ver Actividad"
+  },
+  "batchConfirm": {
+    "title_one": "¿Iniciar el aseguramiento de {{count}} factura?",
+    "title_many": "¿Iniciar el aseguramiento de {{count}} facturas?",
+    "title_other": "¿Iniciar el aseguramiento de {{count}} facturas?",
+    "close": "Cerrar la confirmación del lote",
+    "guidance": "Cada factura recién aceptada inicia una orquestación de agentes hospedados y puede generar costos de uso. Las ejecuciones activas se reutilizan automáticamente. Caldova inicia como máximo {{concurrency}} facturas a la vez y acepta hasta {{max}} por lote.",
+    "currentRecoverable": "Monto recuperable actual",
+    "starting": "Iniciando el lote…",
+    "start": "Iniciar aseguramiento del lote"
+  },
+  "filters": {
+    "decision": "Decisión",
+    "all": "Todas",
+    "category": "Categoría",
+    "categoryAria": "Filtrar por categoría",
+    "allCategories": "Todas las categorías",
+    "severity": "Severidad",
+    "severityAria": "Filtrar por severidad",
+    "anySeverity": "Cualquier severidad",
+    "supplier": "Proveedor",
+    "supplierAria": "Filtrar por proveedor",
+    "allSuppliers": "Todos los proveedores",
+    "searchPlaceholder": "Buscar factura o proveedor…",
+    "searchInvoices": "Buscar facturas",
+    "sortAria": "Ordenar facturas",
+    "sortBy": "Ordenar por",
+    "sort": {
+      "recent": "Más recientes",
+      "overpayment": "Mayor sobrepago",
+      "confidence": "Menor confianza",
+      "supplier": "Proveedor (A–Z)"
+    },
+    "filters": "Filtros",
+    "activeCount_one": ", {{count}} activo",
+    "activeCount_many": ", {{count}} activos",
+    "activeCount_other": ", {{count}} activos",
+    "activeFilters": "Filtros activos",
+    "clearAll": "Borrar todo",
+    "showResults_one": "Mostrar {{count}} factura",
+    "showResults_many": "Mostrar {{count}} facturas",
+    "showResults_other": "Mostrar {{count}} facturas",
+    "chips": {
+      "removeDecision": "Quitar el filtro de decisión: {{value}}",
+      "removeCategory": "Quitar el filtro de categoría: {{value}}",
+      "severity": "Severidad: {{severity}}",
+      "removeSeverity": "Quitar el filtro de severidad: {{value}}",
+      "removeSupplier": "Quitar el filtro de proveedor: {{value}}",
+      "sorted": "Orden: {{sort}}",
+      "resetSort": "Restablecer el orden a {{sort}}"
+    }
+  },
+  "card": {
+    "noOverpayment": "Sin sobrepago",
+    "recoverable": "Recuperable",
+    "atRisk": "En riesgo",
+    "experts_one": "{{count}} experto",
+    "experts_many": "{{count}} expertos",
+    "experts_other": "{{count}} expertos",
+    "sourcesCited_one": "{{count}} fuente citada",
+    "sourcesCited_many": "{{count}} fuentes citadas",
+    "sourcesCited_other": "{{count}} fuentes citadas"
+  },
+  "noMatches": {
+    "title": "Ninguna factura coincide con estos filtros",
+    "body": "Amplía los filtros de decisión, severidad o proveedor, o bórralos para ver el registro completo.",
+    "clear": "Borrar filtros"
+  },
+  "insights": {
+    "decisionMix": "Distribución de decisiones",
+    "noDecisions": "No hay decisiones en la vista.",
+    "recoveryBySupplier": "Recuperación por proveedor",
+    "noRecoverable": "No hay sobrepagos recuperables en la vista.",
+    "severity": "Severidad",
+    "topOverpayments": "Mayores sobrepagos",
+    "recoveryTrend": "Tendencia de recuperación",
+    "days_one": "{{count}} día",
+    "days_many": "{{count}} días",
+    "days_other": "{{count}} días",
+    "sparklineLabel": "Recuperación a lo largo del tiempo"
+  },
+  "confidence": {
+    "calibratedTitle": "Confianza calibrada de la decisión.",
+    "uncalibratedTitle": "Puntuación de evidencia no calibrada; no es la precisión calibrada de la decisión.",
+    "notCalibrated": "Sin calibrar"
+  },
+  "drawer": {
+    "title": "<sr>Contexto de la decisión para la factura </sr>{{number}}",
+    "copyInvoiceId": "Copiar el ID de factura {{number}}",
+    "invoiced": "{{total}} facturado",
+    "close": "Cerrar el contexto de la decisión",
+    "olderRun": "Estás viendo una ejecución anterior. La decisión actual es la de la ejecución {{run}}: {{decision}}.",
+    "olderRunPending": "pendiente",
+    "confidence": "Confianza",
+    "notReported": "No informada",
+    "calibrated": "Calibrada",
+    "evidenceScoreNotCalibrated": "Puntuación de evidencia, sin calibrar",
+    "decided": "Fecha de decisión",
+    "notRecorded": "No registrado",
+    "run": "Ejecución",
+    "loadingEvidence": "Cargando cláusulas y evidencia…",
+    "footerActive": "Hay una nueva ejecución de aseguramiento en curso.",
+    "footerRerun": "Una nueva ejecución abre un caso nuevo. Las ejecuciones anteriores se conservan en el historial.",
+    "starting": "Iniciando…",
+    "rerun": "Volver a ejecutar el aseguramiento…"
+  },
+  "verdict": {
+    "recover": "Recupera <money>{{amount}}</money> de {{supplier}}",
+    "escalate": "Escala <money>{{amount}}</money> antes del pago",
+    "review": "Retén <money>{{amount}}</money> para revisión humana",
+    "approveTotal": "Aprueba <money>{{total}}</money> para pago",
+    "approve": "Aprueba para pago",
+    "other": "{{label}}: <money>{{amount}}</money> en riesgo"
+  },
+  "runSwitcher": {
+    "label_one": "{{count}} ejecución en esta factura, de la más reciente a la más antigua",
+    "label_many": "{{count}} ejecuciones en esta factura, de la más reciente a la más antigua",
+    "label_other": "{{count}} ejecuciones en esta factura, de la más reciente a la más antigua",
+    "current": "· actual"
+  },
+  "stance": {
+    "governing": "Término rector",
+    "supports": "Respalda {{decision}}",
+    "pointsTo": "Apunta a {{decision}}"
+  },
+  "citation": {
+    "noText": "(sin texto de cita)"
+  },
+  "clauses": {
+    "title": "Fundamento contractual y de políticas",
+    "cited_one": "{{count}} cláusula citada",
+    "cited_many": "{{count}} cláusulas citadas",
+    "cited_other": "{{count}} cláusulas citadas",
+    "empty": "No hay ningún fundamento contractual ni de políticas vinculado a esta decisión. Trátala como no respaldada hasta que un revisor la vincule a una cláusula.",
+    "noCitations": "FoundryIQ no registró citas a nivel de cláusula para esta ejecución. Los documentos de abajo son el fundamento registrado."
+  },
+  "evidence": {
+    "title": "Evidencia por fuente",
+    "citations_one": "{{count}} cita",
+    "citations_many": "{{count}} citas",
+    "citations_other": "{{count}} citas",
+    "records_one": "{{count}} registro",
+    "records_many": "{{count}} registros",
+    "records_other": "{{count}} registros",
+    "sources_one": "{{count}} fuente",
+    "sources_many": "{{count}} fuentes",
+    "sources_other": "{{count}} fuentes",
+    "nothingRecorded": "No se registró nada para esta ejecución.",
+    "clausesListed": "Las cláusulas aparecen en Fundamento contractual y de políticas.",
+    "noClauseCitations": "No se registraron citas a nivel de cláusula.",
+    "expertFallback": "Experto",
+    "thirdPartySource": "Fuente de terceros",
+    "invoiceRecords": "Registros de la factura",
+    "recordsScope": "Registros vinculados al hallazgo",
+    "openRecord": "Abrir registro",
+    "none": "Sin evidencia"
+  },
+  "copy": {
+    "copied": "Copiado",
+    "failed": "No se pudo copiar",
+    "failedSelect": "No se pudo copiar. Selecciona el texto."
+  },
+  "supplier": {
+    "title": "Para {{supplier}}",
+    "copyParagraph": "Copiar párrafo",
+    "draftedBy": "Redactado por {{author}} el {{date}}. Léelo antes de enviarlo.",
+    "nothingToSend": "No hay nada que enviar. Las facturas aprobadas no necesitan un mensaje al proveedor.",
+    "noDraft": "No se redactó ningún borrador para el proveedor en esta ejecución. El razonamiento de arriba es para los revisores, no para el proveedor. Si disputas la partida, redacta tu mensaje a partir de las cláusulas anteriores."
+  },
+  "nextStep": {
+    "title": "Tu siguiente paso",
+    "recover": {
+      "title": "Solicita un crédito de {{amount}} a {{supplier}}",
+      "body": "Copia el párrafo anterior en un correo desde el buzón de proveedores, adjunta el PDF de la factura y luego registra el crédito en cuentas por pagar."
+    },
+    "review": {
+      "title": "Retén {{amount}} y toma la decisión",
+      "body": "Los agentes no pudieron resolver este caso. Lee las cláusulas y la evidencia que apunta en otra dirección, y luego aprueba o disputa la partida."
+    },
+    "escalate": {
+      "title": "Retén {{amount}} y escala",
+      "body": "Todavía no pagues ni disputes esta partida. Envía el paquete de escalamiento al responsable indicado en el procedimiento de disputas."
+    },
+    "approve": {
+      "title": "Libera para pago",
+      "body": "La factura concilia con el contrato y los datos de operaciones. No hay nada que recuperar."
+    },
+    "fallback": {
+      "title": "Decide qué hacer con {{amount}}",
+      "body": "Lee las cláusulas y la evidencia anteriores antes de actuar."
+    },
+    "copyEscalation": "Copiar paquete de escalamiento",
+    "openContract": "Abrir el contrato",
+    "agentProposed": "<label>Propuesta del agente: </label>{{actions}}.",
+    "openPdf": "Abrir el PDF de la factura",
+    "noSend": "Caldova registra el caso. No envía correos ni publica aprobaciones desde este panel.",
+    "reviewerNotes": "Notas del revisor ({{count}})"
+  },
+  "notRun": {
+    "activeTitle": "Los agentes están trabajando en esta factura",
+    "activeBody": "El caso aparecerá aquí cuando la ejecución registre una decisión. Sigue el progreso de cada experto en Actividad.",
+    "title": "Aún no hay decisión",
+    "body": "Al ejecutar el aseguramiento, esta factura se envía a la canalización de agentes en la nube. Cuatro expertos la verifican con sus fuentes y luego Caldova registra una decisión: aprobar, revisar, recuperar o escalar.",
+    "whatYouGet": "Obtendrás el veredicto y el importe, las cláusulas en las que se basa, la evidencia por fuente, un párrafo para el proveedor cuando haya algo que enviar y tu siguiente paso.",
+    "starting": "Iniciando el aseguramiento…",
+    "run": "Ejecutar aseguramiento…",
+    "hint": "Puede tardar varios minutos. Primero tendrás que confirmar."
+  },
+  "record": {
+    "lines": "Partidas de la factura",
+    "lineCount_one": "{{count}} partida",
+    "lineCount_many": "{{count}} partidas",
+    "lineCount_other": "{{count}} partidas",
+    "sku": "SKU {{sku}}",
+    "noSku": "Sin SKU",
+    "noPo": "Sin OC",
+    "loadingLines": "Cargando las partidas de la factura…",
+    "noLines": "No se importaron partidas de la factura.",
+    "oneLake": "Los documentos provienen de Microsoft OneLake",
+    "trail": "Trazabilidad de la decisión"
+  },
+  "trail": {
+    "assurance": {
+      "title": "Aseguramiento",
+      "detail": "Aún no se ha registrado una decisión controlada para esta factura."
+    },
+    "finding": {
+      "title": "Hallazgo registrado"
+    },
+    "ingest": {
+      "title": "Ingesta",
+      "detail_one": "{{count}} partida de factura importada a Caldova.",
+      "detail_many": "{{count}} partidas de factura importadas a Caldova.",
+      "detail_other": "{{count}} partidas de factura importadas a Caldova."
+    },
+    "decision": {
+      "title": "Decisión"
+    },
+    "context": {
+      "title": "Contexto de fabricación"
+    },
+    "basis": {
+      "title": "Fundamento contractual o de políticas",
+      "detail_one": "{{count}} tipo de fundamento vinculado",
+      "detail_many": "{{count}} tipos de fundamento vinculados",
+      "detail_other": "{{count}} tipos de fundamento vinculados"
+    },
+    "evidence": {
+      "title": "Evidencia",
+      "detail_one": "{{source}} ({{count}} referencia)",
+      "detail_many": "{{source}} ({{count}} referencias)",
+      "detail_other": "{{source}} ({{count}} referencias)"
+    }
+  },
+  "runConfirm": {
+    "title": "¿Ejecutar el aseguramiento de {{number}}?",
+    "pipeline": "Esto inicia la canalización de agentes en la nube para {{supplier}}. Cuatro expertos reúnen evidencia y luego se registra una decisión. Puede tardar varios minutos y podrás seguirla en Actividad.",
+    "reuse": "Si ya hay una ejecución activa para esta factura, Caldova la reutiliza en lugar de iniciar otra. Cada ejecución nueva usa capacidad de agentes hospedados y puede generar costos de uso.",
+    "runNumber": "Esta será la ejecución {{number}}. Las ejecuciones anteriores se conservan en el historial de ejecuciones.",
+    "start": "Iniciar ejecución de aseguramiento"
+  },
+  "sourceCount": {
+    "noneTitle": "Aún no se registró evidencia de expertos para esta factura.",
+    "experts_one": "<num>{{count}}</num> experto",
+    "experts_many": "<num>{{count}}</num> expertos",
+    "experts_other": "<num>{{count}}</num> expertos",
+    "citations_one": "<num>{{count}}</num> cita",
+    "citations_many": "<num>{{count}}</num> citas",
+    "citations_other": "<num>{{count}}</num> citas",
+    "independentExperts_one": "{{count}} experto independiente",
+    "independentExperts_many": "{{count}} expertos independientes",
+    "independentExperts_other": "{{count}} expertos independientes",
+    "tooltipPlanes_one": "{{count}} cita corroborada por {{experts}} (p. ej., WorkIQ, FabricIQ). Abre la fila para ver las citas de cada experto.",
+    "tooltipPlanes_many": "{{count}} citas corroboradas por {{experts}} (p. ej., WorkIQ, FabricIQ). Abre la fila para ver las citas de cada experto.",
+    "tooltipPlanes_other": "{{count}} citas corroboradas por {{experts}} (p. ej., WorkIQ, FabricIQ). Abre la fila para ver las citas de cada experto.",
+    "tooltipSources_one": "{{count}} cita registrada. Abre la fila para ver los detalles.",
+    "tooltipSources_many": "{{count}} citas registradas. Abre la fila para ver los detalles.",
+    "tooltipSources_other": "{{count}} citas registradas. Abre la fila para ver los detalles."
+  },
+  "empty": {
+    "none": "Ninguno"
+  },
+  "preview": {
+    "ariaLabel": "Vista previa de {{title}}",
+    "close": "Cerrar vista previa",
+    "pdfTitle": "PDF de {{number}}",
+    "loadingTitle": "Cargando documento",
+    "viewer": "Visor de documentos",
+    "loadingDocument": "Cargando documento…",
+    "contractDocument": "Documento de contrato",
+    "policyDocument": "Documento de política",
+    "invoicePdf": "PDF de la factura",
+    "documentId": "ID del documento",
+    "supplierId": "ID del proveedor",
+    "type": "Tipo",
+    "effective": "Vigencia",
+    "notSpecified": "No especificada",
+    "policyId": "ID de la política",
+    "severity": "Severidad",
+    "noPolicyDescription": "No hay una descripción disponible para esta política.",
+    "documentContent": "Contenido del documento",
+    "contentUnavailableTitle": "El contenido del documento no está disponible aquí",
+    "contentUnavailableBody": "El documento completo está en el lago del corpus de Caldova, que no está conectado en este entorno. La referencia de abajo sigue vinculada a este hallazgo.",
+    "loadingPdf": "Cargando PDF…",
+    "pdfUnavailableTitle": "El PDF no está disponible aquí",
+    "pdfErrorTitle": "No se pudo cargar este PDF",
+    "pdfUnavailableBody": "El PDF de origen está en el lago del corpus de Caldova, que no está conectado en este entorno. La referencia de abajo sigue vinculada a este hallazgo.",
+    "pdfErrorBody": "Algo salió mal al cargar el documento. Intenta abrirlo de nuevo.",
+    "metadata": "Metadatos"
+  },
+  "errors": {
+    "fetchDecisions": "No se pudieron obtener las decisiones sobre facturas",
+    "fetchDecisionsStatus": "No se pudieron obtener las decisiones sobre facturas: {{status}}",
+    "fetchDetail": "No se pudo obtener el detalle de la factura",
+    "fetchDetailStatus": "No se pudo obtener el detalle de la factura: {{status}}",
+    "contractPreview": "No se pudo obtener la vista previa del contrato",
+    "contractPreviewStatus": "No se pudo obtener la vista previa del contrato: {{status}}",
+    "policyPreview": "No se pudo obtener la vista previa de la política",
+    "policyPreviewStatus": "No se pudo obtener la vista previa de la política: {{status}}",
+    "startAssurance": "No se pudo iniciar el aseguramiento.",
+    "startAssuranceStatus": "No se pudo iniciar el aseguramiento ({{status}}).",
+    "startBatch": "No se pudo iniciar el aseguramiento del lote.",
+    "startBatchStatus": "No se pudo iniciar el aseguramiento del lote ({{status}})."
+  }
+}

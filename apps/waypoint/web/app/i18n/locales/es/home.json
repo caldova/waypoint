@@ -1,0 +1,42 @@
+{
+  "hero": {
+    "heading": "Caldova investiga las facturas de proveedores, protege los compromisos de fabricación sensibles a la propiedad intelectual y controla el escalamiento de las desviaciones de calidad causadas por proveedores.",
+    "body": "Plantea la pregunta en Teams o Copilot y luego ven aquí para inspeccionar la evidencia de las facturas, el comportamiento de los proveedores, los registros de lote, los registros de calidad y las decisiones de los agentes antes de que actúen los equipos de finanzas, compras, legal o calidad.",
+    "reviewInvoices": "Revisar facturas",
+    "viewAgentRuns": "Ver ejecuciones de agentes"
+  },
+  "areasLabel": "Áreas de Caldova",
+  "destinations": {
+    "invoices": {
+      "title": "Facturas",
+      "description": "Revisa los hallazgos de las facturas frente a órdenes de compra, MSA, registros de lote, registros de calidad y términos de procesos sensibles a la propiedad intelectual, y luego ejecuta el aseguramiento de las que aún no se han revisado."
+    },
+    "activity": {
+      "title": "Actividad",
+      "description": "Sigue las ejecuciones de aseguramiento mientras se ejecutan y mira qué sigue en la cola."
+    },
+    "agent": {
+      "title": "Detalles del agente",
+      "description": "Cada ejecución del Foundry Assurance Orchestrator agrupada por factura, con la evidencia de cada experto detrás de cada decisión."
+    },
+    "quality": {
+      "title": "Calidad",
+      "description": "Mide y mejora el agente de aseguramiento, con aprobación obligatoria antes de cualquier versión."
+    }
+  },
+  "principles": {
+    "heading": "Diseñado para generar confianza bajo presión de datos",
+    "showWork": {
+      "title": "Muestra el trabajo",
+      "detail": "Expón las fuentes, los pasos intermedios y por qué se recomienda una acción."
+    },
+    "keepControl": {
+      "title": "Mantén el control visible",
+      "detail": "Haz explícitos los límites de aprobación antes de que los agentes publiquen o modifiquen datos."
+    },
+    "reduceLoad": {
+      "title": "Reduce la carga de revisión",
+      "detail": "Prioriza las excepciones de alto impacto sin perder las rutas para profundizar."
+    }
+  }
+}

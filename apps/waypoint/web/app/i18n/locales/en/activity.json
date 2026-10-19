@@ -1,0 +1,46 @@
+{
+  "header": {
+    "title": "Active & pending runs",
+    "description": "Live runs opened by the assurance pipeline, refreshed automatically. Open a run to inspect the full expert fan-out in Agent Details.",
+    "updatedAgo": "Updated {{duration}} ago",
+    "refresh": "Refresh"
+  },
+  "focus": {
+    "reused": "Reused the active assurance run for invoice {{invoice}}; no duplicate Foundry run was started.",
+    "accepted": "Assurance was accepted for invoice {{invoice}}. This page refreshes while the hosted run completes."
+  },
+  "buckets": {
+    "active": "Active",
+    "pending": "Pending",
+    "moneyAtRiskActive": "Money at risk (active)",
+    "showCompleted": "Show recently completed ({{total}})",
+    "hideCompleted": "Hide recently completed ({{total}})"
+  },
+  "empty": {
+    "loading": "Loading…",
+    "noActive": "No runs are executing right now.",
+    "startFromQueue": "Runs start from the <invoiceLink>invoice queue</invoiceLink>.",
+    "reviewCompleted_one": "<button>Review the {{count}} recently completed run</button>.",
+    "reviewCompleted_other": "<button>Review the {{count}} recently completed runs</button>.",
+    "noPending": "Nothing queued."
+  },
+  "run": {
+    "invoice": "Invoice {{invoice}}",
+    "decision": "Decision: {{decision}}",
+    "elapsed": "{{duration}} elapsed",
+    "startedAgo": "started {{duration}} ago",
+    "details": "Details",
+    "openTrace": "Open trace",
+    "experts": "Experts"
+  },
+  "duration": {
+    "seconds": "{{s}}s",
+    "minutes": "{{m}}m {{s}}s",
+    "hours": "{{h}}h {{m}}m",
+    "days": "{{d}}d {{h}}h"
+  },
+  "errors": {
+    "fetchFailed": "Failed to fetch runs",
+    "fetchFailedStatus": "Failed to fetch runs: {{status}}"
+  }
+}

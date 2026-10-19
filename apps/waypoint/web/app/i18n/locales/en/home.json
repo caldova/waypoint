@@ -1,0 +1,42 @@
+{
+  "hero": {
+    "heading": "Caldova investigates supplier invoices, protect IP-sensitive manufacturing commitments, and control escalation of supplier-caused quality deviations.",
+    "body": "Start the question in Teams or Copilot, then come here to inspect invoice evidence, supplier behavior, batch records, quality logs, and agent decisions before finance, procurement, legal, or quality teams act.",
+    "reviewInvoices": "Review invoices",
+    "viewAgentRuns": "View agent runs"
+  },
+  "areasLabel": "Caldova areas",
+  "destinations": {
+    "invoices": {
+      "title": "Invoices",
+      "description": "Review invoice findings against purchase orders, MSAs, batch records, quality logs, and IP-sensitive process terms, then run assurance on the ones not yet reviewed."
+    },
+    "activity": {
+      "title": "Activity",
+      "description": "Follow assurance runs while they execute and see what is queued next."
+    },
+    "agent": {
+      "title": "Agent Details",
+      "description": "Every Foundry Assurance Orchestrator run grouped by invoice, with the per-expert evidence behind each decision."
+    },
+    "quality": {
+      "title": "Quality",
+      "description": "Measure and improve the assurance agent, with approval required before any release."
+    }
+  },
+  "principles": {
+    "heading": "Built for trust under data pressure",
+    "showWork": {
+      "title": "Show the work",
+      "detail": "Expose sources, intermediate steps, and why an action is recommended."
+    },
+    "keepControl": {
+      "title": "Keep control visible",
+      "detail": "Make approval boundaries explicit before agents publish or mutate data."
+    },
+    "reduceLoad": {
+      "title": "Reduce review load",
+      "detail": "Prioritize high-impact exceptions while keeping drill-down paths available."
+    }
+  }
+}

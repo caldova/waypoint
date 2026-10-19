@@ -4,9 +4,20 @@
  * This loader runs on the server and exposes:
  * - OpenTelemetry configuration for browser tracing
  * - Environment flags
+ *
+ * It also keeps the URL in step with the language: visitors who prefer Spanish
+ * (cookie choice, then Accept-Language) are sent from `/x` to `/es/x`.
  */
 
-export function loader() {
+import { redirect, type LoaderFunctionArgs } from "react-router";
+import { localeRedirect } from "./i18n/locale";
+
+export function loader({ request }: LoaderFunctionArgs) {
+  const localizedUrl = localeRedirect(request);
+  if (localizedUrl) {
+    throw redirect(localizedUrl, { headers: { Vary: "Accept-Language, Cookie" } });
+  }
+
   // Browsers send spans to a same-origin proxy when the web container has an
   // OTLP endpoint. Server-side proxying keeps exporter headers out of the page.
   const hasOtlpEndpoint = Boolean(
