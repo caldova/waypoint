@@ -1,0 +1,70 @@
+name: Publish static clone
+
+# Builds the sign-in-free static copy of the Waypoint web app
+# (apps/waypoint/web with WAYPOINT_STATIC=true) and publishes it to GitHub Pages.
+# This workflow only exists on the long-lived `snapshot/clone` branch.
+# See docs/static-clone.md.
+#
+# One-time setup (repo admin):
+#   gh api -X POST repos/caldova/waypoint/pages -f build_type=workflow
+#   gh api -X POST repos/caldova/waypoint/environments/github-pages/deployment-branch-policies \
+#     -f name=snapshot/clone -f type=branch
+
+on:
+  push:
+    branches: [snapshot/clone]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: static-clone-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build static site
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/waypoint/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/waypoint/web/package-lock.json
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run i18n:check
+
+      - name: Read the Pages base path
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build
+        env:
+          # "/waypoint" for caldova.github.io/waypoint, "" with a custom domain.
+          WAYPOINT_STATIC_BASE: ${{ steps.pages.outputs.base_path }}/
+        run: npm run build:static
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/waypoint/web/build/client
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

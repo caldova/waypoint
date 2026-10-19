@@ -1,0 +1,2 @@
+# Real names to scrub from static snapshots; never commit (the repo is public).
+scripts/static-scrub.local.json

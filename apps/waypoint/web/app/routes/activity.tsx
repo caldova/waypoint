@@ -13,6 +13,7 @@ import {
   HiOutlineExternalLink,
 } from "react-icons/hi";
 import { authFetch } from "../../lib/msalAuth";
+import { STATIC_MODE } from "../../lib/staticMode";
 import {
   appInsightsOperationLink,
   fetchDrilldownConfig,
@@ -27,6 +28,8 @@ import { pageMeta } from "../i18n/meta";
 import { useLocale } from "../i18n/LocaleProvider";
 
 export const meta: MetaFunction = ({ location }) => pageMeta(location, "activity");
+
+const EMPTY_SEARCH_PARAMS = new URLSearchParams();
 
 // ---------------------------------------------------------------------------
 // Types (mirror the Waypoint /api/runs AgentRun schema)
@@ -193,9 +196,14 @@ export default function Activity() {
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [showDone, setShowDone] = useState(false);
   const [searchParams] = useSearchParams();
-  const focusInvoice = searchParams.get("invoice");
-  const focusedRunId = searchParams.get("run");
-  const reused = searchParams.get("reused") === "true";
+  // The static build prerenders this page without a query string; read the
+  // focus params after hydration so the first render matches that HTML.
+  const [paramsReady, setParamsReady] = useState(!STATIC_MODE);
+  useEffect(() => setParamsReady(true), []);
+  const focusParams = paramsReady ? searchParams : EMPTY_SEARCH_PARAMS;
+  const focusInvoice = focusParams.get("invoice");
+  const focusedRunId = focusParams.get("run");
+  const reused = focusParams.get("reused") === "true";
   const [drilldownConfig, setDrilldownConfig] = useState<DrilldownConfig | null>(null);
   // A ticking clock so elapsed timers on active runs stay live between polls.
   const [nowTick, setNowTick] = useState(() => Date.now());

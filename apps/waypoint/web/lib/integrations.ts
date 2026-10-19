@@ -1,3 +1,5 @@
+import { withBase } from "./staticMode";
+
 /**
  * Third-party evidence sources the assurance pipeline can call alongside the
  * Microsoft IQ planes. A lane is matched by its `agent`/`plane` identifiers.
@@ -27,7 +29,7 @@ export const INTEGRATIONS: Integration[] = [
     agent: "Oracle ERP connector",
     product: "Oracle Database@Azure",
     scope: "Payables, purchasing and supplier records on Oracle Database@Azure",
-    img: "/integrations/oracle-database.png",
+    img: withBase("/integrations/oracle-database.png"),
     hex: "#c74634",
     match: (identifier) => identifier.includes("oracle"),
   },

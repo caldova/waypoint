@@ -24,6 +24,7 @@ import {
   type MsalRuntimeConfig,
 } from "../../lib/msalAuth";
 import { getDocumentT } from "../i18n/runtime";
+import { STATIC_MODE } from "../../lib/staticMode";
 
 export interface UserProfile {
   email: string;
@@ -84,6 +85,15 @@ const devUser: UserProfile = {
   avatarUrl: "",
 };
 
+// The static copy behaves like a signed-in session: it starts signed in, and
+// "Sign out" / "Sign in" just toggle that state without a Microsoft account.
+const staticUser: UserProfile = {
+  email: "analyst@caldova.com",
+  name: "Caldova Analyst",
+  source: "static",
+  avatarUrl: "",
+};
+
 const authRevalidateMs = 60_000;
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -94,20 +104,22 @@ export function AuthProvider({
   msalConfig,
 }: AuthProviderProps) {
   configureMsal(msalConfig);
-  const isConfigured = localMode || msalConfig.enabled;
+  const isConfigured = STATIC_MODE || localMode || msalConfig.enabled;
+  const autoSignIn = STATIC_MODE || localMode;
+  const defaultUser = STATIC_MODE ? staticUser : devUser;
   const [status, setStatus] = useState<AuthStatus>(
-    localMode ? "authenticated" : "checking",
+    autoSignIn ? "authenticated" : "checking",
   );
   const [user, setUser] = useState<UserProfile | null>(
-    localMode ? normalizeProfile(devUser) : null,
+    autoSignIn ? normalizeProfile(defaultUser) : null,
   );
   const [error, setError] = useState<string | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const statusRef = useRef<AuthStatus>(localMode ? "authenticated" : "checking");
+  const statusRef = useRef<AuthStatus>(autoSignIn ? "authenticated" : "checking");
   const userRef = useRef<UserProfile | null>(
-    localMode ? normalizeProfile(devUser) : null,
+    autoSignIn ? normalizeProfile(defaultUser) : null,
   );
-  const lastValidatedAtRef = useRef(localMode ? Date.now() : 0);
+  const lastValidatedAtRef = useRef(autoSignIn ? Date.now() : 0);
   const refreshPromiseRef = useRef<Promise<UserProfile | null> | null>(null);
   const mountedRef = useRef(true);
 
@@ -192,6 +204,11 @@ export function AuthProvider({
         "auth.user.present": Boolean(userRef.current),
       },
       async (span) => {
+        if (STATIC_MODE) {
+          span?.setAttribute("auth.refresh.result", "static");
+          return statusRef.current === "authenticated" ? userRef.current : null;
+        }
+
         if (localMode) {
           setAuthState("authenticated", devUser, null, "local_mode");
           span?.setAttribute("auth.refresh.result", "local_mode");
@@ -271,6 +288,12 @@ export function AuthProvider({
         "auth.status.current": statusRef.current,
       },
       async (span) => {
+        if (STATIC_MODE) {
+          setAuthState("authenticated", staticUser, null, "static_sign_in");
+          span?.setAttribute("auth.sign_in.result", "static");
+          return normalizeProfile(staticUser) as UserProfile;
+        }
+
         if (localMode) {
           setAuthState("authenticated", devUser, null, "local_mode_sign_in");
           span?.setAttribute("auth.sign_in.result", "local_mode");
@@ -312,6 +335,10 @@ export function AuthProvider({
   }, [isConfigured, localMode, setAuthState, loadAvatarInBackground]);
 
   const signOut = useCallback(async () => {
+    if (STATIC_MODE) {
+      setAuthState("unauthenticated", null, null, "static_sign_out");
+      return;
+    }
     setIsSigningOut(!localMode);
     setAuthState(
       localMode ? "authenticated" : "unauthenticated",
@@ -510,7 +537,7 @@ function emitClientAuthEvent(
   event: string,
   details: Record<string, string | number | boolean | null | undefined>,
 ) {
-  if (typeof window === "undefined") {
+  if (typeof window === "undefined" || STATIC_MODE) {
     return;
   }
 

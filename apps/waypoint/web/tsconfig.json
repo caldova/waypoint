@@ -27,7 +27,8 @@
     "app/**/*",
     "lib/**/*",
     "vite.config.ts",
-    "react-router.config.ts"
+    "react-router.config.ts",
+    "static-build.ts"
   ],
   "exclude": ["node_modules", "build", ".react-router"]
 }

@@ -4,6 +4,7 @@ import type {
   PublicClientApplication,
 } from "@azure/msal-browser";
 import { getDocumentT } from "../app/i18n/runtime";
+import { STATIC_MODE } from "./staticMode";
 
 export interface MsalRuntimeConfig {
   enabled: boolean;
@@ -76,6 +77,11 @@ export async function authFetch(
   init?: RequestInit,
   options: MsalTokenOptions = {},
 ) {
+  if (STATIC_MODE) {
+    const { staticFetch } = await import("./staticApi");
+    return staticFetch(input, init);
+  }
+
   if (!runtimeConfig.enabled) {
     return fetch(input, init);
   }

@@ -7,6 +7,7 @@
 
 import { type RouteConfig, type RouteConfigEntry, index, prefix, route } from "@react-router/dev/routes";
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES } from "./i18n/config";
+import { isStaticBuild } from "../static-build";
 
 function pages(locale?: string): RouteConfigEntry[] {
   // Route ids must be unique: keep the default ids for English and scope the
@@ -23,11 +24,16 @@ function pages(locale?: string): RouteConfigEntry[] {
 }
 
 export default [
-  // Not localized: fixed URLs used by MSAL and the telemetry beacon.
-  route("auth/msal/callback", "routes/auth.msal.callback.tsx"),
-  route("client-telemetry", "routes/client-telemetry.tsx"),
-  // English is unprefixed; `/en/...` redirects there.
-  route(`${DEFAULT_LOCALE}/*`, "routes/default-locale-redirect.ts"),
+  // Server-only routes; the static copy has no server, sign-in, or telemetry sink.
+  ...(isStaticBuild
+    ? []
+    : [
+        // Not localized: fixed URLs used by MSAL and the telemetry beacon.
+        route("auth/msal/callback", "routes/auth.msal.callback.tsx"),
+        route("client-telemetry", "routes/client-telemetry.tsx"),
+        // English is unprefixed; `/en/...` redirects there.
+        route(`${DEFAULT_LOCALE}/*`, "routes/default-locale-redirect.ts"),
+      ]),
   ...pages(),
   ...SUPPORTED_LOCALES.filter((locale) => locale !== DEFAULT_LOCALE).flatMap((locale) =>
     prefix(locale, pages(locale)),

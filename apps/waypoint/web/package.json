@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "react-router dev",
     "build": "react-router build",
+    "build:static": "node scripts/build-static.mjs",
+    "snapshot:static": "node scripts/snapshot-static-data.mjs",
     "start": "node server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint app/ lib/ --ext .ts,.tsx",

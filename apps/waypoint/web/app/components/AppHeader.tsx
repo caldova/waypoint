@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth, type UserProfile } from "./AuthProvider";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { useLocale } from "../i18n/LocaleProvider";
+import { withBase } from "../../lib/staticMode";
 
 interface RootOutletContext {
   env: {
@@ -91,7 +92,7 @@ export function AppHeader() {
         <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-3 px-3 py-1.5 2xl:px-4">
           <div className="flex items-center gap-3">
             <img
-              src="/caldova-logo.png"
+              src={withBase("/caldova-logo.png")}
               alt={t("app.logoAlt")}
               className="h-8 w-auto"
             />

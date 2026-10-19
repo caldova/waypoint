@@ -1,7 +1,8 @@
 import { reactRouter } from "@react-router/dev/vite";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
+import { isStaticBuild, staticBasePath } from "./static-build";
 
 // Build version from environment or generate from timestamp
 const now = new Date();
@@ -16,9 +17,11 @@ const otlpEndpoint =
 const otlpHeaders = parseOtlpHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 
 export default defineConfig({
+  ...(isStaticBuild ? { base: staticBasePath } : {}),
   define: {
     __BUILD_VERSION__: JSON.stringify(buildVersion),
     __IS_DEV__: JSON.stringify(!process.env.BUILD_VERSION),
+    __WAYPOINT_STATIC__: JSON.stringify(isStaticBuild),
   },
   resolve: {
     dedupe: ["react", "react-dom", "react-router"],
@@ -29,7 +32,12 @@ export default defineConfig({
   ssr: {
     noExternal: ["react-router"],
   },
-  plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+  plugins: [
+    ...(isStaticBuild ? [dropServerOnlyRootExports()] : []),
+    tailwindcss(),
+    reactRouter(),
+    tsconfigPaths(),
+  ],
   server: {
     proxy: {
       // Proxy API requests to the FastAPI backend during development
@@ -76,4 +84,22 @@ function parseOtlpHeaders(value: string | undefined) {
   }
 
   return headers;
+}
+
+/**
+ * The static build prerenders with `ssr: false`, where React Router rejects
+ * response `headers` exports. The root's `headers` only matters for the SSR
+ * server, so the static build un-exports it.
+ */
+function dropServerOnlyRootExports(): Plugin {
+  return {
+    name: "waypoint-static-drop-root-headers",
+    enforce: "pre",
+    transform(code, id) {
+      if (!/[\\/]app[\\/]root\.tsx$/.test(id.split("?")[0])) {
+        return null;
+      }
+      return code.replace(/^export const headers\b/m, "const headers");
+    },
+  };
 }

@@ -21,6 +21,7 @@ import type { HeadersFunction, LinksFunction } from "react-router";
 import { useTranslation } from "react-i18next";
 import { AuthProvider } from "./components/AuthProvider";
 import { LocaleProvider, useLocale } from "./i18n/LocaleProvider";
+import { withBase } from "../lib/staticMode";
 import type { loader } from "./root.loader";
 
 import "./app.css";
@@ -28,10 +29,10 @@ import "./app.css";
 export { loader } from "./root.loader";
 
 export const links: LinksFunction = () => [
-  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-  { rel: "apple-touch-icon", href: "/favicon.svg" },
-  { rel: "manifest", href: "/site.webmanifest" },
-  { rel: "mask-icon", href: "/favicon.svg", color: "#2e6cfc" },
+  { rel: "icon", href: withBase("/favicon.svg"), type: "image/svg+xml" },
+  { rel: "apple-touch-icon", href: withBase("/favicon.svg") },
+  { rel: "manifest", href: withBase("/site.webmanifest") },
+  { rel: "mask-icon", href: withBase("/favicon.svg"), color: "#2e6cfc" },
 ];
 
 // The rendered language depends on these request headers; child routes inherit this.
@@ -128,7 +129,7 @@ export function ErrorBoundary() {
         <h1 className="text-4xl font-bold mb-4">{t("error.title")}</h1>
         <p className="text-lg text-zinc-600 dark:text-zinc-400 mb-6">{t("error.body")}</p>
         <a
-          href={localize("/")}
+          href={withBase(localize("/"))}
           className="inline-block px-6 py-3 bg-blue-700 text-white rounded-lg hover:bg-blue-800 transition-colors"
         >
           {t("error.goHome")}

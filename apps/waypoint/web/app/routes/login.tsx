@@ -10,6 +10,7 @@ import { pageMeta } from "../i18n/meta";
 import { useLocale } from "../i18n/LocaleProvider";
 import { splitLocalePath } from "../i18n/paths";
 import { SignOutPendingError } from "../../lib/msalAuth";
+import { withBase } from "../../lib/staticMode";
 
 export const meta: MetaFunction = ({ location }) => pageMeta(location, "login");
 
@@ -49,7 +50,7 @@ export default function Login() {
     <main className="flex min-h-screen items-center justify-center bg-slate-950 px-4 py-8 text-slate-950">
       <section className="w-full max-w-sm rounded-xl border border-white/10 bg-white p-6 shadow-2xl">
         <div className="flex items-center gap-3">
-          <img src="/favicon.svg" alt="" className="h-9 w-9" />
+          <img src={withBase("/favicon.svg")} alt="" className="h-9 w-9" />
           <div>
             <p className="text-sm font-semibold text-blue-900">{t("common:app.name")}</p>
             <h1 className="text-xl font-semibold tracking-tight text-slate-950">

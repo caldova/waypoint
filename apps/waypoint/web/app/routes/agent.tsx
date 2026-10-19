@@ -23,6 +23,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { INTEGRATIONS, integrationForLane } from "../../lib/integrations";
 import { authFetch } from "../../lib/msalAuth";
+import { withBase } from "../../lib/staticMode";
 import { AppHeader } from "../components/AppHeader";
 import { useAuth } from "../components/AuthProvider";
 import { RequireAuth } from "../components/RequireAuth";
@@ -167,7 +168,7 @@ const IQ_META: Record<IqKey, IqMeta> = {
     agent: "Operations Data Expert",
     tool: "Microsoft Fabric",
     icon: HiDatabase,
-    img: "/iq/fabric-iq.png",
+    img: withBase("/iq/fabric-iq.png"),
     ring: "ring-emerald-200",
     badge: "bg-emerald-50 text-emerald-700",
     text: "text-emerald-700",
@@ -180,7 +181,7 @@ const IQ_META: Record<IqKey, IqMeta> = {
     agent: "Contract Policy Expert",
     tool: "Azure AI Foundry",
     icon: HiLightningBolt,
-    img: "/iq/foundry-iq.png",
+    img: withBase("/iq/foundry-iq.png"),
     ring: "ring-blue-200",
     badge: "bg-blue-50 text-blue-700",
     text: "text-blue-700",
@@ -193,7 +194,7 @@ const IQ_META: Record<IqKey, IqMeta> = {
     agent: "Market Evidence Expert",
     tool: "Web / WebIQ",
     icon: HiGlobeAlt,
-    img: "/iq/web-iq.png",
+    img: withBase("/iq/web-iq.png"),
     ring: "ring-indigo-200",
     badge: "bg-indigo-50 text-indigo-700",
     text: "text-indigo-700",
@@ -206,7 +207,7 @@ const IQ_META: Record<IqKey, IqMeta> = {
     agent: "Collaboration Evidence Expert",
     tool: "Microsoft 365",
     icon: HiDocumentText,
-    img: "/iq/work-iq.png",
+    img: withBase("/iq/work-iq.png"),
     ring: "ring-violet-200",
     badge: "bg-violet-50 text-violet-700",
     text: "text-violet-700",
@@ -1210,7 +1211,7 @@ function DollarRain() {
     if (prefersReducedMotion || typeof Audio === "undefined") {
       return;
     }
-    const cheer = new Audio("/cheer.wav");
+    const cheer = new Audio(withBase("/cheer.wav"));
     cheer.volume = 0.6;
     void cheer.play().catch(() => {
       // Autoplay may be blocked until the user interacts; ignore.

@@ -19,6 +19,7 @@ import type { MetaFunction } from "react-router";
 import { useOutletContext } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { withBase } from "../../lib/staticMode";
 import { fetchDrilldownConfig, type DrilldownConfig } from "../../lib/waypointConfig";
 import { AppHeader } from "../components/AppHeader";
 import { RequireAuth } from "../components/RequireAuth";
@@ -117,7 +118,7 @@ interface QualityOutletContext {
   };
 }
 
-const MANIFEST_URL = "/quality/evidence-manifest.v1.json";
+const MANIFEST_URL = withBase("/quality/evidence-manifest.v1.json");
 
 const OPERATION_STAGES = [
   {
