@@ -2,8 +2,8 @@
   "schemaVersion": "1.0",
   "manifestId": "waypoint-quality-operations",
   "evidenceState": "reference-only",
-  "reviewedAt": "2026-07-21T23:00:00Z",
-  "staleAfter": "2026-08-20T23:00:00Z",
+  "reviewedAt": "2026-10-11T01:55:00Z",
+  "staleAfter": "2026-11-10T01:55:00Z",
   "source": {
     "repository": "caldova/waypoint",
     "workflow": ".github/workflows/agent-quality-operations.yml",
@@ -47,40 +47,41 @@
     "agent": "contract-policy-expert",
     "environment": "reviewed-demo-reference",
     "dataset": {
-      "name": "contract-policy-evidence-compliance",
-      "version": "6.0",
+      "name": "contract-policy-expert-test-foundry-eval",
+      "version": "2.0",
       "samplesPerRun": 24
     },
     "evaluator": {
-      "name": "contract-policy-evidence-compliance",
-      "version": "6"
+      "name": "contract-policy-expert-generated-rubric",
+      "version": "13"
     },
     "baseline": {
       "state": "reference-only",
-      "agentVersion": "49",
-      "model": "gpt-5.5",
-      "evaluationId": "eval_ef07bed47adb4df4a4000c01ac4ba41d",
-      "aggregatePassRate": 0.8,
+      "agentVersion": "6",
+      "model": "gpt-6-astra",
+      "evaluationId": "eval_2d5a13a976c14355aee3317f87e5e171",
+      "aggregatePassRate": 0.6167,
       "runs": 5
     },
     "optimizer": {
       "state": "reference-only",
-      "jobId": "opt_994a956b2d6e49939506323a15dfc5d2",
+      "jobId": "opt_2fb58fc1723e461d9a1496907d029ac8",
       "status": "succeeded",
-      "baselineCandidateId": "cand_bc834224066e45d8938aa2fa738a9720",
-      "baselineScore": 0.5084,
-      "acceptedCandidateId": "cand_6bf6980ed16f4538ba0faf8935d93c01",
-      "acceptedScore": 0.8521,
-      "strategy": "skills + system_prompt"
+      "baselineCandidateId": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0000",
+      "baselineScore": 0.4557,
+      "acceptedCandidateId": "cand_opt_2fb58fc1723e461d9a1496907d029ac8_0014",
+      "acceptedScore": 0.8,
+      "strategy": "instructions + retrieval tool contract"
     },
     "rft": {
       "state": "reference-only",
-      "jobId": "ftjob-0265d673736e496dbd360530958c6149",
-      "model": "o4-mini-2025-04-16.ft-0265d673736e496dbd360530958c6149",
-      "deployment": "contract-policy-expert-rft-o4-mini",
-      "evaluationId": "eval_d7e99889495f4400a89412d0650acd92",
-      "aggregatePassRate": 0.825,
-      "estimatedCostReduction": 0.696
+      "jobId": "ftjob-44f31c01823d4e13a213dddf0d22fb55",
+      "model": "mai-code-1.1-flash-2026-08-27.ft-44f31c01823d4e13a213dddf0d22fb55-cpe-v2-pt09",
+      "deployment": "contract-policy-expert-mai-rft-v2-pt09",
+      "evaluationId": "eval_4031396f93ac47418b78477ab712fd7e",
+      "aggregatePassRate": 1.0,
+      "estimatedCostReduction": 0.9747,
+      "label": "MAI RFT"
     }
   },
   "operations": [

@@ -123,5 +123,135 @@
     "gateDetail": "Required reviewers and explicit spend acknowledgement are prerequisites. Submission remains blocked until a committed first-class command exists.",
     "reviewControls": "Review workflow controls",
     "inspectFoundry": "Inspect current Foundry status"
+  },
+  "rftPayoff": {
+    "eyebrow": "Contract-policy expert · MAI RFT payoff",
+    "title": "RFT moves the optimized agent from gpt-6-astra to MAI.",
+    "intro": "These are full Foundry hosted-agent evals for {{agent}}, not model-only completions. Each stage uses {{runs}} sequential runs of {{rows}} rows against the same held-out dataset and rubric.",
+    "evalSetup": "Dataset {{dataset}} v{{datasetVersion}} · rubric {{rubric}} v{{rubricVersion}}",
+    "stages": {
+      "ariaLabel": "Eval results by stage",
+      "agentVersion": "Agent v{{version}}",
+      "passed": "{{passed}}/{{total}} rows passed",
+      "runsAria": "Passed rows per run: {{runs}}",
+      "toOptimized": "Agent Optimizer",
+      "toTuned": "RFT model swap",
+      "baseline": {
+        "label": "Baseline",
+        "detail": "Intentionally weak starting assets. Results swing from run to run."
+      },
+      "optimized": {
+        "label": "Optimized",
+        "detail": "{{candidate}} instructions and retrieval-tool contract on gpt-6-astra."
+      },
+      "tuned": {
+        "label": "Tuned MAI",
+        "detail": "The same optimized assets. Only the model deployment changes."
+      }
+    },
+    "swap": {
+      "ariaLabel": "Agent and model",
+      "agentName": "Contract-policy expert",
+      "optimizedLabel": "Optimized assets",
+      "optimizedDetail": "{{candidate}} instructions and retrieval-tool contract from {{job}}.",
+      "tunedLabel": "Same assets + tuned model",
+      "tunedDetail": "The same optimized assets, swapping only to the MAI fine-tuned model deployment.",
+      "swapOnly": "Model swap only"
+    },
+    "cost": {
+      "title": "Estimated cost: Astra vs tuned MAI",
+      "volume": "{{requests}} evidence requests",
+      "perUnit": "{{amount}} / {{unit}} requests",
+      "perRequest": "{{input}} in + {{output}} out tokens per request",
+      "totals": "{{input}} input + {{output}} output tokens",
+      "inputPrice": "Input $/1M",
+      "outputPrice": "Output $/1M",
+      "pricesNote": "Defaults use published Azure Global Standard rates. Edit them if this deployment uses a different meter, discount, or capacity model.",
+      "savings": "At {{requests}} requests, tuned MAI costs {{amount}} less than Astra ({{percent}} lower) under these price assumptions.",
+      "higher": "At {{requests}} requests, tuned MAI costs {{amount}} more than Astra under these price assumptions.",
+      "noPrices": "Enter input and output prices per 1M tokens to calculate cost. Tuned MAI emits {{tokens}} more output tokens than Astra ({{percent}}).",
+      "basis": "Estimated with published Azure Global Standard token rates: GPT-6 Astra at $10 input / $50 output per 1M tokens and Microsoft Code 1.1 Flash at $0.20 input / $1.20 output per 1M tokens. Foundry hosted-agent eval usage fields reported zero, so token volume uses local o200k_base counts from the actual eval input text and final output text across five 24-row runs. This is an estimate before discounts, taxes, cache effects, tools, hosting, and provisioned-capacity charges.",
+      "options": {
+        "optimized": "Astra",
+        "tuned": "Tuned MAI"
+      }
+    },
+    "table": {
+      "summary": "Full comparison",
+      "columns": {
+        "area": "Area",
+        "baseline": "Baseline",
+        "optimized": "Optimized",
+        "tuned": "Tuned MAI",
+        "takeaway": "Takeaway"
+      },
+      "notApplicable": "Not applicable",
+      "rows": {
+        "mean": {
+          "area": "Foundry agent mean",
+          "cell": "{{mean}} across {{runs}} runs of {{rows}} rows",
+          "takeaway": "Tuned MAI matches optimized."
+        },
+        "spread": {
+          "area": "Run spread",
+          "range": "{{min}}/{{rows}} to {{max}}/{{rows}}",
+          "every": "{{passed}}/{{rows}} every run",
+          "takeaway": "The optimized assets remove the noisy baseline behavior."
+        },
+        "optimizer": {
+          "area": "Optimizer candidate",
+          "baseline": "Optimizer train score {{score}}",
+          "optimized": "{{candidate}} train score {{score}}",
+          "tuned": "Same optimized assets",
+          "takeaway": "The optimizer changed the instructions and the retrieval tool contract."
+        },
+        "evals": {
+          "area": "Applied assets eval",
+          "cell": "Agent v{{version}}, {{evalId}}",
+          "takeaway": "All three are hosted-agent evals with the same held-out dataset and rubric."
+        },
+        "behavior": {
+          "area": "Behavior target",
+          "baseline": "Loose triage evidence behavior",
+          "optimized": "Strict evidence JSON from {{candidate}}",
+          "tuned": "Same behavior target",
+          "takeaway": "RFT is a model swap after the optimizer fixed the behavior."
+        },
+        "model": {
+          "area": "Model",
+          "tuned": "MAI fine-tuned deployment",
+          "takeaway": "The tuned run swaps the model from gpt-6-astra to the MAI RFT deployment."
+        },
+        "rftJob": {
+          "area": "RFT job",
+          "takeaway": "The preserved, successful MAI RFT job."
+        },
+        "fineTuned": {
+          "area": "Fine-tuned model",
+          "takeaway": "Deployable MAI contract-policy expert model."
+        },
+        "deployment": {
+          "area": "RFT deployment",
+          "takeaway": "The serving comparison uses the tuned deployment."
+        },
+        "costEvidence": {
+          "area": "Cost evidence",
+          "baseline": "Not modeled",
+          "cell": "~{{input}} input + ~{{output}} output tokens per request",
+          "takeaway": "Uses published Global Standard token rates. The actual bill can differ by discount, cache, tools, hosting, or capacity model."
+        }
+      }
+    },
+    "results": {
+      "title": "Final results",
+      "body": "The fresh Foundry replay starts from a deliberately mediocre baseline, applies {{candidate}}, then swaps only the model deployment to the MAI RFT model. Optimized passed {{optimized}} rows. Tuned MAI also passed {{tuned}}.",
+      "optimizer": "Optimizer",
+      "candidate": "Candidate",
+      "foundryEval": "Foundry eval",
+      "evalRuns": "Eval runs",
+      "evalRunsValue": "{{runs}} sequential native Foundry eval runs",
+      "rftJob": "RFT job",
+      "rftDeployment": "RFT deployment"
+    }
   }
 }

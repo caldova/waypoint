@@ -22,6 +22,7 @@ import type { TFunction } from "i18next";
 import { withBase } from "../../lib/staticMode";
 import { fetchDrilldownConfig, type DrilldownConfig } from "../../lib/waypointConfig";
 import { AppHeader } from "../components/AppHeader";
+import { RftPayoffPanel } from "../components/RftPayoffPanel";
 import { RequireAuth } from "../components/RequireAuth";
 import { useFormat, type Formatters } from "../i18n/format";
 import { pageMeta } from "../i18n/meta";
@@ -105,6 +106,8 @@ interface QualityManifest {
       evaluationId: string;
       aggregatePassRate: number;
       estimatedCostReduction: number;
+      /** Short model label for the lineage table, e.g. "MAI RFT". */
+      label?: string;
     };
   };
   operations: Operation[];
@@ -274,6 +277,7 @@ export default function Quality() {
                 workflowUrl={workflowUrl}
                 foundryUrl={foundryUrl}
               />
+              <RftPayoffPanel />
               <GovernanceStrip environment={qualityOperations.rftEnvironment} />
               <OperationsPanel operations={manifest.operations} workflowUrl={workflowUrl} />
               <MetricGrid manifest={manifest} />
@@ -461,7 +465,7 @@ function LineagePanel({ manifest }: { manifest: QualityManifest }) {
             <LineageRow
               stage={t("lineage.rft.stage")}
               identifier={lineage.rft.deployment}
-              model="o4-mini RFT"
+              model={lineage.rft.label ?? "o4-mini RFT"}
               quality={formatPercent(lineage.rft.aggregatePassRate, fmt)}
               detail={t("lineage.job", { id: lineage.rft.jobId })}
               state={lineage.rft.state}

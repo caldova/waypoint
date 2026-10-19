@@ -124,5 +124,135 @@
     "gateDetail": "Se requieren revisores obligatorios y una confirmación explícita del gasto. El envío sigue bloqueado hasta que exista un comando dedicado confirmado en el repositorio.",
     "reviewControls": "Revisar los controles del flujo de trabajo",
     "inspectFoundry": "Inspeccionar el estado actual de Foundry"
+  },
+  "rftPayoff": {
+    "eyebrow": "Experto en contratos y políticas · Resultado de RFT con MAI",
+    "title": "RFT lleva el agente optimizado de gpt-6-astra a MAI.",
+    "intro": "Son evaluaciones completas de agentes alojados en Foundry para {{agent}}, no solo respuestas del modelo. Cada etapa usa {{runs}} ejecuciones secuenciales de {{rows}} filas con el mismo conjunto de datos reservado y la misma rúbrica.",
+    "evalSetup": "Conjunto de datos {{dataset}} v{{datasetVersion}} · rúbrica {{rubric}} v{{rubricVersion}}",
+    "stages": {
+      "ariaLabel": "Resultados de evaluación por etapa",
+      "agentVersion": "Agente v{{version}}",
+      "passed": "{{passed}}/{{total}} filas aprobadas",
+      "runsAria": "Filas aprobadas por ejecución: {{runs}}",
+      "toOptimized": "Agent Optimizer",
+      "toTuned": "Cambio de modelo con RFT",
+      "baseline": {
+        "label": "Línea base",
+        "detail": "Recursos iniciales intencionalmente débiles. Los resultados varían de una ejecución a otra."
+      },
+      "optimized": {
+        "label": "Optimizado",
+        "detail": "Instrucciones y contrato de la herramienta de recuperación de {{candidate}} en gpt-6-astra."
+      },
+      "tuned": {
+        "label": "MAI ajustado",
+        "detail": "Los mismos recursos optimizados. Solo cambia la implementación del modelo."
+      }
+    },
+    "swap": {
+      "ariaLabel": "Agente y modelo",
+      "agentName": "Experto en contratos y políticas",
+      "optimizedLabel": "Recursos optimizados",
+      "optimizedDetail": "Instrucciones y contrato de la herramienta de recuperación de {{candidate}}, de {{job}}.",
+      "tunedLabel": "Mismos recursos + modelo ajustado",
+      "tunedDetail": "Los mismos recursos optimizados; solo cambia a la implementación del modelo MAI ajustado.",
+      "swapOnly": "Solo cambia el modelo"
+    },
+    "cost": {
+      "title": "Costo estimado: Astra frente a MAI ajustado",
+      "volume": "{{requests}} solicitudes de evidencia",
+      "perUnit": "{{amount}} / {{unit}} solicitudes",
+      "perRequest": "{{input}} tokens de entrada + {{output}} de salida por solicitud",
+      "totals": "{{input}} tokens de entrada + {{output}} de salida",
+      "inputPrice": "Entrada $/1M",
+      "outputPrice": "Salida $/1M",
+      "pricesNote": "Los valores predeterminados usan las tarifas publicadas de Azure Global Standard. Edítalos si esta implementación usa otro medidor, descuento o modelo de capacidad.",
+      "savings": "Con {{requests}} solicitudes, MAI ajustado cuesta {{amount}} menos que Astra ({{percent}} menos) con estos precios.",
+      "higher": "Con {{requests}} solicitudes, MAI ajustado cuesta {{amount}} más que Astra con estos precios.",
+      "noPrices": "Ingresa los precios de entrada y salida por 1M de tokens para calcular el costo. MAI ajustado genera {{tokens}} tokens de salida más que Astra ({{percent}}).",
+      "basis": "Estimado con las tarifas publicadas de Azure Global Standard: GPT-6 Astra a $10 de entrada / $50 de salida por 1M de tokens y Microsoft Code 1.1 Flash a $0.20 de entrada / $1.20 de salida por 1M de tokens. Los campos de uso de las evaluaciones de agentes alojados en Foundry reportaron cero, así que el volumen de tokens usa conteos locales o200k_base del texto real de entrada y de salida final en cinco ejecuciones de 24 filas. Es una estimación antes de descuentos, impuestos, efectos de caché, herramientas, hospedaje y cargos de capacidad aprovisionada.",
+      "options": {
+        "optimized": "Astra",
+        "tuned": "MAI ajustado"
+      }
+    },
+    "table": {
+      "summary": "Comparación completa",
+      "columns": {
+        "area": "Área",
+        "baseline": "Línea base",
+        "optimized": "Optimizado",
+        "tuned": "MAI ajustado",
+        "takeaway": "Conclusión"
+      },
+      "notApplicable": "No aplica",
+      "rows": {
+        "mean": {
+          "area": "Promedio del agente en Foundry",
+          "cell": "{{mean}} en {{runs}} ejecuciones de {{rows}} filas",
+          "takeaway": "MAI ajustado iguala al optimizado."
+        },
+        "spread": {
+          "area": "Variación entre ejecuciones",
+          "range": "De {{min}}/{{rows}} a {{max}}/{{rows}}",
+          "every": "{{passed}}/{{rows}} en cada ejecución",
+          "takeaway": "Los recursos optimizados eliminan la variación de la línea base."
+        },
+        "optimizer": {
+          "area": "Candidato del optimizador",
+          "baseline": "Puntuación de entrenamiento del optimizador: {{score}}",
+          "optimized": "Puntuación de entrenamiento de {{candidate}}: {{score}}",
+          "tuned": "Los mismos recursos optimizados",
+          "takeaway": "El optimizador cambió las instrucciones y el contrato de la herramienta de recuperación."
+        },
+        "evals": {
+          "area": "Evaluación de los recursos aplicados",
+          "cell": "Agente v{{version}}, {{evalId}}",
+          "takeaway": "Las tres son evaluaciones de agentes alojados con el mismo conjunto de datos reservado y la misma rúbrica."
+        },
+        "behavior": {
+          "area": "Comportamiento objetivo",
+          "baseline": "Evidencia de triaje poco estricta",
+          "optimized": "JSON de evidencia estricto de {{candidate}}",
+          "tuned": "El mismo comportamiento objetivo",
+          "takeaway": "RFT es un cambio de modelo después de que el optimizador corrigió el comportamiento."
+        },
+        "model": {
+          "area": "Modelo",
+          "tuned": "Implementación ajustada de MAI",
+          "takeaway": "La ejecución ajustada cambia el modelo de gpt-6-astra a la implementación de RFT de MAI."
+        },
+        "rftJob": {
+          "area": "Trabajo de RFT",
+          "takeaway": "El trabajo de RFT de MAI exitoso que se conservó."
+        },
+        "fineTuned": {
+          "area": "Modelo ajustado",
+          "takeaway": "Modelo MAI del experto en contratos y políticas, listo para implementar."
+        },
+        "deployment": {
+          "area": "Implementación de RFT",
+          "takeaway": "La comparación en servicio usa la implementación ajustada."
+        },
+        "costEvidence": {
+          "area": "Evidencia de costo",
+          "baseline": "No modelado",
+          "cell": "~{{input}} tokens de entrada + ~{{output}} de salida por solicitud",
+          "takeaway": "Usa las tarifas publicadas de Global Standard. La factura real puede variar por descuentos, caché, herramientas, hospedaje o modelo de capacidad."
+        }
+      }
+    },
+    "results": {
+      "title": "Resultados finales",
+      "body": "La nueva repetición en Foundry parte de una línea base deliberadamente mediocre, aplica {{candidate}} y luego cambia solo la implementación del modelo al modelo de RFT de MAI. El optimizado aprobó {{optimized}} filas. MAI ajustado también aprobó {{tuned}}.",
+      "optimizer": "Optimizador",
+      "candidate": "Candidato",
+      "foundryEval": "Evaluación de Foundry",
+      "evalRuns": "Ejecuciones de evaluación",
+      "evalRunsValue": "{{runs}} ejecuciones nativas secuenciales de evaluación en Foundry",
+      "rftJob": "Trabajo de RFT",
+      "rftDeployment": "Implementación de RFT"
+    }
   }
 }

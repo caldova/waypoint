@@ -21,6 +21,7 @@ snapshot of the live data. There's no backend: no sign-in, no Foundry, no API.
 | Dates | Shifted forward by whole days so the newest run is always recent |
 | Run assurance | Single and batch runs are simulated: the run shows up in Activity, experts report one by one, and after ~30s it completes with that invoice's latest real result |
 | Telemetry | Off |
+| Quality page | Adds the contract-policy expert MAI RFT payoff (eval results, model swap, cost slider) from the RFT Cost Quality canvas, and shows the matching MAI RFT eval results in the rest of the page |
 
 The normal SSR build is unchanged when the flag is unset.
 
