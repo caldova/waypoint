@@ -124,8 +124,149 @@
     "reviewControls": "Review workflow controls",
     "inspectFoundry": "Inspect current Foundry status"
   },
+  "optimizerReview": {
+    "eyebrow": "Part 1 · Foundry Agent Optimizer: new assets, same model",
+    "title": "The optimizer improves the agent by changing its assets. The model stays {{model}}.",
+    "intro": "Foundry Agent Optimizer started from {{agent}} v{{version}}, used {{optimizationModel}} to write candidate prompts and tool descriptions, and scored every candidate on {{evalModel}} with the same rubric. {{candidate}} won by score.",
+    "setup": "Job {{job}} · rubric {{rubric}} v{{rubricVersion}}",
+    "strip": {
+      "ariaLabel": "Optimizer result summary",
+      "score": "Score",
+      "scoreDetail": "Baseline → {{candidate}}",
+      "lift": "Lift",
+      "liftDetail": "Relative to the baseline score",
+      "model": "Model",
+      "modelDetail": "Held fixed",
+      "status": "Status",
+      "succeeded": "Succeeded",
+      "statusDetail": "{{candidates}} candidates scored",
+      "help": "Score is the average evaluator score for grounding, citations, evidence shape, gap handling, and read-only behavior. This job reports scores and eval run IDs, not pass thresholds."
+    },
+    "summary": {
+      "title": "What changed",
+      "output": {
+        "label": "Output",
+        "text": "Moved from a loose reviewer note to one strict evidence JSON object. Approval, hold, and dispute language are fenced off."
+      },
+      "evidence": {
+        "label": "Evidence",
+        "text": "Contract and policy claims now have to come from FoundryIQ context, especially {{field}}."
+      },
+      "gaps": {
+        "label": "Gaps",
+        "text": "Missing source documents, rate gaps, release status, and identifier-only references become controller checks."
+      },
+      "boundary": {
+        "label": "Boundary",
+        "text": "{{decision}} and {{action}} stay null when the request says not to decide. No system action is claimed."
+      }
+    },
+    "assets": {
+      "title": "Changed assets",
+      "detail": "What {{candidate}} actually changed",
+      "prompt": {
+        "label": "Main prompt",
+        "text": "Changed from loose triage guidance to a strict evidence JSON contract."
+      },
+      "tool": {
+        "label": "Retrieval tool",
+        "text": "Description tightened, and {{field}} became required."
+      },
+      "unchanged": {
+        "label": "No change",
+        "text": "Model, agent version, skills, and tool name stayed the same."
+      }
+    },
+    "leaderboard": {
+      "title": "Candidate search",
+      "detail": "{{candidates}} candidates scored · winner chosen by score",
+      "columns": {
+        "rank": "Rank",
+        "candidate": "Candidate",
+        "score": "Score",
+        "status": "Status"
+      },
+      "winner": "Winner",
+      "baseline": "Baseline",
+      "candidate": "Candidate"
+    },
+    "prompt": {
+      "title": "Main prompt changes",
+      "detail": "The primary behavior contract for invoice evidence review.",
+      "chars": "{{delta}} characters",
+      "size": "{{before}} → {{after}} lines"
+    },
+    "emphasis": {
+      "caption": "Prompt emphasis",
+      "detail": "How often each behavior's key terms appear in the prompt.",
+      "columns": {
+        "behavior": "Behavior",
+        "baseline": "Baseline",
+        "delta": "Change",
+        "meaning": "What it means"
+      },
+      "groups": {
+        "shape": {
+          "label": "Invoice evidence shape",
+          "meaning": "Contract Policy Expert is told to return the exact evidence packet shape for invoice review.",
+          "business": "Finance reviewers and downstream checks can compare invoice findings without parsing free-form prose."
+        },
+        "citations": {
+          "label": "Cited contract evidence",
+          "meaning": "The answer attaches source references, confidence, and support or contradiction metadata to each contract or policy claim.",
+          "business": "Auditors can see why an invoice line is supported, unsupported, or risky."
+        },
+        "gaps": {
+          "label": "Missing-evidence handling",
+          "meaning": "The agent calls out missing clauses, conflicting policy, or evidence gaps instead of inventing an answer.",
+          "business": "Reduces false confidence when contract or policy evidence is incomplete."
+        },
+        "retrieval": {
+          "label": "Contract and policy retrieval",
+          "meaning": "The agent searches the knowledge base for contract terms, policy rules, rate cards, SKUs, lots, and supplier evidence before deciding.",
+          "business": "Findings are grounded in Caldova's FoundryIQ source data, not generic model memory."
+        },
+        "boundary": {
+          "label": "Read-only finance boundary",
+          "meaning": "Contract Policy Expert explains evidence only. It must not approve invoices, reconcile payments, trigger recovery, or write back to finance systems.",
+          "business": "Keeps the agent in an advisory review lane while people or controlled systems make operational decisions."
+        }
+      }
+    },
+    "diff": {
+      "promptSummary": "Full main prompt diff",
+      "toolSummary": "Full tool JSON diff",
+      "stats_one": "{{added}} added · {{removed}} removed · {{count}} focused hunk",
+      "stats_other": "{{added}} added · {{removed}} removed · {{count}} focused hunks",
+      "noChanges": "No changes",
+      "hunk": "Hunk {{number}}",
+      "legend": "Line numbers: baseline, then {{candidate}}. + added, − removed."
+    },
+    "tool": {
+      "title": "Retrieval tool changes",
+      "detail": "The tool name stayed the same. {{candidate}} tightened how the tool is described and made the search query required.",
+      "rows": {
+        "tool": "Tool",
+        "input": "Input",
+        "contract": "Contract",
+        "behavior": "Behavior"
+      },
+      "toolValue": "{{name}} stayed in place.",
+      "inputUnchanged": "{{fields}} (unchanged).",
+      "inputChanged": "{{before}} changed to {{after}}.",
+      "nowRequired": "{{fields}} is now required.",
+      "noLongerRequired": "{{fields}} is no longer required.",
+      "requiredUnchanged": "Required: {{fields}} (unchanged).",
+      "behaviorChanged": "Retrieval guidance is stricter about source-grounded evidence and no business-system actions.",
+      "behaviorUnchanged": "Retrieval guidance unchanged.",
+      "descriptions": "Full tool descriptions",
+      "baseline": "Baseline",
+      "noDescription": "No description.",
+      "none": "none"
+    }
+  },
   "rftPayoff": {
-    "eyebrow": "Contract-policy expert · MAI RFT payoff",
+    "eyebrow": "Part 2 · RFT: same improved assets, fine-tuned model",
     "title": "RFT moves the optimized agent from gpt-6-astra to MAI.",
     "intro": "These are full Foundry hosted-agent evals for {{agent}}, not model-only completions. Each stage uses {{runs}} sequential runs of {{rows}} rows against the same held-out dataset and rubric.",
     "evalSetup": "Dataset {{dataset}} v{{datasetVersion}} · rubric {{rubric}} v{{rubricVersion}}",

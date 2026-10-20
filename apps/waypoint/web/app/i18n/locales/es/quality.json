@@ -125,8 +125,150 @@
     "reviewControls": "Revisar los controles del flujo de trabajo",
     "inspectFoundry": "Inspeccionar el estado actual de Foundry"
   },
+  "optimizerReview": {
+    "eyebrow": "Parte 1 · Foundry Agent Optimizer: nuevos recursos, mismo modelo",
+    "title": "El optimizador mejora el agente cambiando sus recursos. El modelo sigue siendo {{model}}.",
+    "intro": "Foundry Agent Optimizer partió de {{agent}} v{{version}}, usó {{optimizationModel}} para escribir prompts y descripciones de herramientas candidatas, y evaluó cada candidato en {{evalModel}} con la misma rúbrica. {{candidate}} ganó por puntuación.",
+    "setup": "Trabajo {{job}} · rúbrica {{rubric}} v{{rubricVersion}}",
+    "strip": {
+      "ariaLabel": "Resumen del resultado del optimizador",
+      "score": "Puntuación",
+      "scoreDetail": "Línea base → {{candidate}}",
+      "lift": "Mejora",
+      "liftDetail": "Respecto de la puntuación de la línea base",
+      "model": "Modelo",
+      "modelDetail": "Sin cambios",
+      "status": "Estado",
+      "succeeded": "Completado",
+      "statusDetail": "{{candidates}} candidatos evaluados",
+      "help": "La puntuación es el promedio del evaluador en fundamentación, citas, forma de la evidencia, manejo de vacíos y comportamiento de solo lectura. Este trabajo reporta puntuaciones e ID de ejecuciones de evaluación, no umbrales de aprobación."
+    },
+    "summary": {
+      "title": "Qué cambió",
+      "output": {
+        "label": "Salida",
+        "text": "Pasó de una nota de revisión informal a un único objeto JSON de evidencia estricto. El lenguaje de aprobación, retención y disputa queda excluido."
+      },
+      "evidence": {
+        "label": "Evidencia",
+        "text": "Las afirmaciones sobre contratos y políticas ahora deben venir del contexto de FoundryIQ, en especial {{field}}."
+      },
+      "gaps": {
+        "label": "Vacíos",
+        "text": "Los documentos fuente faltantes, los vacíos de tarifas, el estado de liberación y las referencias solo con identificador se convierten en verificaciones del contralor."
+      },
+      "boundary": {
+        "label": "Límite",
+        "text": "{{decision}} y {{action}} quedan en null cuando la solicitud indica no decidir. No se declara ninguna acción en los sistemas."
+      }
+    },
+    "assets": {
+      "title": "Recursos modificados",
+      "detail": "Lo que {{candidate}} cambió realmente",
+      "prompt": {
+        "label": "Prompt principal",
+        "text": "Pasó de una guía de triaje informal a un contrato estricto de JSON de evidencia."
+      },
+      "tool": {
+        "label": "Herramienta de recuperación",
+        "text": "La descripción es más precisa y {{field}} pasó a ser obligatorio."
+      },
+      "unchanged": {
+        "label": "Sin cambios",
+        "text": "El modelo, la versión del agente, las habilidades y el nombre de la herramienta no cambiaron."
+      }
+    },
+    "leaderboard": {
+      "title": "Búsqueda de candidatos",
+      "detail": "{{candidates}} candidatos evaluados · el ganador se elige por puntuación",
+      "columns": {
+        "rank": "Puesto",
+        "candidate": "Candidato",
+        "score": "Puntuación",
+        "status": "Estado"
+      },
+      "winner": "Ganador",
+      "baseline": "Línea base",
+      "candidate": "Candidato"
+    },
+    "prompt": {
+      "title": "Cambios en el prompt principal",
+      "detail": "El contrato de comportamiento principal para revisar la evidencia de facturas.",
+      "chars": "{{delta}} caracteres",
+      "size": "{{before}} → {{after}} líneas"
+    },
+    "emphasis": {
+      "caption": "Énfasis del prompt",
+      "detail": "Con qué frecuencia aparecen en el prompt los términos clave de cada comportamiento.",
+      "columns": {
+        "behavior": "Comportamiento",
+        "baseline": "Línea base",
+        "delta": "Cambio",
+        "meaning": "Qué significa"
+      },
+      "groups": {
+        "shape": {
+          "label": "Forma de la evidencia de la factura",
+          "meaning": "Se le indica al experto en contratos y políticas que devuelva la forma exacta del paquete de evidencia para revisar facturas.",
+          "business": "Los revisores de finanzas y las verificaciones posteriores pueden comparar hallazgos sin interpretar texto libre."
+        },
+        "citations": {
+          "label": "Evidencia contractual citada",
+          "meaning": "La respuesta adjunta referencias a la fuente, la confianza y metadatos de respaldo o contradicción a cada afirmación de contrato o política.",
+          "business": "Los auditores pueden ver por qué una línea de factura está respaldada, no respaldada o es riesgosa."
+        },
+        "gaps": {
+          "label": "Manejo de evidencia faltante",
+          "meaning": "El agente señala cláusulas faltantes, políticas en conflicto o vacíos de evidencia en lugar de inventar una respuesta.",
+          "business": "Reduce la falsa confianza cuando la evidencia contractual o de políticas está incompleta."
+        },
+        "retrieval": {
+          "label": "Recuperación de contratos y políticas",
+          "meaning": "El agente busca en la base de conocimiento términos contractuales, reglas de políticas, tarifarios, SKU, lotes y evidencia del proveedor antes de decidir.",
+          "business": "Los hallazgos se basan en los datos fuente de FoundryIQ de Caldova, no en la memoria genérica del modelo."
+        },
+        "boundary": {
+          "label": "Límite financiero de solo lectura",
+          "meaning": "El experto en contratos y políticas solo explica la evidencia. No debe aprobar facturas, conciliar pagos, iniciar recuperaciones ni escribir en los sistemas financieros.",
+          "business": "Mantiene al agente en un rol de revisión consultiva mientras las personas o los sistemas controlados toman las decisiones operativas."
+        }
+      }
+    },
+    "diff": {
+      "promptSummary": "Diferencias completas del prompt principal",
+      "toolSummary": "Diferencias completas del JSON de la herramienta",
+      "stats_one": "{{added}} agregadas · {{removed}} eliminadas · {{count}} bloque",
+      "stats_many": "{{added}} agregadas · {{removed}} eliminadas · {{count}} bloques",
+      "stats_other": "{{added}} agregadas · {{removed}} eliminadas · {{count}} bloques",
+      "noChanges": "Sin cambios",
+      "hunk": "Bloque {{number}}",
+      "legend": "Números de línea: línea base y luego {{candidate}}. + agregada, − eliminada."
+    },
+    "tool": {
+      "title": "Cambios en la herramienta de recuperación",
+      "detail": "El nombre de la herramienta no cambió. {{candidate}} precisó cómo se describe la herramienta e hizo obligatoria la consulta de búsqueda.",
+      "rows": {
+        "tool": "Herramienta",
+        "input": "Entrada",
+        "contract": "Contrato",
+        "behavior": "Comportamiento"
+      },
+      "toolValue": "{{name}} se mantuvo igual.",
+      "inputUnchanged": "{{fields}} (sin cambios).",
+      "inputChanged": "{{before}} cambió a {{after}}.",
+      "nowRequired": "{{fields}} ahora es obligatorio.",
+      "noLongerRequired": "{{fields}} ya no es obligatorio.",
+      "requiredUnchanged": "Obligatorio: {{fields}} (sin cambios).",
+      "behaviorChanged": "La guía de recuperación es más estricta: evidencia basada en fuentes y ninguna acción en sistemas de negocio.",
+      "behaviorUnchanged": "La guía de recuperación no cambió.",
+      "descriptions": "Descripciones completas de la herramienta",
+      "baseline": "Línea base",
+      "noDescription": "Sin descripción.",
+      "none": "ninguno"
+    }
+  },
   "rftPayoff": {
-    "eyebrow": "Experto en contratos y políticas · Resultado de RFT con MAI",
+    "eyebrow": "Parte 2 · RFT: los mismos recursos mejorados, modelo ajustado",
     "title": "RFT lleva el agente optimizado de gpt-6-astra a MAI.",
     "intro": "Son evaluaciones completas de agentes alojados en Foundry para {{agent}}, no solo respuestas del modelo. Cada etapa usa {{runs}} ejecuciones secuenciales de {{rows}} filas con el mismo conjunto de datos reservado y la misma rúbrica.",
     "evalSetup": "Conjunto de datos {{dataset}} v{{datasetVersion}} · rúbrica {{rubric}} v{{rubricVersion}}",
