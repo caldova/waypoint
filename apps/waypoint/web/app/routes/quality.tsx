@@ -22,8 +22,7 @@ import type { TFunction } from "i18next";
 import { withBase } from "../../lib/staticMode";
 import { fetchDrilldownConfig, type DrilldownConfig } from "../../lib/waypointConfig";
 import { AppHeader } from "../components/AppHeader";
-import { OptimizerPanel } from "../components/OptimizerPanel";
-import { RftPayoffPanel } from "../components/RftPayoffPanel";
+import { QualityStoryTabs } from "../components/QualityStoryTabs";
 import { RequireAuth } from "../components/RequireAuth";
 import { useFormat, type Formatters } from "../i18n/format";
 import { pageMeta } from "../i18n/meta";
@@ -278,8 +277,7 @@ export default function Quality() {
                 workflowUrl={workflowUrl}
                 foundryUrl={foundryUrl}
               />
-              <OptimizerPanel />
-              <RftPayoffPanel />
+              <QualityStoryTabs />
               <GovernanceStrip environment={qualityOperations.rftEnvironment} />
               <OperationsPanel operations={manifest.operations} workflowUrl={workflowUrl} />
               <MetricGrid manifest={manifest} />

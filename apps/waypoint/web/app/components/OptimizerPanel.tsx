@@ -61,11 +61,10 @@ export function OptimizerPanel() {
   return (
     <section
       aria-labelledby={titleId}
-      className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+      className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
     >
       <header className="border-b border-slate-100 p-5 lg:p-6">
-        <p className="type-label text-blue-700">{t("optimizerReview.eyebrow")}</p>
-        <h2 id={titleId} className="mt-1 text-xl font-semibold tracking-tight text-slate-950">
+        <h2 id={titleId} className="text-xl font-semibold tracking-tight text-slate-950">
           {t("optimizerReview.title", { model: job.evalModel })}
         </h2>
         <p className="mt-2 max-w-[80ch] text-sm leading-6 text-slate-600">

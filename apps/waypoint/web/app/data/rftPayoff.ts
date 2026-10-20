@@ -99,3 +99,13 @@ export function stageMean(stage: PayoffStage, rowsPerRun = RFT_PAYOFF.rowsPerRun
   const total = stage.passes.length * rowsPerRun;
   return total ? stage.passes.reduce((sum, passed) => sum + passed, 0) / total : 0;
 }
+
+/** Cost reduction of tuned MAI vs Astra at the default published token prices. */
+export function defaultCostReduction(): number {
+  const cost = (option: CostOption) =>
+    option.inputTokens * option.inputPricePerMillion + option.outputTokens * option.outputPricePerMillion;
+  const [astra, tuned] = (["optimized", "tuned"] as const).map(
+    (id) => RFT_PAYOFF.cost.options.find((option) => option.id === id) as CostOption,
+  );
+  return 1 - cost(tuned) / cost(astra);
+}

@@ -125,8 +125,22 @@
     "reviewControls": "Revisar los controles del flujo de trabajo",
     "inspectFoundry": "Inspeccionar el estado actual de Foundry"
   },
+  "qualityTabs": {
+    "ariaLabel": "Historia de calidad del experto en contratos y políticas",
+    "optimizer": {
+      "step": "Parte 1",
+      "title": "Foundry Agent Optimizer",
+      "subtitle": "Nuevos recursos, mismo modelo",
+      "metric": "Puntuación {{before}} → {{after}}"
+    },
+    "rft": {
+      "step": "Parte 2",
+      "title": "Ajuste fino por refuerzo (RFT)",
+      "subtitle": "Los mismos recursos mejorados, modelo ajustado",
+      "metric": "{{pass}} de aprobación · {{savings}} menos costo"
+    }
+  },
   "optimizerReview": {
-    "eyebrow": "Parte 1 · Foundry Agent Optimizer: nuevos recursos, mismo modelo",
     "title": "El optimizador mejora el agente cambiando sus recursos. El modelo sigue siendo {{model}}.",
     "intro": "Foundry Agent Optimizer partió de {{agent}} v{{version}}, usó {{optimizationModel}} para escribir prompts y descripciones de herramientas candidatas, y evaluó cada candidato en {{evalModel}} con la misma rúbrica. {{candidate}} ganó por puntuación.",
     "setup": "Trabajo {{job}} · rúbrica {{rubric}} v{{rubricVersion}}",
@@ -268,7 +282,6 @@
     }
   },
   "rftPayoff": {
-    "eyebrow": "Parte 2 · RFT: los mismos recursos mejorados, modelo ajustado",
     "title": "RFT lleva el agente optimizado de gpt-6-astra a MAI.",
     "intro": "Son evaluaciones completas de agentes alojados en Foundry para {{agent}}, no solo respuestas del modelo. Cada etapa usa {{runs}} ejecuciones secuenciales de {{rows}} filas con el mismo conjunto de datos reservado y la misma rúbrica.",
     "evalSetup": "Conjunto de datos {{dataset}} v{{datasetVersion}} · rúbrica {{rubric}} v{{rubricVersion}}",

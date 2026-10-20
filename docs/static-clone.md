@@ -21,7 +21,7 @@ snapshot of the live data. There's no backend: no sign-in, no Foundry, no API.
 | Dates | Shifted forward by whole days so the newest run is always recent |
 | Run assurance | Single and batch runs are simulated: the run shows up in Activity, experts report one by one, and after ~30s it completes with that invoice's latest real result |
 | Telemetry | Off |
-| Quality page | Adds the two-part contract-policy expert story from the canvases: Part 1, Foundry Agent Optimizer (new assets, same model; from Optimizer Diff), and Part 2, RFT (same assets, fine-tuned MAI model; from RFT Cost Quality, with the cost slider). The rest of the page shows the matching MAI RFT eval results |
+| Quality page | Adds the two-part contract-policy expert story from the canvases as two tabs (`/quality` and `/quality#rft`): Part 1, Foundry Agent Optimizer (new assets, same model; from Optimizer Diff), and Part 2, RFT (same assets, fine-tuned MAI model; from RFT Cost Quality, with the cost slider). The rest of the page shows the matching MAI RFT eval results |
 
 The normal SSR build is unchanged when the flag is unset.
 

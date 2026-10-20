@@ -124,8 +124,22 @@
     "reviewControls": "Review workflow controls",
     "inspectFoundry": "Inspect current Foundry status"
   },
+  "qualityTabs": {
+    "ariaLabel": "Contract-policy expert quality story",
+    "optimizer": {
+      "step": "Part 1",
+      "title": "Foundry Agent Optimizer",
+      "subtitle": "New assets, same model",
+      "metric": "Score {{before}} → {{after}}"
+    },
+    "rft": {
+      "step": "Part 2",
+      "title": "Reinforcement fine-tuning (RFT)",
+      "subtitle": "Same improved assets, fine-tuned model",
+      "metric": "{{pass}} pass rate · {{savings}} lower cost"
+    }
+  },
   "optimizerReview": {
-    "eyebrow": "Part 1 · Foundry Agent Optimizer: new assets, same model",
     "title": "The optimizer improves the agent by changing its assets. The model stays {{model}}.",
     "intro": "Foundry Agent Optimizer started from {{agent}} v{{version}}, used {{optimizationModel}} to write candidate prompts and tool descriptions, and scored every candidate on {{evalModel}} with the same rubric. {{candidate}} won by score.",
     "setup": "Job {{job}} · rubric {{rubric}} v{{rubricVersion}}",
@@ -266,7 +280,6 @@
     }
   },
   "rftPayoff": {
-    "eyebrow": "Part 2 · RFT: same improved assets, fine-tuned model",
     "title": "RFT moves the optimized agent from gpt-6-astra to MAI.",
     "intro": "These are full Foundry hosted-agent evals for {{agent}}, not model-only completions. Each stage uses {{runs}} sequential runs of {{rows}} rows against the same held-out dataset and rubric.",
     "evalSetup": "Dataset {{dataset}} v{{datasetVersion}} · rubric {{rubric}} v{{rubricVersion}}",
