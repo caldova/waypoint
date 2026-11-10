@@ -15,7 +15,7 @@ snapshot of the live data. There's no backend: no sign-in, no Foundry, no API.
 
 | Piece | Static behavior |
 | --- | --- |
-| Rendering | Every page is prerendered in English and Spanish; `404.html` covers other paths |
+| Rendering | Every page is prerendered in English, Spanish (`/es/`), and Traditional Chinese for Taiwan (`/zh-TW/`); `404.html` covers other paths |
 | Sign-in | Starts signed in as "Caldova Analyst". Sign out / Sign in just toggle locally |
 | Data | `lib/staticApi.ts` answers `/api/*` from `static-data/snapshot.json` |
 | Dates | Shifted forward by whole days so the newest run is always recent |

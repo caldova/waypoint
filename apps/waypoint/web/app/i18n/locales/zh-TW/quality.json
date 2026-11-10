@@ -122,5 +122,288 @@
     "gateDetail": "必須先設定必要審查者，並明確確認支出。在存放庫加入正式的專用指令之前，仍無法送出作業。",
     "reviewControls": "檢閱工作流程控制項",
     "inspectFoundry": "檢查 Foundry 目前狀態"
+  },
+  "qualityTabs": {
+    "ariaLabel": "合約政策專家品質歷程",
+    "optimizer": {
+      "step": "第 1 部分",
+      "title": "Foundry Agent Optimizer",
+      "subtitle": "新資產，相同模型",
+      "metric": "分數 {{before}} → {{after}}"
+    },
+    "rft": {
+      "step": "第 2 部分",
+      "title": "強化微調（RFT）",
+      "subtitle": "相同的改良資產，微調後模型",
+      "metric": "{{pass}} 通過率 · 成本降低 {{savings}}"
+    }
+  },
+  "optimizerReview": {
+    "title": "最佳化工具透過變更資產來改善代理程式，模型維持 {{model}} 不變。",
+    "intro": "Foundry Agent Optimizer（代理程式最佳化工具）以 {{agent}} v{{version}} 為起點，使用 {{optimizationModel}} 撰寫候選提示與工具描述，並以相同的評分準則在 {{evalModel}} 上為每個候選版本評分。{{candidate}} 以最高分勝出。",
+    "setup": "作業 {{job}} · 評分準則 {{rubric}} v{{rubricVersion}}",
+    "strip": {
+      "ariaLabel": "最佳化工具結果摘要",
+      "score": "分數",
+      "scoreDetail": "基準 → {{candidate}}",
+      "lift": "提升幅度",
+      "liftDetail": "相對於基準分數",
+      "model": "模型",
+      "modelDetail": "維持不變",
+      "status": "狀態",
+      "succeeded": "已成功",
+      "statusDetail": "已評分 {{candidates}} 個候選版本",
+      "help": "分數為評估器在來源依據、引用、證據格式、缺口處理與唯讀行為各項的平均分數。此作業回報的是分數與評估執行 ID，而非通過門檻。"
+    },
+    "summary": {
+      "title": "變更內容",
+      "output": {
+        "label": "輸出",
+        "text": "從鬆散的審查備註，改為單一且嚴格的證據 JSON 物件，並排除核准、暫緩與爭議等用語。"
+      },
+      "evidence": {
+        "label": "證據",
+        "text": "合約與政策相關陳述現在必須取自 FoundryIQ 脈絡，特別是 {{field}}。"
+      },
+      "gaps": {
+        "label": "缺口",
+        "text": "缺少的來源文件、費率缺口、放行狀態，以及僅有識別碼的參照，都會轉為財務主管的查核項目。"
+      },
+      "boundary": {
+        "label": "邊界",
+        "text": "當請求表明不做決策時，{{decision}} 與 {{action}} 保持為 null，也不宣稱已執行任何系統動作。"
+      }
+    },
+    "assets": {
+      "title": "已變更的資產",
+      "detail": "{{candidate}} 實際變更的內容",
+      "prompt": {
+        "label": "主要提示",
+        "text": "從鬆散的初步分類指引，改為嚴格的證據 JSON 規格。"
+      },
+      "tool": {
+        "label": "擷取工具",
+        "text": "描述更加精確，且 {{field}} 改為必填。"
+      },
+      "unchanged": {
+        "label": "無變更",
+        "text": "模型、代理程式版本、技能與工具名稱皆維持不變。"
+      }
+    },
+    "leaderboard": {
+      "title": "候選版本搜尋",
+      "detail": "已評分 {{candidates}} 個候選版本 · 依分數選出勝出者",
+      "columns": {
+        "rank": "排名",
+        "candidate": "候選版本",
+        "score": "分數",
+        "status": "狀態"
+      },
+      "winner": "勝出",
+      "baseline": "基準",
+      "candidate": "候選"
+    },
+    "prompt": {
+      "title": "主要提示變更",
+      "detail": "發票證據審查的主要行為規範。",
+      "chars": "{{delta}} 個字元",
+      "size": "{{before}} → {{after}} 行"
+    },
+    "emphasis": {
+      "caption": "提示重點",
+      "detail": "各項行為的關鍵詞在提示中出現的頻率。",
+      "columns": {
+        "behavior": "行為",
+        "baseline": "基準",
+        "delta": "變化",
+        "meaning": "代表意義"
+      },
+      "groups": {
+        "shape": {
+          "label": "發票證據格式",
+          "meaning": "要求合約政策專家依照發票審查所需的確切格式回傳證據封包。",
+          "business": "財務審查人員與後續檢查可直接比對發票發現事項，無須解析自由格式的文字。"
+        },
+        "citations": {
+          "label": "附引用的合約證據",
+          "meaning": "回答會為每項合約或政策陳述附上來源參照、信賴度，以及支持或矛盾的中繼資料。",
+          "business": "稽核人員可看出發票明細項目為何有依據、缺乏依據或有風險。"
+        },
+        "gaps": {
+          "label": "缺漏證據處理",
+          "meaning": "代理程式會指出缺少的條款、互相衝突的政策或證據缺口，而不是自行編造答案。",
+          "business": "降低合約或政策證據不完整時的錯誤信心。"
+        },
+        "retrieval": {
+          "label": "合約與政策擷取",
+          "meaning": "代理程式在做出判斷前，會先在知識庫中搜尋合約條款、政策規則、費率表、SKU、批號與供應商證據。",
+          "business": "發現事項以 Caldova 的 FoundryIQ 來源資料為依據，而非模型的一般記憶。"
+        },
+        "boundary": {
+          "label": "唯讀財務邊界",
+          "meaning": "合約政策專家只負責說明證據，不得核准發票、核對付款、啟動追回，或回寫財務系統。",
+          "business": "讓代理程式維持在諮詢性的審查角色，營運決策則交由人員或受控系統做出。"
+        }
+      }
+    },
+    "diff": {
+      "promptSummary": "完整主要提示差異",
+      "toolSummary": "完整工具 JSON 差異",
+      "stats_other": "新增 {{added}} 行 · 移除 {{removed}} 行 · {{count}} 個重點差異區塊",
+      "noChanges": "無變更",
+      "hunk": "差異區塊 {{number}}",
+      "legend": "行號：先列基準，再列 {{candidate}}。+ 為新增，− 為移除。"
+    },
+    "tool": {
+      "title": "擷取工具變更",
+      "detail": "工具名稱維持不變。{{candidate}} 讓工具描述更加精確，並將搜尋查詢改為必填。",
+      "rows": {
+        "tool": "工具",
+        "input": "輸入",
+        "contract": "規格",
+        "behavior": "行為"
+      },
+      "toolValue": "{{name}} 維持不變。",
+      "inputUnchanged": "{{fields}}（未變更）。",
+      "inputChanged": "{{before}} 改為 {{after}}。",
+      "nowRequired": "{{fields}} 現為必填。",
+      "noLongerRequired": "{{fields}} 已不再必填。",
+      "requiredUnchanged": "必填：{{fields}}（未變更）。",
+      "behaviorChanged": "擷取指引更加嚴格：證據須有來源依據，且不執行任何業務系統動作。",
+      "behaviorUnchanged": "擷取指引未變更。",
+      "descriptions": "完整工具描述",
+      "baseline": "基準",
+      "noDescription": "無描述。",
+      "none": "無"
+    }
+  },
+  "rftPayoff": {
+    "title": "RFT 讓最佳化後的代理程式從 gpt-6-astra 改用 MAI。",
+    "intro": "以下是 {{agent}} 的完整 Foundry 託管代理程式評估，而非僅測試模型本身的回應。每個階段都針對相同的保留資料集與評分準則，連續執行 {{runs}} 次、每次 {{rows}} 筆資料。",
+    "evalSetup": "資料集 {{dataset}} v{{datasetVersion}} · 評分準則 {{rubric}} v{{rubricVersion}}",
+    "stages": {
+      "ariaLabel": "各階段評估結果",
+      "agentVersion": "代理程式 v{{version}}",
+      "passed": "通過 {{passed}}/{{total}} 筆",
+      "runsAria": "每次執行的通過筆數：{{runs}}",
+      "toOptimized": "Agent Optimizer",
+      "toTuned": "RFT 模型替換",
+      "baseline": {
+        "label": "基準",
+        "detail": "刻意設計得較弱的起始資產，每次執行的結果起伏很大。"
+      },
+      "optimized": {
+        "label": "最佳化後",
+        "detail": "在 gpt-6-astra 上使用 {{candidate}} 的指示與擷取工具規格。"
+      },
+      "tuned": {
+        "label": "微調後 MAI",
+        "detail": "相同的最佳化後資產，只更換模型部署。"
+      }
+    },
+    "swap": {
+      "ariaLabel": "代理程式與模型",
+      "agentName": "合約政策專家",
+      "optimizedLabel": "最佳化後的資產",
+      "optimizedDetail": "來自 {{job}} 的 {{candidate}} 指示與擷取工具規格。",
+      "tunedLabel": "相同資產 + 微調後模型",
+      "tunedDetail": "沿用相同的最佳化後資產，只將模型部署換成 MAI 微調後的模型。",
+      "swapOnly": "僅更換模型"
+    },
+    "cost": {
+      "title": "預估成本：Astra 與微調後 MAI 比較",
+      "volume": "{{requests}} 次證據請求",
+      "perUnit": "每 {{unit}} 次請求 {{amount}}",
+      "perRequest": "每次請求：輸入 {{input}} + 輸出 {{output}} 個權杖",
+      "totals": "輸入 {{input}} + 輸出 {{output}} 個權杖",
+      "inputPrice": "輸入 $/1M",
+      "outputPrice": "輸出 $/1M",
+      "pricesNote": "預設值採用 Azure Global Standard 公開費率。若此部署使用不同的計量、折扣或容量模式，請自行修改。",
+      "savings": "以 {{requests}} 次請求計算，在上述價格假設下，微調後 MAI 的成本比 Astra 低 {{amount}}（降低 {{percent}}）。",
+      "higher": "以 {{requests}} 次請求計算，在上述價格假設下，微調後 MAI 的成本比 Astra 高 {{amount}}。",
+      "noPrices": "請輸入每百萬權杖的輸入與輸出價格以計算成本。微調後 MAI 產生的輸出權杖比 Astra 多 {{tokens}} 個（{{percent}}）。",
+      "basis": "依 Azure Global Standard 公開權杖（token）費率估算：GPT-6 Astra 每百萬權杖輸入 $10、輸出 $50；Microsoft Code 1.1 Flash 每百萬權杖輸入 $0.20、輸出 $1.20。Foundry 託管代理程式評估的用量欄位回報為零，因此權杖量改以本機 o200k_base 計算，涵蓋五次各 24 筆資料執行中的實際評估輸入文字與最終輸出文字。此為未計入折扣、稅金、快取效果、工具、託管及佈建容量費用前的估算值。",
+      "options": {
+        "optimized": "Astra",
+        "tuned": "微調後 MAI"
+      }
+    },
+    "table": {
+      "summary": "完整比較",
+      "columns": {
+        "area": "項目",
+        "baseline": "基準",
+        "optimized": "最佳化後",
+        "tuned": "微調後 MAI",
+        "takeaway": "重點"
+      },
+      "notApplicable": "不適用",
+      "rows": {
+        "mean": {
+          "area": "Foundry 代理程式平均",
+          "cell": "{{runs}} 次執行（每次 {{rows}} 筆）平均 {{mean}}",
+          "takeaway": "微調後 MAI 與最佳化後版本表現相當。"
+        },
+        "spread": {
+          "area": "各次執行差異",
+          "range": "{{min}}/{{rows}} 至 {{max}}/{{rows}}",
+          "every": "每次皆為 {{passed}}/{{rows}}",
+          "takeaway": "最佳化後的資產消除了基準不穩定的表現。"
+        },
+        "optimizer": {
+          "area": "最佳化工具候選版本",
+          "baseline": "最佳化工具訓練分數 {{score}}",
+          "optimized": "{{candidate}} 訓練分數 {{score}}",
+          "tuned": "相同的最佳化後資產",
+          "takeaway": "最佳化工具變更了指示與擷取工具規格。"
+        },
+        "evals": {
+          "area": "套用資產後的評估",
+          "cell": "代理程式 v{{version}}，{{evalId}}",
+          "takeaway": "三者皆為託管代理程式評估，使用相同的保留資料集與評分準則。"
+        },
+        "behavior": {
+          "area": "目標行為",
+          "baseline": "鬆散的初步分類證據行為",
+          "optimized": "{{candidate}} 的嚴格證據 JSON",
+          "tuned": "相同的目標行為",
+          "takeaway": "最佳化工具修正行為之後，RFT 只是更換模型。"
+        },
+        "model": {
+          "area": "模型",
+          "tuned": "MAI 微調後的部署",
+          "takeaway": "微調後的執行將模型從 gpt-6-astra 換成 MAI RFT 部署。"
+        },
+        "rftJob": {
+          "area": "RFT 作業",
+          "takeaway": "保留下來且已成功完成的 MAI RFT 作業。"
+        },
+        "fineTuned": {
+          "area": "微調後模型",
+          "takeaway": "可部署的 MAI 合約政策專家模型。"
+        },
+        "deployment": {
+          "area": "RFT 部署",
+          "takeaway": "推論服務的比較採用微調後的部署。"
+        },
+        "costEvidence": {
+          "area": "成本證據",
+          "baseline": "未建模",
+          "cell": "每次請求約輸入 {{input}} + 輸出 {{output}} 個權杖",
+          "takeaway": "採用 Global Standard 公開權杖費率。實際帳單可能因折扣、快取、工具、託管或容量模式而不同。"
+        }
+      }
+    },
+    "results": {
+      "title": "最終結果",
+      "body": "這次在 Foundry 全新重跑的流程，從刻意設計得平庸的基準出發，套用 {{candidate}} 後，只將模型部署換成 MAI RFT 模型。最佳化後版本通過 {{optimized}} 筆，微調後 MAI 同樣通過 {{tuned}} 筆。",
+      "optimizer": "最佳化工具",
+      "candidate": "候選版本",
+      "foundryEval": "Foundry 評估",
+      "evalRuns": "評估執行",
+      "evalRunsValue": "{{runs}} 次連續的原生 Foundry 評估執行",
+      "rftJob": "RFT 作業",
+      "rftDeployment": "RFT 部署"
+    }
   }
 }
