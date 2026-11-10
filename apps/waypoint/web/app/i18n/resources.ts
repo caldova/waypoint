@@ -12,6 +12,13 @@ import esCommon from "./locales/es/common.json";
 import esHome from "./locales/es/home.json";
 import esInvoices from "./locales/es/invoices.json";
 import esQuality from "./locales/es/quality.json";
+import zhTWActivity from "./locales/zh-TW/activity.json";
+import zhTWAgent from "./locales/zh-TW/agent.json";
+import zhTWAuth from "./locales/zh-TW/auth.json";
+import zhTWCommon from "./locales/zh-TW/common.json";
+import zhTWHome from "./locales/zh-TW/home.json";
+import zhTWInvoices from "./locales/zh-TW/invoices.json";
+import zhTWQuality from "./locales/zh-TW/quality.json";
 
 /**
  * Resources are bundled statically: the string set is small, and having every
@@ -35,5 +42,14 @@ export const resources = {
     quality: esQuality,
     agent: esAgent,
     invoices: esInvoices,
+  },
+  "zh-TW": {
+    common: zhTWCommon,
+    home: zhTWHome,
+    auth: zhTWAuth,
+    activity: zhTWActivity,
+    quality: zhTWQuality,
+    agent: zhTWAgent,
+    invoices: zhTWInvoices,
   },
 } as const;

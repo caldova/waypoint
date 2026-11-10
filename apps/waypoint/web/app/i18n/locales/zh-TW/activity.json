@@ -1,0 +1,45 @@
+{
+  "header": {
+    "title": "進行中與待處理的執行",
+    "description": "稽核管線開啟的即時執行，會自動重新整理。開啟任一執行，即可在「代理程式詳細資料」中檢視完整的專家分派情形。",
+    "updatedAgo": "{{duration}}前更新",
+    "refresh": "重新整理"
+  },
+  "focus": {
+    "reused": "已沿用發票 {{invoice}} 進行中的稽核執行，未另外啟動重複的 Foundry 執行。",
+    "accepted": "已受理發票 {{invoice}} 的稽核。託管執行完成前，此頁面會持續重新整理。"
+  },
+  "buckets": {
+    "active": "進行中",
+    "pending": "待處理",
+    "moneyAtRiskActive": "風險金額（進行中）",
+    "showCompleted": "顯示最近完成的執行（{{total}}）",
+    "hideCompleted": "隱藏最近完成的執行（{{total}}）"
+  },
+  "empty": {
+    "loading": "載入中…",
+    "noActive": "目前沒有執行中的作業。",
+    "startFromQueue": "執行會從<invoiceLink>發票佇列</invoiceLink>啟動。",
+    "reviewCompleted_other": "<button>檢視最近完成的 {{count}} 次執行</button>。",
+    "noPending": "目前沒有排入佇列的項目。"
+  },
+  "run": {
+    "invoice": "發票 {{invoice}}",
+    "decision": "決策：{{decision}}",
+    "elapsed": "已經過 {{duration}}",
+    "startedAgo": "{{duration}}前開始",
+    "details": "詳細資料",
+    "openTrace": "開啟追蹤",
+    "experts": "專家"
+  },
+  "duration": {
+    "seconds": "{{s}} 秒",
+    "minutes": "{{m}} 分 {{s}} 秒",
+    "hours": "{{h}} 小時 {{m}} 分",
+    "days": "{{d}} 天 {{h}} 小時"
+  },
+  "errors": {
+    "fetchFailed": "無法取得執行資料",
+    "fetchFailedStatus": "無法取得執行資料：{{status}}"
+  }
+}

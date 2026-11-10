@@ -1,4 +1,4 @@
-import { DEFAULT_LOCALE, isSupportedLocale, type Locale } from "./config";
+import { DEFAULT_LOCALE, SUPPORTED_LOCALES, type Locale } from "./config";
 
 /**
  * Locale-prefixed URLs. English, the default, is unprefixed (`/invoices`);
@@ -16,14 +16,19 @@ export interface LocalePath {
   prefixed: boolean;
 }
 
-/** Split `/es/invoices` into `{ locale: "es", path: "/invoices" }`. */
+/** Split `/es/invoices` into `{ locale: "es", path: "/invoices" }`. Codes match case-insensitively (`/zh-tw`). */
 export function splitLocalePath(pathname: string): LocalePath {
   const match = /^\/([^/]+)(\/.*)?$/.exec(pathname);
-  const first = match?.[1];
-  if (first && isSupportedLocale(first)) {
-    return { locale: first, path: match[2] || "/", prefixed: true };
+  const locale = localeFromSegment(match?.[1]);
+  if (match && locale) {
+    return { locale, path: match[2] || "/", prefixed: true };
   }
   return { locale: DEFAULT_LOCALE, path: pathname || "/", prefixed: false };
+}
+
+function localeFromSegment(segment: string | undefined): Locale | null {
+  const lower = segment?.toLowerCase();
+  return SUPPORTED_LOCALES.find((locale) => locale.toLowerCase() === lower) ?? null;
 }
 
 /** `/invoices?x=1` → `/es/invoices?x=1` for Spanish; unchanged for English. */

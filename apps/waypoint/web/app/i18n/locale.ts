@@ -12,8 +12,9 @@ export function preferredLocale(request: Request): Locale {
 
 /**
  * Where an unprefixed URL should go so the address always shows the language:
- * `/x` → `/es/x` for visitors who prefer Spanish. Returns null when the URL is
- * already right. (`/en/...` is handled by its own redirect route.)
+ * `/x` → `/es/x` for visitors who prefer Spanish. A prefix in another case
+ * (`/zh-tw/x`) goes to its canonical form (`/zh-TW/x`). Returns null when the
+ * URL is already right. (`/en/...` is handled by its own redirect route.)
  */
 export function localeRedirect(request: Request): string | null {
   const url = new URL(request.url);
@@ -21,9 +22,13 @@ export function localeRedirect(request: Request): string | null {
   const pathname = url.pathname === "/_root.data" ? "/" : url.pathname.replace(/\.data$/, "");
   url.searchParams.delete("_routes");
   const search = url.searchParams.size ? `?${url.searchParams}` : "";
-  const { path, prefixed } = splitLocalePath(pathname);
+  const { locale, path, prefixed } = splitLocalePath(pathname);
 
-  if (prefixed || isUnlocalizedPath(path)) {
+  if (prefixed) {
+    const canonical = locale === DEFAULT_LOCALE || pathname.split("/")[1] === locale;
+    return canonical ? null : `${localizePath(path, locale)}${search}`;
+  }
+  if (isUnlocalizedPath(path)) {
     return null;
   }
   const preferred = preferredLocale(request);

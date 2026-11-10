@@ -1,0 +1,182 @@
+{
+  "page": {
+    "heading": "依發票檢視工作成果",
+    "intro": "Foundry Assurance Orchestrator 的每次執行，都會依其稽核的發票分組。每一列彙總專家的執行次數、目前決策與風險金額。開啟任一執行紀錄，即可逐一 IQ 查看其發現事項的證據軌跡。",
+    "refresh": "重新整理",
+    "loading": "正在載入執行紀錄…",
+    "invoices": "發票"
+  },
+  "errors": {
+    "fetchFailed": "無法取得代理程式執行紀錄",
+    "fetchFailedStatus": "無法取得代理程式執行紀錄：{{status}}"
+  },
+  "shared": {
+    "atRisk": "風險金額",
+    "amountAtRisk": "風險金額 {{amount}}",
+    "ranCount": "執行 {{n}} 次",
+    "citations_other": "{{count}} 筆引用",
+    "expert": "專家"
+  },
+  "usage": {
+    "heading": "專家使用情形",
+    "description": "各專家在所有工作中的執行次數，以及各自為決策提供的證據。",
+    "empty": "所選執行中沒有任何專家提供引用證據。",
+    "stub": "模擬",
+    "connectedTo": "已連線至 {{tool}}",
+    "citationsContributed_other": "已提供 {{count}} 筆引用"
+  },
+  "totals": {
+    "heading": "所有執行總計",
+    "runs": "執行次數",
+    "makeItRain": "下錢雨囉！",
+    "trendHeading": "風險金額趨勢",
+    "trendAriaLabel": "風險金額趨勢圖",
+    "days_other": "{{count}} 天"
+  },
+  "filters": {
+    "when": "時間",
+    "range": {
+      "days7": "7 天",
+      "days30": "30 天",
+      "days90": "90 天",
+      "all": "全部"
+    },
+    "monthAriaLabel": "依月份篩選",
+    "anyMonth": "所有月份",
+    "decision": "決策",
+    "allDecisions": "全部",
+    "searchPlaceholder": "搜尋發票…",
+    "searchAriaLabel": "搜尋發票",
+    "sortAriaLabel": "排序發票",
+    "sort": {
+      "recent": "最新",
+      "money": "風險金額",
+      "confidence": "信賴度最低"
+    },
+    "noMatches": "沒有符合這些篩選條件的發票。",
+    "clear": "清除篩選"
+  },
+  "invoice": {
+    "calibratedHint": "已校準的決策信賴度。",
+    "uncalibratedHint": "未校準的證據分數，並非校準後的決策準確度。",
+    "noEvidence": "未記錄任何專家證據。",
+    "lastRun": "上次執行：{{time}}",
+    "findings_other": "{{count}} 項發現事項",
+    "runHistory": "執行紀錄"
+  },
+  "run": {
+    "latest": "最新",
+    "noSummary": "未記錄摘要。",
+    "view": "檢視執行 →"
+  },
+  "lightbox": {
+    "ariaLabel": "{{invoice}} 的執行詳細資料",
+    "ranOn": "代理程式於 {{time}} 執行 · {{author}}",
+    "close": "關閉執行詳細資料",
+    "confidence": "信賴度",
+    "evidenceScore": "證據分數",
+    "experts": "專家",
+    "findings": "發現事項",
+    "perExpertHeading": "各專家（IQ）證據",
+    "noPerExpert": "此次執行未記錄各專家的證據。",
+    "telemetry": {
+      "heading": "遙測",
+      "foundryAgent": "Foundry 代理程式",
+      "conversation": "對話",
+      "operation": "作業",
+      "runId": "執行 ID"
+    }
+  },
+  "lane": {
+    "noCitationText": "（無引用文字）",
+    "supports": "佐證 {{value}}"
+  },
+  "map": {
+    "heading": "代理程式地圖",
+    "summary_other": "{{count}} 個代理程式 · 已使用 {{active}}/{{total}} 個證據來源",
+    "viewAriaLabel": "代理程式地圖檢視方式",
+    "mode": {
+      "map": "地圖",
+      "list": "清單"
+    },
+    "zoomLevelAriaLabel": "地圖縮放層級",
+    "allAgents": "所有代理程式",
+    "zoomIn": "放大",
+    "zoomOut": "縮小",
+    "fit": "縮放地圖以符合畫面",
+    "hint": "按一下泡泡可放大 · 按一下空白處可縮小 · 捲動可縮放 · 拖曳可平移",
+    "ariaLabel": "可縮放的代理程式地圖",
+    "srHint": "使用 Tab 鍵瀏覽泡泡與代理程式；在泡泡上按 Enter 鍵即可放大檢視。選擇上方的「清單」可查看包含引用與來源的完整結構。",
+    "zoomInto": "放大檢視 {{name}}",
+    "clickToExplore": "按一下以探索",
+    "citationUnit_other": "筆引用",
+    "sourcesOf": "{{active}}/{{total}} 個來源",
+    "footnote": "Caldova IQ 涵蓋協調器可呼叫的所有證據來源：Microsoft IQ（FabricIQ、FoundryIQ、WebIQ、WorkIQ）與第三方整合。按一下即可放大檢視。彩色圖塊表示在此次執行中引用了證據，淡色圖塊則未使用。Caldova Recorder 仍是受控執行、案件與建議的唯一寫入者。",
+    "connector": {
+      "reads": "讀取"
+    },
+    "bubbleName": {
+      "orchestration": "協調",
+      "caldova": "Caldova IQ",
+      "microsoft": "Microsoft IQ",
+      "integrations": "整合",
+      "record": "受控紀錄",
+      "analysts": "分析師"
+    },
+    "bubbleTitle": {
+      "caldova": "證據（{{active}}/{{total}} 個來源）",
+      "integrations": "整合（{{n}}）",
+      "analysts": "分析師（{{n}}）"
+    },
+    "node": {
+      "intake": {
+        "label": "發票接收",
+        "stats": "prebuilt-invoice 模型"
+      },
+      "orchestrator": {
+        "title": "協調器",
+        "fannedOut_other": "已分派至 {{count}} 個來源"
+      },
+      "recorder": {
+        "title": "受控紀錄的唯一寫入者",
+        "stats": "寫入執行 · 案件 · 建議"
+      },
+      "analyst": {
+        "fallback": "分析師",
+        "title": "唯讀分析師",
+        "stats": "根據受控紀錄回答問題"
+      },
+      "integrationsPlaceholder": {
+        "label": "尚未連線",
+        "title": "第三方整合",
+        "stats": "目前尚未連線任何整合"
+      },
+      "evidenceSourceFallback": "證據來源",
+      "integrationFallback": "整合",
+      "citationsWithScore_other": "{{count}} 筆引用 · {{percent}}",
+      "notUsed": "此次執行未使用"
+    },
+    "tile": {
+      "ariaLabel": "{{label}}（{{title}}）：{{stats}}",
+      "more": "另有 {{n}} 項"
+    },
+    "list": {
+      "flow": "工作從協調開始，經由 Caldova IQ 的證據來源，流向受控紀錄。",
+      "flowWithAnalysts": "工作從協調開始，經由 Caldova IQ 的證據來源，流向受控紀錄，再由分析師讀取。",
+      "sources": "來源",
+      "used_other": "已使用 · {{count}} 筆引用",
+      "avgConfidence": "平均信賴度 {{percent}}",
+      "sourcesUsed": "已使用 {{active}}/{{total}} 個證據來源",
+      "iqSourcesUsed": "已使用 {{active}}/{{total}} 個 IQ 來源",
+      "integrationsConnected_other": "已連線 {{count}} 個",
+      "noIntegrations": "尚未連線任何第三方整合",
+      "orchestration": "讀取發票並分派至各證據來源",
+      "record": "寫入受控的執行、案件與建議",
+      "analysts": "讀取受控紀錄以回答問題"
+    }
+  },
+  "empty": {
+    "heading": "尚無代理程式執行紀錄",
+    "body": "開啟發票並選擇「執行稽核」，或觸發存放庫的維運工作流程。已完成的執行會顯示於此，並附上有依據的決策與各專家的證據軌跡。"
+  }
+}

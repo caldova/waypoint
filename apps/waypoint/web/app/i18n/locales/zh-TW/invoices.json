@@ -1,0 +1,371 @@
+{
+  "header": {
+    "title": "供應商發票",
+    "intro": "完整的發票工作佇列。選取尚未審查的發票即可執行稽核，再檢視已記錄的決策、證據與追回情形。"
+  },
+  "tiles": {
+    "shown": "已顯示",
+    "invoices": "發票",
+    "pending": "待處理",
+    "escalations": "呈報",
+    "filterToEscalations": "只顯示呈報項目",
+    "recoverable": "可追回"
+  },
+  "summary": {
+    "loading": "正在載入供應商發票決策…",
+    "recoverable_other": "已審查 {{count}} 張發票，可追回 {{amount}}",
+    "escalations_other": "呈報 {{count}} 件",
+    "pending_other": "待處理 {{count}} 張",
+    "readyToRun_other": "可執行 {{count}} 張",
+    "line": "{{facts}}。每項建議都會保留人工核准與引用來源。"
+  },
+  "list": {
+    "label": "發票",
+    "loading": "載入中…",
+    "showing": "顯示 {{shown}} 張，共 {{total}} 張",
+    "count_other": "{{count}} 張發票",
+    "selectVisible": "全選顯示項目",
+    "clearVisible": "取消全選",
+    "refresh": "重新整理",
+    "loadingInvoices": "正在載入發票…",
+    "empty": "目前沒有可用的發票。",
+    "loadingInsights": "正在載入分析…"
+  },
+  "table": {
+    "selectAllVisible": "選取所有顯示的發票",
+    "clearAllVisible": "取消選取所有顯示的發票",
+    "selectInvoice": "選取發票 {{number}}",
+    "columns": {
+      "invoice": "發票",
+      "reasoning": "推理",
+      "decision": "決策",
+      "category": "類別",
+      "basis": "依據",
+      "confidence": "信賴度",
+      "evidence": "證據",
+      "evidenceHint": "有多少位獨立專家佐證此決策，以及他們引用了多少個證據來源。",
+      "overpayment": "溢付"
+    }
+  },
+  "run": {
+    "of": "第 {{index}} 次執行（共 {{total}} 次）",
+    "number": "第 {{number}} 次執行",
+    "agentsWorking": "代理程式處理中…",
+    "viewLiveProgress": "在「活動」中檢視即時進度",
+    "viewActiveRun": "檢視進行中的執行"
+  },
+  "decisionState": {
+    "pending": "待處理",
+    "notRun": "未執行",
+    "closed": "已結案"
+  },
+  "severity": {
+    "critical": "嚴重",
+    "high": "高",
+    "medium": "中",
+    "moderate": "中等",
+    "low": "低"
+  },
+  "basis": {
+    "contract": "合約",
+    "policy": "政策",
+    "unmapped": "未對應"
+  },
+  "actions": {
+    "cancel": "取消",
+    "open": "開啟"
+  },
+  "batch": {
+    "selected_other": "已選取 {{count}} 張發票",
+    "tooLarge": "請將選取數量減少至 {{max}} 張發票以內。",
+    "limit": "批次上限 {{max}} 張 · 最多同時啟動 {{concurrency}} 張",
+    "clear": "清除",
+    "review": "檢閱批次",
+    "processed": "已處理批次要求",
+    "outcomes": "已啟動 {{accepted}} 張 · 沿用 {{reused}} 張 · 找不到 {{notFound}} 張 · {{failed}} 張無法啟動",
+    "viewActivity": "檢視活動"
+  },
+  "batchConfirm": {
+    "title_other": "要為 {{count}} 張發票開始稽核嗎？",
+    "close": "關閉批次確認",
+    "guidance": "每張新受理的發票都會啟動一次託管代理程式協調，並可能產生使用費用。進行中的執行會自動沿用。Caldova 最多同時處理 {{concurrency}} 張發票，每個批次最多受理 {{max}} 張。",
+    "currentRecoverable": "目前可追回金額",
+    "starting": "正在啟動批次…",
+    "start": "開始批次稽核"
+  },
+  "filters": {
+    "decision": "決策",
+    "all": "全部",
+    "category": "類別",
+    "categoryAria": "依類別篩選",
+    "allCategories": "所有類別",
+    "severity": "嚴重程度",
+    "severityAria": "依嚴重程度篩選",
+    "anySeverity": "所有嚴重程度",
+    "supplier": "供應商",
+    "supplierAria": "依供應商篩選",
+    "allSuppliers": "所有供應商",
+    "searchPlaceholder": "搜尋發票或供應商…",
+    "searchInvoices": "搜尋發票",
+    "sortAria": "排序發票",
+    "sortBy": "排序方式",
+    "sort": {
+      "recent": "最新",
+      "overpayment": "溢付金額最高",
+      "confidence": "信賴度最低",
+      "supplier": "供應商 A–Z"
+    },
+    "filters": "篩選",
+    "activeCount_other": "，已套用 {{count}} 個",
+    "activeFilters": "已套用的篩選條件",
+    "clearAll": "全部清除",
+    "showResults_other": "顯示 {{count}} 張發票",
+    "chips": {
+      "removeDecision": "移除決策篩選條件：{{value}}",
+      "removeCategory": "移除類別篩選條件：{{value}}",
+      "severity": "嚴重程度：{{severity}}",
+      "removeSeverity": "移除嚴重程度篩選條件：{{value}}",
+      "removeSupplier": "移除供應商篩選條件：{{value}}",
+      "sorted": "排序：{{sort}}",
+      "resetSort": "將排序重設為「{{sort}}」"
+    }
+  },
+  "card": {
+    "noOverpayment": "無溢付",
+    "recoverable": "可追回",
+    "atRisk": "風險金額",
+    "experts_other": "{{count}} 位專家",
+    "sourcesCited_other": "引用 {{count}} 個來源"
+  },
+  "noMatches": {
+    "title": "沒有符合這些篩選條件的發票",
+    "body": "請放寬決策、嚴重程度或供應商篩選條件，或清除篩選以查看完整清單。",
+    "clear": "清除篩選"
+  },
+  "insights": {
+    "decisionMix": "決策分布",
+    "noDecisions": "目前檢視範圍內沒有決策。",
+    "recoveryBySupplier": "各供應商追回金額",
+    "noRecoverable": "目前檢視範圍內沒有可追回的溢付。",
+    "severity": "嚴重程度",
+    "topOverpayments": "最高溢付金額",
+    "recoveryTrend": "追回趨勢",
+    "days_other": "{{count}} 天",
+    "sparklineLabel": "追回金額走勢"
+  },
+  "confidence": {
+    "calibratedTitle": "已校準的決策信賴度。",
+    "uncalibratedTitle": "未校準的證據分數，並非經校準的決策準確度。",
+    "notCalibrated": "未校準"
+  },
+  "drawer": {
+    "title": "<sr>發票決策脈絡：</sr>{{number}}",
+    "copyInvoiceId": "複製發票編號 {{number}}",
+    "invoiced": "發票金額 {{total}}",
+    "close": "關閉決策脈絡",
+    "olderRun": "您正在檢視較早的執行。目前的決策為第 {{run}} 次執行：{{decision}}。",
+    "olderRunPending": "待處理",
+    "confidence": "信賴度",
+    "notReported": "未回報",
+    "calibrated": "已校準",
+    "evidenceScoreNotCalibrated": "證據分數（未校準）",
+    "decided": "決策時間",
+    "notRecorded": "未記錄",
+    "run": "執行",
+    "loadingEvidence": "正在載入條款與證據…",
+    "footerActive": "新的稽核執行正在進行中。",
+    "footerRerun": "重新執行會開啟新案件，先前的執行仍會保留在歷程中。",
+    "starting": "正在啟動…",
+    "rerun": "重新執行稽核…"
+  },
+  "verdict": {
+    "recover": "向 {{supplier}} 追回 <money>{{amount}}</money>",
+    "escalate": "付款前先呈報 <money>{{amount}}</money>",
+    "review": "暫緩支付 <money>{{amount}}</money>，待人工審查",
+    "approveTotal": "核准付款 <money>{{total}}</money>",
+    "approve": "核准付款",
+    "other": "{{label}}：風險金額 <money>{{amount}}</money>"
+  },
+  "runSwitcher": {
+    "label_other": "此發票共有 {{count}} 次執行，由新到舊排列",
+    "current": "· 目前"
+  },
+  "stance": {
+    "governing": "主導條款",
+    "supports": "支持「{{decision}}」",
+    "pointsTo": "傾向「{{decision}}」"
+  },
+  "citation": {
+    "noText": "（無引用文字）"
+  },
+  "clauses": {
+    "title": "合約與政策依據",
+    "cited_other": "引用 {{count}} 項條款",
+    "empty": "此決策未附任何合約或政策依據。在審查者將其對應至條款之前，請視為缺乏依據。",
+    "noCitations": "FoundryIQ 未記錄此次執行的條款層級引用。以下為存檔的依據文件。"
+  },
+  "evidence": {
+    "title": "依來源分類的證據",
+    "citations_other": "{{count}} 項引用",
+    "records_other": "{{count}} 筆紀錄",
+    "sources_other": "{{count}} 個來源",
+    "nothingRecorded": "此次執行未記錄任何內容。",
+    "clausesListed": "條款列於「合約與政策依據」中。",
+    "noClauseCitations": "未記錄條款層級引用。",
+    "expertFallback": "專家",
+    "thirdPartySource": "第三方來源",
+    "invoiceRecords": "發票紀錄",
+    "recordsScope": "附加至發現事項的紀錄",
+    "openRecord": "開啟紀錄",
+    "none": "無證據"
+  },
+  "copy": {
+    "copied": "已複製",
+    "failed": "無法複製",
+    "failedSelect": "無法複製，請改為手動選取文字。"
+  },
+  "supplier": {
+    "title": "致 {{supplier}}",
+    "copyParagraph": "複製段落",
+    "draftedBy": "由 {{author}} 於 {{date}} 草擬。傳送前請先詳閱。",
+    "nothingToSend": "無需傳送。已核准的發票不需要通知供應商。",
+    "noDraft": "此次執行未撰寫供應商草稿。上方的推理說明僅供審查者參考，並非給供應商的內容。如果您對此明細項目有異議，請依據上方條款自行撰寫訊息。"
+  },
+  "nextStep": {
+    "title": "您的下一步",
+    "recover": {
+      "title": "向 {{supplier}} 申請 {{amount}} 折讓",
+      "body": "將上方段落複製到從供應商信箱寄出的電子郵件，附上發票 PDF，然後在應付帳款（AP）中登錄這筆折讓。"
+    },
+    "review": {
+      "title": "暫緩支付 {{amount}} 並做出決定",
+      "body": "代理程式無法判定此案。請閱讀條款與持相反立場的證據，再核准此明細項目或提出爭議。"
+    },
+    "escalate": {
+      "title": "暫緩支付 {{amount}} 並呈報",
+      "body": "請暫勿支付此明細項目，也先不要提出爭議。將呈報資料包傳送給爭議處理程序中指定的負責人。"
+    },
+    "approve": {
+      "title": "放行付款",
+      "body": "此發票與合約及營運資料相符，無需追回。"
+    },
+    "fallback": {
+      "title": "決定如何處理 {{amount}}",
+      "body": "採取行動前，請先閱讀上方的條款與證據。"
+    },
+    "copyEscalation": "複製呈報資料包",
+    "openContract": "開啟合約",
+    "agentProposed": "<label>代理程式建議：</label>{{actions}}。",
+    "openPdf": "開啟發票 PDF",
+    "noSend": "Caldova 只會記錄此案件，不會從此面板寄送電子郵件或送出核准。",
+    "reviewerNotes": "審查者備註（{{count}}）"
+  },
+  "notRun": {
+    "activeTitle": "代理程式正在處理此發票",
+    "activeBody": "執行記錄決策後，案件就會顯示在這裡。您可以在「活動」中追蹤每位專家的進度。",
+    "title": "尚無決策",
+    "body": "執行稽核會將此發票送入雲端代理程式管線。四位專家會依據各自的來源進行核對，接著 Caldova 會記錄一項決策：核准、審查、追回或呈報。",
+    "whatYouGet": "您將取得判定結果與金額、所依據的條款、依來源分類的證據、需要通知供應商時可用的段落，以及您的下一步。",
+    "starting": "正在啟動稽核…",
+    "run": "執行稽核…",
+    "hint": "可能需要數分鐘，執行前會先請您確認。"
+  },
+  "record": {
+    "lines": "發票明細",
+    "lineCount_other": "{{count}} 筆明細",
+    "sku": "SKU {{sku}}",
+    "noSku": "無 SKU",
+    "noPo": "無 PO",
+    "loadingLines": "正在載入發票明細…",
+    "noLines": "未匯入任何發票明細。",
+    "oneLake": "文件來自 Microsoft OneLake",
+    "trail": "決策軌跡"
+  },
+  "trail": {
+    "assurance": {
+      "title": "稽核",
+      "detail": "此發票尚未記錄任何受管控的決策。"
+    },
+    "finding": {
+      "title": "已記錄的發現事項"
+    },
+    "ingest": {
+      "title": "匯入",
+      "detail_other": "已將 {{count}} 筆發票明細匯入 Caldova。"
+    },
+    "decision": {
+      "title": "決策"
+    },
+    "context": {
+      "title": "製造背景"
+    },
+    "basis": {
+      "title": "合約／政策依據",
+      "detail_other": "已附加 {{count}} 種依據類型"
+    },
+    "evidence": {
+      "title": "證據",
+      "detail_other": "{{source}}（{{count}} 筆參考資料）"
+    }
+  },
+  "runConfirm": {
+    "title": "要對發票 {{number}} 執行稽核嗎？",
+    "pipeline": "這會為 {{supplier}} 啟動雲端代理程式管線。四位專家會蒐集證據，接著記錄決策。過程可能需要數分鐘，您可以在「活動」中追蹤進度。",
+    "reuse": "如果此發票已有進行中的執行，Caldova 會沿用該執行，不會另外啟動。每次新的執行都會使用託管代理程式容量，並可能產生使用費用。",
+    "runNumber": "這將是第 {{number}} 次執行。先前的執行會保留在執行紀錄中。",
+    "start": "開始稽核執行"
+  },
+  "sourceCount": {
+    "noneTitle": "此發票尚未記錄任何專家證據。",
+    "experts_other": "<num>{{count}}</num> 位專家",
+    "citations_other": "<num>{{count}}</num> 項引用",
+    "independentExperts_other": "{{count}} 位獨立專家",
+    "tooltipPlanes_other": "{{count}} 項引用經 {{experts}} 交叉佐證（例如 WorkIQ、FabricIQ）。開啟該列即可查看每位專家的引用。",
+    "tooltipSources_other": "已記錄 {{count}} 項引用。開啟該列即可查看詳細資料。"
+  },
+  "empty": {
+    "none": "無"
+  },
+  "preview": {
+    "ariaLabel": "預覽 {{title}}",
+    "close": "關閉預覽",
+    "pdfTitle": "{{number}} PDF",
+    "loadingTitle": "正在載入文件",
+    "viewer": "文件檢視器",
+    "loadingDocument": "正在載入文件…",
+    "contractDocument": "合約文件",
+    "policyDocument": "政策文件",
+    "invoicePdf": "發票 PDF",
+    "documentId": "文件 ID",
+    "supplierId": "供應商 ID",
+    "type": "類型",
+    "effective": "生效日期",
+    "notSpecified": "未指定",
+    "policyId": "政策 ID",
+    "severity": "嚴重程度",
+    "noPolicyDescription": "此政策沒有可用的說明。",
+    "documentContent": "文件內容",
+    "contentUnavailableTitle": "此處無法顯示文件內容",
+    "contentUnavailableBody": "完整文件存放在 Caldova 語料資料湖中，但此環境未連線至該資料湖。下方的參考資料仍會附加在此發現事項上。",
+    "loadingPdf": "正在載入 PDF…",
+    "pdfUnavailableTitle": "此處無法顯示 PDF",
+    "pdfErrorTitle": "無法載入此 PDF",
+    "pdfUnavailableBody": "來源 PDF 存放在 Caldova 語料資料湖中，但此環境未連線至該資料湖。下方的參考資料仍會附加在此發現事項上。",
+    "pdfErrorBody": "載入文件時發生錯誤，請嘗試重新開啟。",
+    "metadata": "中繼資料"
+  },
+  "errors": {
+    "fetchDecisions": "無法取得發票決策",
+    "fetchDecisionsStatus": "無法取得發票決策：{{status}}",
+    "fetchDetail": "無法取得發票詳細資料",
+    "fetchDetailStatus": "無法取得發票詳細資料：{{status}}",
+    "contractPreview": "無法取得合約預覽",
+    "contractPreviewStatus": "無法取得合約預覽：{{status}}",
+    "policyPreview": "無法取得政策預覽",
+    "policyPreviewStatus": "無法取得政策預覽：{{status}}",
+    "startAssurance": "無法啟動稽核。",
+    "startAssuranceStatus": "無法啟動稽核（{{status}}）。",
+    "startBatch": "無法啟動批次稽核。",
+    "startBatchStatus": "無法啟動批次稽核（{{status}}）。"
+  }
+}
