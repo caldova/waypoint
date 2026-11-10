@@ -5,10 +5,12 @@ import type { Locale } from "./config";
 /**
  * Regional formatting conventions for each UI language. Spanish uses Latin
  * American conventions (es-419): period decimals, comma grouping, 12-hour time.
+ * Traditional Chinese uses Taiwan's (zh-TW), e.g. 2026年1月15日 and US$1,234.50.
  */
 export const INTL_LOCALES: Record<Locale, string> = {
   en: "en-US",
   es: "es-419",
+  "zh-TW": "zh-TW",
 };
 
 type DateInput = string | number | Date | null | undefined;

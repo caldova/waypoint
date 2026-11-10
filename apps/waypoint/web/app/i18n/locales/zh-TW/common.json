@@ -1,0 +1,96 @@
+{
+  "app": {
+    "name": "Waypoint",
+    "skipToContent": "跳至主要內容",
+    "menu": "選單",
+    "primaryNavigation": "主要導覽",
+    "logoAlt": "Caldova"
+  },
+  "nav": {
+    "overview": "總覽",
+    "invoices": "發票",
+    "activity": "活動",
+    "agent": "代理程式詳細資料",
+    "quality": "品質"
+  },
+  "userMenu": {
+    "devMode": "開發模式",
+    "devModeDetail": "本機環境已略過驗證。",
+    "signOut": "登出",
+    "backToLogin": "返回登入頁面"
+  },
+  "language": {
+    "label": "語言"
+  },
+  "meta": {
+    "home": {
+      "title": "Caldova",
+      "description": "委託製造供應商監督工作區"
+    },
+    "login": {
+      "title": "登入 - Caldova",
+      "description": "登入 Caldova"
+    },
+    "activity": {
+      "title": "活動 - Caldova",
+      "description": "即時檢視進行中與待處理的代理程式執行及其進度"
+    },
+    "agent": {
+      "title": "執行紀錄 - Caldova",
+      "description": "彙整的代理程式工作：每張發票的執行、IQ 使用情形，以及每次執行找到的證據"
+    },
+    "invoices": {
+      "title": "發票 - Caldova",
+      "description": "Caldova 發票決策與代理程式脈絡"
+    },
+    "quality": {
+      "title": "品質與最佳化 - Caldova",
+      "description": "Caldova 代理程式的品質譜系、就緒狀態，以及受管控的 GitHub 作業"
+    }
+  },
+  "error": {
+    "documentTitle": "錯誤 - Caldova",
+    "title": "糟糕！",
+    "body": "發生錯誤，請稍後再試。",
+    "goHome": "返回首頁"
+  },
+  "decision": {
+    "approve": "核准",
+    "review": "審查",
+    "recover": "追回",
+    "escalate": "呈報"
+  },
+  "runStatus": {
+    "pending": "待處理",
+    "queued": "已排入佇列",
+    "waiting": "等候中",
+    "created": "已建立",
+    "running": "執行中",
+    "in_progress": "進行中",
+    "active": "作用中",
+    "partial": "部分完成",
+    "completed": "已完成",
+    "failed": "失敗",
+    "error": "錯誤"
+  },
+  "action": {
+    "recommend_recover": "建議追回",
+    "draft_supplier_dispute": "草擬供應商爭議",
+    "request_legal_escalation": "申請呈報法務",
+    "request_quality_review": "申請品質審查"
+  },
+  "planeScope": {
+    "foundryiq": "合約條款與財務政策",
+    "fabriciq": "OneLake 中的採購單、批次與放行資料",
+    "workiq": "您的 Microsoft 365 郵件、Teams 與檔案",
+    "webiq": "公開市場與法規來源"
+  },
+  "integrationScope": {
+    "oracle-erp": "Oracle Database@Azure 上的應付帳款、採購與供應商紀錄"
+  },
+  "score": {
+    "confidence": "信賴度 {{value}}%",
+    "evidenceScore": "證據分數 {{value}}%"
+  },
+  "unknown": "未知"
+}

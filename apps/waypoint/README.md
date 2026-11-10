@@ -105,7 +105,8 @@ npm run build
 
 ## Localization
 
-The web UI ships in English (`en`) and Latin American Spanish (`es`), using
+The web UI ships in English (`en`), Latin American Spanish (`es`), and
+Traditional Chinese for Taiwan (`zh-TW`), using
 [i18next](https://www.i18next.com/) and `react-i18next`. Only the UI is
 translated. Agent findings, corpus data, and API messages stay in English.
 
@@ -114,13 +115,16 @@ translated. Agent findings, corpus data, and API messages stay in English.
   the source of truth: `t()` keys are type-checked against the English files,
   so a missing key fails `npm run typecheck`.
 - **URLs:** English pages are unprefixed (`/invoices`) and other languages
-  live under their code (`/es/invoices`). Links stay in the current language;
-  use `localize()` from `useLocale()` for in-app paths. `/en/...` redirects to
-  the unprefixed URL.
-- **Language choice:** an unprefixed URL redirects to `/es/...` when the
-  visitor prefers Spanish: the `waypoint_lang` cookie (set by the language
-  picker in the user menu or on the sign-in page) first, then the browser's
-  `Accept-Language`. `/auth/msal/callback` is never prefixed.
+  live under their code (`/es/invoices`, `/zh-TW/invoices`). Codes match
+  case-insensitively, and `/zh-tw/...` redirects to `/zh-TW/...`. Links stay in
+  the current language; use `localize()` from `useLocale()` for in-app paths.
+  `/en/...` redirects to the unprefixed URL.
+- **Language choice:** an unprefixed URL redirects to `/es/...` or `/zh-TW/...`
+  when the visitor prefers that language: the `waypoint_lang` cookie (set by the
+  language picker in the user menu or on the sign-in page) first, then the
+  browser's `Accept-Language`. Traditional Chinese tags (`zh-TW`, `zh-HK`,
+  `zh-Hant`) pick `zh-TW`; Simplified Chinese (`zh-CN`, `zh-Hans`) stays
+  English. `/auth/msal/callback` is never prefixed.
 - **Formatting:** use `useFormat()` from `web/app/i18n/format.ts` for currency,
   numbers, percentages, and dates. Don't call `toLocaleString()` or hardcode `$`.
   Decision, run-status, and action labels come from `useLabels()` in
@@ -132,8 +136,8 @@ translated. Agent findings, corpus data, and API messages stay in English.
 To add a string, add the key to the English file and to every other locale,
 then use `t("key")` from `useTranslation("<namespace>")`. Use `{{name}}`
 interpolation instead of concatenating strings. Plurals use `_one` and
-`_other`, and Spanish also needs `_many`. `npm run i18n:check` (also run in CI)
-fails when locales drift apart.
+`_other`; Spanish also needs `_many`, and Chinese uses only `_other`.
+`npm run i18n:check` (also run in CI) fails when locales drift apart.
 
 To add a language, add a locale folder with every namespace and add the code to
 `SUPPORTED_LOCALES`, `LOCALE_NAMES`, and `INTL_LOCALES`. Then register its

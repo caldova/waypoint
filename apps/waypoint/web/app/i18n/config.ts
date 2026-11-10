@@ -3,7 +3,7 @@
  * browser (language switcher).
  */
 
-export const SUPPORTED_LOCALES = ["en", "es"] as const;
+export const SUPPORTED_LOCALES = ["en", "es", "zh-TW"] as const;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
 export const DEFAULT_LOCALE: Locale = "en";
@@ -28,17 +28,31 @@ export const DEFAULT_NAMESPACE: Namespace = "common";
 export const LOCALE_NAMES: Record<Locale, string> = {
   en: "English",
   es: "Español",
+  "zh-TW": "中文（台灣）",
 };
 
 export function isSupportedLocale(value: unknown): value is Locale {
   return typeof value === "string" && (SUPPORTED_LOCALES as readonly string[]).includes(value);
 }
 
-/** Map a BCP 47 tag such as `es-MX` or `en_US` onto a supported locale. */
+/** Regions whose Chinese readers use Traditional characters. */
+const TRADITIONAL_CHINESE_REGIONS = ["tw", "hk", "mo"];
+
+/**
+ * Map a BCP 47 tag such as `es-MX`, `en_US`, or `zh-Hant-TW` onto a supported
+ * locale. Traditional Chinese (`zh-TW`, `zh-HK`, `zh-Hant`) maps to `zh-TW`;
+ * Simplified Chinese (`zh`, `zh-CN`, `zh-Hans`) has no translation yet.
+ */
 export function matchLocale(tag: string | null | undefined): Locale | null {
   if (!tag) {
     return null;
   }
-  const language = tag.trim().toLowerCase().split(/[-_]/)[0];
+  const [language, ...subtags] = tag.trim().toLowerCase().split(/[-_]/);
+  if (language === "zh") {
+    const traditional =
+      subtags.includes("hant") ||
+      (!subtags.includes("hans") && subtags.some((subtag) => TRADITIONAL_CHINESE_REGIONS.includes(subtag)));
+    return traditional ? "zh-TW" : null;
+  }
   return isSupportedLocale(language) ? language : null;
 }
