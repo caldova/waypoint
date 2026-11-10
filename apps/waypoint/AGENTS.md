@@ -14,7 +14,7 @@ This repository is set up to use **Aspire**. Aspire is an orchestrator for the e
 | `api/app/common/tracer.py` | Tracing utilities | Rarely (already complete) |
 | `web/vite.config.ts` | Vite + proxy config | Changing API proxy, build settings |
 | `web/app/routes.ts` | Route definitions | Adding new pages |
-| `web/app/i18n/locales/` | UI strings (`en`, `es`) | Adding or changing any user-visible text (see README "Localization") |
+| `web/app/i18n/locales/` | UI strings (`en`, `es`, `zh-TW`) | Adding or changing any user-visible text (see README "Localization") |
 
 ### Common Tasks
 

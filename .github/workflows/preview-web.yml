@@ -148,6 +148,7 @@ jobs:
                 "| --- | --- |",
                 `| **English** | ${URL} |`,
                 `| **Español** | ${URL}/es |`,
+                `| **中文（台灣）** | ${URL}/zh-TW |`,
                 `| **Commit** | \`${sha}\` |`,
                 "",
                 "Sign in with your Caldova account. The preview calls the shared production API, " +

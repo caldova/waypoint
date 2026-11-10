@@ -5,8 +5,8 @@
  * - OpenTelemetry configuration for browser tracing
  * - Environment flags
  *
- * It also keeps the URL in step with the language: visitors who prefer Spanish
- * (cookie choice, then Accept-Language) are sent from `/x` to `/es/x`.
+ * It also keeps the URL in step with the language: visitors who prefer another
+ * language (cookie choice, then Accept-Language) are sent from `/x` to e.g. `/es/x`.
  */
 
 import { redirect, type LoaderFunctionArgs } from "react-router";

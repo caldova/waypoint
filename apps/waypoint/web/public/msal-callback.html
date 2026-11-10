@@ -47,11 +47,30 @@
             signedOut: "Se cerró la sesión. Puedes cerrar esta ventana.",
             failed: "No se pudo completar el inicio de sesión. Cierra esta ventana y vuelve a intentarlo.",
           },
+          "zh-TW": {
+            signingIn: "正在完成登入…",
+            signedOut: "已完成登出。您可以關閉此視窗。",
+            failed: "無法完成登入。請關閉此視窗後再試一次。",
+          },
         };
+        // Same rules as matchLocale() in app/i18n/config.ts.
+        function matchLocale(tag) {
+          var subtags = String(tag || "").trim().toLowerCase().split(/[-_]/);
+          if (subtags[0] === "zh") {
+            var traditional =
+              subtags.indexOf("hant") !== -1 ||
+              (subtags.indexOf("hans") === -1 &&
+                subtags.some(function (subtag) {
+                  return ["tw", "hk", "mo"].indexOf(subtag) !== -1;
+                }));
+            return traditional ? "zh-TW" : null;
+          }
+          return strings[subtags[0]] ? subtags[0] : null;
+        }
         var cookie = document.cookie.match(/(?:^|;\s*)waypoint_lang=([^;]+)/);
-        var lang = ((cookie && cookie[1]) || navigator.language || "en").slice(0, 2).toLowerCase();
-        var text = strings[lang] || strings.en;
-        document.documentElement.lang = strings[lang] ? lang : "en";
+        var lang = matchLocale(cookie && cookie[1]) || matchLocale(navigator.language) || "en";
+        var text = strings[lang];
+        document.documentElement.lang = lang;
         document.title = text.signingIn.replace("…", "");
         message.textContent = text.signingIn;
         var query = new URLSearchParams(window.location.search);

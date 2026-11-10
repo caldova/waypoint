@@ -1,0 +1,42 @@
+{
+  "hero": {
+    "heading": "Caldova 調查供應商發票、保護涉及智慧財產（IP）的製造承諾，並管控供應商所致品質偏差的呈報。",
+    "body": "先在 Teams 或 Copilot 中提出問題，再到這裡檢視發票證據、供應商行為、批次紀錄、品質日誌與代理程式決策，讓財務、採購、法務或品質團隊在採取行動前掌握全貌。",
+    "reviewInvoices": "審查發票",
+    "viewAgentRuns": "檢視代理程式執行"
+  },
+  "areasLabel": "Caldova 功能區",
+  "destinations": {
+    "invoices": {
+      "title": "發票",
+      "description": "對照採購單、MSA、批次紀錄、品質日誌及涉及 IP 的製程條款審查發票發現事項，並對尚未審查的發票執行稽核。"
+    },
+    "activity": {
+      "title": "活動",
+      "description": "在稽核執行期間即時追蹤進度，並查看接下來排入佇列的項目。"
+    },
+    "agent": {
+      "title": "代理程式詳細資料",
+      "description": "依發票分組列出每次 Foundry Assurance Orchestrator 執行，以及每項決策背後各專家提供的證據。"
+    },
+    "quality": {
+      "title": "品質",
+      "description": "衡量並改善稽核代理程式，任何發布前都必須經過核准。"
+    }
+  },
+  "principles": {
+    "heading": "在資料壓力下依然值得信賴",
+    "showWork": {
+      "title": "呈現工作過程",
+      "detail": "揭露資料來源、中間步驟，以及建議採取某項行動的原因。"
+    },
+    "keepControl": {
+      "title": "讓控管清楚可見",
+      "detail": "在代理程式發布或變更資料前，明確界定核准範圍。"
+    },
+    "reduceLoad": {
+      "title": "減輕審查負擔",
+      "detail": "優先處理影響重大的例外狀況，同時保留深入查看的途徑。"
+    }
+  }
+}

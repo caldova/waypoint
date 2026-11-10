@@ -54,7 +54,7 @@ def get_mymodule_service(
 - Style with Tailwind CSS utility classes
 - Use React Router v7 loaders for data fetching
 - Wrap API calls with `traced()` for browser telemetry
-- Never hardcode user-visible text. Add keys to `web/app/i18n/locales/{en,es}/*.json` and use `t()` from `useTranslation`. Use `useFormat()` for dates, numbers, and currency (see README "Localization").
+- Never hardcode user-visible text. Add keys to `web/app/i18n/locales/{en,es,zh-TW}/*.json` and use `t()` from `useTranslation`. Use `useFormat()` for dates, numbers, and currency (see README "Localization").
 
 ### Aspire
 

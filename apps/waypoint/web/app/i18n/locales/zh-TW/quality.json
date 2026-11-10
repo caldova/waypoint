@@ -1,0 +1,126 @@
+{
+  "stages": {
+    "run": {
+      "title": "執行稽核",
+      "detail": "從發票產生即時且受治理的證據。"
+    },
+    "inspect": {
+      "title": "檢查執行結果",
+      "detail": "將結果與已去識別化的營運追蹤資料交叉比對。"
+    },
+    "measure": {
+      "title": "衡量品質",
+      "detail": "評估目前的代理程式，並驗證其品質資產。"
+    },
+    "improve": {
+      "title": "改善代理程式",
+      "detail": "搜尋並準備候選版本，但不套用。"
+    },
+    "release": {
+      "title": "經核准後發布",
+      "detail": "正式訓練須先通過審查、支出與指令關卡。"
+    }
+  },
+  "errors": {
+    "manifestStatus": "證據資訊清單傳回 {{status}}",
+    "unavailable": "無法取得品質證據",
+    "title": "品質證據無法使用",
+    "hint": "請確認此部署已包含具版本編號的公開證據資訊清單。"
+  },
+  "loading": "正在載入品質證據",
+  "hero": {
+    "schemaVersion": "結構描述 v{{version}}",
+    "title": "品質與最佳化",
+    "description": "依循一個受控循環：產生發票證據、檢查其追蹤、衡量代理程式、加以改善，並在發布前取得核准。實際工作由 GitHub Actions 與 Foundry 執行；此瀏覽器僅說明流程並提供連結。",
+    "openWorkflow": "開啟代理程式品質工作流程",
+    "openFoundry": "開啟 Foundry 專案"
+  },
+  "governance": {
+    "ariaLabel": "控制平面邊界",
+    "title": "為何這些操作受到管控",
+    "description": "所有雲端動作都在 GitHub Actions 中執行，讓輸入、認證資訊、證據與核准都可供稽核。此頁面絕不會在您的瀏覽器中執行雲端指令。"
+  },
+  "metrics": {
+    "ariaLabel": "參考品質成果",
+    "inferenceReduction": {
+      "label": "預估推論成本降幅",
+      "detail": "每次證據請求的參考比較"
+    },
+    "rftPassRate": {
+      "label": "RFT 整體通過率",
+      "detail": "{{samples}} 個樣本 × {{runs}} 次執行"
+    },
+    "optimizerLift": {
+      "label": "最佳化工具分數提升"
+    }
+  },
+  "lineage": {
+    "title": "{{agent}} 品質路徑",
+    "detail": "以 {{dataset}} v{{datasetVersion}} 衡量 · 評估器 v{{evaluatorVersion}}",
+    "columns": {
+      "stage": "階段",
+      "lineage": "譜系",
+      "quality": "品質",
+      "evidence": "證據"
+    },
+    "baseline": {
+      "stage": "託管基準",
+      "identifier": "代理程式 v{{version}}",
+      "evaluationRuns_other": "{{count}} 次評估執行"
+    },
+    "optimizer": {
+      "stage": "Agent Optimizer"
+    },
+    "rft": {
+      "stage": "RFT 成本轉移"
+    },
+    "job": "作業 {{id}}"
+  },
+  "operations": {
+    "title": "從發票證據到安全發布",
+    "detail": "一個受控的品質循環。開始新的品質週期時請依序完成各步驟，或針對既有的執行開啟所需操作。",
+    "step": "步驟 {{step}}：",
+    "execution": {
+      "bounded": "在 Actions 中完成",
+      "noWait": "啟動非同步作業",
+      "protected": "需要受保護的核准"
+    },
+    "availability": {
+      "available": "可用",
+      "guarded": "受管控",
+      "blocked": "已封鎖"
+    },
+    "workflowOption": "工作流程選項：{{id}}",
+    "viewPrerequisites": "檢視先決條件",
+    "openInActionsAriaLabel": "在 GitHub Actions 中開啟 {{operation}}",
+    "openInActions": "在 GitHub Actions 中開啟"
+  },
+  "evidence": {
+    "title": "證據時效與來源",
+    "reviewed": "已於 {{date}} 審查",
+    "source": "來源",
+    "staleAfter": "{{date}} 後即視為過時"
+  },
+  "evidenceState": {
+    "current": {
+      "label": "最新",
+      "description": "已由指定來源在時效期限內完成驗證。"
+    },
+    "referenceOnly": {
+      "label": "僅供參考",
+      "description": "可安全提交至存放庫、供審查使用的譜系，並非即時的控制平面回應。"
+    },
+    "stale": {
+      "label": "已過時",
+      "description": "已超過時效期限，或正等待新的即時驗證。"
+    }
+  },
+  "safety": {
+    "title": "安全邊界",
+    "description": "此工作流程可以執行、檢查、衡量與準備，但絕不會自動套用最佳化工具的候選版本、將模型升為正式版本，或部署代理程式。",
+    "liveRftGate": "正式 RFT 關卡",
+    "gateDetail": "必須先設定必要審查者，並明確確認支出。在存放庫加入正式的專用指令之前，仍無法送出作業。",
+    "reviewControls": "檢閱工作流程控制項",
+    "inspectFoundry": "檢查 Foundry 目前狀態"
+  }
+}
