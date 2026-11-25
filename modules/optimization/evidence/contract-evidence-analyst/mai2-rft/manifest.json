@@ -1,0 +1,49 @@
+{
+  "base_model": "mai-code-2-flash-2026-11-17",
+  "suffix": "contract-evidence-mai2-r1",
+  "seed": 1266282111,
+  "recipe": "Alaska payload.e6.json",
+  "instructions": "modules/agents/contract-evidence-analyst/releases/optimized/baseline/instructions.md",
+  "instructions_sha256": "570f9df34424dcbe0a65087d8478206a281117dcfeb79217a58a60631736e072",
+  "grader": {
+    "path": "modules/evals/graders/contract-evidence-analyst/contract_evidence_grader.py",
+    "sha256": "b86d04dc148e89ab2fc8fe0a252f94a7b2d89e701c783bd22c8414d2f72ef0fe",
+    "pass_threshold": 0.8
+  },
+  "artifacts": {
+    "train": {
+      "path": "modules/optimization/evidence/contract-evidence-analyst/mai2-rft/contract-evidence-rft-train.jsonl",
+      "rows": 146,
+      "sha256": "2125c3c62bcb311e62bf000bbfc8a20b007782b73a703b9f15cfd6b55525cfe2"
+    },
+    "validation": {
+      "path": "modules/optimization/evidence/contract-evidence-analyst/mai2-rft/contract-evidence-rft-validation.jsonl",
+      "rows": 33,
+      "sha256": "00f3bceb8e3a3149660cccf73e8791748a59ec5302f193e7f051fa5972b0cefa"
+    }
+  },
+  "gold_parity": {
+    "train": {
+      "rows": 146,
+      "min_gold": 1.0,
+      "gold_below_threshold": 0,
+      "max_empty_object": 0.0
+    },
+    "validation": {
+      "rows": 33,
+      "min_gold": 1.0,
+      "gold_below_threshold": 0,
+      "max_empty_object": 0.0
+    }
+  },
+  "held_out_excluded": {
+    "dev_eval": 38,
+    "final_test": 44
+  },
+  "labels": "synthetic, pending_human_review",
+  "cost_model": {
+    "tier": "developer",
+    "usd_per_hour": 40.0,
+    "note": "Alaska e6 trained ~3 h after queueing; estimate 2-6 h => $80-240"
+  }
+}

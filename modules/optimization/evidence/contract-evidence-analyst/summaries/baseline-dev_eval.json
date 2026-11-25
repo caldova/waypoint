@@ -1,0 +1,89 @@
+{
+  "unique_cases": 38,
+  "runs": 5,
+  "responses": 190,
+  "mean_score": 0.8887218052631579,
+  "pass_rate": 0.7368421052631579,
+  "run_mean_scores": [
+    0.8860432368421053,
+    0.8898026315789473,
+    0.8980263157894737,
+    0.8901315789473684,
+    0.8796052631578948
+  ],
+  "run_pass_rates": [
+    0.7368421052631579,
+    0.7368421052631579,
+    0.7631578947368421,
+    0.7368421052631579,
+    0.7105263157894737
+  ],
+  "run_score_sd": 0.006000260531730469,
+  "unique_case_mean_score": 0.8887218052631579,
+  "unique_case_majority_pass_rate": 0.7368421052631579,
+  "cases_always_pass": 27,
+  "cases_never_pass": 9,
+  "per_outcome": {
+    "approve_evidence": {
+      "cases": 7,
+      "mean_score": 0.6914285714285714,
+      "majority_pass_rate": 0.2857142857142857
+    },
+    "escalate": {
+      "cases": 7,
+      "mean_score": 0.9987755142857143,
+      "majority_pass_rate": 1
+    },
+    "missing_evidence": {
+      "cases": 10,
+      "mean_score": 0.89225,
+      "majority_pass_rate": 0.8
+    },
+    "recover": {
+      "cases": 7,
+      "mean_score": 0.9742857142857143,
+      "majority_pass_rate": 0.8571428571428571
+    },
+    "review_assertion": {
+      "cases": 7,
+      "mean_score": 0.8853571428571428,
+      "majority_pass_rate": 0.7142857142857143
+    }
+  },
+  "flag_counts": {
+    "missed_approval": 27,
+    "false_gap": 23,
+    "distractor_misused": 5,
+    "false_approval": 5,
+    "missing_evidence_not_flagged": 3,
+    "primary_term_misread": 3
+  },
+  "critical_failures": {
+    "invalid_json": 0,
+    "invalid_shape": 0,
+    "boundary_violation": 0,
+    "false_approval": 5,
+    "fabricated_ref": 0,
+    "agent_error": 0
+  },
+  "unrecovered_errors": 0,
+  "retried_calls": 45,
+  "latency_ms": {
+    "p50": 12795,
+    "p95": 16266,
+    "mean": 13307.910526315789
+  },
+  "tokens_mean": {
+    "input_tokens": 732.7105263157895,
+    "output_tokens": 348.6842105263158,
+    "reasoning_tokens": 11.9
+  },
+  "cost_usd_total": 4.70465,
+  "cost_usd_per_1k_lines": 24.76131578947368,
+  "models": {
+    "gpt-6-astra": 190
+  },
+  "grader_versions": [
+    "contract-evidence-analyst-v1"
+  ]
+}
