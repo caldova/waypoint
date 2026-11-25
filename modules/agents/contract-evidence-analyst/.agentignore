@@ -1,0 +1,12 @@
+.venv/
+.venv*/
+__pycache__/
+.pytest_cache/
+.azure/
+.foundry/
+.runs/
+.castia/
+tests/
+scripts/
+uv.lock
+.env
