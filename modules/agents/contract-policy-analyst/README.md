@@ -82,3 +82,33 @@ optimizer. The existing expert's Teams protocol and runtime are unchanged.
 Live retrieval can drift. Record queries and retrieval payload hashes for each
 attempt, plus canaries before and after a batch. A matching function tool alone
 does not demonstrate faithful retrieval or tool-use learning from RFT.
+
+The first training-only integration pilot exposed two measurement defects:
+native capture success fields differed from the transcript adapter, and shared
+request metadata was incorrectly excluding reference parts from canaries.
+Preserve those original results as invalid calibration evidence, not baseline
+quality. Regrade saved model outputs in a new revision with a fresh judge request
+bound to the corrected, actual retrieved context; do not rerun the model or reuse
+the old empty-context judge.
+
+Broad KB retrieval also returned passages from the original `study-heldout`
+families during training calibration. That split is now exposed-source
+regression evidence, not a pristine headline. The replacement `final-test-v2`
+families must stay sealed offline and unindexed until optimizer, RFT checkpoint
+and configuration selection are frozen.
+
+`caliber.contract_policy_analyst_batch` preserves version-pinned invocation
+starts, responses, native captures and judge requests in a private output
+directory. It rejects uncertain inference reruns, stale grader/parser bindings,
+changed judge inputs and partial summaries. Case IDs are hashed for filenames
+because their colons would create alternate data streams on Windows. Canary
+reparsing uses `scripts/corpus_canaries.py --offline-from`; live retries require
+`--allow-live` and a separate output directory.
+
+RFT preflight rejects explicit batch sizes outside 1-256; omit the field for
+automatic selection rather than sending `-1`. Before the substantive MAI-2
+job, verify an always-true reward probe in the actual trainer. A successful
+standalone grader request is not proof that training honors its reward.
+MAI-2 training JSONL must use `developer`, never `system`; verify that offline
+before upload. An optimized deployment must prove its effective instruction and
+tool hashes match the selected candidate before it can enter the comparison.

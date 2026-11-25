@@ -141,3 +141,15 @@ def test_canary_hash_ignores_generated_summary_and_request_ids():
         {**reference, "sourceData": {"snippet": "different clause"}}
     )
     assert reference_fingerprint(first) != reference_fingerprint(second)
+
+
+def test_canary_keeps_native_references_with_shared_request_metadata():
+    from scripts.corpus_canaries import references
+
+    fake = {"kind": "reference", "uri": "invented.md", "sourceData": {"snippet": "fake"}}
+    actual = {"kind": "reference", "uri": "actual.md", "sourceData": {"snippet": "clause"}}
+    result = {"content": [
+        {"type": "text", "text": json.dumps(fake), "_meta": {"x-request-id": "shared"}},
+        {"type": "text", "text": json.dumps(actual), "_meta": {"x-request-id": "shared"}},
+    ]}
+    assert references(result) == [actual]

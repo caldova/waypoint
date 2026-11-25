@@ -18,13 +18,14 @@ from .paths import repo_root
 
 
 def hosted_call(
-    endpoint: str, version: str, task: str, agent_name: str = "contract-policy-analyst"
+    endpoint: str, version: str, task: str, agent_name: str = "contract-policy-analyst",
+    metadata: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     from azure.identity import AzureCliCredential
     from openai import APIError, OpenAI
 
     started = time.perf_counter()
-    credential = AzureCliCredential()
+    credential = AzureCliCredential(process_timeout=60)
     try:
         token = credential.get_token("https://ai.azure.com/.default").token
         with OpenAI(
@@ -36,6 +37,7 @@ def hosted_call(
         ) as client:
             response = client.responses.create(
                 input=task,
+                metadata=metadata,
                 extra_body={
                     "agent_reference": {
                         "type": "agent_reference",

@@ -488,10 +488,10 @@ def test_corpus_alignment_detects_stale_and_tampered_sources(tmp_path: Path) -> 
     assert any("prompt invoice differs from metadata" in issue for issue in issues)
 
 
-def test_preflight_accepts_automatic_batch_size_sentinel() -> None:
-    assert _hyperparameter_errors({"batch_size": -1}) == []
-    assert _hyperparameter_errors({"batch_size": 0}) == [
-        "batch_size must be a positive integer or -1 for automatic"
+def test_preflight_automatic_batch_size_requires_omitting_the_field() -> None:
+    assert _hyperparameter_errors({}) == []
+    assert _hyperparameter_errors({"batch_size": -1}) == [
+        "batch_size must be an integer in [1, 256]; omit it for automatic"
     ]
 
 
