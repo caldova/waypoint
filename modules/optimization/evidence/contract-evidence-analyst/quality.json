@@ -1,6 +1,6 @@
 {
   "agent": "contract-evidence-analyst",
-  "generated_at": "2026-11-25T03:23:08.316838+00:00",
+  "generated_at": "2026-11-25T05:22:35.296883+00:00",
   "grader": {
     "path": "modules/evals/graders/contract-evidence-analyst/contract_evidence_grader.py",
     "sha256": "b86d04dc148e89ab2fc8fe0a252f94a7b2d89e701c783bd22c8414d2f72ef0fe",
@@ -31,7 +31,30 @@
         "sha256": "af67d4e6c2509921b79e230fc5b2da0fc0e93fa55f975a9d17a2ad45cc6a5571"
       }
     },
-    "selection_policy": "Prompt/checkpoint selection used train/validation/dev_eval only; final_test was run once per arm after that arm was frozen."
+    "selection_policy": "Prompt/checkpoint selection used train/validation/dev_eval only; final_test was run once per arm after that arm was frozen.",
+    "final_test_status": {
+      "policy": "final_test is untouched until the final all-arms comparison: no runs or inspection for selection or interim reporting. r1/r2 candidates and RFT checkpoints are chosen on dev_eval/validation only.",
+      "label": "final_test previously observed (baseline, optimized, mai2-base x1); not a pristine holdout for those arms",
+      "interim_scorings": {
+        "baseline": {
+          "runs": 1,
+          "date": "2026-11-24",
+          "pristine": false
+        },
+        "optimized": {
+          "runs": 1,
+          "date": "2026-11-24",
+          "pristine": false
+        },
+        "mai2-base": {
+          "runs": 1,
+          "date": "2026-11-24",
+          "pristine": false
+        }
+      },
+      "interim_inspection": "comparisons/*-final_test.json were computed at interim from those runs; none was used to select a prompt, candidate or checkpoint."
+    },
+    "human_review_items": "human-review-items.json"
   },
   "prices_usd_per_1m_tokens": {
     "gpt-6-astra": {
@@ -658,6 +681,8 @@
     "Benchmark labels are synthetic and pending_human_review; scores measure agreement with synthetic references, not audited ground truth.",
     "The code grader's decision-language screen is a phrase screen, not a semantic guarantee.",
     "gpt-6-astra price is the Alaska-report list price; MAI-2 price is the retail base serving price and excludes fine-tuned hosting fees and RFT training cost.",
-    "Cost covers model tokens only, not hosted-agent compute."
+    "Cost covers model tokens only, not hosted-agent compute.",
+    "final_test results for baseline, optimized and mai2-base were scored once at interim and are non-pristine for the final comparison (benchmark.final_test_status).",
+    "Three benchmark rows have undetectable wrong-entity labels and other wrong_entity rows await review (human-review-items.json); labels were not changed."
   ]
 }

@@ -1,0 +1,178 @@
+{
+  "split": "dev_eval",
+  "arm_a": "optimized",
+  "arm_b": "mai2-base",
+  "grader_version": "contract-evidence-analyst-v1",
+  "cases": 38,
+  "families": 7,
+  "runs_per_case": {
+    "optimized": [
+      5
+    ],
+    "mai2-base": [
+      5
+    ]
+  },
+  "mean_score": {
+    "optimized": 0.9097932368421052,
+    "mai2-base": 0.9415037631578947
+  },
+  "mean_diff": 0.03171052631578947,
+  "ci95_case_bootstrap": [
+    -0.0036842105263157955,
+    0.07263157894736842
+  ],
+  "ci95_family_bootstrap": [
+    0.00013513513513513525,
+    0.06833333333333332
+  ],
+  "sign_flip_p": 0.1202879712028797,
+  "pass_rate_diff": 0.1,
+  "pass_rate_ci95_case_bootstrap": [
+    0.00526315789473685,
+    0.20526315789473687
+  ],
+  "pass_rate_sign_flip_p": 0.07763671875,
+  "cases_improved": 9,
+  "cases_worse": 8,
+  "cases_tied": 21,
+  "per_outcome_mean_diff": {
+    "approve_evidence": 0.14928571428571427,
+    "escalate": -0.03642857142857144,
+    "missing_evidence": 0.019500000000000017,
+    "recover": -0.0028571428571428754,
+    "review_assertion": 0.03428571428571427
+  },
+  "critical_flags": {
+    "false_approval": {
+      "optimized": 5,
+      "mai2-base": 5
+    },
+    "missed_approval": {
+      "optimized": 20,
+      "mai2-base": 4
+    }
+  },
+  "largest_moves": [
+    {
+      "id": "sup005-method-validation--escalate-report-acceptance",
+      "outcome": "escalate",
+      "diff": -0.13,
+      "optimized": 1.0,
+      "mai2-base": 0.87
+    },
+    {
+      "id": "sup005-method-validation--missing-report-acceptance",
+      "outcome": "missing_evidence",
+      "diff": -0.12,
+      "optimized": 1.0,
+      "mai2-base": 0.88
+    },
+    {
+      "id": "sup013-escalation-cap--escalate-escalation-approval",
+      "outcome": "escalate",
+      "diff": -0.12,
+      "optimized": 1.0,
+      "mai2-base": 0.88
+    },
+    {
+      "id": "sup013-escalation-cap--recover-escalation-approval",
+      "outcome": "recover",
+      "diff": -0.08,
+      "optimized": 1.0,
+      "mai2-base": 0.92
+    },
+    {
+      "id": "sup013-material-surcharge--approve",
+      "outcome": "approve_evidence",
+      "diff": -0.08,
+      "optimized": 1.0,
+      "mai2-base": 0.92
+    },
+    {
+      "id": "sup013-material-surcharge--assertion-market-event",
+      "outcome": "review_assertion",
+      "diff": -0.08,
+      "optimized": 0.76,
+      "mai2-base": 0.68
+    },
+    {
+      "id": "sup013-material-surcharge--missing-lot-quantity",
+      "outcome": "missing_evidence",
+      "diff": -0.06,
+      "optimized": 1.0,
+      "mai2-base": 0.94
+    },
+    {
+      "id": "sup005-stability-pull--escalate-pull-window",
+      "outcome": "escalate",
+      "diff": -0.005,
+      "optimized": 1.0,
+      "mai2-base": 0.995
+    },
+    {
+      "id": "sup005-release-testing--missing-sample-receipt",
+      "outcome": "missing_evidence",
+      "diff": 0.015,
+      "optimized": 0.925,
+      "mai2-base": 0.94
+    },
+    {
+      "id": "sup005-method-validation--recover-report-acceptance",
+      "outcome": "recover",
+      "diff": 0.06,
+      "optimized": 0.94,
+      "mai2-base": 1.0
+    },
+    {
+      "id": "sup013-material-surcharge--missing-market-event",
+      "outcome": "missing_evidence",
+      "diff": 0.14,
+      "optimized": 0.4,
+      "mai2-base": 0.54
+    },
+    {
+      "id": "sup013-escalation-cap--approve",
+      "outcome": "approve_evidence",
+      "diff": 0.16,
+      "optimized": 0.6,
+      "mai2-base": 0.76
+    },
+    {
+      "id": "sup005-method-validation--missing-protocol-acceptance",
+      "outcome": "missing_evidence",
+      "diff": 0.22,
+      "optimized": 0.6,
+      "mai2-base": 0.82
+    },
+    {
+      "id": "sup005-duplicate-certificate--approve",
+      "outcome": "approve_evidence",
+      "diff": 0.245,
+      "optimized": 0.6,
+      "mai2-base": 0.845
+    },
+    {
+      "id": "sup005-method-validation--approve",
+      "outcome": "approve_evidence",
+      "diff": 0.32,
+      "optimized": 0.6,
+      "mai2-base": 0.92
+    },
+    {
+      "id": "sup005-method-validation--assertion-protocol-acceptance",
+      "outcome": "review_assertion",
+      "diff": 0.32,
+      "optimized": 0.6,
+      "mai2-base": 0.92
+    },
+    {
+      "id": "sup005-stability-pull--approve",
+      "outcome": "approve_evidence",
+      "diff": 0.4,
+      "optimized": 0.6,
+      "mai2-base": 1.0
+    }
+  ],
+  "method": "Per-case mean over runs, paired on identical task_sha256; 95% percentile bootstrap (10000 resamples, seed 7) over cases and over families (families are correlated scenario templates, so the family CI is the conservative one); two-sided sign-flip randomization test on per-case diffs. Repeated runs reduce within-case noise only; inference is over cases."
+}

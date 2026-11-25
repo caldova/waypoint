@@ -213,3 +213,54 @@ def test_rft_package_excludes_held_out_and_caps_eval_samples(tmp_path):
     assert rl["grader"]["pass_threshold"] == PASS_THRESHOLD
     assert rl["grader"]["source"] == GRADER_PATH.read_text(encoding="utf-8")
     assert manifest["gold_parity"]["train"]["gold_below_threshold"] == 0
+
+
+def _run_record(case_id, score, task_sha="t", flags=()):
+    return {
+        "id": case_id,
+        "family": case_id.split("--")[0],
+        "outcome": "approve_evidence",
+        "score": score,
+        "passed": score >= PASS_THRESHOLD,
+        "flags": list(flags),
+        "task_sha256": task_sha,
+        "grader_version": "v1",
+    }
+
+
+def test_paired_compare_pairs_cases_and_rejects_mismatched_prompts(monkeypatch):
+    from caliber import contract_evidence_eval as ev
+
+    arms = {
+        "a": [_run_record(f"f{i}--x", 0.6) for i in range(6)],
+        "b": [_run_record(f"f{i}--x", 0.6) for i in range(6)],
+    }
+    monkeypatch.setattr(ev, "load_records", lambda arm, split: arms[arm])
+    same = ev.paired_compare("a", "b", "dev_eval", resamples=200)
+    assert same["mean_diff"] == 0 and same["sign_flip_p"] == 1.0
+    assert same["cases_tied"] == 6 and "holdout_status" not in same
+
+    arms["b"] = [_run_record(f"f{i}--x", 1.0, flags=["false_approval"]) for i in range(6)]
+    better = ev.paired_compare("a", "b", "final_test", resamples=200)
+    assert better["mean_diff"] == pytest.approx(0.4)
+    assert better["sign_flip_p"] == pytest.approx(2 / 64)
+    assert better["critical_flags"]["false_approval"] == {"a": 0, "b": 6}
+    assert better["holdout_status"] == ev.FINAL_TEST_STATUS["label"]
+
+    arms["b"][0]["task_sha256"] = "other"
+    with pytest.raises(SystemExit):
+        ev.paired_compare("a", "b", "dev_eval", resamples=10)
+
+
+def test_known_label_defects_are_excluded_from_optimizer_rows_only():
+    from caliber import contract_evidence_eval as ev
+
+    known = frozenset(ev.KNOWN_LABEL_DEFECTS)
+    rows = ev.optimizer_rows("train", 99, exclude=known)
+    assert not {r["id"] for r in rows} & known
+    items = ev.review_items()
+    assert items["labels_modified"] is False
+    assert {i["id"] for i in items["known_label_defects"]["items"]} == known
+    for item in items["known_label_defects"]["items"]:
+        row = next(r for r in load_split(DATASET, item["split"]) if r["id"] == item["id"])
+        assert "wrong_entity" in row["modifiers"]

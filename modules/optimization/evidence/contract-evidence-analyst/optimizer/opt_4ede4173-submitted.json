@@ -1,0 +1,52 @@
+{
+  "id": "opt_4ede4173873b4e36929ea1a55251e8c4",
+  "status": "in_progress",
+  "inputs": {
+    "agent": {
+      "agent_name": "contract-evidence-analyst",
+      "agent_version": "1"
+    },
+    "options": {
+      "goal": "improve_quality",
+      "max_candidates": 20,
+      "eval_model": "gpt-6-astra",
+      "optimization_model": "gpt-5.5",
+      "optimization_config": {
+        "model": "gpt-6-astra",
+        "system_prompt": "You review supplier invoice lines against the supplied contract and policy excerpts and return the requested JSON.\n",
+        "skills": [],
+        "tools": []
+      },
+      "max_stalls": 12,
+      "max_concurrent_agent_runs": 6,
+      "strategy": "gepa"
+    },
+    "train_dataset": {
+      "type": "reference",
+      "name": "opt-inline-c4083cb13f3d403abaf6ce54c658b969",
+      "version": "1"
+    },
+    "validation_dataset": {
+      "type": "reference",
+      "name": "opt-inline-c4083cb13f3d403abaf6ce54c658b969-val",
+      "version": "1"
+    },
+    "evaluators": [
+      {
+        "name": "contract-evidence-accuracy",
+        "version": "1"
+      },
+      {
+        "name": "contract-evidence-quality",
+        "version": "2"
+      }
+    ]
+  },
+  "progress": {
+    "candidates_completed": 0,
+    "best_score": 0.0,
+    "elapsed_seconds": 0.0
+  },
+  "created_at": 1795584025,
+  "updated_at": 1795584037
+}

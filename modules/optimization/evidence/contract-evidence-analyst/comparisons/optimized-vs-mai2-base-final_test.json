@@ -1,0 +1,137 @@
+{
+  "split": "final_test",
+  "holdout_status": "final_test previously observed (baseline, optimized, mai2-base x1); not a pristine holdout for those arms",
+  "arm_a": "optimized",
+  "arm_b": "mai2-base",
+  "grader_version": "contract-evidence-analyst-v1",
+  "cases": 44,
+  "families": 8,
+  "runs_per_case": {
+    "optimized": [
+      1
+    ],
+    "mai2-base": [
+      1
+    ]
+  },
+  "mean_score": {
+    "optimized": 0.9549621363636365,
+    "mai2-base": 0.9502651590909091
+  },
+  "mean_diff": -0.004696977272727274,
+  "ci95_case_bootstrap": [
+    -0.03166668181818182,
+    0.02272727272727274
+  ],
+  "ci95_family_bootstrap": [
+    -0.026969704545454543,
+    0.01624112765957447
+  ],
+  "sign_flip_p": 0.67578125,
+  "pass_rate_diff": 0.0,
+  "pass_rate_ci95_case_bootstrap": [
+    -0.06818181818181818,
+    0.06818181818181818
+  ],
+  "pass_rate_sign_flip_p": 1.0,
+  "cases_improved": 5,
+  "cases_worse": 6,
+  "cases_tied": 33,
+  "per_outcome_mean_diff": {
+    "approve_evidence": 0.0,
+    "escalate": -0.0050000000000000044,
+    "missing_evidence": 9.25185853854297e-18,
+    "recover": 0.0,
+    "review_assertion": -0.020833375000000015
+  },
+  "critical_flags": {
+    "false_approval": {
+      "optimized": 0,
+      "mai2-base": 0
+    },
+    "missed_approval": {
+      "optimized": 3,
+      "mai2-base": 2
+    }
+  },
+  "largest_moves": [
+    {
+      "id": "sup007-milestone--approve",
+      "outcome": "approve_evidence",
+      "diff": -0.4,
+      "optimized": 1.0,
+      "mai2-base": 0.6
+    },
+    {
+      "id": "sup011-release-packet--missing-packet-status",
+      "outcome": "missing_evidence",
+      "diff": -0.1,
+      "optimized": 1.0,
+      "mai2-base": 0.9
+    },
+    {
+      "id": "sup011-repeat-cycle--assertion-repeat-cause",
+      "outcome": "review_assertion",
+      "diff": -0.1,
+      "optimized": 0.925,
+      "mai2-base": 0.825
+    },
+    {
+      "id": "sup007-storage-extension--assertion-extension",
+      "outcome": "review_assertion",
+      "diff": -0.0667,
+      "optimized": 0.9667,
+      "mai2-base": 0.9
+    },
+    {
+      "id": "sup007-storage-extension--escalate-extension",
+      "outcome": "escalate",
+      "diff": -0.06,
+      "optimized": 1.0,
+      "mai2-base": 0.94
+    },
+    {
+      "id": "sup008-route-exception--escalate-route-approval",
+      "outcome": "escalate",
+      "diff": -0.06,
+      "optimized": 1.0,
+      "mai2-base": 0.94
+    },
+    {
+      "id": "sup007-comparator-pass-through--escalate-supplier-receipt",
+      "outcome": "escalate",
+      "diff": 0.02,
+      "optimized": 0.98,
+      "mai2-base": 1.0
+    },
+    {
+      "id": "sup007-milestone--missing-deliverable-approval",
+      "outcome": "missing_evidence",
+      "diff": 0.05,
+      "optimized": 0.95,
+      "mai2-base": 1.0
+    },
+    {
+      "id": "sup007-storage-extension--missing-occupancy",
+      "outcome": "missing_evidence",
+      "diff": 0.05,
+      "optimized": 0.95,
+      "mai2-base": 1.0
+    },
+    {
+      "id": "sup003-premium-freight--escalate-lane-exception",
+      "outcome": "escalate",
+      "diff": 0.06,
+      "optimized": 0.94,
+      "mai2-base": 1.0
+    },
+    {
+      "id": "sup011-release-packet--approve",
+      "outcome": "approve_evidence",
+      "diff": 0.4,
+      "optimized": 0.6,
+      "mai2-base": 1.0
+    }
+  ],
+  "method": "Per-case mean over runs, paired on identical task_sha256; 95% percentile bootstrap (10000 resamples, seed 7) over cases and over families (families are correlated scenario templates, so the family CI is the conservative one); two-sided sign-flip randomization test on per-case diffs. Repeated runs reduce within-case noise only; inference is over cases."
+}

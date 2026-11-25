@@ -1,0 +1,137 @@
+{
+  "split": "final_test",
+  "holdout_status": "final_test previously observed (baseline, optimized, mai2-base x1); not a pristine holdout for those arms",
+  "arm_a": "baseline",
+  "arm_b": "optimized",
+  "grader_version": "contract-evidence-analyst-v1",
+  "cases": 44,
+  "families": 8,
+  "runs_per_case": {
+    "baseline": [
+      1
+    ],
+    "optimized": [
+      1
+    ]
+  },
+  "mean_score": {
+    "baseline": 0.9094697045454545,
+    "optimized": 0.9549621363636365
+  },
+  "mean_diff": 0.04549243181818183,
+  "ci95_case_bootstrap": [
+    0.010719704545454544,
+    0.08617425000000001
+  ],
+  "ci95_family_bootstrap": [
+    0.013181818181818185,
+    0.0856666888888889
+  ],
+  "sign_flip_p": 0.0283203125,
+  "pass_rate_diff": 0.11363636363636363,
+  "pass_rate_ci95_case_bootstrap": [
+    0.022727272727272728,
+    0.20454545454545456
+  ],
+  "pass_rate_sign_flip_p": 0.0625,
+  "cases_improved": 8,
+  "cases_worse": 3,
+  "cases_tied": 33,
+  "per_outcome_mean_diff": {
+    "approve_evidence": 0.15000000000000002,
+    "escalate": 0.007500000000000007,
+    "missing_evidence": 0.029166666666666664,
+    "recover": 0.012499999999999997,
+    "review_assertion": 0.036458375000000015
+  },
+  "critical_flags": {
+    "false_approval": {
+      "baseline": 0,
+      "optimized": 0
+    },
+    "missed_approval": {
+      "baseline": 6,
+      "optimized": 3
+    }
+  },
+  "largest_moves": [
+    {
+      "id": "sup011-repeat-cycle--assertion-repeat-cause",
+      "outcome": "review_assertion",
+      "diff": -0.075,
+      "baseline": 1.0,
+      "optimized": 0.925
+    },
+    {
+      "id": "sup007-milestone--escalate-deliverable-approval",
+      "outcome": "escalate",
+      "diff": -0.06,
+      "baseline": 1.0,
+      "optimized": 0.94
+    },
+    {
+      "id": "sup007-milestone--missing-deliverable-approval",
+      "outcome": "missing_evidence",
+      "diff": -0.05,
+      "baseline": 1.0,
+      "optimized": 0.95
+    },
+    {
+      "id": "sup007-storage-extension--escalate-extension",
+      "outcome": "escalate",
+      "diff": 0.06,
+      "baseline": 0.94,
+      "optimized": 1.0
+    },
+    {
+      "id": "sup008-route-exception--escalate-route-approval",
+      "outcome": "escalate",
+      "diff": 0.06,
+      "baseline": 0.94,
+      "optimized": 1.0
+    },
+    {
+      "id": "sup007-storage-extension--recover-extension",
+      "outcome": "recover",
+      "diff": 0.1,
+      "baseline": 0.9,
+      "optimized": 1.0
+    },
+    {
+      "id": "sup007-storage-extension--assertion-extension",
+      "outcome": "review_assertion",
+      "diff": 0.3667,
+      "baseline": 0.6,
+      "optimized": 0.9667
+    },
+    {
+      "id": "sup007-milestone--approve",
+      "outcome": "approve_evidence",
+      "diff": 0.4,
+      "baseline": 0.6,
+      "optimized": 1.0
+    },
+    {
+      "id": "sup007-storage-extension--missing-extension",
+      "outcome": "missing_evidence",
+      "diff": 0.4,
+      "baseline": 0.6,
+      "optimized": 1.0
+    },
+    {
+      "id": "sup011-bioburden-retest--approve",
+      "outcome": "approve_evidence",
+      "diff": 0.4,
+      "baseline": 0.6,
+      "optimized": 1.0
+    },
+    {
+      "id": "sup011-repeat-cycle--approve",
+      "outcome": "approve_evidence",
+      "diff": 0.4,
+      "baseline": 0.6,
+      "optimized": 1.0
+    }
+  ],
+  "method": "Per-case mean over runs, paired on identical task_sha256; 95% percentile bootstrap (10000 resamples, seed 7) over cases and over families (families are correlated scenario templates, so the family CI is the conservative one); two-sided sign-flip randomization test on per-case diffs. Repeated runs reduce within-case noise only; inference is over cases."
+}
