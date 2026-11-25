@@ -5,6 +5,7 @@ import {
   applyStepAction,
   buildStory,
   costRatio,
+  criticalFailureTotal,
   headlineSplit,
   parseQualityFile,
   parseStep,
@@ -77,6 +78,10 @@ test("the split parameter only opens a declared regression view; the headline st
 });
 
 test("missing measurements stay null instead of zero", () => {
+  assert.equal(criticalFailureTotal({}), 0);
+  assert.equal(criticalFailureTotal({ unsafe_disposition: 2, fabricated_citation: 1 }), 3);
+  assert.equal(criticalFailureTotal(undefined), null);
+  assert.equal(criticalFailureTotal({ x: null }), null);
   const story = buildStory(minimal({ "study-heldout": { pass_rate: 0.5 } }));
   const tuned = rungById(story, "rft");
   assert.equal(tuned.costPer1k, null);

@@ -60,13 +60,18 @@
       "tool_failures_reported": "Retrieval failures reported",
       "audit_complete_rate": "Answers with a complete evidence payload",
       "citations_grounded_rate": "Citations grounded in retrieved sources",
-      "query_variants_mean": "Query variants per call"
+      "query_variants_mean": "Query variants per call",
+      "criticalFailures": "Critical failures",
+      "inputTokens": "Input tokens per review (mean)",
+      "outputTokens": "Output tokens per review (mean)",
+      "reasoningTokens": "Reasoning tokens per review (mean)"
     },
     "lineage": "{{split}} split · {{cases}} cases · grader {{grader}} · pass threshold {{threshold}}",
     "generated": "Generated {{date}}",
     "caveats": "Caveats",
     "ms": "{{value}} ms",
-    "families": "{{n}} source families"
+    "families": "{{n}} source families",
+    "safetyCost": "Safety and token usage"
   },
   "nav": {
     "label": "Story steps",

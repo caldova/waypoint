@@ -60,13 +60,18 @@
       "tool_failures_reported": "Fallos de recuperación notificados",
       "audit_complete_rate": "Respuestas con evidencia completa",
       "citations_grounded_rate": "Citas fundamentadas en fuentes recuperadas",
-      "query_variants_mean": "Variantes de consulta por llamada"
+      "query_variants_mean": "Variantes de consulta por llamada",
+      "criticalFailures": "Fallos críticos",
+      "inputTokens": "Tokens de entrada por revisión (media)",
+      "outputTokens": "Tokens de salida por revisión (media)",
+      "reasoningTokens": "Tokens de razonamiento por revisión (media)"
     },
     "lineage": "División {{split}} · {{cases}} casos · evaluador {{grader}} · umbral {{threshold}}",
     "generated": "Generado {{date}}",
     "caveats": "Advertencias",
     "ms": "{{value}} ms",
-    "families": "{{n}} familias de fuentes"
+    "families": "{{n}} familias de fuentes",
+    "safetyCost": "Seguridad y uso de tokens"
   },
   "nav": {
     "label": "Pasos de la historia",

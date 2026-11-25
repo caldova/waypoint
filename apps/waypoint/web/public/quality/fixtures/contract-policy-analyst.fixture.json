@@ -87,7 +87,12 @@
             "audit_complete_rate": 0.97,
             "citations_grounded_rate": 0.68,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 30000,
+            "output_tokens": 700
+          },
+          "critical_failures": {}
         },
         "study-heldout": {
           "unique_cases": 120,
@@ -135,7 +140,12 @@
             "audit_complete_rate": 0.97,
             "citations_grounded_rate": 0.7,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 30000,
+            "output_tokens": 700
+          },
+          "critical_failures": {}
         }
       }
     },
@@ -189,7 +199,12 @@
             "audit_complete_rate": 0.98,
             "citations_grounded_rate": 0.69,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 34000,
+            "output_tokens": 750
+          },
+          "critical_failures": {}
         },
         "study-heldout": {
           "unique_cases": 120,
@@ -237,7 +252,12 @@
             "audit_complete_rate": 0.98,
             "citations_grounded_rate": 0.71,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 34000,
+            "output_tokens": 750
+          },
+          "critical_failures": {}
         }
       }
     },
@@ -291,7 +311,12 @@
             "audit_complete_rate": 1,
             "citations_grounded_rate": 0.89,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 36000,
+            "output_tokens": 900
+          },
+          "critical_failures": {}
         },
         "study-heldout": {
           "unique_cases": 120,
@@ -339,7 +364,12 @@
             "audit_complete_rate": 1,
             "citations_grounded_rate": 0.91,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 36000,
+            "output_tokens": 900
+          },
+          "critical_failures": {}
         }
       }
     },
@@ -393,7 +423,12 @@
             "audit_complete_rate": 1,
             "citations_grounded_rate": 0.91,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 38000,
+            "output_tokens": 950
+          },
+          "critical_failures": {}
         },
         "study-heldout": {
           "unique_cases": 120,
@@ -441,7 +476,12 @@
             "audit_complete_rate": 1,
             "citations_grounded_rate": 0.93,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 38000,
+            "output_tokens": 950
+          },
+          "critical_failures": {}
         }
       }
     },
@@ -495,7 +535,12 @@
             "audit_complete_rate": 0.96,
             "citations_grounded_rate": 0.62,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 32000,
+            "output_tokens": 600
+          },
+          "critical_failures": {}
         },
         "study-heldout": {
           "unique_cases": 120,
@@ -543,7 +588,12 @@
             "audit_complete_rate": 0.96,
             "citations_grounded_rate": 0.64,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 32000,
+            "output_tokens": 600
+          },
+          "critical_failures": {}
         }
       }
     },
@@ -597,7 +647,12 @@
             "audit_complete_rate": 1,
             "citations_grounded_rate": 0.9,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 33000,
+            "output_tokens": 650
+          },
+          "critical_failures": {}
         },
         "study-heldout": {
           "unique_cases": 120,
@@ -645,7 +700,12 @@
             "audit_complete_rate": 1,
             "citations_grounded_rate": 0.92,
             "query_variants_mean": null
-          }
+          },
+          "tokens_mean": {
+            "input_tokens": 33000,
+            "output_tokens": 650
+          },
+          "critical_failures": {}
         }
       }
     }

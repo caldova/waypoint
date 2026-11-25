@@ -31,6 +31,8 @@ export interface SplitSummary {
   latency_ms?: { p50?: number; p95?: number; mean?: number };
   tokens_mean?: { input_tokens?: number; output_tokens?: number; reasoning_tokens?: number };
   cost_usd_per_1k_lines?: number;
+  /** Critical-failure counts by category; `{}` means measured with none, absent means not measured. */
+  critical_failures?: Record<string, number>;
   rubric_dimensions?: Record<string, RubricDimension>;
   retrieval?: RetrievalSummary;
 }
@@ -122,6 +124,11 @@ export interface ArmView {
   latencyP95: number | null;
   dimensions: Record<string, RubricDimension>;
   retrieval: RetrievalSummary | null;
+  /** Total critical failures across categories; null when the split didn't measure them. */
+  criticalFailures: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  reasoningTokens: number | null;
 }
 
 export interface RungView extends ArmView {
@@ -219,7 +226,19 @@ function armView(arm: string, record: ArmRecord, split: string): ArmView {
     latencyP95: num(s.latency_ms?.p95),
     dimensions: s.rubric_dimensions ?? {},
     retrieval: s.retrieval ?? null,
+    criticalFailures: criticalFailureTotal(s.critical_failures),
+    inputTokens: num(s.tokens_mean?.input_tokens),
+    outputTokens: num(s.tokens_mean?.output_tokens),
+    reasoningTokens: num(s.tokens_mean?.reasoning_tokens),
   };
+}
+
+/** Sum of per-category counts; `{}` is a measured zero, a missing or malformed map is not measured. */
+export function criticalFailureTotal(failures: unknown): number | null {
+  if (!failures || typeof failures !== "object" || Array.isArray(failures)) return null;
+  const counts = Object.values(failures as Record<string, unknown>);
+  if (!counts.every((c) => num(c) !== null)) return null;
+  return counts.reduce<number>((sum, c) => sum + (c as number), 0);
 }
 
 /**

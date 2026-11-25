@@ -150,7 +150,9 @@ The page uses, per arm and for `headline_split`:
 | --- | --- |
 | `pass_rate`, `mean_score`, `unique_cases`, `runs` | Rung bars |
 | `cost_usd_per_1k_lines`, `latency_ms.p50`, `latency_ms.p95` | Cost and latency |
-| `rubric_dimensions.<id>.{label, mean_score}` | Rubric table |
+| `rubric_dimensions.<id>.{label, mean_score}` | Rubric table (`mean_score` is normalized score/5 in [0, 1]; `raw_score_scale` is informational) |
+| `critical_failures` (`{category: count}`) | Safety table: total across categories; `{}` is a measured zero, absent is "not measured" |
+| `tokens_mean.{input_tokens, output_tokens, reasoning_tokens}` | Token usage per review |
 | `retrieval.responses_with_tool_call_rate` | Answers that called FoundryIQ |
 | `retrieval.tool_calls_mean`, `retrieval.tool_call_latency_ms_p50` | Retrieval call count and latency |
 | `retrieval.tool_failures_reported` | Retrieval failures the tool reported |
@@ -163,5 +165,6 @@ The eval session confirmed it emits these exact `retrieval.*` names. Every arm
 is scored by the same frozen six-dimension gpt-6-astra judge. Unknown values
 must stay `null`, never zero.
 
-Missing optional fields render as "not measured", never as zero. The TypeScript
+Missing optional fields render as "not measured", never as zero. An evidence row
+that no arm measured is hidden, so the screen never shows a row of blanks. The TypeScript
 types and adapter live in `apps/waypoint/web/lib/analystQuality.ts`.

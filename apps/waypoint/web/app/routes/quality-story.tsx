@@ -41,6 +41,8 @@ import { pageMeta } from "../i18n/meta";
 
 export const meta: MetaFunction = ({ location }) => pageMeta(location, "qualityStory");
 
+const SAFETY_COST_METRICS = ["criticalFailures", "inputTokens", "outputTokens", "reasoningTokens"] as const;
+
 const RETRIEVAL_METRICS = [
   { id: "responses_with_tool_call_rate", kind: "ratio" },
   { id: "tool_calls_mean", kind: "count" },
@@ -461,7 +463,7 @@ function Evidence({ story }: { story: StoryView }) {
           <table className="mt-2 min-w-full text-left text-sm">
             <thead className="border-b border-slate-200 text-xs text-slate-600">{header}</thead>
             <tbody className="divide-y divide-slate-100">
-              {RETRIEVAL_METRICS.map((metric) => (
+              {RETRIEVAL_METRICS.filter((metric) => arms.some((arm) => typeof arm.retrieval?.[metric.id] === "number")).map((metric) => (
                 <tr key={metric.id}>
                   <td className="px-4 py-2 text-slate-700">{t(`evidence.metrics.${metric.id}`)}</td>
                   {arms.map((arm) => {
@@ -475,6 +477,27 @@ function Evidence({ story }: { story: StoryView }) {
                             : metric.kind === "ms"
                               ? t("evidence.ms", { value: fmt.number(value, { maximumFractionDigits: 0 }) })
                               : fmt.number(value, { maximumFractionDigits: 1 })}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="overflow-x-auto">
+          <h3 className="text-sm font-semibold text-slate-700">{t("evidence.safetyCost")}</h3>
+          <table className="mt-2 min-w-full text-left text-sm">
+            <thead className="border-b border-slate-200 text-xs text-slate-600">{header}</thead>
+            <tbody className="divide-y divide-slate-100">
+              {SAFETY_COST_METRICS.filter((metric) => arms.some((arm) => arm[metric] !== null)).map((metric) => (
+                <tr key={metric}>
+                  <td className="px-4 py-2 text-slate-700">{t(`evidence.metrics.${metric}`)}</td>
+                  {arms.map((arm) => {
+                    const value = arm[metric];
+                    return (
+                      <td key={arm.arm} className="px-4 py-2 text-right font-mono tabular-nums">
+                        {value === null ? t("evidence.notMeasured") : fmt.number(value, { maximumFractionDigits: 0 })}
                       </td>
                     );
                   })}
