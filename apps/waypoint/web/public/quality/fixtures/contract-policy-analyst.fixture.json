@@ -1,0 +1,421 @@
+{
+  "agent": "contract-policy-analyst",
+  "fixture": true,
+  "generated_at": "2026-11-25T00:00:00+00:00",
+  "evaluation_scope": {
+    "capability": "tool_grounded_reasoning",
+    "tools": "foundryiq",
+    "statement": "FIXTURE DATA - illustrative values only, not evaluation results. Every arm calls the same FoundryIQ knowledge-base retrieval tool."
+  },
+  "grader": {
+    "path": "fixture",
+    "version": "fixture",
+    "pass_threshold": 0.8
+  },
+  "benchmark": {
+    "path": "fixture",
+    "splits": {
+      "study-heldout": {
+        "rows": 120
+      },
+      "optimizer-validation": {
+        "rows": 40
+      }
+    },
+    "selection_policy": "fixture"
+  },
+  "headline_split": "study-heldout",
+  "rft_job": {
+    "id": "fixture",
+    "base_model": "MAI-2",
+    "train_rows": 160,
+    "status": "fixture"
+  },
+  "arms": {
+    "baseline-astra": {
+      "model": "gpt-6-astra",
+      "description": "FIXTURE: starter prompt",
+      "results": {
+        "study-heldout": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.72,
+          "pass_rate": 0.5,
+          "latency_ms": {
+            "p50": 15000,
+            "p95": 24000,
+            "mean": 18000
+          },
+          "cost_usd_per_1k_lines": 18,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.7
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.62
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.74
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.94
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.66
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.8
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 0.9,
+            "tool_calls_mean": 1.3,
+            "tool_call_latency_ms_p50": 900,
+            "tool_failures_reported": 2,
+            "audit_complete_rate": 0.97,
+            "citations_grounded_rate": 0.7,
+            "query_variants_mean": null
+          }
+        }
+      }
+    },
+    "baseline-astra62": {
+      "model": "gpt-6.2-astra",
+      "description": "FIXTURE: starter prompt",
+      "results": {
+        "study-heldout": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.74,
+          "pass_rate": 0.55,
+          "latency_ms": {
+            "p50": 14000,
+            "p95": 22400,
+            "mean": 16800
+          },
+          "cost_usd_per_1k_lines": 21,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.72
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.64
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.76
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.95
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.68
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.82
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 0.92,
+            "tool_calls_mean": 1.4,
+            "tool_call_latency_ms_p50": 880,
+            "tool_failures_reported": 2,
+            "audit_complete_rate": 0.98,
+            "citations_grounded_rate": 0.71,
+            "query_variants_mean": null
+          }
+        }
+      }
+    },
+    "optimized-astra": {
+      "model": "gpt-6-astra",
+      "description": "FIXTURE: Agent Optimizer candidate",
+      "results": {
+        "study-heldout": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.88,
+          "pass_rate": 0.8,
+          "latency_ms": {
+            "p50": 17000,
+            "p95": 27200,
+            "mean": 20400
+          },
+          "cost_usd_per_1k_lines": 28,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.88
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.86
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.85
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.98
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.9
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.96
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 1,
+            "tool_calls_mean": 2.1,
+            "tool_call_latency_ms_p50": 910,
+            "tool_failures_reported": 0,
+            "audit_complete_rate": 1,
+            "citations_grounded_rate": 0.91,
+            "query_variants_mean": null
+          }
+        }
+      }
+    },
+    "optimized-astra62": {
+      "model": "gpt-6.2-astra",
+      "description": "FIXTURE: Agent Optimizer candidate",
+      "results": {
+        "study-heldout": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.9,
+          "pass_rate": 0.85,
+          "latency_ms": {
+            "p50": 16500,
+            "p95": 26400,
+            "mean": 19800
+          },
+          "cost_usd_per_1k_lines": 34,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.9
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.88
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.87
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.98
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.92
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.97
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 1,
+            "tool_calls_mean": 2.2,
+            "tool_call_latency_ms_p50": 890,
+            "tool_failures_reported": 0,
+            "audit_complete_rate": 1,
+            "citations_grounded_rate": 0.93,
+            "query_variants_mean": null
+          }
+        }
+      }
+    },
+    "mai2-base": {
+      "model": "MAI-2",
+      "description": "FIXTURE: optimized prompt on untuned MAI-2",
+      "results": {
+        "study-heldout": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.7,
+          "pass_rate": 0.48,
+          "latency_ms": {
+            "p50": 5200,
+            "p95": 8320,
+            "mean": 6240
+          },
+          "cost_usd_per_1k_lines": 0.9,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.66
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.6
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.7
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.94
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.62
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.78
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 0.85,
+            "tool_calls_mean": 1.2,
+            "tool_call_latency_ms_p50": 870,
+            "tool_failures_reported": 3,
+            "audit_complete_rate": 0.96,
+            "citations_grounded_rate": 0.64,
+            "query_variants_mean": null
+          }
+        }
+      }
+    },
+    "mai2-rft": {
+      "model": "MAI-2 (RFT)",
+      "description": "FIXTURE: optimized prompt on RFT-tuned MAI-2",
+      "results": {
+        "study-heldout": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.89,
+          "pass_rate": 0.83,
+          "latency_ms": {
+            "p50": 5400,
+            "p95": 8640,
+            "mean": 6480
+          },
+          "cost_usd_per_1k_lines": 0.9,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.89
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.87
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.86
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.98
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.9
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.96
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 1,
+            "tool_calls_mean": 2.1,
+            "tool_call_latency_ms_p50": 880,
+            "tool_failures_reported": 0,
+            "audit_complete_rate": 1,
+            "citations_grounded_rate": 0.92,
+            "query_variants_mean": null
+          }
+        }
+      }
+    }
+  },
+  "comparisons": [
+    {
+      "a": "baseline-astra62",
+      "b": "optimized-astra62",
+      "split": "study-heldout",
+      "mean_difference": 0.16,
+      "ci95": [
+        0.11,
+        0.21
+      ],
+      "paired_sign_flip_p": 0.001
+    },
+    {
+      "a": "baseline-astra",
+      "b": "optimized-astra",
+      "split": "study-heldout",
+      "mean_difference": 0.16,
+      "ci95": [
+        0.1,
+        0.22
+      ],
+      "paired_sign_flip_p": 0.001
+    },
+    {
+      "a": "mai2-base",
+      "b": "mai2-rft",
+      "split": "study-heldout",
+      "mean_difference": 0.19,
+      "ci95": [
+        0.13,
+        0.25
+      ],
+      "paired_sign_flip_p": 0.001
+    },
+    {
+      "a": "optimized-astra62",
+      "b": "mai2-rft",
+      "split": "study-heldout",
+      "mean_difference": -0.01,
+      "ci95": [
+        -0.04,
+        0.02
+      ],
+      "paired_sign_flip_p": 0.52
+    },
+    {
+      "a": "optimized-astra",
+      "b": "mai2-rft",
+      "split": "study-heldout",
+      "mean_difference": 0.01,
+      "ci95": [
+        -0.02,
+        0.04
+      ],
+      "paired_sign_flip_p": 0.61
+    }
+  ],
+  "caveats": [
+    "FIXTURE DATA - replace with the pipeline's quality.json before presenting.",
+    "study-heldout is held out from this study (120 cases, 10 source families), not a globally pristine set."
+  ]
+}

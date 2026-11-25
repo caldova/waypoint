@@ -16,13 +16,14 @@ import {
   HiOutlineShieldCheck,
 } from "react-icons/hi2";
 import type { MetaFunction } from "react-router";
-import { useOutletContext } from "react-router";
+import { Link, useOutletContext } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { fetchDrilldownConfig, type DrilldownConfig } from "../../lib/waypointConfig";
 import { AppHeader } from "../components/AppHeader";
 import { RequireAuth } from "../components/RequireAuth";
 import { useFormat, type Formatters } from "../i18n/format";
+import { useLocale } from "../i18n/LocaleProvider";
 import { pageMeta } from "../i18n/meta";
 
 export const meta: MetaFunction = ({ location }) => pageMeta(location, "quality");
@@ -274,6 +275,7 @@ export default function Quality() {
                 foundryUrl={foundryUrl}
               />
               <GovernanceStrip environment={qualityOperations.rftEnvironment} />
+              <StoryLink />
               <OperationsPanel operations={manifest.operations} workflowUrl={workflowUrl} />
               <MetricGrid manifest={manifest} />
               <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -333,6 +335,23 @@ function Hero({
         </div>
       </div>
     </section>
+  );
+}
+
+function StoryLink() {
+  const { t } = useTranslation("qualityStory");
+  const { localize } = useLocale();
+  return (
+    <Link
+      to={localize("/quality/contract-policy-analyst")}
+      className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-blue-300"
+    >
+      <span>
+        <span className="block text-sm font-semibold text-slate-950">{t("link.title")}</span>
+        <span className="mt-1 block text-sm text-slate-600">{t("link.detail")}</span>
+      </span>
+      <HiOutlineArrowTopRightOnSquare className="h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
+    </Link>
   );
 }
 

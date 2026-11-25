@@ -18,6 +18,7 @@ function pages(locale?: string): RouteConfigEntry[] {
     route("agent", "routes/agent.tsx", id("agent")),
     route("activity", "routes/activity.tsx", id("activity")),
     route("quality", "routes/quality.tsx", id("quality")),
+    route("quality/contract-policy-analyst", "routes/quality-story.tsx", id("quality-story")),
     route("invoices", "routes/invoices.tsx", id("invoices")),
   ];
 }

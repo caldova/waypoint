@@ -5,6 +5,7 @@ import enCommon from "./locales/en/common.json";
 import enHome from "./locales/en/home.json";
 import enInvoices from "./locales/en/invoices.json";
 import enQuality from "./locales/en/quality.json";
+import enQualityStory from "./locales/en/qualityStory.json";
 import esActivity from "./locales/es/activity.json";
 import esAgent from "./locales/es/agent.json";
 import esAuth from "./locales/es/auth.json";
@@ -12,6 +13,7 @@ import esCommon from "./locales/es/common.json";
 import esHome from "./locales/es/home.json";
 import esInvoices from "./locales/es/invoices.json";
 import esQuality from "./locales/es/quality.json";
+import esQualityStory from "./locales/es/qualityStory.json";
 
 /**
  * Resources are bundled statically: the string set is small, and having every
@@ -24,6 +26,7 @@ export const resources = {
     auth: enAuth,
     activity: enActivity,
     quality: enQuality,
+    qualityStory: enQualityStory,
     agent: enAgent,
     invoices: enInvoices,
   },
@@ -33,6 +36,7 @@ export const resources = {
     auth: esAuth,
     activity: esActivity,
     quality: esQuality,
+    qualityStory: esQualityStory,
     agent: esAgent,
     invoices: esInvoices,
   },

@@ -1,0 +1,91 @@
+{
+  "title": "Contract Policy Analyst: quality and cost",
+  "subtitle": "From a starter prompt to a fine-tuned small model, measured on the same held-out cases with the same grader.",
+  "fixtureBanner": "Fixture data: illustrative values, not evaluation results. Run npm run quality:sync after the pipeline writes quality.json.",
+  "loading": "Loading quality evidence",
+  "error": {
+    "title": "Quality evidence unavailable",
+    "hint": "Check that the pipeline's quality.json was copied to public/quality."
+  },
+  "orient": {
+    "problem": "Finance checks supplier invoices against contracts and policies. The analyst finds the clause that applies, cites it, and explains what the evidence supports. People make the decision.",
+    "toolTitle": "FoundryIQ retrieval",
+    "toolDetail": "Contracts and finance-policy knowledge base",
+    "toolNote": "Every version uses this same tool. Only the instructions and the model change."
+  },
+  "stage": {
+    "build": {
+      "title": "Build",
+      "detail": "{{model}} · starter prompt"
+    },
+    "optimize": {
+      "title": "Optimize",
+      "detail": "{{model}} · Foundry Agent Optimizer"
+    },
+    "train": {
+      "title": "Train",
+      "detail": "{{model}} · reinforcement fine-tuning"
+    }
+  },
+  "rung": {
+    "passRate": "pass rate",
+    "costPer1k": "per 1K reviews",
+    "latency": "median response",
+    "placeholder": "Revealed on the next step",
+    "vsStarter": "+{{points}} points vs the starter prompt",
+    "vsUntuned": "+{{points}} points vs untuned {{model}}",
+    "beforeRft": "Untuned {{model}}: {{value}}",
+    "cases": "{{cases}} held-out cases × {{runs}} runs"
+  },
+  "payoff": {
+    "title": "The payoff",
+    "cost": "Cost per 1K reviews",
+    "latency": "Median response time",
+    "cheaper": "{{ratio}}× lower cost than the optimized frontier agent",
+    "savings": "{{value}} lower cost than the starter prompt",
+    "matches": "Quality matches the optimized agent (paired 95% interval includes zero)",
+    "delta": "{{points}} points vs the optimized agent"
+  },
+  "evidence": {
+    "title": "How we know",
+    "rubric": "Rubric scores by dimension",
+    "retrieval": "Retrieval evidence",
+    "dimension": "Dimension",
+    "metric": "Measure",
+    "notMeasured": "not measured",
+    "metrics": {
+      "responses_with_tool_call_rate": "Answers that called FoundryIQ",
+      "tool_calls_mean": "Retrieval calls per answer",
+      "tool_call_latency_ms_p50": "Retrieval call latency (p50)",
+      "tool_failures_reported": "Retrieval failures reported",
+      "audit_complete_rate": "Answers with a complete evidence payload",
+      "citations_grounded_rate": "Citations grounded in retrieved sources",
+      "query_variants_mean": "Query variants per call"
+    },
+    "lineage": "{{split}} split · {{cases}} cases · grader {{grader}} · pass threshold {{threshold}}",
+    "generated": "Generated {{date}}",
+    "caveats": "Caveats",
+    "ms": "{{value}} ms"
+  },
+  "nav": {
+    "label": "Story steps",
+    "previous": "Previous step",
+    "next": "Next step",
+    "step": "Step {{n}}: {{name}}"
+  },
+  "steps": {
+    "orient": "Problem",
+    "baseline": "Build",
+    "optimized": "Optimize",
+    "rft": "Train",
+    "payoff": "Payoff",
+    "evidence": "Evidence"
+  },
+  "link": {
+    "title": "Contract Policy Analyst story",
+    "detail": "Starter prompt → Agent Optimizer → RFT on MAI-2, with cost and latency."
+  },
+  "track": {
+    "label": "Frontier model for the Build and Optimize rungs"
+  }
+}

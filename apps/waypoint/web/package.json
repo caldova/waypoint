@@ -9,7 +9,9 @@
     "start": "node server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint app/ lib/ --ext .ts,.tsx",
-    "i18n:check": "node scripts/check-i18n.mjs"
+    "i18n:check": "node scripts/check-i18n.mjs",
+    "quality:sync": "node scripts/sync-quality.mjs",
+    "test": "node --test lib/*.test.ts"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.13.0",
