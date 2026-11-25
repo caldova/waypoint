@@ -59,7 +59,7 @@
       "tool_call_latency_ms_p50": "Latencia de la llamada de recuperación (p50)",
       "tool_failures_reported": "Fallos de recuperación notificados",
       "audit_complete_rate": "Respuestas con evidencia completa",
-      "citations_grounded_rate": "Citas fundamentadas en fuentes recuperadas",
+      "citations_grounded_rate": "Citas que coinciden con una fuente recuperada",
       "query_variants_mean": "Variantes de consulta por llamada",
       "criticalFailures": "Fallos críticos",
       "inputTokens": "Tokens de entrada por revisión (media)",

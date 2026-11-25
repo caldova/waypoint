@@ -34,6 +34,9 @@ try {
   fail(`${source} is not valid JSON (${error.message})`);
 }
 if (data.fixture === true) fail(`${source} is marked "fixture": true; only real results can be published`);
+if (data.calibration_only === true || data.quality_evidence_valid === false) {
+  fail(`${source} is a calibration dry-run or flagged invalid; only study results can be published`);
+}
 if (data.agent !== "contract-policy-analyst") fail(`expected agent "contract-policy-analyst", got "${data.agent}"`);
 for (const arm of ["mai2-rft"]) {
   if (!data.arms?.[arm]?.results) fail(`missing arm "${arm}"`);

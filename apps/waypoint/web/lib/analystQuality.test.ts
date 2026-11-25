@@ -52,13 +52,16 @@ test("the track parameter switches the frontier pair and falls back when incompl
   assert.equal(parseTrack("bogus"), null);
 });
 
-test("parseQualityFile rejects files missing the RFT arm or a complete track", () => {
+test("parseQualityFile rejects files missing the RFT arm or a complete track; a pending arm may have no model", () => {
   const noRft = minimal({ x: {} }) as unknown as { arms: Record<string, unknown> };
   delete noRft.arms["mai2-rft"];
   assert.throws(() => parseQualityFile(noRft), /mai2-rft/);
   const noTrack = minimal({ x: {} }) as unknown as { arms: Record<string, unknown> };
   delete noTrack.arms["optimized-astra62"];
   assert.throws(() => parseQualityFile(noTrack), /complete track/);
+  const pending = { ...minimal({ x: {} }), headline_split: "x" };
+  pending.arms["mai2-rft"] = { model: null, results: {} };
+  assert.equal(buildStory(parseQualityFile(pending)).rungs[2].passRate, null);
 });
 
 test("headline split prefers the declared split and never falls back to a regression split", () => {

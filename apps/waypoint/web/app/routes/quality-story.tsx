@@ -161,7 +161,7 @@ export default function QualityStory() {
                     onClick={() => setTrack(track.id)}
                     className={`rounded-md px-3 py-1 ${track.id === story.track ? "bg-white font-semibold text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`}
                   >
-                    {track.model}
+                    {track.model ?? track.id}
                   </button>
                 ))}
               </div>

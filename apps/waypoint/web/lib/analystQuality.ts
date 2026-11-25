@@ -38,8 +38,9 @@ export interface SplitSummary {
 }
 
 export interface ArmRecord {
-  agent_version?: string;
-  model: string;
+  agent_version?: string | null;
+  /** Null while an arm is pending (e.g. no RFT model trained yet). */
+  model: string | null;
   description?: string;
   optimizer_job?: string;
   instructions_word_count?: number;
@@ -59,6 +60,9 @@ export interface AnalystQualityFile {
   agent: string;
   generated_at?: string;
   fixture?: boolean;
+  /** Set on private calibration dry-runs; the sync gate refuses these. */
+  calibration_only?: boolean;
+  quality_evidence_valid?: boolean;
   evaluation_scope?: { capability?: string; tools?: string; statement?: string };
   grader?: { path?: string; version?: string; pass_threshold?: number };
   benchmark?: {
@@ -113,7 +117,7 @@ export function parseTrack(value: string | null | undefined): TrackId | null {
 
 export interface ArmView {
   arm: string;
-  model: string;
+  model: string | null;
   description: string | null;
   passRate: number | null;
   meanScore: number | null;
@@ -149,7 +153,7 @@ export interface StoryView {
   sourceFamilies: number | null;
   generatedAt: string | null;
   track: TrackId;
-  tracks: { id: TrackId; model: string }[];
+  tracks: { id: TrackId; model: string | null }[];
   rungs: RungView[];
   beforeRft: ArmView | null;
   arms: ArmView[];
@@ -183,7 +187,7 @@ export function parseQualityFile(raw: unknown): AnalystQualityFile {
 
 function isArm(value: unknown): value is ArmRecord {
   const arm = value as Partial<ArmRecord> | undefined;
-  return !!arm && typeof arm.model === "string" && !!arm.results && typeof arm.results === "object";
+  return !!arm && (typeof arm.model === "string" || arm.model === null) && !!arm.results && typeof arm.results === "object";
 }
 
 /** Tracks whose baseline and optimized arms are both in the file. */

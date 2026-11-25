@@ -157,7 +157,7 @@ The page uses, per arm and for `headline_split`:
 | `retrieval.tool_calls_mean`, `retrieval.tool_call_latency_ms_p50` | Retrieval call count and latency |
 | `retrieval.tool_failures_reported` | Retrieval failures the tool reported |
 | `retrieval.audit_complete_rate` | Answers with a complete evidence payload |
-| `retrieval.citations_grounded_rate` | Citations grounded in retrieved sources (after lossless normalization) |
+| `retrieval.citations_grounded_rate` | Citations that match a retrieved source (after lossless normalization). Means the cited section was retrieved, not that it supports the answer; support is judged by the rubric. Don't narrate it as correctness. |
 | `retrieval.query_variants_mean` | Only when real MCP dispatch variants are captured; otherwise `null` |
 | top-level `comparisons[]` (`a`, `b`, `split`, `mean_difference`, `ci95`) | Paired change |
 

@@ -59,7 +59,7 @@
       "tool_call_latency_ms_p50": "Retrieval call latency (p50)",
       "tool_failures_reported": "Retrieval failures reported",
       "audit_complete_rate": "Answers with a complete evidence payload",
-      "citations_grounded_rate": "Citations grounded in retrieved sources",
+      "citations_grounded_rate": "Citations that match a retrieved source",
       "query_variants_mean": "Query variants per call",
       "criticalFailures": "Critical failures",
       "inputTokens": "Input tokens per review (mean)",
