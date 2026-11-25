@@ -1,0 +1,175 @@
+{
+  "version": "contract-policy-analyst-fictional-authority-v1",
+  "authority": "New fictional commercial rules authored for this study. Not derived from human-reviewed contracts or approved customer policies.",
+  "review_status": "pending_human_review",
+  "domains": [
+    {
+      "id": "solid-dose",
+      "name": "Solid Dose Production",
+      "rules": [
+        ["released-tablets", "Released tablet production", "unit", ["sponsor QA release", "sponsor receipt quantity"]],
+        ["incremental-volume", "Monthly tablet volume pricing", "tier", ["monthly released volume", "same-period SKU aggregation"]],
+        ["forecast-moq", "Forecast-adjustment MOQ shortfall", "shortfall", ["forecast reduction notice", "sponsor-authorized forecast"]],
+        ["pack-format", "Market-specific packaging", "fixed", ["purchase order packaging format", "approved artwork version"]],
+        ["material-consumption", "Consumed excipient pass-through", "pass_through", ["material consumption reconciliation", "procurement unit-cost authorization"]],
+        ["campaign-cleaning", "Nonroutine campaign validation", "window", ["approved validation protocol", "nonroutine cleaning scope"]],
+        ["release-administration", "Once-per-batch release administration", "fixed", ["released batch identity", "sponsor QA acceptance", "no prior administration billing"]],
+        ["scrap-adjustment", "Component loss beyond included allowance", "allowance", ["scrap cause attribution", "sponsor-caused material defect"]]
+      ]
+    },
+    {
+      "id": "sterile-fill",
+      "name": "Sterile Fill Finish",
+      "rules": [
+        ["filled-syringes", "Accepted filled syringes", "unit", ["sterility release", "accepted syringe count"]],
+        ["rework-hours", "Quality-authorized sterile rework", "unit", ["pre-work quality authorization", "rework batch linkage"]],
+        ["retest-trigger", "Release retesting", "fixed", ["written retest trigger", "sponsor specification-change causation"]],
+        ["deviation-investigation", "Deviation investigation", "capped_cost", ["deviation record", "non-supplier causation", "quality investigation authorization"]],
+        ["aseptic-reservation", "Aseptic suite reservation", "proration", ["active capacity order", "cancellation notice timing"]],
+        ["cold-hold", "Controlled hold storage", "overage", ["occupied pallet-day log", "approved storage extension"]],
+        ["line-clearance", "Release-qualified line clearance", "fixed", ["released batch status", "signed line-clearance record"]],
+        ["container-loss", "Sponsor-container loss", "allowance", ["component-loss reconciliation", "sponsor packaging-defect evidence"]]
+      ]
+    },
+    {
+      "id": "serialization",
+      "name": "Packaging Serialization",
+      "rules": [
+        ["serialized-count", "Serialized accepted unit count", "lesser", ["commissioned serial count", "sponsor receipt", "no inspection rejects"]],
+        ["label-change", "Language and artwork changes", "fixed", ["market-specific label approval", "effective label-version match"]],
+        ["distribution-volume", "Distribution-volume pricing", "tier", ["same-month shipment aggregation", "accepted carton count"]],
+        ["carrier-exception", "Alternate-carrier charges", "capped_cost", ["pre-pickup route exception", "shipment-specific freight receipt"]],
+        ["deserialization", "Sponsor-requested deserialization", "unit", ["written deserialization order", "serial-range identity"]],
+        ["artwork-window", "Artwork conversion campaign", "window", ["approved effective-date window", "SKU and market linkage"]],
+        ["carton-pass-through", "Nonstandard carton material", "pass_through", ["carton format authorization", "consumed carton quantity"]],
+        ["line-validation", "Serialization line validation", "fixed", ["protocol acceptance", "final validation report acceptance"]]
+      ]
+    },
+    {
+      "id": "api-supply",
+      "name": "API Supply",
+      "rules": [
+        ["released-grams", "Released API grams", "unit", ["CoA released yield", "matching sponsor receipt"]],
+        ["yield-true-up", "Actual-yield true-up", "lesser", ["released lot yield", "current campaign reservation"]],
+        ["raw-material", "Raw material pass-through", "pass_through", ["consumed material quantity", "approved cost effective date"]],
+        ["expedited-coa", "Expedited certificate delivery", "window", ["written expedited request", "certificate delivery timestamp"]],
+        ["retest-cost", "Sponsor-caused retest cost", "capped_cost", ["invalid sample causation", "written retest approval"]],
+        ["storage-grace", "Post-release API storage", "overage", ["lot-specific storage log", "sponsor storage notice"]],
+        ["reservation-shortfall", "Campaign reservation shortfall", "shortfall", ["sponsor forecast notice", "released yield reconciliation"]],
+        ["lot-documentation", "Nonstandard lot documentation", "fixed", ["sponsor-requested document set", "document-version identity"]]
+      ]
+    },
+    {
+      "id": "gmp-testing",
+      "name": "GMP Laboratory Testing",
+      "rules": [
+        ["release-package", "Initial release testing", "fixed", ["approved assigned protocol", "logged sample receipt", "no prior package billing"]],
+        ["study-pull", "Scheduled stability pulls", "window", ["approved study schedule", "completed pull timestamp"]],
+        ["validation-acceptance", "Method validation milestones", "fixed", ["protocol deliverable acceptance", "final report acceptance"]],
+        ["supplemental-tests", "Supplemental assay quantity", "unit", ["written supplemental test order", "batch-specific sample count"]],
+        ["document-conversion", "Post-issuance document conversion", "capped_cost", ["post-final-issuance sponsor request", "conversion cost receipt"]],
+        ["sample-storage", "Long-term sample storage", "overage", ["study retention period", "occupied vial-day count"]],
+        ["assay-volume", "Monthly assay volume pricing", "tier", ["completed assay count", "sponsor results acceptance"]],
+        ["replacement-samples", "Replacement sampling pass-through", "pass_through", ["sponsor-caused replacement event", "sample acquisition receipt"]]
+      ]
+    },
+    {
+      "id": "clinical-supply",
+      "name": "Clinical Supply",
+      "rules": [
+        ["released-kits", "Released protocol kits", "unit", ["approved study protocol", "clinical distribution release"]],
+        ["comparator-cost", "Comparator sourcing", "pass_through", ["supplier acquisition receipt", "lot and study authorization"]],
+        ["pallet-storage", "Clinical pallet storage", "overage", ["study close notice", "protocol-specific storage extension"]],
+        ["study-milestone", "Clinical readiness milestone", "fixed", ["sponsor deliverable approval", "first-patient shipment readiness"]],
+        ["relabel-window", "Clinical relabeling", "window", ["approved protocol amendment", "effective label-date window"]],
+        ["kit-destruction", "Authorized kit destruction", "capped_cost", ["sponsor destruction order", "lot-specific destruction certificate"]],
+        ["comparators-minimum", "Comparator reservation shortfall", "shortfall", ["study forecast reduction notice", "authorized comparator order"]],
+        ["patient-volume", "Study distribution tier", "tier", ["same-protocol released kit count", "sponsor receipt reconciliation"]]
+      ]
+    },
+    {
+      "id": "cold-logistics",
+      "name": "Cold Chain Logistics",
+      "rules": [
+        ["lane-delivery", "Accepted lane deliveries", "unit", ["purchase-order lane match", "delivery confirmation"]],
+        ["excursion-response", "Temperature excursion response", "fixed", ["out-of-range excursion interval", "investigation disposition"]],
+        ["brokerage-entry", "Once-per-entry brokerage", "fixed", ["broker-of-record identity", "no master-child duplicate"]],
+        ["route-exception", "Approved route exception", "capped_cost", ["pre-pickup logistics approval", "shipment-specific cost receipt"]],
+        ["depot-hold", "Depot hold over grace period", "overage", ["sponsor-caused hold", "occupied shipment-day log"]],
+        ["delivery-window", "Time-definite delivery", "window", ["sponsor expedited service order", "signed delivery timestamp"]],
+        ["lane-volume", "Monthly lane volume pricing", "tier", ["approved lane aggregation", "accepted shipment count"]],
+        ["reusable-pack", "Reusable shipper replacements", "pass_through", ["sponsor-caused pack loss", "replacement acquisition receipt"]]
+      ]
+    },
+    {
+      "id": "biologic-capacity",
+      "name": "Biologics Capacity",
+      "rules": [
+        ["utilized-hours", "Incremental bioreactor utilization", "overage", ["manufacturing run logs", "batch record hours"]],
+        ["unused-credit", "Unused-capacity credit adjustment", "capped_cost", ["prior-credit application", "quarter-end capacity worksheet"]],
+        ["restart-cost", "Sponsor-material restart costs", "pass_through", ["sponsor-material causation", "quality restart approval"]],
+        ["reservation-days", "Reserved suite days", "proration", ["active reservation month", "cancellation notice"]],
+        ["campaign-milestone", "Campaign acceptance milestone", "fixed", ["released campaign record", "sponsor campaign acceptance"]],
+        ["yield-quantity", "Released biologic yield", "lesser", ["released yield log", "sponsor receipt"]],
+        ["campaign-volume", "Campaign utilization tier", "tier", ["actual run-hour aggregation", "current-quarter period match"]],
+        ["validation-window", "Requalification validation", "window", ["approved requalification protocol", "completed validation timestamp"]]
+      ]
+    },
+    {
+      "id": "device-assembly",
+      "name": "Device Assembly",
+      "rules": [
+        ["accepted-devices", "Accepted assembled devices", "unit", ["final inspection pass", "sponsor receipt acceptance"]],
+        ["component-scrap", "Excess component scrap", "allowance", ["scrap cause record", "sponsor-caused component defect"]],
+        ["eco-labor", "Engineering change labor", "capped_cost", ["pre-work ECO approval", "matching component and build lot"]],
+        ["inspection-retake", "Sponsor-driven repeat inspection", "fixed", ["written inspection change order", "non-supplier-error cause"]],
+        ["assembly-volume", "Monthly device volume pricing", "tier", ["accepted unit aggregation", "same-build-family grouping"]],
+        ["material-review-hold", "Sponsor-caused material hold", "overage", ["material review disposition", "sponsor-authorized hold period"]],
+        ["tooling-milestone", "Tooling qualification milestone", "fixed", ["approved qualification protocol", "accepted tooling report"]],
+        ["eco-effective-window", "Effective-lot change implementation", "window", ["approved ECO effective window", "build-lot identity"]]
+      ]
+    },
+    {
+      "id": "sterilization",
+      "name": "Sterilization Services",
+      "rules": [
+        ["cycle-link", "Sponsor-linked sterilization cycles", "unit", ["approved cycle record", "matching sponsor lot"]],
+        ["bioburden-retest", "Bioburden retesting", "fixed", ["sponsor-sample invalidity", "approved retest trigger"]],
+        ["final-packet", "Final release packet", "fixed", ["packet completeness", "sponsor QA acceptance"]],
+        ["repeat-load", "Sponsor-driven repeat loads", "capped_cost", ["sponsor load-change order", "repeat-cycle lot linkage"]],
+        ["cycle-volume", "Quarterly cycle-volume pricing", "tier", ["accepted cycle count", "same-quarter lot grouping"]],
+        ["quarantine-storage", "Sponsor quarantine storage", "overage", ["sponsor-caused quarantine", "approved storage extension"]],
+        ["cycle-time-window", "Time-qualified cycle execution", "window", ["approved cycle schedule", "execution timestamp"]],
+        ["fixture-pass-through", "Sponsor-specific load fixtures", "pass_through", ["fixture design authorization", "actual acquisition receipt"]]
+      ]
+    },
+    {
+      "id": "process-development",
+      "name": "Process Development",
+      "rules": [
+        ["accepted-deliverable", "Accepted tech-transfer deliverables", "fixed", ["named SOW deliverable", "sponsor deliverable acceptance"]],
+        ["gmp-classification", "GMP-classified engineering batches", "unit", ["approved GMP protocol classification", "matching executed-record acceptance"]],
+        ["validation-prerequisites", "Process validation milestone", "fixed", ["completed milestone activity", "approved validation report", "engineering prerequisite status"]],
+        ["added-scope", "Added protocol scope", "capped_cost", ["pre-work scope-change approval", "not-to-exceed amount"]],
+        ["development-hours", "Authorized development hours", "overage", ["signed development time records", "sponsor-authorized overage"]],
+        ["transfer-window", "Scheduled transfer completion", "window", ["approved transfer schedule", "sponsor completion acceptance"]],
+        ["batch-volume", "Development campaign pricing", "tier", ["accepted batch aggregation", "engineering classification match"]],
+        ["material-trials", "Trial material pass-through", "pass_through", ["authorized trial consumption", "approved material cost"]]
+      ]
+    },
+    {
+      "id": "regulatory-services",
+      "name": "Regulatory Services",
+      "rules": [
+        ["country-work-order", "Country-authorized submission work", "fixed", ["approved country work order", "pre-work regulatory approval"]],
+        ["filed-submission", "Filed submission milestones", "fixed", ["authority filing evidence", "matching country procedure and date"]],
+        ["authority-response", "Authority response milestone", "fixed", ["received authority letter", "accepted response package"]],
+        ["language-words", "Language-pair translation", "unit", ["approved language pair", "accepted word count"]],
+        ["rush-correction", "New-work rush translation", "capped_cost", ["written rush approval", "not a supplier-error correction"]],
+        ["submission-window", "Scheduled market submission", "window", ["approved submission window", "authority filing timestamp"]],
+        ["portfolio-volume", "Quarterly regulatory portfolio tier", "tier", ["same-quarter accepted submission count", "approved country portfolio"]],
+        ["authority-fees", "Authority filing fee pass-through", "pass_through", ["authority fee receipt", "sponsor market authorization"]]
+      ]
+    }
+  ]
+}

@@ -8,8 +8,8 @@ import os
 from pathlib import Path
 from typing import Any
 
-from castia import load_agent_config
 import yaml
+from castia import load_agent_config
 
 from toolbox import validate_tool_definitions
 

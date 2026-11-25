@@ -1,6 +1,6 @@
 param(
     [string]$Environment = 'contract-policy-analyst',
-    [ValidatePattern('/blobServices/default/containers/cpa-eval-audits$')]
+    [ValidatePattern('/blobServices/default/containers/(cpa-eval-audits|castia-tool-captures)$')]
     [string]$AuditContainerResourceId = ''
 )
 $ErrorActionPreference = 'Stop'

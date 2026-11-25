@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from toolbox import _call_foundryiq_toolbox  # noqa: E402
+from toolbox import _call_foundryiq_toolbox
 
 
 def reference_fingerprint(result: dict) -> tuple[str, int]:

@@ -1,9 +1,8 @@
 from types import SimpleNamespace
 
+import observability
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
-
-import observability
 
 
 @pytest.mark.parametrize("existing", [False, True])

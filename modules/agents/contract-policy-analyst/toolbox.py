@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import uuid
 import hashlib
 import json
+import uuid
 from collections.abc import Sequence
 from typing import Any
 
@@ -15,8 +15,6 @@ from castia import (
 )
 from castia.inference.tools import Tool
 from opentelemetry import trace
-
-from retrieval_audit import record_tool
 
 _KB_TOOL_NAME = "contracts-kb-mcp___knowledge_base_retrieve"
 # Telemetry label for the execute_tool span's gen_ai.tool.type. Castia 0.10 has
@@ -124,12 +122,6 @@ def _runtime_parameters(optimized: object | None) -> dict[str, Any]:
 
 
 async def _call_foundryiq_toolbox(activity: Any, **kwargs: Any) -> dict[str, Any]:
-    result = await _dispatch_foundryiq_toolbox(activity, **kwargs)
-    record_tool(kwargs.get("query"), result)
-    return result
-
-
-async def _dispatch_foundryiq_toolbox(activity: Any, **kwargs: Any) -> dict[str, Any]:
     # Stamp before binding arguments so malformed calls are still labeled.
     del activity
     span = trace.get_current_span()

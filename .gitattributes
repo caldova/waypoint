@@ -3,3 +3,7 @@
 *.ps1 text eol=crlf
 *.cmd text eol=crlf
 *.bat text eol=crlf
+# Preserve the exact bytes pinned by the independent benchmark seals.
+modules/corpus/data/contract-policy-analyst/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+modules/evals/datasets/contract-policy-analyst/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+modules/evals/graders/contract-policy-analyst/** -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

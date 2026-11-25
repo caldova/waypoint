@@ -9,7 +9,8 @@ This module is the *writer* side of that pipeline. It performs an **idempotent, 
 sync** of the supplier contract documents into the blob container:
 
 * every current contract document is uploaded (overwrite) under ``{prefix}/`` , and
-* any blob already under ``{prefix}/`` that is *not* part of the current corpus is deleted.
+* stale direct-child blobs under ``{prefix}/`` are deleted; separately managed
+  nested namespaces are preserved.
 
 The delete pass is what makes a rename safe: when the corpus moves from ``cmo-0NN-*`` to
 ``sup-0NN-*`` the stale ``cmo-*`` blobs are removed automatically, so the index never mixes old
@@ -213,6 +214,10 @@ def _sync_documents(
     if append_only:
         return
     for existing in _existing_blob_names(container_client, prefix):
+        owned_prefix = prefix.strip("/")
+        relative = existing[len(owned_prefix) + 1:] if owned_prefix else existing
+        if "/" in relative:
+            continue
         if existing not in desired:
             container_client.delete_blob(existing)
             summary.deleted.append(existing)
@@ -272,7 +277,7 @@ def upload_contracts_kb(
 ) -> dict[str, Any]:
     """Sync the supplier contracts into the ``contracts-ks`` blob container and optionally reindex.
 
-    Idempotent: uploads the current contract corpus and deletes any stale blobs under ``prefix``.
+    Idempotent: uploads the corpus and deletes stale direct-child blobs under ``prefix``.
     With ``append_only=True``, existing documents are immutable and nothing is deleted.
     Raises on any failure so callers exit non-zero. ``storage_account`` (or ``account_url``) is
     required so the target container is unambiguous.

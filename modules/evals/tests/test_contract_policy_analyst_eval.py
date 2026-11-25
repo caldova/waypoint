@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from caliber.contract_policy_analyst_eval import paired_records
+from caliber.contract_policy_analyst_eval import inference_cost, paired_records
 
 
 def rows(score):
@@ -37,3 +37,19 @@ def test_duplicate_or_mismatched_judge_rejected():
     right[0]["judge_model"] = "different-judge"
     with pytest.raises(ValueError, match="judge_model"):
         paired_records(left, right)
+
+
+def test_token_estimate_uses_current_astra62_and_cached_meter():
+    cost = inference_cost("gpt-6.2-astra", {
+        "input_tokens": 1000, "output_tokens": 100,
+        "input_tokens_details": {"cached_tokens": 500},
+    })
+    assert cost["usd"] == pytest.approx((500 * 8 + 500 * 0.4 + 100 * 40) / 1_000_000)
+    assert "retrieval/indexing" in cost["excludes"]
+
+
+def test_missing_usage_is_unknown_not_zero_cost():
+    assert inference_cost("gpt-6-astra", None)["usd"] is None
+    assert inference_cost(
+        "unresolved-model", {"input_tokens": 1, "output_tokens": 1}
+    )["usd"] is None

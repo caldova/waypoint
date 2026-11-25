@@ -1,0 +1,2623 @@
+{
+  "do_not_feed_optimizer": [
+    "study-heldout.jsonl",
+    "references/study-heldout.jsonl",
+    "heldout cases-index rows",
+    "heldout canary answers",
+    "review labels"
+  ],
+  "family_partition_sha256": "75ddf6ac9bc5ea5b2aa8cc9a4883a5fe31c26b8cc1058b143754fda050393784",
+  "global_pristine": false,
+  "heldout_prompt_sha256": "d02d2d4af461c46f6ce9785eb1a8c2427ac9d73f2ad913d8811352d9a4d27449",
+  "heldout_reference_sha256": "dd79348773b4a4e889e2e592c591c6bccc6f2ca4a6f2fe6a6c6376ff3eb4c721",
+  "heldout_source_documents": [
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-cold-logistics-sow.md",
+      "container": "knowledge",
+      "path": "contracts/source-markdown/cpa1-f028-cold-logistics-sow.md",
+      "review_status": "pending_human_review",
+      "sha256": "83679801bdfe34067183d597d84c09b58d7c05701d64dc3bdf0e326319f80259",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-biologic-capacity-sow.md",
+      "container": "knowledge",
+      "path": "contracts/source-markdown/cpa1-f032-biologic-capacity-sow.md",
+      "review_status": "pending_human_review",
+      "sha256": "f57b80f36cc9464c6eb2482aad52f6ed21d9ff818014f633875baea57f829044",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-device-assembly-sow.md",
+      "container": "knowledge",
+      "path": "contracts/source-markdown/cpa1-f035-device-assembly-sow.md",
+      "review_status": "pending_human_review",
+      "sha256": "0b856b12de11b09826c7466d159c36976812c9af6032b695449ef94056dee68d",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-device-assembly-sow.md",
+      "container": "knowledge",
+      "path": "contracts/source-markdown/cpa1-f036-device-assembly-sow.md",
+      "review_status": "pending_human_review",
+      "sha256": "07c5926240e902987da598a7aa31fa63ac9becf7ca6eaa212e595047ca9f8409",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-sterilization-sow.md",
+      "container": "knowledge",
+      "path": "contracts/source-markdown/cpa1-f039-sterilization-sow.md",
+      "review_status": "pending_human_review",
+      "sha256": "98ac6b45ba689bac1bec6be38643fff88a4d781f8393e265912f55e209cee4ae",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-sterilization-sow.md",
+      "container": "knowledge",
+      "path": "contracts/source-markdown/cpa1-f040-sterilization-sow.md",
+      "review_status": "pending_human_review",
+      "sha256": "9edaccc8927ccb903b68603bc80fc5e07b2b71dcc5055727f64d178235fab8de",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-process-development-sow.md",
+      "container": "knowledge",
+      "path": "contracts/source-markdown/cpa1-f043-process-development-sow.md",
+      "review_status": "pending_human_review",
+      "sha256": "904cf8c69a14a9ee49c8a5802642dd2c4ff9c777fa293c2f7ce012fec1c11d8d",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-process-development-sow.md",
+      "container": "knowledge",
+      "path": "contracts/source-markdown/cpa1-f044-process-development-sow.md",
+      "review_status": "pending_human_review",
+      "sha256": "71fabfa7a77f641f81ba0cbe46aa0e1985f2ef31ac00f8b3cdd39749a3360aa2",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-regulatory-services-sow.md",
+      "container": "knowledge",
+      "path": "contracts/source-markdown/cpa1-f047-regulatory-services-sow.md",
+      "review_status": "pending_human_review",
+      "sha256": "a676555ca918cb04e166120cf6e70a59ba55cdcadc580b08014a16117cee7680",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-regulatory-services-sow.md",
+      "container": "knowledge",
+      "path": "contracts/source-markdown/cpa1-f048-regulatory-services-sow.md",
+      "review_status": "pending_human_review",
+      "sha256": "560f3ff6d4fd4368e268128fb627f59137bdd8274cf96d2ea3d23c8f45ccec64",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv001.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv001.md",
+      "review_status": "pending_human_review",
+      "sha256": "d096b53e561d5a4294dbabca126855c222a04b2a7d791afa52883419c1a8781a",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv002.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv002.md",
+      "review_status": "pending_human_review",
+      "sha256": "d57ac0586de1192aad75a5d851308128f8d06fe926308c7e743bbef9b3282ce1",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv003.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv003.md",
+      "review_status": "pending_human_review",
+      "sha256": "8e54f51b6fa5c4e543b115a0f949b9de1ad9e4038c70c232a16ceba408b862be",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv004.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv004.md",
+      "review_status": "pending_human_review",
+      "sha256": "0101e50ef59b75cea9263a7254a1df613476a5306976fdf8574127417f1ff3e8",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv005.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv005.md",
+      "review_status": "pending_human_review",
+      "sha256": "ffb35fe8dab72618f432528bf263fb324e3cafebf1b41eca8389ac5e91735651",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv006.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv006.md",
+      "review_status": "pending_human_review",
+      "sha256": "b42579060894a32736046ad5d6c6da7d547d3262e80f08cfca4227f54ecece30",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv007.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv007.md",
+      "review_status": "pending_human_review",
+      "sha256": "9684ab481d733c435ff8e063f7b8ae696d641f51ebfde01a4050ccd63b3b6701",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv008.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv008.md",
+      "review_status": "pending_human_review",
+      "sha256": "3b2c8499e5778986fd202d3f8d27f56a2dbd96c1ea970afc3612d88983e68b74",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv009.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv009.md",
+      "review_status": "pending_human_review",
+      "sha256": "b0941273b042c01de1b7cd50b7002c912e7512d1542ba92a86ecfc99a6fcab55",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv010.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv010.md",
+      "review_status": "pending_human_review",
+      "sha256": "b0eb52e08eadf534dd1f995962b2635b830041fd55a2b6b3ce2756a5294292b6",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv011.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv011.md",
+      "review_status": "pending_human_review",
+      "sha256": "630c2ae68bd2c0ff7f05321b700f6b7878f193efc956d423c425bf11ee2c9d26",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-inv012.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f028-inv012.md",
+      "review_status": "pending_human_review",
+      "sha256": "2eccb6cfbb627fe00042358d13f669f4edf80e61a2c00cf765a92eef50976a23",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv001.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv001.md",
+      "review_status": "pending_human_review",
+      "sha256": "0bac1301dac8bdd3824403d9556a582ded93e0af44dc266e9d33d1eab9753f10",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv002.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv002.md",
+      "review_status": "pending_human_review",
+      "sha256": "0a21d44780c6223eadb3076e68e56952fdb312cb9a440ab7d976dd0ee3e14f56",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv003.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv003.md",
+      "review_status": "pending_human_review",
+      "sha256": "a842864304e181f2f1c2796fea028f994abacebaae4777893a64136a65bf27f1",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv004.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv004.md",
+      "review_status": "pending_human_review",
+      "sha256": "b572d8ad2417dfa91379a6ae016bcbcb967e5633d3303665bca31e826574c1ee",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv005.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv005.md",
+      "review_status": "pending_human_review",
+      "sha256": "7511afa308364680d7da2e99d27c0f104e65d7788db831c76b9917872d39a821",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv006.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv006.md",
+      "review_status": "pending_human_review",
+      "sha256": "ed1ec09929b1e8a79fe235bd2baa8583bcc3c507c99fc0d50165ab17e68018f4",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv007.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv007.md",
+      "review_status": "pending_human_review",
+      "sha256": "4a070e5532a60aeafab4f5ed96bd5a64df88156c7052a6bb38f24ac651e30c54",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv008.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv008.md",
+      "review_status": "pending_human_review",
+      "sha256": "25eb199687f7a0f9eecb242b242f3427d1515937fc848680e599ba27326cef86",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv009.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv009.md",
+      "review_status": "pending_human_review",
+      "sha256": "4c3e4916ae3d3781b1ac13b075526c8d3eb9a56389bcd6c6daf5d40304a1e13c",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv010.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv010.md",
+      "review_status": "pending_human_review",
+      "sha256": "bfb09d2a0d3fef446d1a7e0bcc9cbc3356e66279e2e33c1298faeeb91cf20f9d",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv011.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv011.md",
+      "review_status": "pending_human_review",
+      "sha256": "d10d246224e0490016f537d58f4b669acb3b666b36c7b160c29865a45b280f20",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-inv012.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f032-inv012.md",
+      "review_status": "pending_human_review",
+      "sha256": "25a3fcf5efde772de10c33e55d7da894fd96454ecbd5f6d74d9064923911848a",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv001.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv001.md",
+      "review_status": "pending_human_review",
+      "sha256": "e5eff53345a21aa0cc4ffb587fcbef43965fc2e2825573ac222c7d98a73fdd21",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv002.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv002.md",
+      "review_status": "pending_human_review",
+      "sha256": "88d0191ae516fe41f110617a1aea1fabe82214102fb3d045a5add565070ff6bf",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv003.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv003.md",
+      "review_status": "pending_human_review",
+      "sha256": "a6149ca59b6d725de2f4e5099c59c87b36f5686001e419defff97a40a80da921",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv004.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv004.md",
+      "review_status": "pending_human_review",
+      "sha256": "98bcb3e2dfbe995774c5c85395f2614c3ba46ff55cbbd5f44c0dea9435ce86e1",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv005.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv005.md",
+      "review_status": "pending_human_review",
+      "sha256": "aa4a275fa9602038e9a8e3ab0057952eca5c36ec38eca5157872c34f3ae37f4d",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv006.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv006.md",
+      "review_status": "pending_human_review",
+      "sha256": "10039e85116e45b5b670dcb3313d58d9c398b0b6ce224f8f8c742093bebd1ee0",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv007.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv007.md",
+      "review_status": "pending_human_review",
+      "sha256": "0e36f9f37f1189f2c21e01c5d63c92689cb7369980d93aa97a8860ea26e03dd9",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv008.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv008.md",
+      "review_status": "pending_human_review",
+      "sha256": "9da2a474568306f2991079221032eb8859c7afab3ea97d37febe82e6c8532b72",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv009.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv009.md",
+      "review_status": "pending_human_review",
+      "sha256": "7bfbc2da3d47d9d479f13a80fd91a3aac947a5a38f00c97069f55dc61d4631d5",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv010.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv010.md",
+      "review_status": "pending_human_review",
+      "sha256": "952621d457165c8dedc27299cd0ab502678ae5ef050448dbf4ad263562e75a00",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv011.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv011.md",
+      "review_status": "pending_human_review",
+      "sha256": "7019e55e34ad0a2e271ab879b27522b379b0559dfe06b133b5a80aacc2eafe7a",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-inv012.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f035-inv012.md",
+      "review_status": "pending_human_review",
+      "sha256": "4f0aba6110b8b869e49c146902d27a137b987be2c6138f870ed5275674e3e923",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv001.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv001.md",
+      "review_status": "pending_human_review",
+      "sha256": "8b5389b140d9b460ebda411f05b4a9f4d63d6e5b0ee1e5db10bf8862c79299d0",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv002.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv002.md",
+      "review_status": "pending_human_review",
+      "sha256": "f3a676b8b7079a3973285959da227c366b1fb6ecb29fd4a6345c98876998a4cc",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv003.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv003.md",
+      "review_status": "pending_human_review",
+      "sha256": "8799ede256ecacd37491c9b441277d4dc149d705e2541c00629ece90145ca378",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv004.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv004.md",
+      "review_status": "pending_human_review",
+      "sha256": "a6fc4a193b65a2883486d4f476869efdd753a76b6d196bc0dde2b61f093c867c",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv005.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv005.md",
+      "review_status": "pending_human_review",
+      "sha256": "46a9758bc128638023aaa2d0dddb15128aabdcfc07f08ad7d3f06a5797addca9",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv006.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv006.md",
+      "review_status": "pending_human_review",
+      "sha256": "8ca38448543e318e6e447ff606fdedacaec175e5a1db76217eab72e98b5b9fdc",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv007.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv007.md",
+      "review_status": "pending_human_review",
+      "sha256": "864603b1399e185a822983abde70f078c814b54ab222d48aa112ac96f29a62f9",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv008.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv008.md",
+      "review_status": "pending_human_review",
+      "sha256": "118e44ef4445f889810f4a95950d2ff2753fa79fd564ce3be3973c176b54e1d3",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv009.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv009.md",
+      "review_status": "pending_human_review",
+      "sha256": "ca3ffa3d52cb0fd93f94734c6061a1ae48e9aa5c3f888d19a85dcb33cc64c8a4",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv010.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv010.md",
+      "review_status": "pending_human_review",
+      "sha256": "00dbae63b4581566abd68f7077b410f3f74993861ee0f48ea827a828499e4667",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv011.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv011.md",
+      "review_status": "pending_human_review",
+      "sha256": "0df9417bdae25652b37217d0dffc3cd479bb2d20770f7df4b797cfdbdb537d9c",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-inv012.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f036-inv012.md",
+      "review_status": "pending_human_review",
+      "sha256": "2863137589e8d4ec9f97fbe856998ac2b22c6786333b89f65065d7eda545c307",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv001.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv001.md",
+      "review_status": "pending_human_review",
+      "sha256": "dc06759fccf742af1dcf6655e77362ce2b8255e3be2a3b2492d4002095e48d55",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv002.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv002.md",
+      "review_status": "pending_human_review",
+      "sha256": "8bc339765a8141a7ccbb4a92125396e1930c67eb76395184977f34bae815049b",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv003.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv003.md",
+      "review_status": "pending_human_review",
+      "sha256": "c7d3f63175db176761be7b1b7ad34671d6a5d51be7d5251bad82e6b4c470a4f9",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv004.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv004.md",
+      "review_status": "pending_human_review",
+      "sha256": "9fc8e02da6437a2277a2f311d5f009fb8fdc4b701d3e64a55d6dddf240f9241b",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv005.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv005.md",
+      "review_status": "pending_human_review",
+      "sha256": "b03bb1d562e4749f76fcc8350be8ea1feeb1f56d20231ab932252e4bc0577045",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv006.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv006.md",
+      "review_status": "pending_human_review",
+      "sha256": "a69ef1009595fdb934bd273819f12bb7a917d358b0d348f6dcf87cdddc735284",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv007.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv007.md",
+      "review_status": "pending_human_review",
+      "sha256": "b34271daa044996635f4fb372a3134282ea03a0bb44a89108d8e651518013ae5",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv008.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv008.md",
+      "review_status": "pending_human_review",
+      "sha256": "1961f48a58483ee84591765ff22cdca0731d3b3537838e9e38cad2d9021a911b",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv009.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv009.md",
+      "review_status": "pending_human_review",
+      "sha256": "0973c642521f441b969359724a2218c8390c321f1b2ce38dee74597e7f4c7ecc",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv010.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv010.md",
+      "review_status": "pending_human_review",
+      "sha256": "78ebda191b09ce7013179a9ee1324dbae50663624bd51a5b91577cfb3248af0b",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv011.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv011.md",
+      "review_status": "pending_human_review",
+      "sha256": "10fbda5e126c8b6c6ae76bfe111d62e1d74643d5574634a7833211febadbb903",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-inv012.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f039-inv012.md",
+      "review_status": "pending_human_review",
+      "sha256": "a07605c4a2c4742793ee22ce45e5b9102a0232cf520c3bc44b157ddfb2d9ee15",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv001.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv001.md",
+      "review_status": "pending_human_review",
+      "sha256": "b2c11ca05225f31be85d2a3847814128ffa4b98f14544d87b4aac3884340ae29",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv002.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv002.md",
+      "review_status": "pending_human_review",
+      "sha256": "6cfee198335a85459932c1e4b570c0fb4705d9b4f5572f956ce10ddc64e072eb",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv003.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv003.md",
+      "review_status": "pending_human_review",
+      "sha256": "bb53d9bc57e1c4c5b75366acb81923a9a7c98eb1a66c4b418ff4d701a8b28662",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv004.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv004.md",
+      "review_status": "pending_human_review",
+      "sha256": "4fd3b88ee35bb8c8f8ad33c949a05e0c9b4e53781f16d583ba484fd5c9d331f5",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv005.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv005.md",
+      "review_status": "pending_human_review",
+      "sha256": "36eb993e20b792a1f683a6a4bf02408dc204a8ce64b68f62f9f6dbbf184b5b8a",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv006.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv006.md",
+      "review_status": "pending_human_review",
+      "sha256": "a7da79d6319d0533428f72f14fd04b94f7f94c917ca25795961a43a3d15d1997",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv007.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv007.md",
+      "review_status": "pending_human_review",
+      "sha256": "6f3c8fa47cab6e147de08c1245c9118d725b4d23a50d82c4b579c3184a5671cd",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv008.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv008.md",
+      "review_status": "pending_human_review",
+      "sha256": "e9fd8857d1558e8ef387e8465e52fac41f8d73e540a02285785ed8ed400c1fc3",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv009.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv009.md",
+      "review_status": "pending_human_review",
+      "sha256": "9bde5e8d95229e756b0f3f3f1e4e30916e1afbdbc8e051ad02bd39c08ea3aea9",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv010.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv010.md",
+      "review_status": "pending_human_review",
+      "sha256": "9ac5e80c6611a88a8276e7904117a90233a706aff0d4826d9103dde729650239",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv011.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv011.md",
+      "review_status": "pending_human_review",
+      "sha256": "9e692afbf995360306b8430c43dd8b8c5cc1f83f80ff30bda0b8f5797dd08b66",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-inv012.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f040-inv012.md",
+      "review_status": "pending_human_review",
+      "sha256": "de79ab963be0fae7530f919e46887fcdb897adb8d35c9b5841de401610e199ae",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv001.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv001.md",
+      "review_status": "pending_human_review",
+      "sha256": "ccacf37b964d2a4592973846f5e67bbde0f30a00c266e52c532d96cae28cc623",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv002.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv002.md",
+      "review_status": "pending_human_review",
+      "sha256": "1d4e9355f2cfdb5abf1bdb7949a6daa2bdf666b0b82af93ca174ffba1e360bee",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv003.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv003.md",
+      "review_status": "pending_human_review",
+      "sha256": "473f5c48130007ced829f54a0009dbc473280daface997766515c148d2067403",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv004.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv004.md",
+      "review_status": "pending_human_review",
+      "sha256": "41e36b9dc9f8249e8fd724aef353384f725f2127228fa06e817cfe65468a630f",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv005.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv005.md",
+      "review_status": "pending_human_review",
+      "sha256": "7cdeba64e8afc173324b04fc1a1ae1fc6b8f835ef6ccd7d699610f03de056568",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv006.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv006.md",
+      "review_status": "pending_human_review",
+      "sha256": "4e92433cb6ed0d00851e8fcd5586b2a1d19847668cccf0689190c17a2b98778b",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv007.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv007.md",
+      "review_status": "pending_human_review",
+      "sha256": "05c077d44d21686ddb358747bc925cb29723ad46f50233bed84840f25aabe867",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv008.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv008.md",
+      "review_status": "pending_human_review",
+      "sha256": "c00321a3d491c4bb73c0bb76ace665e9ec0578c6ce446b1398a0b8e6620e8dcd",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv009.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv009.md",
+      "review_status": "pending_human_review",
+      "sha256": "03ac7b917cc9ab11add8de8410025637c42da5a7e6bfd2117d8a704826bef22b",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv010.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv010.md",
+      "review_status": "pending_human_review",
+      "sha256": "36b07443e2b1c95f8df542ce725c9cfd4462242d68e59afbcae3bf53a3a619f1",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv011.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv011.md",
+      "review_status": "pending_human_review",
+      "sha256": "6328314050a0edd114154a3fcd14a7d088a8a0240691122cc11bd13d43f7e161",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-inv012.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f043-inv012.md",
+      "review_status": "pending_human_review",
+      "sha256": "236e781a9a1debd7afb59721ad9ab0de6d8b526579f043b58ebeecfe39c88ca2",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv001.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv001.md",
+      "review_status": "pending_human_review",
+      "sha256": "74a6b2db4ea7cc7d428ee040f2c69cebe41c4161843b0afbdf5e36eed2bffe83",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv002.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv002.md",
+      "review_status": "pending_human_review",
+      "sha256": "cf1fa64ed326f18a6a6cdecb28bfa80a917d62c84995555d20c942175d44d3e3",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv003.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv003.md",
+      "review_status": "pending_human_review",
+      "sha256": "514d77fe95f4a985d80af6b4614dbef0cfa67f60c0ee09e878a24d1f94ca29eb",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv004.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv004.md",
+      "review_status": "pending_human_review",
+      "sha256": "b1ab99106fc9b2b6dca7f82013127c624c1c6b02346d7e6b8eba365744765f09",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv005.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv005.md",
+      "review_status": "pending_human_review",
+      "sha256": "320d46096f551b152b7e4c2f17a1d1ff9e37744a1996b204dbda28ddd97d1bc4",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv006.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv006.md",
+      "review_status": "pending_human_review",
+      "sha256": "d83651c68ccd320b9fadc4ace6945a80fe7057b5beb771aa40536cf4276b3106",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv007.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv007.md",
+      "review_status": "pending_human_review",
+      "sha256": "473cf0bcdc3735cc0760a6f3936e0903b064074be5e4bccab5f9d030188daabd",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv008.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv008.md",
+      "review_status": "pending_human_review",
+      "sha256": "9d75ea9f0cdfde4b79a60ead892e0484fc196e6d64660d1dfe9c78a6a33c8590",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv009.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv009.md",
+      "review_status": "pending_human_review",
+      "sha256": "56fc335cbd7d6a06ea4d2187b68c54af97f07c8835914e7fbe43587634389200",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv010.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv010.md",
+      "review_status": "pending_human_review",
+      "sha256": "13d4d36b2153d4c6d2edd5e29a0b61731092eb6e0c5757b90fdb88dffb22c6b5",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv011.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv011.md",
+      "review_status": "pending_human_review",
+      "sha256": "d3cadffd07c8a2a4e07356d8071f199583f998ad13e9c11d25821a1b4533b181",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-inv012.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f044-inv012.md",
+      "review_status": "pending_human_review",
+      "sha256": "6897828c4455e524ced278493db6fb13e7631d12bf60768175c00b24a216f1f6",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv001.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv001.md",
+      "review_status": "pending_human_review",
+      "sha256": "704c779b88eebc9863e5f08dc09874ac7856bdacb200914fd52d56ae1d19d7ac",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv002.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv002.md",
+      "review_status": "pending_human_review",
+      "sha256": "a6e4e31255a38df218d474c2427130dae05449b3144e1b212e84ab5364593e01",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv003.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv003.md",
+      "review_status": "pending_human_review",
+      "sha256": "0f5efee6ceb7af2502c8830db6f74bfa882e7ced1043475277bbec5d401c17ef",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv004.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv004.md",
+      "review_status": "pending_human_review",
+      "sha256": "2e32b189c144d950a98feb31cff0ec354bc0d79222468b53189fd60c07307d78",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv005.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv005.md",
+      "review_status": "pending_human_review",
+      "sha256": "89f9c4e192230ade6ef7b4976cff8c777ef34a6f3934ff22d0873ff8b64b32e9",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv006.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv006.md",
+      "review_status": "pending_human_review",
+      "sha256": "4804c1f160e8e9989a7298e56f3ebef6e2459be7f5353c5fa16ee180db6b9c10",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv007.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv007.md",
+      "review_status": "pending_human_review",
+      "sha256": "41520c939ceb9777d3509cf1e46d267af5c1149e7d69020dfc895de86dd0fe8f",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv008.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv008.md",
+      "review_status": "pending_human_review",
+      "sha256": "688557baaef28fb1954a94a00a340dc2a5fdd7f1196bbdf7e7880a93d992976b",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv009.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv009.md",
+      "review_status": "pending_human_review",
+      "sha256": "823c52ca785e631d36e83d1452f7ebb4b2d5b4cbc499f55df3d2684b6e302ac2",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv010.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv010.md",
+      "review_status": "pending_human_review",
+      "sha256": "85105db20dd622f533e1fc5a12679556f0ffb75736a2ae6a2ad3ffa223c7c056",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv011.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv011.md",
+      "review_status": "pending_human_review",
+      "sha256": "24d5fc3c2c7333bc3dfbe4b77f6df188a2d0c89a3675c735277af212d539a5ee",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-inv012.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f047-inv012.md",
+      "review_status": "pending_human_review",
+      "sha256": "79a6f79e0fefff1103346dc6b00b143c41a82707b774708f0daf3ebba7688590",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv001.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv001.md",
+      "review_status": "pending_human_review",
+      "sha256": "289e6332d17cff721056b6bf853967d593f844135b9428a73897cbc1c1b55bdd",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv002.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv002.md",
+      "review_status": "pending_human_review",
+      "sha256": "ee8be70199590689704ddca3462475e17ab5f3f674ab66f2317206409a344583",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv003.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv003.md",
+      "review_status": "pending_human_review",
+      "sha256": "e9f9b918b436faf1bbd6d35ef8238bbf9f965ce6eb95e068cbdb2295db114550",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv004.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv004.md",
+      "review_status": "pending_human_review",
+      "sha256": "273909fcfed38df5e4e2a1bfb75c5bdeb5036847b738337982bdb02a858975f2",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv005.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv005.md",
+      "review_status": "pending_human_review",
+      "sha256": "ddbd4cbfd297093281955a69067b5c5aa9ace4ccb0095ab4a7d1dd5d7b6d4112",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv006.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv006.md",
+      "review_status": "pending_human_review",
+      "sha256": "18e10cdafc7fbc745739286b3f131e20c37a6248fde447d3779e00385aa27998",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv007.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv007.md",
+      "review_status": "pending_human_review",
+      "sha256": "7c03fe2f0a340b85f4b3553edff950d2c7f3365b0aac2e3f9e9316c0a78621aa",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv008.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv008.md",
+      "review_status": "pending_human_review",
+      "sha256": "d04f0dbdbfb57797ec5e245e4a73394a21c84bf3980a34256e61be3d054ec054",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv009.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv009.md",
+      "review_status": "pending_human_review",
+      "sha256": "b694dc4b6b635f11e464f1611cf0492e1bb6bfe6e69ccc1ea73744747b9b3f8d",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv010.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv010.md",
+      "review_status": "pending_human_review",
+      "sha256": "ac5d308265d1e4cefa4d9ce518ca276a8581b415c6ec923129b4cb9615962470",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv011.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv011.md",
+      "review_status": "pending_human_review",
+      "sha256": "2ff6d511f8633ea955a4a7bae1f3c2089d05d8cad3f49dbab33822faa6fae74e",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-inv012.md",
+      "container": "knowledge",
+      "path": "invoices/source-markdown/cpa1-f048-inv012.md",
+      "review_status": "pending_human_review",
+      "sha256": "019a97290c9fda0bb5000c025f382ed7f5dc230cde2ee753e98f442583d5aa47",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l001-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l001-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "a81f7f65119666d0f8a8dc595356e7cfe492f113f688949e254372a002cf6a24",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l002-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l002-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "db7e9fcb348c97ddf3da90eff0ccc276985c129b94c42816b719976cdca163f4",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l003-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l003-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "095424ddc88e68796e326f4d044f8c2aa38eaf363a14e3c2a41dd69a72b61647",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l004-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l004-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "102a4db85fbfa27013063e894cf897ff0486950f382ee5feb38185e6596cac0b",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l005-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l005-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "7c7188d407349dbc8132270ce581561bfcd3a1630938de658b39e4f3c38e4b54",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l006-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l006-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "4a2513de69d351800efe35cfa439f9a0faadc9b350688f89b77f9b89dba28f86",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l007-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l007-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "1f9d42f815ba7fa1d064d9fb702a72efc3590094d0cdedf02be34ac8b89b1996",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l008-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l008-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "dfc2993addbb83e7547412c2ae287f4f703d333e2be8f21ea8055f0bcb4bdc0b",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l009-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l009-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "03c9bbd45c53b36c18287905f47c4d3d5c489e342c723ff1fdd3f75d88017102",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l010-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l010-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "2293fb3f170a915a5a631903f35b2f74ed03cc2b815ff1e8a112879eb97930bc",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l011-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l011-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "d20b969dbeb661c9269525d50319b12c2bfa5ef4678bb3be3a95d55bb668b655",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-l012-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f028-l012-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "2431ac4565536d42bbbe6c7455ff1a4fdcf8c64868bf607494ddf96c1c3f40b2",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l001-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l001-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "f7119828635bfeb54d58dd5a198506d776d9ffc83d824b287f81c9f21f120f71",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l002-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l002-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "a427903d43fa328b550ce7db4b6f505842617ee7ff0bf451d7dcc1ab0ec6d220",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l003-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l003-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "a383fc474e568451758e8322b623d2dc4a8831380a379332655920d08cd2f893",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l004-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l004-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "096418b9d4f92bb230ff1a13c1544acb86f49ee280efa50f58ab8e293a637466",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l005-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l005-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "088bb66a1edfaf85791f08daa79114f163c0d40ecc55d14781eb4cfb8e50d02b",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l006-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l006-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "601940c1f6577c9c17e6baa43e7341d72a1e0199d6369b2d1606714c4124f15c",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l007-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l007-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "49cc1d2ea4e76356d6e64eff47e8448b9075ee64d5d3f74462ad86d82908f219",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l008-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l008-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "ff5f157d85b8254f2241a2dc04b3fe41aea6e6d549d9be05442ec86e67e755d9",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l009-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l009-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "d2c8359bab175377af477e601c745ad254475a3141bc993be5259cdb9f6f50ad",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l010-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l010-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "4c8ffb33925c8d09a30cd170906e2ccdd652213765134642e2e3d1b77e312087",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l011-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l011-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "7797bc44f3b1c6517a6a1c1c4604b85bfcea58f29a7c30469be04b72b90da957",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-l012-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f032-l012-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "89d86c50eb7c0b68babcb5503562342dd466f66b39bce1c6adbf3e78a0387774",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l001-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l001-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "a2478a402f38c36fc4221d1634cbc7bb590fa470691b0cec72a4048e2149ef43",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l002-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l002-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "02310946f5ac8c0628746ca6c641a7e4bfd0b061bbd90c953fd546898b015d68",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l003-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l003-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "be0447e1d2beeb6dcf8641e537fc03b76effaf21403dbc6f42547c742122df07",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l004-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l004-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "eb66bec783fd5f47dcd3bc909c2fa8049744f7c496ca5eb58175458edc2da98e",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l005-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l005-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "de031b1cb7c06fec0165194fb52bec1ca186bd919b487c9c524b282b8eb026b6",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l006-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l006-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "d59baf8d450ea49c01031841499c3499b1a22e93cea6e3d4febccd50f81c695b",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l007-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l007-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "96a4c0edc91b46437bd4fdfec2bc1446d66ad29b20fd1a47245337f2d588d6cb",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l008-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l008-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "28d7dbaf73fc06067610000fa410d2fadc09facf6824cc9e73e702a647a99eda",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l009-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l009-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "76d7834dd6b80d81410426b72cf23bd7b6f766f6b058e7f02d24a57baaf5c7e9",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l010-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l010-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "146bdd117d0b2792bc292a523c2b3b98fbf05653b4b497ab97a1af0c7eb67f0c",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l011-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l011-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "baa8ba7b3715fbc16303bdaef898692a2550112bb15ce6bfee34e21ada75498d",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-l012-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f035-l012-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "cb5e5f913eb568b57a30f32fc1367f7660406900d9fe997605ee8dd6053bf74a",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l001-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l001-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "89fed22a303a1fb4e13d0131c6111b3f6ffcdf738c62c67322a516791fec91b8",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l002-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l002-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "b2c404cdbccb442bb1be8cba088fe920122a985b9e92d9923aff695a7b85b88e",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l003-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l003-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "beeffc81d6d0ce7b6f31eeff57acb2411e7d01c087fec40195e9aeda8c0e920c",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l004-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l004-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "02f54f88f00efe83fe2ebcd5111a5117d01db16b2f0803fe3ef3e981ac4549b4",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l005-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l005-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "4d0f80dc36ef8e144291de75d1e792c5782c56c8d5fc750ea10e5b2f3f00be09",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l006-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l006-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "133bcd10f05b95933205063fade83b8739b2d1fd2e799b13fd55673c694e1e3e",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l007-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l007-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "b0cc9f582d04a43ffe254e6d7cd3f5cef123f5472aa0767c992f3b512cd61abf",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l008-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l008-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "cd04d896ece44a85edaf7f0ed39a2097e6980ea189dcf8b500c38b55bc12c73d",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l009-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l009-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "879d901aa98b472d10ce9156ba74f30b5ab4079bef7de707dc39fa753c7b243d",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l010-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l010-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "3b61b50bd7585af19ea1362d5b2d7bc9bdd3748d7901a7614acf571543db9d08",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l011-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l011-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "63009ea99cfdcf679b0ff072b413371f4737133bd6dda8012cba645ce618ddfc",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-l012-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f036-l012-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "145c8052de6045087bf852c6762de8b0bd8a0d476b33d1d187585eb35e2a649e",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l001-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l001-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "dedd956cd56b786fc0500bc310ea26f6c5eb0506c2c40dc9e91d8af6582bfea1",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l002-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l002-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "57af8a92cd48bae39ce4521749fccf27757cde255abb9f9c503e5a258fcad5f9",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l003-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l003-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "8f8ff9b576f2cea9125bbee4f0dc7ac257d2cde30ba5f94f38b909329f80c654",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l004-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l004-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "35adf24dde7f6b1bff119a6535cadd15144cda45579c5d7aabf58e3b9a65e3c9",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l005-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l005-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "61f62738e6cc817f9a744dd4550db23cd9c966021031f87276b4e9f720da5596",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l006-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l006-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "e0df8c6b5f911bf23acdb0a30d37a5dbda33c4dfc65836daa3af42ef693e01de",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l007-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l007-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "9c4c6b65d7ceced181da2709c0c49a261f79af0a8b9cea52ec7bedc713b7f640",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l008-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l008-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "e3def64cd90129d9b22798a983771b2192b90bb6554ad2a55a1486f256c81c40",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l009-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l009-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "1613bc3cf467b88f664ccba5851096a6cb73ec80f7a01c5a399d2853b2b35c1b",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l010-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l010-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "1a2e6590a41e8043eb2a618ffa6e82914f07d127e3741c8bf9ff1f87659d8977",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l011-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l011-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "3fce481e248cc09f86b07edf67d5a8b48f47f20757bad91e8176a900bdd2bcbf",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-l012-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f039-l012-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "2a7fab42417efee01c649fd772895d02a397c85b7acf7ac22effa46d49b150d6",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l001-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l001-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "e2d542585beebe9d1581b139bde5830988bd53e4b605bd2452ab6e0ad9813a40",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l002-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l002-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "fc435c1efce8c31d2bbf381d7829e1f39764312b0c1737ee81feb0d4b16bdeae",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l003-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l003-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "6deed0a734f9be0e32543bff78abc49a14fcbdadf9aaec12fabc7965636ae697",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l004-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l004-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "a1ea4808fd8763c432db8e32644f5e977cd7634908ee028ca360b5b57e3cc452",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l005-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l005-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "719ad7ab3422a32d7ca9bcaaf67eb759d8e098f8afb5393c62425623e2746e50",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l006-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l006-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "c1d1490a8ea9792bfc65aec17533874005ef3c0df53922e8fa8e8e7368445d0e",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l007-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l007-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "95566c24c3997808e294774205e57230dfb4a9837389c842004f912d50dd6158",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l008-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l008-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "5ed029ba18ee995581e097f7199f0ccdfc910b39314004d85d23f1414e0c817d",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l009-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l009-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "a839f973fddbb5ab0270da015aa3b73cc1041def4188a8b2ce5882adeba8433d",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l010-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l010-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "1823324b268d089cd334c68e7e70862dfa37aaa6719ddfc62841581bcd4dac8b",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l011-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l011-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "294edf96a1f6053915c4b3ef6ffe7bb570f445a5b983e597ca93bdd915f74ee3",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-l012-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f040-l012-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "1a2cd1d08c99c4598676e604f32520e7c8d6cc753bcdee17f243ec80d0ad581d",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l001-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l001-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "0a6cf1f231ea002b30880ccbc9f3f1fcd54e222f548eb2710accb6f253ccfd24",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l002-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l002-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "1551dc58107c83c8a5347e86f85c58eb0bb4370873f63bd860e5f706a4b3139a",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l003-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l003-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "4e6cd63f2807fe6786579b5491a11669be92fc78adb028862f5a950e203119b7",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l004-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l004-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "2ed738f528dad698893d6d4a5af2032e48c806985db55fbbba20410ffd2280f3",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l005-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l005-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "c622977ecc0366f2da1a9a11150c7816593502ae6c842a4ed3c3e4ed0fa926ab",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l006-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l006-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "e901ce39ee3d0edfb20ee3ad6ff23b94d362393bdf283d4dad2aa8fff32c2331",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l007-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l007-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "d3de9cfd8f0696b1a0de05be189626c1797bffc608890ffe51befc70e253b208",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l008-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l008-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "6d1f0270e1973365669251394ab456b74bd554dc51824c0103dcb24a84df725c",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l009-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l009-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "17fd2c1ffcb806294be059665ac4780b4243d0763fb1883af4db247a64f8a1da",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l010-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l010-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "214336ae5819f125605d6a19ebaae38d297f3de2cf9a6a576fff604c181a73f2",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l011-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l011-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "b649fe26c41f2f180735a3835d2969a37d100e4c0eccdce59bd0fb8371798360",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-l012-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f043-l012-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "2f3e9897e9b02fcce7399867e03a359f1e524bcf0e0889b6a0c459561c7db200",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l001-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l001-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "3803dd2daeff157103cb546c3c1e112682034c9839079b6fe480fc9a1b9dd64c",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l002-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l002-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "0cb7171c0a7e580cc8db19f5556d845b46a76491f33d5bf6f33e112b0c37ec24",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l003-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l003-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "d90aa1388976b15dce960d8fa614578da65e25a8e4b789e53d34a101ecd923a0",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l004-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l004-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "ac36b2b4b268ea93ac9b6f9664ac3d61a8ada4e2431a7965838a7bbb9677d080",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l005-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l005-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "06e6bea1099ec95de87e74058424b55d7f5571422bf0a52fb353654910fb341b",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l006-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l006-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "ee118d1abfefbb12db2cd8b27e8699e0ef3c9860673420b87fe40df99cd44eda",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l007-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l007-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "ce1cb0df21bae0e1f25c7cb6c0b28f63e04287b3b59cf6f7ce28e32cd9babd33",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l008-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l008-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "d7aebc9f555c46b8adf5897d63c8d3258fe781424811e9a8f9d215056cfb7b47",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l009-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l009-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "98a2219082ae349e758786743c8655f5e1f9d24f58db6782de84b9f6f73a068b",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l010-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l010-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "6eebdacae8d7e04cfb0af2a0783985f77bd80a79ad41fb265a31832ab15e59bf",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l011-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l011-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "21afbf88129d99540bb7717fe57fb90f511bbf74ef471390fc1130973951319b",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-l012-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f044-l012-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "3e0bb743d4a60fdd7785028bd1d23665d49bc8c4d8e2bd75bf01a19ed9a096f7",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l001-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l001-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "9846f924f3c8d900111d730689cac4e8364944b9739401d70ee6fab567a93926",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l002-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l002-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "6f5dfa861c6a23098cb7166cb7aaf4814bf0e8bc292d28736b5b6a30e3e599fc",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l003-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l003-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "45d76b012fd31791264e8f52ff9dccd47c3ab65209e56a729e9db6b3f74a3f9e",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l004-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l004-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "5122b1543454557f5c8e8edde54637cfb9f849a5f839fb9d94299427a36d3339",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l005-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l005-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "622547a386fb446b939bc390589e85d5bd4475b7c5434f6e54eacada4e62454d",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l006-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l006-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "1d2516ec44aef945ce75eda08e3ded72998c3fc29194ef845e98f3f4bbded034",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l007-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l007-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "dfd9efa2da3e4f70bce1870b8fa41588e91a0b083730d15882fe982c5ff92eef",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l008-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l008-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "f8f89434ab658622c9d5e3c9fbfbb1fd72ca40ca558764a37930fd56ccaaf90e",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l009-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l009-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "45e9f6377d79209ab316b55ba47a7dea75b64a144063347fc2f02d30444ad7e5",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l010-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l010-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "c225ed7e40ffb6e99b6dbe9ac662255344e97287a5fad69488b3ed8227845cda",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l011-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l011-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "79fff481b7dd3f216984fe08702ad138ccfadd5691c3d3951ecfe114922b816e",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-l012-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f047-l012-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "b8d8a80d9796c44129678a1d8801c9e1dd79df21717d5ef61c7701f1d5b64230",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l001-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l001-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "6c4a3ab249c5418b48afa6e0fdc2d2c5988ec0dc57b6b8d62e62cb75128122c1",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l002-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l002-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "24248779980615cf308aab265e8ebc5ef46bfab77fb9e4158e31e242dc736eef",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l003-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l003-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "5a4a68ed051dbda4a38c44848b7710e95ded49651844ef2683544c648d763fe2",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l004-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l004-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "808759b15a96060cfc323d58ea3d29ac16997941b965c5959bfbdb0b9b0974ef",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l005-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l005-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "92fef0684dd4dc33f0d7c6d00d0ae9ca6760cca8ac1afab3973bb1424a272e92",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l006-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l006-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "f2c159b99cd90c9388d7dea8ce0ae8e258e158dbadd03cae0bb56d43aafcdeea",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l007-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l007-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "58f065876d0ffa9a02ff0fbb0e2cb61d320735dbee9beaac11964d78ab638fc0",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l008-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l008-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "9c825a087ead9cdb4f1e93f3c6f509305dd805c8f8675b614cd0d8c067e777a0",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l009-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l009-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "4e8013d8ed7c18770fef96f63fdca4056824cf6ba49865ee9fe68a8fd137d068",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l010-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l010-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "bb2f2910c9a11e2c99fd3ed01e56c8158bd1dbd93b27089577915b849ec790f2",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l011-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l011-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "7ae85948558441d25a939b8adc96c5d738b89dde52e575bdb996886564839d9f",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-l012-observations.md",
+      "container": "knowledge",
+      "path": "operational/source-markdown/cpa1-f048-l012-observations.md",
+      "review_status": "pending_human_review",
+      "sha256": "e2116c5f8392ce939871e8f724bbbe9718ac66a1636abd2e3443ee08250c73ce",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f028-evidence-policy.md",
+      "container": "knowledge",
+      "path": "policies/source-markdown/cpa1-f028-evidence-policy.md",
+      "review_status": "pending_human_review",
+      "sha256": "9a4718c466f6e7b9eba02700ce65b6d59621078966ed4cdb1e8adeb2f43d85bb",
+      "source_family": "CPA1-F028",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f032-evidence-policy.md",
+      "container": "knowledge",
+      "path": "policies/source-markdown/cpa1-f032-evidence-policy.md",
+      "review_status": "pending_human_review",
+      "sha256": "fea63343285c892b1768995d4c065a6945d8ded2fceb56b3f900e78834732242",
+      "source_family": "CPA1-F032",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f035-evidence-policy.md",
+      "container": "knowledge",
+      "path": "policies/source-markdown/cpa1-f035-evidence-policy.md",
+      "review_status": "pending_human_review",
+      "sha256": "d97f8c167ac37d62205ebbe160037ae87b155df5ec28f0c634715e74824f75c0",
+      "source_family": "CPA1-F035",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f036-evidence-policy.md",
+      "container": "knowledge",
+      "path": "policies/source-markdown/cpa1-f036-evidence-policy.md",
+      "review_status": "pending_human_review",
+      "sha256": "6e78494311fc75b2c687c82f4fa29b3a6084f3d0c86f9a3ab80d9b8b1b55c00f",
+      "source_family": "CPA1-F036",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f039-evidence-policy.md",
+      "container": "knowledge",
+      "path": "policies/source-markdown/cpa1-f039-evidence-policy.md",
+      "review_status": "pending_human_review",
+      "sha256": "446a64c7212f623ca4cc96214f30ffe9b42e9ca814d95565c53e4ea53c1fa994",
+      "source_family": "CPA1-F039",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f040-evidence-policy.md",
+      "container": "knowledge",
+      "path": "policies/source-markdown/cpa1-f040-evidence-policy.md",
+      "review_status": "pending_human_review",
+      "sha256": "c43fc40094de3dcd9452d7c1d60c379a4562e1e2029210d638f728674ac3856c",
+      "source_family": "CPA1-F040",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f043-evidence-policy.md",
+      "container": "knowledge",
+      "path": "policies/source-markdown/cpa1-f043-evidence-policy.md",
+      "review_status": "pending_human_review",
+      "sha256": "ee2551a3ea3633b1d5c0b8d8ccc4601e46b68a4e6b383daeb54443bb013d042d",
+      "source_family": "CPA1-F043",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f044-evidence-policy.md",
+      "container": "knowledge",
+      "path": "policies/source-markdown/cpa1-f044-evidence-policy.md",
+      "review_status": "pending_human_review",
+      "sha256": "b18add5ec5d0df8baa2e287030fd29bd4cc8646f1ced0134b7e7d7a4cbb38f2c",
+      "source_family": "CPA1-F044",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f047-evidence-policy.md",
+      "container": "knowledge",
+      "path": "policies/source-markdown/cpa1-f047-evidence-policy.md",
+      "review_status": "pending_human_review",
+      "sha256": "54ab408b214d60804743be4646c88789e524bf6d9c75d9ec9ff4b5b005e9ec8f",
+      "source_family": "CPA1-F047",
+      "split": "study-heldout",
+      "synthetic": true
+    },
+    {
+      "blob_name": "contracts/policy-analyst-v1/cpa1-f048-evidence-policy.md",
+      "container": "knowledge",
+      "path": "policies/source-markdown/cpa1-f048-evidence-policy.md",
+      "review_status": "pending_human_review",
+      "sha256": "366ea76b1c31e550bd2dbfa119daf07ae5a1a80d179bbacee980ea2f8adf6f94",
+      "source_family": "CPA1-F048",
+      "split": "study-heldout",
+      "synthetic": true
+    }
+  ],
+  "ingestion_is_not_optimization": "Parent may add all source documents to the unchanged existing KB. Actual optimizer retrieval of heldout-family documents invalidates their independence.",
+  "optimizer_allowed_splits": [
+    "optimizer-train",
+    "optimizer-validation"
+  ],
+  "review_status": "pending_human_review",
+  "seal_type": "study-local-source-and-scenario-family",
+  "version": "contract-policy-analyst-expanded-study-v1"
+}

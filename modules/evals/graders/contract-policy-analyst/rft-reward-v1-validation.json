@@ -1,0 +1,127 @@
+{
+  "version": "contract-policy-analyst-code-rft-reward-validation-v1",
+  "validated_at_utc": "2026-11-25T06:57:57.525199+00:00",
+  "status": "offline_checks_passed_not_trainer_ready",
+  "reward_version": "contract-policy-analyst-code-rft-reward-v1",
+  "metric_kind": "training_reward",
+  "quality_estimate": false,
+  "real_model_output_calibrated": false,
+  "remote_python_grader_accepted": false,
+  "training_pass_threshold": null,
+  "checks": [
+    {
+      "command": "uv run --project modules\\evals pytest modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py -k reward -q -p no:cacheprovider",
+      "result": "passed",
+      "tests_passed": 59,
+      "tests_deselected": 77,
+      "duration_seconds": 0.67
+    },
+    {
+      "command": "uv run --project modules\\evals pytest modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py -q -p no:cacheprovider",
+      "result": "passed",
+      "tests_passed": 136,
+      "duration_seconds": 7.32
+    },
+    {
+      "command": "uv run --project modules\\evals ruff check modules\\evals",
+      "result": "passed",
+      "output": "All checks passed!"
+    },
+    {
+      "command": "$base = 'modules\\evals\\datasets\\contract-policy-analyst\\.test-code-rft-v1-suite'; $env:GIT_CEILING_DIRECTORIES = Join-Path (Get-Location).Path $base; uv run --project modules\\evals pytest modules\\evals\\tests -q -p no:cacheprovider --basetemp $base",
+      "result": "passed",
+      "tests_passed": 274,
+      "duration_seconds": 32.21,
+      "scratch_cleaned": true
+    },
+    {
+      "command": "git --no-pager diff --check -- modules\\evals\\graders\\contract-policy-analyst modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py modules\\optimization\\docs\\CONTRACT_POLICY_ANALYST_RFT_REWARD.md",
+      "result": "passed"
+    }
+  ],
+  "initial_full_suite_environment_failure": {
+    "tests_passed": 273,
+    "tests_failed": 1,
+    "test": "modules\\evals\\tests\\test_paths.py::test_git_sha_returns_unknown_for_a_non_git_directory",
+    "cause": "Project-local pytest scratch inherits the enclosing repository through Git ancestor discovery.",
+    "resolution": "Kept scratch inside the owned project and bounded Git discovery at that scratch root with process-local GIT_CEILING_DIRECTORIES. No production or unrelated test code changed."
+  },
+  "asset_sha256": {
+    "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_rft_reward_v1.py": "b5c9112c3abce74785ef33b0c6c3e2a949b5774fcea405181af68a500d706a87",
+    "modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py": "8eac06c5c28b22632ae78a75ba2a55e586abf5238cb4889dfd5dc94b436bd6b5",
+    "modules\\optimization\\docs\\CONTRACT_POLICY_ANALYST_RFT_REWARD.md": "fb65b1a3605564801bae1012d53412a9bef20c165987ea74c85495e99a87e8cf"
+  },
+  "preserved_sha256": {
+    "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_grader.py": "95189aeb3fb2355963ea6a78c29528678299024b51c0631cd3652bbea966a675",
+    "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_transcript.py": "565e91b685daed01291965e5eb1f41aa0d6035dac9c63c9697526deef4ac9b30",
+    "modules\\evals\\graders\\contract-policy-analyst\\quality-rubric.json": "725c17970c61944413c1a19315f7ffe246b6e0640d0a78d2ee412f742e60768a",
+    "modules\\corpus\\data\\contract-policy-analyst\\v1\\source-manifest.json": "e21f47631fc647f5cfcb763760725698e0f4d9ab6a36d3e441017b8319878fb8",
+    "modules\\evals\\datasets\\contract-policy-analyst\\expanded-v1\\seal-manifest.json": "b5a7afe29abf1d0d78c956316e3c83e69906d6849fc9ff33b57fca80d59552c2"
+  },
+  "frozen_content_verification": {
+    "corpus_documents_hash_checked": 1248,
+    "all_source_document_hashes_match": true,
+    "heldout_prompt_hash_matches_seal": true,
+    "heldout_reference_hash_matches_seal": true,
+    "family_partition_hash_matches_seal": true,
+    "test_scratch_remaining": 0
+  },
+  "canonical_replay_parity": {
+    "optimizer_train_rows": 336,
+    "optimizer_validation_rows": 120,
+    "all_canonical_candidates_reward": 1.0,
+    "heldout_used_for_reward_calibration": false,
+    "real_model_outputs": 0,
+    "interpretation": "Oracle/fixture consistency only, not model accuracy, semantic-judge agreement, human review or calibration."
+  },
+  "trainer_contract": {
+    "callable": "grade(sample, item) -> float",
+    "diagnostics": "evaluate_reward(sample, item) -> dict",
+    "common_item_fields": [
+      "reference",
+      "reference_sha256",
+      "context_mode",
+      "context_sha256"
+    ],
+    "inlined_item_fields": ["retrieved_context", "messages"],
+    "retrieved_item_fields": ["tool_messages"],
+    "judge_result_required": false,
+    "judge_result_consumed": false,
+    "sample_side_tool_claims_consumed": false,
+    "canonical_citations_required": true,
+    "standalone_source_stdlib_only": true,
+    "existing_wrapper": "caliber.rft._rft_reward_grader_source",
+    "positive_and_adversarial_standalone_parity": true
+  },
+  "compatibility_findings": [
+    "Quality evaluate().code_score is an uncapped diagnostic and is unsafe as a direct reward.",
+    "The quality score still requires the genuine gpt-6-astra six-dimension judge and remains capped at 0.49 without it.",
+    "The new code-only reward applies its own strict frozen-oracle checks and critical caps; it is never reported as matched quality.",
+    "The general RFT packager drops required reference/context/hash fields and appends the older expert profile; it was inspected but not changed.",
+    "Current sealed retrieval-only prompts lack actual supplied context and cannot earn this reward without separate parent-owned context preparation."
+  ],
+  "verified_adversarial_boundaries": [
+    "Unsupported or unallowlisted facts and summaries.",
+    "False gaps, including extra gaps when a legitimate gap is also present.",
+    "Complete and partial required-gap omissions.",
+    "False approval and wrong support direction.",
+    "Wrong invoice, correlation, agent, canonical citation or namespace.",
+    "Wrong classification and overstated confidence.",
+    "Directives, claimed actions and preceding-negation masking.",
+    "Duplicate evidence/gaps and malformed/nonfinite JSON.",
+    "Missing, failed, metadata-only, partial or conflicting real-shaped retrieval context.",
+    "Inlined context absent from the actual developer/user prompt.",
+    "Tampered reference/context/raw-adapter hashes and sample-side attestations."
+  ],
+  "gates_still_pending": [
+    "Human review of synthetic references and sources.",
+    "Actual train/validation-only context preparation and trainer transport verification.",
+    "Calibration against real model outputs and a separately selected training threshold.",
+    "Remote Python-grader acceptance.",
+    "Independent matched quality comparison using the unchanged genuine semantic judge."
+  ],
+  "new_paid_or_cloud_operations": 0,
+  "datasets_modified": false,
+  "runtime_or_eval_harness_modified": false,
+  "committed_or_pushed": false
+}

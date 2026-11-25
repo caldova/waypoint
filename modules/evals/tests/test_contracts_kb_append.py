@@ -73,12 +73,16 @@ def test_append_refuses_overwrite(uploader):
 
 
 def test_default_sync_still_removes_stale_docs(uploader):
-    client = Container({"contracts/old.md": b"old"})
+    client = Container({
+        "contracts/old.md": b"old",
+        "contracts/policy-analyst-v1/new.md": b"separate benchmark evidence",
+    })
     summary = uploader.ContractsKbSummary("storage", "knowledge", "contracts")
     uploader._sync_documents(
         client, "contracts", [uploader.BlobDocument("new.md", b"new")], summary
     )
     assert summary.deleted == ["contracts/old.md"]
+    assert client.blobs["contracts/policy-analyst-v1/new.md"] == b"separate benchmark evidence"
 
 
 def test_operational_upload_never_reads_scenario_answers(uploader, tmp_path):

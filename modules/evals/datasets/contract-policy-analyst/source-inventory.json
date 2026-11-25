@@ -1,0 +1,128 @@
+[
+  {
+    "document": "data/contracts/source-markdown/sup-001-aster-ridge-biomanufacturing-sow.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "0fe85808902757eae36dc226feb207907e0f3135d0d4a6c02c78801a4595db1b",
+    "source_family": "supplier-001-aster-ridge-biomanufacturing-sow.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-002-northstar-fill-finish-quality-agreement.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "a9b918a3ae8ff082664975fcd75f584d081b1ab46d7e096a2d1b883f297a0883",
+    "source_family": "supplier-002-northstar-fill-finish-quality-agreement.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-003-heliopack-pharma-services-packaging-agreement.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "52fccdfa27e8c10755704ac87f61d66a44861c0c9c823601babb4d92d7a96866",
+    "source_family": "supplier-003-heliopack-pharma-services-packaging-agreement.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-004-meridian-api-works-supply-agreement.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "72615fb43b103f4496d030fb1cddb9fafb061ceb142384b79e903cc55f236b7b",
+    "source_family": "supplier-004-meridian-api-works-supply-agreement.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-005-crescent-gmp-labs-testing-sow.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "2337cf3609b1ed0911d563099889bb3bc61a08d2c5d625312c5fe413b5e4a475",
+    "source_family": "supplier-005-crescent-gmp-labs-testing-sow.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-006-summit-dose-manufacturing-sow.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "db990e0c8eeb743dee962d6f0499666a2e4700dcef1faaf5bab59968ec42a50e",
+    "source_family": "supplier-006-summit-dose-manufacturing-sow.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-007-orchid-clinical-supply-services-agreement.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "1f49ef3201885ea2e0e924245cca3a5e8f822d325949a4f6bac0294a96a60aac",
+    "source_family": "supplier-007-orchid-clinical-supply-services-agreement.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-008-valence-cold-chain-logistics-agreement.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "02507716f82d7f07578e5e8f8838301847e6b3845f984b0ce4cb643a0525fe72",
+    "source_family": "supplier-008-valence-cold-chain-logistics-agreement.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-009-bluepeak-biologics-capacity-agreement.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "4873daa8561f013efbaad186699231bf01a18d081e35c4bd65ea34d800a72e26",
+    "source_family": "supplier-009-bluepeak-biologics-capacity-agreement.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-010-keystone-device-assembly-sow.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "d0fa2dc0e04f2bcdf0104bd4851c15685a943551d16bfb54f921e1633e556042",
+    "source_family": "supplier-010-keystone-device-assembly-sow.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-011-lumasterile-services-sterilization-agreement.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "9c7bdc274abf6a0e9f8146cb280102016f10ecbd2643b96a15179acb9bdc0ba0",
+    "source_family": "supplier-011-lumasterile-services-sterilization-agreement.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-012-pioneer-process-development-sow.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "a09bb5e7504fc33308875f6cb059712015f5bab743005953cd1686cadcccaee0",
+    "source_family": "supplier-012-pioneer-process-development-sow.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-013-evergreen-excipients-supply-agreement.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "de0c55449e03fcc83c79a42caf86e05b92496aefa57afca8f9a4b6429a79f49f",
+    "source_family": "supplier-013-evergreen-excipients-supply-agreement.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-014-atlas-regional-manufacturing-sow.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "1292cf614264474f89d44c2c1d8c142509a0bbba1c55e6cdd3c9b6f344aa0b4d",
+    "source_family": "supplier-014-atlas-regional-manufacturing-sow.md"
+  },
+  {
+    "document": "data/contracts/source-markdown/sup-015-signal-ridge-regulatory-services-agreement.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "94c10fdcb8a49a04bc26794d9c50a540ccc0ed0364c87a91350b560820400a65",
+    "source_family": "supplier-015-signal-ridge-regulatory-services-agreement.md"
+  },
+  {
+    "document": "data/policies/source-markdown/invoice-dispute-and-recovery-procedure.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "e2d0881578bfc8e92c798f98243e79e5b9234f35fafd50fd0315084f44af916b",
+    "source_family": "invoice-dispute-and-recovery-procedure.md"
+  },
+  {
+    "document": "data/policies/source-markdown/invoice-reconciliation-policy.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "77274dfa3b7f70338281e09be1c010045d1110513c0fcc1bdb971bf88b91bbdd",
+    "source_family": "invoice-reconciliation-policy.md"
+  },
+  {
+    "document": "data/policies/source-markdown/quality-release-billability-policy.md",
+    "historically_exposed": true,
+    "kb_ingestion_verified": false,
+    "sha256": "21e8fb1b0b6d99f2485a16422a9ad49fe6bd8a9d1fa196dec6462643a48728e5",
+    "source_family": "quality-release-billability-policy.md"
+  }
+]

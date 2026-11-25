@@ -1,0 +1,978 @@
+{
+  "baseline_reset_ref": "5aac278",
+  "case_counts": {
+    "optimizer-train": 336,
+    "optimizer-validation": 120,
+    "study-heldout": 120
+  },
+  "families": [
+    {
+      "case_count": 12,
+      "domain": "solid-dose",
+      "family": "CPA1-F001",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f001-solid-dose-sow.md",
+        "policies/source-markdown/cpa1-f001-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "released-tablets",
+        "incremental-volume",
+        "forecast-moq",
+        "pack-format",
+        "material-consumption",
+        "campaign-cleaning"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Solid Dose Production Partner 001",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "solid-dose",
+      "family": "CPA1-F002",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f002-solid-dose-sow.md",
+        "policies/source-markdown/cpa1-f002-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "forecast-moq",
+        "pack-format",
+        "material-consumption",
+        "campaign-cleaning",
+        "release-administration",
+        "scrap-adjustment"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Solid Dose Production Partner 002",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "solid-dose",
+      "family": "CPA1-F003",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f003-solid-dose-sow.md",
+        "policies/source-markdown/cpa1-f003-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "material-consumption",
+        "campaign-cleaning",
+        "release-administration",
+        "scrap-adjustment",
+        "released-tablets",
+        "incremental-volume"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Solid Dose Production Partner 003",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "solid-dose",
+      "family": "CPA1-F004",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f004-solid-dose-sow.md",
+        "policies/source-markdown/cpa1-f004-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "release-administration",
+        "scrap-adjustment",
+        "released-tablets",
+        "incremental-volume",
+        "forecast-moq",
+        "pack-format"
+      ],
+      "split": "optimizer-validation",
+      "supplier_name": "Fictional Solid Dose Production Partner 004",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "sterile-fill",
+      "family": "CPA1-F005",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f005-sterile-fill-sow.md",
+        "policies/source-markdown/cpa1-f005-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "filled-syringes",
+        "rework-hours",
+        "retest-trigger",
+        "deviation-investigation",
+        "aseptic-reservation",
+        "cold-hold"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Sterile Fill Finish Partner 005",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "sterile-fill",
+      "family": "CPA1-F006",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f006-sterile-fill-sow.md",
+        "policies/source-markdown/cpa1-f006-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "retest-trigger",
+        "deviation-investigation",
+        "aseptic-reservation",
+        "cold-hold",
+        "line-clearance",
+        "container-loss"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Sterile Fill Finish Partner 006",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "sterile-fill",
+      "family": "CPA1-F007",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f007-sterile-fill-sow.md",
+        "policies/source-markdown/cpa1-f007-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "aseptic-reservation",
+        "cold-hold",
+        "line-clearance",
+        "container-loss",
+        "filled-syringes",
+        "rework-hours"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Sterile Fill Finish Partner 007",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "sterile-fill",
+      "family": "CPA1-F008",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f008-sterile-fill-sow.md",
+        "policies/source-markdown/cpa1-f008-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "line-clearance",
+        "container-loss",
+        "filled-syringes",
+        "rework-hours",
+        "retest-trigger",
+        "deviation-investigation"
+      ],
+      "split": "optimizer-validation",
+      "supplier_name": "Fictional Sterile Fill Finish Partner 008",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "serialization",
+      "family": "CPA1-F009",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f009-serialization-sow.md",
+        "policies/source-markdown/cpa1-f009-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "serialized-count",
+        "label-change",
+        "distribution-volume",
+        "carrier-exception",
+        "deserialization",
+        "artwork-window"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Packaging Serialization Partner 009",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "serialization",
+      "family": "CPA1-F010",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f010-serialization-sow.md",
+        "policies/source-markdown/cpa1-f010-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "distribution-volume",
+        "carrier-exception",
+        "deserialization",
+        "artwork-window",
+        "carton-pass-through",
+        "line-validation"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Packaging Serialization Partner 010",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "serialization",
+      "family": "CPA1-F011",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f011-serialization-sow.md",
+        "policies/source-markdown/cpa1-f011-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "deserialization",
+        "artwork-window",
+        "carton-pass-through",
+        "line-validation",
+        "serialized-count",
+        "label-change"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Packaging Serialization Partner 011",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "serialization",
+      "family": "CPA1-F012",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f012-serialization-sow.md",
+        "policies/source-markdown/cpa1-f012-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "carton-pass-through",
+        "line-validation",
+        "serialized-count",
+        "label-change",
+        "distribution-volume",
+        "carrier-exception"
+      ],
+      "split": "optimizer-validation",
+      "supplier_name": "Fictional Packaging Serialization Partner 012",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "api-supply",
+      "family": "CPA1-F013",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f013-api-supply-sow.md",
+        "policies/source-markdown/cpa1-f013-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "released-grams",
+        "yield-true-up",
+        "raw-material",
+        "expedited-coa",
+        "retest-cost",
+        "storage-grace"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional API Supply Partner 013",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "api-supply",
+      "family": "CPA1-F014",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f014-api-supply-sow.md",
+        "policies/source-markdown/cpa1-f014-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "raw-material",
+        "expedited-coa",
+        "retest-cost",
+        "storage-grace",
+        "reservation-shortfall",
+        "lot-documentation"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional API Supply Partner 014",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "api-supply",
+      "family": "CPA1-F015",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f015-api-supply-sow.md",
+        "policies/source-markdown/cpa1-f015-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "retest-cost",
+        "storage-grace",
+        "reservation-shortfall",
+        "lot-documentation",
+        "released-grams",
+        "yield-true-up"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional API Supply Partner 015",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "api-supply",
+      "family": "CPA1-F016",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f016-api-supply-sow.md",
+        "policies/source-markdown/cpa1-f016-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "reservation-shortfall",
+        "lot-documentation",
+        "released-grams",
+        "yield-true-up",
+        "raw-material",
+        "expedited-coa"
+      ],
+      "split": "optimizer-validation",
+      "supplier_name": "Fictional API Supply Partner 016",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "gmp-testing",
+      "family": "CPA1-F017",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f017-gmp-testing-sow.md",
+        "policies/source-markdown/cpa1-f017-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "release-package",
+        "study-pull",
+        "validation-acceptance",
+        "supplemental-tests",
+        "document-conversion",
+        "sample-storage"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional GMP Laboratory Testing Partner 017",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "gmp-testing",
+      "family": "CPA1-F018",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f018-gmp-testing-sow.md",
+        "policies/source-markdown/cpa1-f018-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "validation-acceptance",
+        "supplemental-tests",
+        "document-conversion",
+        "sample-storage",
+        "assay-volume",
+        "replacement-samples"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional GMP Laboratory Testing Partner 018",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "gmp-testing",
+      "family": "CPA1-F019",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f019-gmp-testing-sow.md",
+        "policies/source-markdown/cpa1-f019-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "document-conversion",
+        "sample-storage",
+        "assay-volume",
+        "replacement-samples",
+        "release-package",
+        "study-pull"
+      ],
+      "split": "optimizer-validation",
+      "supplier_name": "Fictional GMP Laboratory Testing Partner 019",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "gmp-testing",
+      "family": "CPA1-F020",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f020-gmp-testing-sow.md",
+        "policies/source-markdown/cpa1-f020-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "assay-volume",
+        "replacement-samples",
+        "release-package",
+        "study-pull",
+        "validation-acceptance",
+        "supplemental-tests"
+      ],
+      "split": "optimizer-validation",
+      "supplier_name": "Fictional GMP Laboratory Testing Partner 020",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "clinical-supply",
+      "family": "CPA1-F021",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f021-clinical-supply-sow.md",
+        "policies/source-markdown/cpa1-f021-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "released-kits",
+        "comparator-cost",
+        "pallet-storage",
+        "study-milestone",
+        "relabel-window",
+        "kit-destruction"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Clinical Supply Partner 021",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "clinical-supply",
+      "family": "CPA1-F022",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f022-clinical-supply-sow.md",
+        "policies/source-markdown/cpa1-f022-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "pallet-storage",
+        "study-milestone",
+        "relabel-window",
+        "kit-destruction",
+        "comparators-minimum",
+        "patient-volume"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Clinical Supply Partner 022",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "clinical-supply",
+      "family": "CPA1-F023",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f023-clinical-supply-sow.md",
+        "policies/source-markdown/cpa1-f023-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "relabel-window",
+        "kit-destruction",
+        "comparators-minimum",
+        "patient-volume",
+        "released-kits",
+        "comparator-cost"
+      ],
+      "split": "optimizer-validation",
+      "supplier_name": "Fictional Clinical Supply Partner 023",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "clinical-supply",
+      "family": "CPA1-F024",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f024-clinical-supply-sow.md",
+        "policies/source-markdown/cpa1-f024-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "comparators-minimum",
+        "patient-volume",
+        "released-kits",
+        "comparator-cost",
+        "pallet-storage",
+        "study-milestone"
+      ],
+      "split": "optimizer-validation",
+      "supplier_name": "Fictional Clinical Supply Partner 024",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "cold-logistics",
+      "family": "CPA1-F025",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f025-cold-logistics-sow.md",
+        "policies/source-markdown/cpa1-f025-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "lane-delivery",
+        "excursion-response",
+        "brokerage-entry",
+        "route-exception",
+        "depot-hold",
+        "delivery-window"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Cold Chain Logistics Partner 025",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "cold-logistics",
+      "family": "CPA1-F026",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f026-cold-logistics-sow.md",
+        "policies/source-markdown/cpa1-f026-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "brokerage-entry",
+        "route-exception",
+        "depot-hold",
+        "delivery-window",
+        "lane-volume",
+        "reusable-pack"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Cold Chain Logistics Partner 026",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "cold-logistics",
+      "family": "CPA1-F027",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f027-cold-logistics-sow.md",
+        "policies/source-markdown/cpa1-f027-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "depot-hold",
+        "delivery-window",
+        "lane-volume",
+        "reusable-pack",
+        "lane-delivery",
+        "excursion-response"
+      ],
+      "split": "optimizer-validation",
+      "supplier_name": "Fictional Cold Chain Logistics Partner 027",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "cold-logistics",
+      "family": "CPA1-F028",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f028-cold-logistics-sow.md",
+        "policies/source-markdown/cpa1-f028-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "lane-volume",
+        "reusable-pack",
+        "lane-delivery",
+        "excursion-response",
+        "brokerage-entry",
+        "route-exception"
+      ],
+      "split": "study-heldout",
+      "supplier_name": "Fictional Cold Chain Logistics Partner 028",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "biologic-capacity",
+      "family": "CPA1-F029",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f029-biologic-capacity-sow.md",
+        "policies/source-markdown/cpa1-f029-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "utilized-hours",
+        "unused-credit",
+        "restart-cost",
+        "reservation-days",
+        "campaign-milestone",
+        "yield-quantity"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Biologics Capacity Partner 029",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "biologic-capacity",
+      "family": "CPA1-F030",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f030-biologic-capacity-sow.md",
+        "policies/source-markdown/cpa1-f030-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "restart-cost",
+        "reservation-days",
+        "campaign-milestone",
+        "yield-quantity",
+        "campaign-volume",
+        "validation-window"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Biologics Capacity Partner 030",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "biologic-capacity",
+      "family": "CPA1-F031",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f031-biologic-capacity-sow.md",
+        "policies/source-markdown/cpa1-f031-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "campaign-milestone",
+        "yield-quantity",
+        "campaign-volume",
+        "validation-window",
+        "utilized-hours",
+        "unused-credit"
+      ],
+      "split": "optimizer-validation",
+      "supplier_name": "Fictional Biologics Capacity Partner 031",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "biologic-capacity",
+      "family": "CPA1-F032",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f032-biologic-capacity-sow.md",
+        "policies/source-markdown/cpa1-f032-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "campaign-volume",
+        "validation-window",
+        "utilized-hours",
+        "unused-credit",
+        "restart-cost",
+        "reservation-days"
+      ],
+      "split": "study-heldout",
+      "supplier_name": "Fictional Biologics Capacity Partner 032",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "device-assembly",
+      "family": "CPA1-F033",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f033-device-assembly-sow.md",
+        "policies/source-markdown/cpa1-f033-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "accepted-devices",
+        "component-scrap",
+        "eco-labor",
+        "inspection-retake",
+        "assembly-volume",
+        "material-review-hold"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Device Assembly Partner 033",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "device-assembly",
+      "family": "CPA1-F034",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f034-device-assembly-sow.md",
+        "policies/source-markdown/cpa1-f034-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "eco-labor",
+        "inspection-retake",
+        "assembly-volume",
+        "material-review-hold",
+        "tooling-milestone",
+        "eco-effective-window"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Device Assembly Partner 034",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "device-assembly",
+      "family": "CPA1-F035",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f035-device-assembly-sow.md",
+        "policies/source-markdown/cpa1-f035-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "assembly-volume",
+        "material-review-hold",
+        "tooling-milestone",
+        "eco-effective-window",
+        "accepted-devices",
+        "component-scrap"
+      ],
+      "split": "study-heldout",
+      "supplier_name": "Fictional Device Assembly Partner 035",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "device-assembly",
+      "family": "CPA1-F036",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f036-device-assembly-sow.md",
+        "policies/source-markdown/cpa1-f036-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "tooling-milestone",
+        "eco-effective-window",
+        "accepted-devices",
+        "component-scrap",
+        "eco-labor",
+        "inspection-retake"
+      ],
+      "split": "study-heldout",
+      "supplier_name": "Fictional Device Assembly Partner 036",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "sterilization",
+      "family": "CPA1-F037",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f037-sterilization-sow.md",
+        "policies/source-markdown/cpa1-f037-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "cycle-link",
+        "bioburden-retest",
+        "final-packet",
+        "repeat-load",
+        "cycle-volume",
+        "quarantine-storage"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Sterilization Services Partner 037",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "sterilization",
+      "family": "CPA1-F038",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f038-sterilization-sow.md",
+        "policies/source-markdown/cpa1-f038-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "final-packet",
+        "repeat-load",
+        "cycle-volume",
+        "quarantine-storage",
+        "cycle-time-window",
+        "fixture-pass-through"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Sterilization Services Partner 038",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "sterilization",
+      "family": "CPA1-F039",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f039-sterilization-sow.md",
+        "policies/source-markdown/cpa1-f039-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "cycle-volume",
+        "quarantine-storage",
+        "cycle-time-window",
+        "fixture-pass-through",
+        "cycle-link",
+        "bioburden-retest"
+      ],
+      "split": "study-heldout",
+      "supplier_name": "Fictional Sterilization Services Partner 039",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "sterilization",
+      "family": "CPA1-F040",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f040-sterilization-sow.md",
+        "policies/source-markdown/cpa1-f040-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "cycle-time-window",
+        "fixture-pass-through",
+        "cycle-link",
+        "bioburden-retest",
+        "final-packet",
+        "repeat-load"
+      ],
+      "split": "study-heldout",
+      "supplier_name": "Fictional Sterilization Services Partner 040",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "process-development",
+      "family": "CPA1-F041",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f041-process-development-sow.md",
+        "policies/source-markdown/cpa1-f041-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "accepted-deliverable",
+        "gmp-classification",
+        "validation-prerequisites",
+        "added-scope",
+        "development-hours",
+        "transfer-window"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Process Development Partner 041",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "process-development",
+      "family": "CPA1-F042",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f042-process-development-sow.md",
+        "policies/source-markdown/cpa1-f042-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "validation-prerequisites",
+        "added-scope",
+        "development-hours",
+        "transfer-window",
+        "batch-volume",
+        "material-trials"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Process Development Partner 042",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "process-development",
+      "family": "CPA1-F043",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f043-process-development-sow.md",
+        "policies/source-markdown/cpa1-f043-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "development-hours",
+        "transfer-window",
+        "batch-volume",
+        "material-trials",
+        "accepted-deliverable",
+        "gmp-classification"
+      ],
+      "split": "study-heldout",
+      "supplier_name": "Fictional Process Development Partner 043",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "process-development",
+      "family": "CPA1-F044",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f044-process-development-sow.md",
+        "policies/source-markdown/cpa1-f044-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "batch-volume",
+        "material-trials",
+        "accepted-deliverable",
+        "gmp-classification",
+        "validation-prerequisites",
+        "added-scope"
+      ],
+      "split": "study-heldout",
+      "supplier_name": "Fictional Process Development Partner 044",
+      "variant": 3
+    },
+    {
+      "case_count": 12,
+      "domain": "regulatory-services",
+      "family": "CPA1-F045",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f045-regulatory-services-sow.md",
+        "policies/source-markdown/cpa1-f045-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "country-work-order",
+        "filed-submission",
+        "authority-response",
+        "language-words",
+        "rush-correction",
+        "submission-window"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Regulatory Services Partner 045",
+      "variant": 0
+    },
+    {
+      "case_count": 12,
+      "domain": "regulatory-services",
+      "family": "CPA1-F046",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f046-regulatory-services-sow.md",
+        "policies/source-markdown/cpa1-f046-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "authority-response",
+        "language-words",
+        "rush-correction",
+        "submission-window",
+        "portfolio-volume",
+        "authority-fees"
+      ],
+      "split": "optimizer-train",
+      "supplier_name": "Fictional Regulatory Services Partner 046",
+      "variant": 1
+    },
+    {
+      "case_count": 12,
+      "domain": "regulatory-services",
+      "family": "CPA1-F047",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f047-regulatory-services-sow.md",
+        "policies/source-markdown/cpa1-f047-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "rush-correction",
+        "submission-window",
+        "portfolio-volume",
+        "authority-fees",
+        "country-work-order",
+        "filed-submission"
+      ],
+      "split": "study-heldout",
+      "supplier_name": "Fictional Regulatory Services Partner 047",
+      "variant": 2
+    },
+    {
+      "case_count": 12,
+      "domain": "regulatory-services",
+      "family": "CPA1-F048",
+      "source_paths": [
+        "contracts/source-markdown/cpa1-f048-regulatory-services-sow.md",
+        "policies/source-markdown/cpa1-f048-evidence-policy.md"
+      ],
+      "source_rule_ids": [
+        "portfolio-volume",
+        "authority-fees",
+        "country-work-order",
+        "filed-submission",
+        "authority-response",
+        "language-words"
+      ],
+      "split": "study-heldout",
+      "supplier_name": "Fictional Regulatory Services Partner 048",
+      "variant": 3
+    }
+  ],
+  "family_counts": {
+    "optimizer-train": 28,
+    "optimizer-validation": 10,
+    "study-heldout": 10
+  },
+  "reset_verified": false,
+  "seal_before_optimizer": true,
+  "version": "contract-policy-analyst-expanded-study-v1"
+}

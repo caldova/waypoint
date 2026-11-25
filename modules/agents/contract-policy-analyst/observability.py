@@ -18,11 +18,13 @@ def configure_project_export() -> None:
     )):
         return
     try:
-        with DefaultAzureCredential() as credential:
-            with AIProjectClient(
+        with (
+            DefaultAzureCredential() as credential,
+            AIProjectClient(
                 endpoint=os.environ["FOUNDRY_PROJECT_ENDPOINT"], credential=credential,
-            ) as project:
-                connection_string = project.telemetry.get_application_insights_connection_string()
+            ) as project,
+        ):
+            connection_string = project.telemetry.get_application_insights_connection_string()
         if not connection_string.strip():
             raise ValueError("Project telemetry connection is empty.")
     except (AzureError, ValueError) as exc:
