@@ -548,6 +548,19 @@ ARMS: dict[str, dict[str, str]] = {
 }
 QUALITY_SPLITS = ("dev_eval", "validation", "final_test")
 
+EVALUATION_SCOPE: dict[str, Any] = {
+    "capability": "supplied_evidence_reasoning",
+    "tools": "none",
+    "statement": (
+        "contract-evidence-analyst calls the model without tools; every benchmark request "
+        "supplies the contract, policy and operational sources inline, and RFT rows are "
+        "developer/user text without tool trajectories. Optimizer, eval and RFT results measure "
+        "reasoning over supplied evidence. They are not evidence of retrieval, tool use, "
+        "FoundryIQ grounding or tool-description optimization (contract-policy-expert is the "
+        "separately FoundryIQ-wired agent)."
+    ),
+}
+
 # final_test history. Arms scored on final_test before the final all-arms comparison are
 # non-pristine for that comparison; final_test must not be run or inspected again until then.
 FINAL_TEST_STATUS: dict[str, Any] = {
@@ -643,6 +656,7 @@ def build_quality() -> dict[str, Any]:
     rft_job = EVIDENCE / "mai2-rft" / "job.final.json"
     return {
         "agent": AGENT_NAME,
+        "evaluation_scope": EVALUATION_SCOPE,
         "generated_at": datetime.now(UTC).isoformat(),
         "grader": {
             "path": str(GRADER_PATH.relative_to(REPO)).replace("\\", "/"),
@@ -669,6 +683,8 @@ def build_quality() -> dict[str, Any]:
         "caveats": [
             "Benchmark labels are synthetic and pending_human_review; scores measure agreement "
             "with synthetic references, not audited ground truth.",
+            "All results measure supplied-evidence reasoning by a tool-less agent, not retrieval "
+            "or tool use (evaluation_scope).",
             "The code grader's decision-language screen is a phrase screen, not a semantic "
             "guarantee.",
             "gpt-6-astra price is the Alaska-report list price; MAI-2 price is the retail base "

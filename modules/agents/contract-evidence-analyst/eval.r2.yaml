@@ -13,6 +13,8 @@
 #   - Data: optimizer/r2, 30 train rows (6/outcome) and all 33 validation rows minus known label defects
 #     (KNOWN_LABEL_DEFECTS in caliber.contract_evidence_eval). No dev_eval or final_test rows.
 # More candidates do not guarantee a better result. Re-score the chosen candidate on dev_eval before use.
+# Scope: the agent has no tools (tools: none in the request); sources are supplied inline. This search optimizes
+# supplied-evidence reasoning only, not retrieval, tool use or tool descriptions.
 #
 # Regenerate data (from modules/evals):
 #   uv run python -m caliber.contract_evidence_eval optimizer-data --train-per-outcome 6 --val-per-outcome 99 \

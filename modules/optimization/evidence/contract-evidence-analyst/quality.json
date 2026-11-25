@@ -1,6 +1,11 @@
 {
   "agent": "contract-evidence-analyst",
-  "generated_at": "2026-11-25T05:22:35.296883+00:00",
+  "evaluation_scope": {
+    "capability": "supplied_evidence_reasoning",
+    "tools": "none",
+    "statement": "contract-evidence-analyst calls the model without tools; every benchmark request supplies the contract, policy and operational sources inline, and RFT rows are developer/user text without tool trajectories. Optimizer, eval and RFT results measure reasoning over supplied evidence. They are not evidence of retrieval, tool use, FoundryIQ grounding or tool-description optimization (contract-policy-expert is the separately FoundryIQ-wired agent)."
+  },
+  "generated_at": "2026-11-25T05:26:33.680823+00:00",
   "grader": {
     "path": "modules/evals/graders/contract-evidence-analyst/contract_evidence_grader.py",
     "sha256": "b86d04dc148e89ab2fc8fe0a252f94a7b2d89e701c783bd22c8414d2f72ef0fe",
@@ -679,6 +684,7 @@
   },
   "caveats": [
     "Benchmark labels are synthetic and pending_human_review; scores measure agreement with synthetic references, not audited ground truth.",
+    "All results measure supplied-evidence reasoning by a tool-less agent, not retrieval or tool use (evaluation_scope).",
     "The code grader's decision-language screen is a phrase screen, not a semantic guarantee.",
     "gpt-6-astra price is the Alaska-report list price; MAI-2 price is the retail base serving price and excludes fine-tuned hosting fees and RFT training cost.",
     "Cost covers model tokens only, not hosted-agent compute.",
