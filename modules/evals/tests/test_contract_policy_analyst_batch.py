@@ -1,10 +1,14 @@
 import copy
 import hashlib
+import json
+import sys
+from pathlib import Path
 
 import pytest
 
 from caliber.contract_policy_analyst_batch import (
     cited_refs,
+    inference_failure_record,
     record_key,
     summary,
     validate_judge,
@@ -113,3 +117,76 @@ def test_citation_grounding_uses_verified_mappings_not_raw_snippet_list():
          "missing.md#clause", "ambiguous.md", "invented.md"},
         adapted,
     ) == 2
+
+
+def test_inference_error_is_operational_failure_not_fabricated_judge_or_free_usage():
+    failed = inference_failure_record({
+        "id": "failed", "run": 1, "model": "gpt-6-astra", "source_family": "family",
+    }, {"error": "APIConnectionError", "response_id": None, "latency_ms": 100,
+        "usage": None, "output_text": ""})
+    good = {
+        **failed, "id": "good", "inference_error": None, "score": 0.8, "pass": True,
+        "capture_sha256": "verified", "flags": [],
+        "dimensions": [{"id": "grounding", "score": 4, "reason": "Supported."}],
+    }
+    report = summary([failed, good], 2)
+    assert report["mean_score"] == 0.4
+    assert report["mean_quality_on_scored_responses"] == 0.8
+    assert report["pass_rate"] == 0.5
+    assert report["scored_responses"] == report["inference_failures"] == 1
+    assert report["rubric_dimensions"]["grounding"]["mean_score"] == 0.8
+    assert report["retrieval"]["audit_complete_rate"] == 0.5
+    assert report["retrieval"]["responses_with_tool_call_rate"] is None
+    assert report["cost_usd_per_1k_lines"] is None
+    assert failed["quality_score"] is None and failed["dimensions"] == []
+    with pytest.raises(ValueError, match="explicit recorded inference error"):
+        inference_failure_record({}, {"error": None})
+
+
+def test_batch_preserves_failed_response_and_continues_only_unissued_trials(tmp_path, monkeypatch):
+    import caliber.contract_policy_analyst_batch as batch
+
+    row = {
+        "id": "case", "task": "Task", "task_sha256": "a" * 64,
+        "reference_sha256": "b" * 64, "source_family": "family", "scenario_family": "gap",
+    }
+    monkeypatch.setattr(batch, "load_study_split", lambda **kwargs: [row])
+    response = {
+        "error": "APIConnectionError", "response_id": None, "latency_ms": 100,
+        "usage": None, "output_text": "",
+    }
+    write_record(tmp_path / "attempts" / f"{record_key('case', 1)}.started.json",
+                 {"attempt_id": "original"})
+    write_record(tmp_path / "attempts" / f"{record_key('case', 1)}.response.json", response)
+    calls = []
+
+    def hosted(*args, **kwargs):
+        calls.append(kwargs["metadata"]["cpa_run"])
+        return response
+
+    class Captures:
+        def __init__(self, *args):
+            pass
+
+        def get(self, *args):
+            pytest.fail("Failed inference must not fabricate a capture.")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(batch, "hosted_call", hosted)
+    monkeypatch.setattr(batch, "CaptureReader", Captures)
+    monkeypatch.setattr(batch, "judge_call", lambda *args: pytest.fail("No failure judge."))
+    monkeypatch.setattr(sys, "argv", [
+        "batch", "--repo", str(Path(__file__).resolve().parents[3]), "--endpoint", "https://test",
+        "--blob-account-url", "https://test", "--version", "6", "--model", "gpt-6-astra",
+        "--instructions-sha256", "a" * 64, "--tools-sha256", "b" * 64,
+        "--arm", "baseline", "--split", "optimizer-validation", "--out", str(tmp_path),
+        "--repeats", "2", "--concurrency", "1", "--allow-live",
+    ])
+    assert batch.main() == 0
+    assert calls == ["2"]
+    assert json.loads((tmp_path / "summary.json").read_text())["inference_failures"] == 2
+    assert json.loads((tmp_path / "summary.json").read_text())["rubric_dimensions"] == {}
+    assert batch.main() == 0
+    assert calls == ["2"]

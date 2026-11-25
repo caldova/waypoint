@@ -218,11 +218,20 @@ def summary(records: list[dict[str, Any]], expected: int) -> dict[str, Any]:
     known_costs = [row["cost"]["usd"] for row in records]
     citations = [row["citations"] for row in records]
     citation_count = sum(value["total"] for value in citations)
+    scored = [row for row in records if row["dimensions"]]
+    audited = sum(bool(row.get("capture_sha256")) for row in records)
     return {
         "status": "completed", "unique_cases": len({row["id"] for row in records}),
         "source_families": len({row["source_family"] for row in records}),
         "runs": len({row["run"] for row in records}), "responses": len(records),
+        "inference_failures": sum(row.get("inference_error") is not None for row in records),
+        "scored_responses": len(scored),
         "mean_score": statistics.fmean(row["score"] for row in records),
+        "score_scope": (
+            "All attempts; inference failures count as operational zero, not judge scores."
+        ),
+        "mean_quality_on_scored_responses": statistics.fmean(row["score"] for row in scored)
+        if scored else None,
         "pass_rate": statistics.fmean(row["pass"] for row in records),
         "latency_ms": {
             "p50": statistics.median(latencies),
@@ -252,23 +261,41 @@ def summary(records: list[dict[str, Any]], expected: int) -> dict[str, Any]:
                 "label": dimension.replace("_", " ").capitalize(),
                 "mean_score": statistics.fmean(
                     next(d["score"] for d in row["dimensions"] if d["id"] == dimension)
-                    for row in records
+                    for row in scored
                 ) / 5,
                 "raw_score_scale": [1, 5],
-            } for dimension in (d["id"] for d in records[0]["dimensions"])
+                "scored_responses": len(scored),
+            } for dimension in ([d["id"] for d in scored[0]["dimensions"]] if scored else [])
         },
         "retrieval": {
             "responses_with_tool_call_rate": sum(bool(row["retrieval_calls"]) for row in records)
-            / len(records),
-            "tool_calls_mean": len(calls) / len(records),
+            / len(records) if audited == len(records) else None,
+            "tool_calls_mean": len(calls) / len(records) if audited == len(records) else None,
             "tool_call_latency_ms_p50": statistics.median(c["duration_ms"] for c in calls)
             if calls and all(c.get("duration_ms") is not None for c in calls) else None,
-            "tool_failures_reported": sum(c.get("tool_reported_ok") is False for c in calls),
-            "audit_complete_rate": 1.0,
+            "tool_failures_reported": sum(c.get("tool_reported_ok") is False for c in calls)
+            if audited == len(records) else None,
+            "audit_complete_rate": audited / len(records),
             "citations_grounded_rate": sum(c["grounded"] for c in citations) / citation_count
             if citation_count else None,
             "query_variants_mean": None,
         },
+    }
+
+
+def inference_failure_record(common: dict[str, Any], response: dict[str, Any]) -> dict[str, Any]:
+    if not response.get("error"):
+        raise ValueError("An explicit recorded inference error is required.")
+    return {
+        **common, "response_id": response["response_id"], "latency_ms": response["latency_ms"],
+        "usage": response["usage"], "output_text": response["output_text"],
+        "cost": inference_cost(common["model"], response["usage"]),
+        "judge_cost": {"usd": 0.0, "reason": "No judge invoked for failed inference."},
+        "inference_error": response["error"], "capture_sha256": None, "runtime": None,
+        "retrieval_calls": [], "adapter_issues": ["capture_not_verified"],
+        "citations": {"total": 0, "grounded": 0}, "dimensions": [],
+        "critical_flags": [], "flags": ["inference_error"], "score": 0.0, "pass": False,
+        "quality_score": None,
     }
 
 
@@ -405,8 +432,23 @@ def main() -> int:
                           "cpa_run": str(run), "cpa_arm": args.arm},
             )
             write_record(response_path, response)
+        common = {
+            "schema": "contract-policy-analyst.attempt/v1", "id": row["id"], "run": run,
+            "source_family": row["source_family"], "scenario_family": row["scenario_family"],
+            "task_sha256": row["task_sha256"], "reference_sha256": row["reference_sha256"],
+            "judge_sha256": judge_hash, "judge_model": JUDGE_MODEL,
+            "grader_sha256": grader_hash, "adapter_sha256": adapter_hash,
+            "runner_sha256": runner_hash,
+            "agent_version": args.version, "model": args.model, "arm": args.arm,
+        }
         if response["error"]:
-            raise ValueError(f"Recorded inference failed ({row['id']}, run {run}); not rerun.")
+            record = inference_failure_record(common, response)
+            write_record(final_path, record)
+            print(json.dumps({
+                "id": row["id"], "run": run, "inference_error": response["error"],
+                "operational_score": 0.0, "quality_score": None, "not_rerun": True,
+            }), flush=True)
+            return record
         doc = captures.get(start["attempt_id"])
         verify_capture(
             doc, response, row["task_sha256"], start["attempt_id"], args.model,
@@ -449,13 +491,7 @@ def main() -> int:
             refs = set()
         grounded = grounded_citation_count(refs, adapted)
         record = {
-            "schema": "contract-policy-analyst.attempt/v1", "id": row["id"], "run": run,
-            "source_family": row["source_family"], "scenario_family": row["scenario_family"],
-            "task_sha256": row["task_sha256"], "reference_sha256": row["reference_sha256"],
-            "judge_sha256": judge_hash, "judge_model": JUDGE_MODEL,
-            "grader_sha256": grader_hash, "adapter_sha256": adapter_hash,
-            "runner_sha256": runner_hash,
-            "agent_version": args.version, "model": args.model, "arm": args.arm,
+            **common,
             "response_id": response["response_id"], "latency_ms": response["latency_ms"],
             "usage": response["usage"], "output_text": response["output_text"],
             "cost": inference_cost(args.model, response["usage"]),
@@ -490,7 +526,12 @@ def main() -> int:
                         f"Batch blocked; all launched response artifacts preserved: {errors[0]}"
                     ) from errors[0]
         report = summary(records, len(work))
-        write_record(args.out / "summary.json", report)
+        summary_path = args.out / "summary.json"
+        if summary_path.exists():
+            if read_record(summary_path) != report:
+                raise ValueError("Existing summary differs; preserve it and use a new revision.")
+        else:
+            write_record(summary_path, report)
         print(json.dumps(report, indent=2))
     finally:
         captures.close()

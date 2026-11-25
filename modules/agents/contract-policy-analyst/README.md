@@ -124,6 +124,13 @@ changed judge inputs and partial summaries. Case IDs are hashed for filenames
 because their colons would create alternate data streams on Windows. Canary
 reparsing uses `scripts/corpus_canaries.py --offline-from`; live retries require
 `--allow-live` and a separate output directory.
+Recorded inference failures count as operational zero without fabricated judge
+scores or capture evidence; the batch continues only unissued trials. Reports
+separately identify inference failures and quality conditional on scored responses.
+Unknown usage remains unknown, and unverified captures cannot imply complete
+retrieval coverage. When the runner changes, preserve the original manifest and
+grades: a new revision may reuse exact saved responses and hash-bound judge
+requests, never substitute fresh inference for a failed or uncertain attempt.
 
 RFT preflight rejects explicit batch sizes outside 1-256; omit the field for
 automatic selection rather than sending `-1`. Before the substantive MAI-2
