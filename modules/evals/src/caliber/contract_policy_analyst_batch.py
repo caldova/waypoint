@@ -29,6 +29,17 @@ JUDGE_MODEL = "gpt-6-astra"
 JUDGE_RETRY_HTTP_STATUSES = {429, 500, 502, 503, 504}
 JUDGE_CONNECTION_ATTEMPTS = 5
 CAPTURE_PREFIX = "contract-policy-analyst/"
+# The single frozen quality grader for every live comparison arm after the v1 approval-flag
+# defect. Changing it requires a new constant, new outputs and a full regrade of all arms.
+FROZEN_GRADER_FILE = "contract_policy_analyst_grader_v2.py"
+FROZEN_GRADER_VERSION = "contract-policy-analyst-grader-v2"
+FROZEN_GRADER_SHA256 = "64e8ad9af6617bd79cca2e8d83b03f9394e590494a7c0f3a51f796da1e8f7d7d"
+FROZEN_GRADER_BASE_FILE = "contract_policy_analyst_grader.py"
+FROZEN_GRADER_BASE_SHA256 = "267d5f6c7cebe3baaf8b243d97ea6bc4a8befbdb95b9ee85a3a07f8bc5bf6f62"
+COMPARISON_ANCHOR = (
+    "modules/agents/contract-policy-analyst/runs/baseline-offline-regrade-v2/report.json"
+)
+COMPARISON_ANCHOR_SHA256 = "48b368b431b235a64c9e2d4a47c59f33025df6c8a92bf2e92b55104f2d7faf1a"
 
 
 def write_record(path: Path, value: Any) -> None:
@@ -53,6 +64,31 @@ def load_module(path: Path):
     sys.modules[path.stem] = module
     spec.loader.exec_module(module)
     return module
+
+
+def load_frozen_grader(grader_dir: Path):
+    """Load the pinned v2 grader; any source drift fails before a billable call."""
+    for name, pinned in (
+        (FROZEN_GRADER_FILE, FROZEN_GRADER_SHA256),
+        (FROZEN_GRADER_BASE_FILE, FROZEN_GRADER_BASE_SHA256),
+    ):
+        if hashlib.sha256((grader_dir / name).read_bytes()).hexdigest() != pinned:
+            raise ValueError(f"Frozen grader source changed: {name}; create a new revision.")
+    grader = load_module(grader_dir / FROZEN_GRADER_FILE)
+    if grader.VERSION != FROZEN_GRADER_VERSION:
+        raise ValueError("Frozen grader version mismatch.")
+    return grader
+
+
+def require_single_grader(records: list[dict[str, Any]]) -> str:
+    """Refuse comparisons that mix grader revisions or use a non-frozen grader."""
+    hashes = {row.get("grader_sha256") for row in records}
+    if hashes != {FROZEN_GRADER_SHA256}:
+        raise ValueError(
+            f"Comparison requires only frozen grader {FROZEN_GRADER_VERSION}; "
+            f"got {sorted(map(str, hashes))}.",
+        )
+    return FROZEN_GRADER_SHA256
 
 
 def verify_capture(doc: dict[str, Any], response: dict[str, Any], task_hash: str,
@@ -437,6 +473,7 @@ def summary(records: list[dict[str, Any]], expected: int,
         return {"responses": 0, "expected_responses": expected, "status": "pending"}
     if len(records) != expected:
         return {"responses": len(records), "expected_responses": expected, "status": "incomplete"}
+    require_single_grader(records)
     calls = [call for row in records for call in row["retrieval_calls"]]
     latencies = sorted(row["latency_ms"] for row in records)
     known_costs = [row["cost"]["usd"] for row in records]
@@ -445,7 +482,9 @@ def summary(records: list[dict[str, Any]], expected: int,
     scored = [row for row in records if row["dimensions"]]
     audited = sum(bool(row.get("capture_sha256")) for row in records)
     return {
-        "status": "completed", "unique_cases": len({row["id"] for row in records}),
+        "status": "completed", "grader_version": FROZEN_GRADER_VERSION,
+        "grader_sha256": FROZEN_GRADER_SHA256, "comparison_anchor": COMPARISON_ANCHOR,
+        "unique_cases": len({row["id"] for row in records}),
         "source_families": len({row["source_family"] for row in records}),
         "runs": len({row["run"] for row in records}), "responses": len(records),
         "inference_failures": sum(row.get("inference_error") is not None for row in records),
@@ -627,16 +666,14 @@ def main() -> int:
     if args.pilot_limit:
         rows = rows[:args.pilot_limit]
     grader_dir = args.repo / "modules" / "evals" / "graders" / "contract-policy-analyst"
-    grader = load_module(grader_dir / "contract_policy_analyst_grader.py")
+    grader = load_frozen_grader(grader_dir)
     adapter = load_module(grader_dir / "contract_policy_analyst_transcript.py")
     rubric_bytes = (grader_dir / "quality-rubric.json").read_bytes()
     rubric = json.loads(rubric_bytes)
     prompt = judge_prompt(rubric)
     judge_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
     rubric_hash = hashlib.sha256(rubric_bytes).hexdigest()
-    grader_hash = hashlib.sha256(
-        (grader_dir / "contract_policy_analyst_grader.py").read_bytes(),
-    ).hexdigest()
+    grader_hash = FROZEN_GRADER_SHA256
     adapter_hash = hashlib.sha256(
         (grader_dir / "contract_policy_analyst_transcript.py").read_bytes(),
     ).hexdigest()
@@ -647,8 +684,10 @@ def main() -> int:
         "agent_version": args.version, "model": args.model, "split": args.split,
         "rows": len(rows), "repeats": args.repeats, "judge_model": JUDGE_MODEL,
         "judge_sha256": judge_hash, "rubric_sha256": rubric_hash,
-        "grader_sha256": grader_hash, "adapter_sha256": adapter_hash,
-        "runner_sha256": runner_hash,
+        "grader_sha256": grader_hash, "grader_version": FROZEN_GRADER_VERSION,
+        "grader_base_sha256": FROZEN_GRADER_BASE_SHA256,
+        "comparison_anchor": {"path": COMPARISON_ANCHOR, "sha256": COMPARISON_ANCHOR_SHA256},
+        "adapter_sha256": adapter_hash, "runner_sha256": runner_hash,
         "instructions_sha256": args.instructions_sha256,
         "tools_sha256": args.tools_sha256,
         "tasks": {row["id"]: row["task_sha256"] for row in rows},
@@ -786,8 +825,8 @@ def main() -> int:
         validate_judge(genuine, dimensions)
         bound = {
             **genuine, "judge_model": JUDGE_MODEL, "rubric_sha256": rubric_hash,
-            "output_sha256": grader.output_sha256(response["output_text"]),
-            "retrieval_sha256": grader.retrieval_sha256(adapted["tool_messages"]),
+            "output_sha256": grader._base.output_sha256(response["output_text"]),
+            "retrieval_sha256": grader._base.retrieval_sha256(adapted["tool_messages"]),
         }
         quality = grader.evaluate(response["output_text"], {
             "reference": row["reference"], "tool_messages": adapted["tool_messages"],

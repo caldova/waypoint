@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from caliber.contract_policy_analyst_batch import (
+    FROZEN_GRADER_SHA256,
     cited_refs,
     inference_failure_record,
     record_key,
@@ -81,6 +82,66 @@ def test_partial_batch_does_not_publish_complete_quality_numbers():
     }
 
 
+GRADERS = Path(__file__).resolve().parents[1] / "graders" / "contract-policy-analyst"
+V1_SHA256 = "267d5f6c7cebe3baaf8b243d97ea6bc4a8befbdb95b9ee85a3a07f8bc5bf6f62"
+V2_SHA256 = "64e8ad9af6617bd79cca2e8d83b03f9394e590494a7c0f3a51f796da1e8f7d7d"
+
+
+def test_live_runner_is_pinned_to_grader_v2():
+    import caliber.contract_policy_analyst_batch as batch
+
+    assert batch.FROZEN_GRADER_FILE == "contract_policy_analyst_grader_v2.py"
+    assert batch.FROZEN_GRADER_SHA256 == V2_SHA256
+    assert batch.FROZEN_GRADER_BASE_SHA256 == V1_SHA256
+    for name, pinned in (
+        ("contract_policy_analyst_grader_v2.py", V2_SHA256),
+        ("contract_policy_analyst_grader.py", V1_SHA256),
+    ):
+        assert hashlib.sha256((GRADERS / name).read_bytes()).hexdigest() == pinned
+    grader = batch.load_frozen_grader(GRADERS)
+    assert grader.VERSION == "contract-policy-analyst-grader-v2"
+    assert {"false_approval", "missed_approval"} <= grader.CAPS.keys()
+    anchor = Path(__file__).resolve().parents[3] / batch.COMPARISON_ANCHOR
+    assert hashlib.sha256(anchor.read_bytes()).hexdigest() == batch.COMPARISON_ANCHOR_SHA256
+    assert json.loads(anchor.read_text(encoding="utf-8"))["grader_v2_sha256"] == V2_SHA256
+
+
+def test_frozen_grader_refuses_drift(tmp_path):
+    import caliber.contract_policy_analyst_batch as batch
+
+    for name in ("contract_policy_analyst_grader_v2.py", "contract_policy_analyst_grader.py"):
+        (tmp_path / name).write_bytes((GRADERS / name).read_bytes())
+    (tmp_path / "contract_policy_analyst_grader_v2.py").write_bytes(
+        (GRADERS / "contract_policy_analyst_grader_v2.py").read_bytes() + b"\n",
+    )
+    with pytest.raises(ValueError, match="Frozen grader source changed"):
+        batch.load_frozen_grader(tmp_path)
+
+
+def test_comparisons_never_mix_grader_revisions():
+    import caliber.contract_policy_analyst_batch as batch
+
+    v2 = {"grader_sha256": V2_SHA256}
+    assert batch.require_single_grader([v2, v2]) == V2_SHA256
+    for records in ([v2, {"grader_sha256": V1_SHA256}], [{"grader_sha256": V1_SHA256}], [{}]):
+        with pytest.raises(ValueError, match="frozen grader"):
+            batch.require_single_grader(records)
+        with pytest.raises(ValueError, match="frozen grader"):
+            summary(records, len(records))
+
+
+def test_code_rft_reward_caps_match_frozen_quality_grader():
+    import caliber.contract_policy_analyst_batch as batch
+
+    grader = batch.load_frozen_grader(GRADERS)
+    reward = batch.load_module(GRADERS / "contract_policy_analyst_rft_reward_v1.py")
+    shared = reward.CAPS.keys() & grader.CAPS.keys()
+    assert {"false_approval", "wrong_support", "directive", "unsupported_fact"} <= shared
+    assert {flag: reward.CAPS[flag] for flag in shared} == {
+        flag: grader.CAPS[flag] for flag in shared
+    }
+
+
 def test_records_are_create_only_and_citations_are_unique(tmp_path):
     path = tmp_path / "record.json"
     write_record(path, {"original": True})
@@ -124,6 +185,7 @@ def test_citation_grounding_uses_verified_mappings_not_raw_snippet_list():
 def test_inference_error_is_operational_failure_not_fabricated_judge_or_free_usage():
     failed = inference_failure_record({
         "id": "failed", "run": 1, "model": "gpt-6-astra", "source_family": "family",
+        "grader_sha256": FROZEN_GRADER_SHA256,
     }, {"error": "APIConnectionError", "response_id": None, "latency_ms": 100,
         "usage": None, "output_text": ""})
     good = {
@@ -559,6 +621,7 @@ def test_exhausted_judge_connections_are_explicit_zeros_and_sixth_case_stops(
         "citation_aliases": {}, "ambiguous_aliases": [],
     })
     monkeypatch.setattr(batch, "load_module", lambda path: adapter)
+    monkeypatch.setattr(batch, "load_frozen_grader", lambda path: adapter)
     monkeypatch.setattr(batch, "hosted_call", hosted)
     monkeypatch.setattr(batch, "CaptureReader", Captures)
     monkeypatch.setattr(batch, "verify_capture", lambda *args, **kwargs: verified.append(True))

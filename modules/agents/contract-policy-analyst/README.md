@@ -154,8 +154,19 @@ v1 results and hashes intact. The separate `contract_policy_analyst_grader_v2.py
 pins v1 and adds explicit caps of 0.20 and 0.35 respectively; it does not
 relax any existing cap. Retrospective v2 regrades reuse the exact recorded
 responses, verified captures and bound judge results, and are not prospective
-or human-calibrated. The batch runner still selects v1; before another live
-comparison, explicitly adopt and freeze one corrected grader for every arm.
+or human-calibrated.
+
+**Frozen grader (adopted 2026-11-25).** Grader v2 (SHA256
+`64e8ad9a…7d7d`, pinning v1 base `267d5f6c…6f62`) is the single quality grader
+for every future live run: optimizer/candidate evals, checkpoint selection,
+the post-RFT eval and the sealed final test. The batch runner loads only that
+hash-pinned file, records grader version/hashes in each manifest, and refuses
+summaries mixing grader revisions. The comparison anchor is the v2 regrade in
+`runs\baseline-offline-regrade-v2\report.json`; never compare v1 numbers with
+v2 numbers. The RFT trainer reward cannot call the judge, so it remains the
+deterministic code-only surrogate `contract_policy_analyst_rft_reward_v1.py`;
+a test keeps its shared caps (including `false_approval` 0.20) equal to v2.
+Reported quality for tuned checkpoints always comes from v2, not the reward.
 
 RFT preflight rejects explicit batch sizes outside 1-256; omit the field for
 automatic selection rather than sending `-1`. Before the substantive MAI-2
