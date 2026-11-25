@@ -139,6 +139,11 @@ def judge_prompt(rubric: dict[str, Any]) -> str:
         "A supported approval finding is evidence, not permission to approve or pay an invoice. "
         "Penalize fabricated gaps, claimed actions, unsupported approval, wrong entities and "
         "citations absent from actual retrieval. An empty retrieval list means no retrieval. "
+        "Decode reference.expected_output_json when it is a JSON string. Compare the response "
+        "identity, classification and each required evidence support direction against it, "
+        "alongside allowed_claims and required_gaps. Unknown is not equivalent to review, "
+        "approve or recover. Fluent explanations do not excuse a wrong support direction. "
+        "Do not reward lexical overlap with recommended actions or inferred workflow decisions. "
         "Return JSON with dimensions (exactly the six rubric IDs, each with id, integer score "
         "1-5 and a nonempty reason) and critical_flags (string list, empty if none). "
         "Use false_approval for an unsupported approval finding and missed_approval for "
@@ -275,6 +280,20 @@ def cited_refs(value: Any) -> set[str]:
     return result
 
 
+def grounded_citation_count(refs: set[str], adapted: dict[str, Any]) -> int:
+    mappings = {
+        mapping["source_ref"] for mapping in adapted["mappings"]
+        if mapping.get("coverage_mode") == "full_substantive_body"
+        and mapping.get("observed_origins")
+    }
+    aliases = adapted["citation_aliases"]
+    ambiguous = set(adapted["ambiguous_aliases"])
+    return sum(
+        ref not in ambiguous and aliases.get(ref, ref) in mappings
+        for ref in refs
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", type=Path, required=True)
@@ -319,6 +338,7 @@ def main() -> int:
     adapter_hash = hashlib.sha256(
         (grader_dir / "contract_policy_analyst_transcript.py").read_bytes(),
     ).hexdigest()
+    runner_hash = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     dimensions = {dimension["id"] for dimension in rubric["dimensions"]}
     manifest = {
         "schema": "contract-policy-analyst.batch/v1", "arm": args.arm,
@@ -326,6 +346,7 @@ def main() -> int:
         "rows": len(rows), "repeats": args.repeats, "judge_model": JUDGE_MODEL,
         "judge_sha256": judge_hash, "rubric_sha256": rubric_hash,
         "grader_sha256": grader_hash, "adapter_sha256": adapter_hash,
+        "runner_sha256": runner_hash,
         "tasks": {row["id"]: row["task_sha256"] for row in rows},
         "references": {row["id"]: row["reference_sha256"] for row in rows},
         "record_file_keys": {row["id"]: record_key(row["id"], 1) for row in rows},
@@ -347,6 +368,7 @@ def main() -> int:
             if (
                 saved.get("grader_sha256") != grader_hash
                 or saved.get("adapter_sha256") != adapter_hash
+                or saved.get("runner_sha256") != runner_hash
             ):
                 raise ValueError("Grader/parser changed; preserve results and use a new revision.")
             return saved
@@ -397,23 +419,23 @@ def main() -> int:
         quality = grader.evaluate(response["output_text"], {
             "reference": row["reference"], "tool_messages": adapted["tool_messages"],
             "rubric_sha256": rubric_hash, "judge_result": bound,
+            "audit_adapter": {
+                key: value for key, value in adapted.items()
+                if key not in {"tool_messages", "raw_tool_messages", "reference_snippets"}
+            },
         })
         try:
             refs = cited_refs(json.loads(response["output_text"]))
         except json.JSONDecodeError:
             refs = set()
-        snippets = adapted["reference_snippets"]
-        aliases = adapted["citation_aliases"]
-        grounded = sum(
-            ref in snippets or isinstance(aliases.get(ref), str) and aliases[ref] in snippets
-            for ref in refs
-        )
+        grounded = grounded_citation_count(refs, adapted)
         record = {
             "schema": "contract-policy-analyst.attempt/v1", "id": row["id"], "run": run,
             "source_family": row["source_family"], "scenario_family": row["scenario_family"],
             "task_sha256": row["task_sha256"], "reference_sha256": row["reference_sha256"],
             "judge_sha256": judge_hash, "judge_model": JUDGE_MODEL,
             "grader_sha256": grader_hash, "adapter_sha256": adapter_hash,
+            "runner_sha256": runner_hash,
             "agent_version": args.version, "model": args.model, "arm": args.arm,
             "response_id": response["response_id"], "latency_ms": response["latency_ms"],
             "usage": response["usage"], "output_text": response["output_text"],

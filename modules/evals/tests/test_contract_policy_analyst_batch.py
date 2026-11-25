@@ -82,3 +82,24 @@ def test_case_namespace_cannot_become_windows_alternate_data_stream(tmp_path):
     path = tmp_path / f"{key}.graded.json"
     write_record(path, {"id": "cpa-expanded:CPA1-F001-L001"})
     assert list(tmp_path.glob("*.graded.json")) == [path]
+
+
+def test_citation_grounding_uses_verified_mappings_not_raw_snippet_list():
+    from caliber.contract_policy_analyst_batch import grounded_citation_count
+
+    adapted = {
+        "reference_snippets": [{"document_path": "contract.md", "snippet": "returned text"}],
+        "mappings": [
+            {"source_ref": "contract.md#clause", "coverage_mode": "full_substantive_body",
+             "observed_origins": [{"ref_id": "0"}]},
+            {"source_ref": "missing.md#clause", "coverage_mode": "full_substantive_body",
+             "observed_origins": []},
+        ],
+        "citation_aliases": {"https://example.test/contract.md": "contract.md#clause"},
+        "ambiguous_aliases": ["ambiguous.md"],
+    }
+    assert grounded_citation_count(
+        {"contract.md#clause", "https://example.test/contract.md",
+         "missing.md#clause", "ambiguous.md", "invented.md"},
+        adapted,
+    ) == 2
