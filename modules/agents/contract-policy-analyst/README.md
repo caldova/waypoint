@@ -116,7 +116,7 @@ The connection credential stays process-local; it is not copied into azd,
 source files or evidence. Existing explicit exporter settings take precedence.
 Discovery failures produce a warning, not a fabricated tracing-success result.
 
-All study arms pin the validated Castia 0.19.0 release. Its operator-only
+Historical v8 study runs pin Castia 0.19.0; new versions pin 0.20.0. Its operator-only
 `CASTIA_TOOL_CAPTURE=blob` mode writes create-only `castia.tool_capture/v1`
 documents containing full tool arguments/results, response/call/trace IDs,
 release provenance, timing and canonical hashes. Client metadata cannot enable
@@ -143,6 +143,17 @@ does not demonstrate faithful retrieval or tool-use learning from RFT.
 Batch invocations require `--instructions-sha256` and `--tools-sha256` from the
 verified effective deployment configuration. Every native capture must match
 these frozen hashes; a nonempty hash or successful reply alone is insufficient.
+
+Judge-only recovery permits one retry of an issued request that resets mid-read
+with no HTTP status or result body. Preserve the failed receipt with billing
+unknown, wait at least 10 seconds, and reuse the exact saved response and context.
+Count the retry against the shared ten-retry per-arm budget; never rerun the
+agent or select the best of multiple judge results. An unsuccessful retry is an
+operational zero with quality unknown. The frozen v8 runner remains unchanged:
+`runs/capacity_rejudge.py --read-reset-case <case/run key>` performs the approved
+recovery, stores an immutable recovery ledger and reserves the shared budget.
+HTTP 500/502/503/504/429 retries and proven-unissued connection retries retain
+their existing limits.
 
 The first training-only integration pilot exposed two measurement defects:
 native capture success fields differed from the transcript adapter, and shared
