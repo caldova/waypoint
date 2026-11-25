@@ -1,0 +1,274 @@
+{
+  "schema": "contract-policy-analyst.offline-regrade/v3",
+  "status": "completed",
+  "arms": [
+    {
+      "arm": "baseline-astra",
+      "total": 600,
+      "scored_trials": 582,
+      "v2_operational_mean": 0.28491666666666665,
+      "v3_combined_operational_mean": 0.45422916666666663,
+      "v3_code_only_operational_mean": 0.8033333333333333,
+      "v3_combined_judged_mean": 0.46827749140893465,
+      "v3_code_only_judged_mean": 0.8281786941580757,
+      "reward_v2_judged_mean": 0.8281786941580757,
+      "pass_count_v2": 0,
+      "pass_count_v3_combined": 99,
+      "pass_count_v3_code_only": 441,
+      "v3_code_flag_counts": {
+        "semantic_unverified": 582,
+        "wrong_citation": 21,
+        "wrong_support": 139,
+        "false_approval": 49
+      },
+      "v3_combined_flag_counts": {
+        "wrong_support": 407,
+        "wrong_citation": 21,
+        "false_gap": 90,
+        "missed_gap": 90,
+        "false_approval": 59,
+        "missed_approval": 60,
+        "unsupported_fact": 1
+      },
+      "reward_v2_flag_counts": {
+        "wrong_citation": 21,
+        "wrong_support": 139,
+        "false_approval": 49
+      },
+      "false_approval_trials_v2": 0,
+      "false_approval_trials_v3": 59,
+      "classification_mismatch_trials": 582,
+      "per_category": {
+        "recover": {
+          "n": 199,
+          "code_only": 0.7666,
+          "combined": 0.5192,
+          "pass": 43,
+          "false_approval": 6
+        },
+        "missing_condition": {
+          "n": 97,
+          "code_only": 0.9062,
+          "combined": 0.6872,
+          "pass": 53,
+          "false_approval": 1
+        },
+        "ambiguous": {
+          "n": 40,
+          "code_only": 0.9675,
+          "combined": 0.4806,
+          "pass": 2,
+          "false_approval": 1
+        },
+        "approve": {
+          "n": 149,
+          "code_only": 0.9735,
+          "combined": 0.3808,
+          "pass": 1,
+          "false_approval": 2
+        },
+        "wrong_entity": {
+          "n": 48,
+          "code_only": 1.0,
+          "combined": 0.35,
+          "pass": 0,
+          "false_approval": 0
+        },
+        "escalate": {
+          "n": 49,
+          "code_only": 0.2,
+          "combined": 0.2,
+          "pass": 0,
+          "false_approval": 49
+        }
+      },
+      "saved_source_summary_sha256": "7e0a93edcecbab5ef5c03e173a7a289ebfe2fcc1216946974e8ec35e0561c4f1"
+    },
+    {
+      "arm": "baseline-astra62",
+      "total": 600,
+      "scored_trials": 577,
+      "v2_operational_mean": 0.3228333333333333,
+      "v3_combined_operational_mean": 0.41791666666666666,
+      "v3_code_only_operational_mean": 0.8261666666666666,
+      "v3_combined_judged_mean": 0.43457538994800693,
+      "v3_code_only_judged_mean": 0.8590987868284229,
+      "reward_v2_judged_mean": 0.8590987868284229,
+      "pass_count_v2": 0,
+      "pass_count_v3_combined": 107,
+      "pass_count_v3_code_only": 463,
+      "v3_code_flag_counts": {
+        "semantic_unverified": 577,
+        "wrong_support": 114,
+        "false_approval": 46,
+        "wrong_citation": 6
+      },
+      "v3_combined_flag_counts": {
+        "wrong_support": 464,
+        "false_approval": 60,
+        "false_gap": 81,
+        "missed_approval": 61,
+        "missed_gap": 84,
+        "wrong_citation": 6,
+        "unsupported_fact": 5
+      },
+      "reward_v2_flag_counts": {
+        "wrong_support": 114,
+        "false_approval": 46,
+        "wrong_citation": 6
+      },
+      "false_approval_trials_v2": 0,
+      "false_approval_trials_v3": 60,
+      "classification_mismatch_trials": 577,
+      "per_category": {
+        "recover": {
+          "n": 198,
+          "code_only": 0.8227,
+          "combined": 0.5499,
+          "pass": 71,
+          "false_approval": 1
+        },
+        "missing_condition": {
+          "n": 95,
+          "code_only": 0.9558,
+          "combined": 0.4991,
+          "pass": 31,
+          "false_approval": 9
+        },
+        "ambiguous": {
+          "n": 39,
+          "code_only": 0.9333,
+          "combined": 0.3478,
+          "pass": 1,
+          "false_approval": 4
+        },
+        "approve": {
+          "n": 150,
+          "code_only": 0.9827,
+          "combined": 0.3637,
+          "pass": 4,
+          "false_approval": 0
+        },
+        "wrong_entity": {
+          "n": 49,
+          "code_only": 1.0,
+          "combined": 0.35,
+          "pass": 0,
+          "false_approval": 0
+        },
+        "escalate": {
+          "n": 46,
+          "code_only": 0.2,
+          "combined": 0.2,
+          "pass": 0,
+          "false_approval": 46
+        }
+      },
+      "saved_source_summary_sha256": "f6b1a0d253ae8b20be92509390074e07b11f72d39bd1ea689d88fa0b66a68320"
+    }
+  ],
+  "grader_v1_sha256": "267d5f6c7cebe3baaf8b243d97ea6bc4a8befbdb95b9ee85a3a07f8bc5bf6f62",
+  "grader_v3_sha256": "7c9ce4b3016e3164aee6316dae51d322d5bbc82862f74939071a485c1f29e755",
+  "reward_v2_sha256": "127729d090d126bb984b6fa9aec511a59cfd68244988a18044bf6abecb5fc5a7",
+  "references_v3_manifest_sha256": "96937005da84cee6143edaa944cd6acd053e6413e549cad95ecac91726007da7",
+  "script_sha256": "568d77a12cb480d54605b47b585b93760f86e8985dd9c331c780fe99e8fcc5fd",
+  "saved_judge_rubric_sha256": "725c17970c61944413c1a19315f7ffe246b6e0640d0a78d2ee412f742e60768a",
+  "saved_judge_prompt_sha256": "e23fae7055dd5fb8d4af0197e626834577e9254d31366991c414525eba8f2ba5",
+  "paired_combined_operational": {
+    "unique_cases": 120,
+    "source_families": 10,
+    "attempts_per_arm": 600,
+    "runs_per_case": [
+      5
+    ],
+    "mean_difference": -0.0363125,
+    "ci95_case_bootstrap": [
+      -0.0644375,
+      -0.008479166666666666
+    ],
+    "ci95_family_bootstrap": [
+      -0.04610416666666666,
+      -0.0254375
+    ],
+    "paired_sign_flip_p": 0.013898610138986101,
+    "uncertainty_unit": "case means; source-family cluster CI also reported"
+  },
+  "paired_combined_joint_judged": {
+    "unique_cases": 120,
+    "source_families": 10,
+    "attempts_per_arm": 559,
+    "runs_per_case": [
+      3,
+      4,
+      5
+    ],
+    "mean_difference": -0.03628993055555555,
+    "ci95_case_bootstrap": [
+      -0.06370659722222222,
+      -0.009989583333333333
+    ],
+    "ci95_family_bootstrap": [
+      -0.053348958333333335,
+      -0.020828124999999996
+    ],
+    "paired_sign_flip_p": 0.007699230076992301,
+    "uncertainty_unit": "case means; source-family cluster CI also reported"
+  },
+  "paired_code_only_operational": {
+    "unique_cases": 120,
+    "source_families": 10,
+    "attempts_per_arm": 600,
+    "runs_per_case": [
+      5
+    ],
+    "mean_difference": 0.02283333333333333,
+    "ci95_case_bootstrap": [
+      -0.0023333333333333344,
+      0.04883333333333333
+    ],
+    "ci95_family_bootstrap": [
+      0.007416666666666667,
+      0.03841666666666666
+    ],
+    "paired_sign_flip_p": 0.08739126087391261,
+    "uncertainty_unit": "case means; source-family cluster CI also reported"
+  },
+  "paired_code_only_joint_judged": {
+    "unique_cases": 120,
+    "source_families": 10,
+    "attempts_per_arm": 559,
+    "runs_per_case": [
+      3,
+      4,
+      5
+    ],
+    "mean_difference": 0.0225,
+    "ci95_case_bootstrap": [
+      0.005333333333333332,
+      0.040749999999999995
+    ],
+    "ci95_family_bootstrap": [
+      0.005958333333333332,
+      0.03879166666666667
+    ],
+    "paired_sign_flip_p": 0.012098790120987902,
+    "uncertainty_unit": "case means; source-family cluster CI also reported"
+  },
+  "joint_judged_trials": 559,
+  "limitations": [
+    "Retrospective regrade: saved judge outputs were produced under the v1 rubric and v1 references, so the combined score keeps v1-conditioned judge flags (not filtered). Only the code-only layer is fully v3.",
+    "A v3-rubric re-judge of both arms is required for a fully v3 combined score.",
+    "Synthetic labels pending human review; optimizer-validation only.",
+    "Family-cluster CI uses 10 families; repeated trials are not independent cases.",
+    "No new model calls; missing inference outcomes remain operational zero.",
+    "Directive, claimed-action and claim-level approval screens are lexical backstops, not semantic guarantees; supports labels remain the primary approval signal."
+  ],
+  "v3_changes": [
+    "Citations of a source quoted only as an excerpt in a hash-verified, successful castia.tool_capture/v1 passage (explicit Source ref line, blob path match, >=12 verbatim body words) are credited instead of flagged wrong_citation.",
+    "Numeric grounding uses model-visible messages, verified successful retrieval text and evidence-derived amount readings; hidden free-text reference fields never ground.",
+    "Fixed-fee references with zero accepted items now read USD 0.00 (category recover); tier-ambiguous cases remain ambiguous.",
+    "Duplicate cap fires only on exact normalized duplicate claims.",
+    "Modal obligations attributed to a source within the same clause are not directives.",
+    "Sensitivity-classification mismatches are recorded, not capped as wrong_citation."
+  ]
+}

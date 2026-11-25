@@ -29,17 +29,23 @@ JUDGE_MODEL = "gpt-6-astra"
 JUDGE_RETRY_HTTP_STATUSES = {429, 500, 502, 503, 504}
 JUDGE_CONNECTION_ATTEMPTS = 5
 CAPTURE_PREFIX = "contract-policy-analyst/"
-# The single frozen quality grader for every live comparison arm after the v1 approval-flag
-# defect. Changing it requires a new constant, new outputs and a full regrade of all arms.
-FROZEN_GRADER_FILE = "contract_policy_analyst_grader_v2.py"
-FROZEN_GRADER_VERSION = "contract-policy-analyst-grader-v2"
-FROZEN_GRADER_SHA256 = "64e8ad9af6617bd79cca2e8d83b03f9394e590494a7c0f3a51f796da1e8f7d7d"
+# The single frozen quality grader for every live comparison arm. v3 supersedes v2 after the
+# hand audit; changing it requires a new constant, new outputs and a full regrade of all arms.
+FROZEN_GRADER_FILE = "contract_policy_analyst_grader_v3.py"
+FROZEN_GRADER_VERSION = "contract-policy-analyst-grader-v3"
+FROZEN_GRADER_SHA256 = "7c9ce4b3016e3164aee6316dae51d322d5bbc82862f74939071a485c1f29e755"
 FROZEN_GRADER_BASE_FILE = "contract_policy_analyst_grader.py"
 FROZEN_GRADER_BASE_SHA256 = "267d5f6c7cebe3baaf8b243d97ea6bc4a8befbdb95b9ee85a3a07f8bc5bf6f62"
+# Grader v3 reuses the RFT reward's boundary, approval, duplicate and excerpt helpers.
+FROZEN_REWARD_FILE = "contract_policy_analyst_rft_reward_v2.py"
+FROZEN_REWARD_SHA256 = "127729d090d126bb984b6fa9aec511a59cfd68244988a18044bf6abecb5fc5a7"
+FROZEN_RUBRIC_FILE = "quality-rubric-v3.json"
+FROZEN_RUBRIC_SHA256 = "26faa1b9e20c8be10090fb91775c01e884fbc6141d7c2d861a87cfbb3d6b45d1"
+FROZEN_REFERENCE_VERSION = "v3"
 COMPARISON_ANCHOR = (
-    "modules/agents/contract-policy-analyst/runs/baseline-offline-regrade-v2/report.json"
+    "modules/agents/contract-policy-analyst/runs/baseline-offline-regrade-v3/report.json"
 )
-COMPARISON_ANCHOR_SHA256 = "48b368b431b235a64c9e2d4a47c59f33025df6c8a92bf2e92b55104f2d7faf1a"
+COMPARISON_ANCHOR_SHA256 = "96f2a57775f2dd19dba4310536c01e74163f2d30f7cc442bc78dd7268d74c6c2"
 
 
 def write_record(path: Path, value: Any) -> None:
@@ -67,10 +73,12 @@ def load_module(path: Path):
 
 
 def load_frozen_grader(grader_dir: Path):
-    """Load the pinned v2 grader; any source drift fails before a billable call."""
+    """Load the pinned grader and its dependencies; drift fails before a billable call."""
     for name, pinned in (
         (FROZEN_GRADER_FILE, FROZEN_GRADER_SHA256),
         (FROZEN_GRADER_BASE_FILE, FROZEN_GRADER_BASE_SHA256),
+        (FROZEN_REWARD_FILE, FROZEN_REWARD_SHA256),
+        (FROZEN_RUBRIC_FILE, FROZEN_RUBRIC_SHA256),
     ):
         if hashlib.sha256((grader_dir / name).read_bytes()).hexdigest() != pinned:
             raise ValueError(f"Frozen grader source changed: {name}; create a new revision.")
@@ -662,13 +670,15 @@ def main() -> int:
                 else "\\\\?\\" + output_path
             )
         args.out = Path(output_path)
-    rows = load_study_split(repo=args.repo, split=args.split)
+    rows = load_study_split(
+        repo=args.repo, split=args.split, reference_version=FROZEN_REFERENCE_VERSION,
+    )
     if args.pilot_limit:
         rows = rows[:args.pilot_limit]
     grader_dir = args.repo / "modules" / "evals" / "graders" / "contract-policy-analyst"
     grader = load_frozen_grader(grader_dir)
     adapter = load_module(grader_dir / "contract_policy_analyst_transcript.py")
-    rubric_bytes = (grader_dir / "quality-rubric.json").read_bytes()
+    rubric_bytes = (grader_dir / FROZEN_RUBRIC_FILE).read_bytes()
     rubric = json.loads(rubric_bytes)
     prompt = judge_prompt(rubric)
     judge_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
@@ -686,6 +696,7 @@ def main() -> int:
         "judge_sha256": judge_hash, "rubric_sha256": rubric_hash,
         "grader_sha256": grader_hash, "grader_version": FROZEN_GRADER_VERSION,
         "grader_base_sha256": FROZEN_GRADER_BASE_SHA256,
+        "reward_sha256": FROZEN_REWARD_SHA256, "reference_version": FROZEN_REFERENCE_VERSION,
         "comparison_anchor": {"path": COMPARISON_ANCHOR, "sha256": COMPARISON_ANCHOR_SHA256},
         "adapter_sha256": adapter_hash, "runner_sha256": runner_hash,
         "instructions_sha256": args.instructions_sha256,

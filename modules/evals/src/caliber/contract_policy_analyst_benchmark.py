@@ -1841,10 +1841,16 @@ def _verify_final_test_v2(repo: Path) -> Path:
     return root
 
 
-def load_study_split(*, repo: Path, split: str) -> list[dict[str, Any]]:
+def load_study_split(
+    *, repo: Path, split: str, reference_version: str = "v1",
+) -> list[dict[str, Any]]:
     """Parent-facing read-only API; references never become part of model task text."""
     if split not in (*STUDY_SPLITS, "final-test-v2"):
         raise ValueError(f"unknown study split: {split}")
+    if reference_version not in {"v1", "v3"}:
+        raise ValueError(f"unknown reference version: {reference_version}")
+    if reference_version == "v3" and split == "final-test-v2":
+        raise ValueError("final-test-v2 v3 references are derived only at the sanctioned unseal")
     root = (
         _verify_final_test_v2(repo) if split == "final-test-v2"
         else repo.resolve() / "modules" / "evals" / "datasets" / AGENT / "expanded-v1"
@@ -1854,6 +1860,17 @@ def load_study_split(*, repo: Path, split: str) -> list[dict[str, Any]]:
     for path in paths:
         if _sha((root / path).read_bytes()) != report["artifact_sha256"][path]:
             raise ValueError(f"sealed study artifact drift: {path}")
+    if reference_version == "v3":
+        manifest = json.loads(
+            (root / "references-v3" / "manifest.json").read_text(encoding="utf-8"),
+        )
+        v3_path = f"references-v3/{split}.jsonl"
+        if (
+            manifest["sources"].get(paths[1]) != report["artifact_sha256"][paths[1]]
+            or _sha((root / v3_path).read_bytes()) != manifest["artifact_sha256"][v3_path]
+        ):
+            raise ValueError(f"v3 reference drift: {v3_path}")
+        paths[1] = v3_path
     references = {row["id"]: row for row in read_jsonl(root / paths[1])}
     prompts = read_jsonl(root / paths[0])
     if len(references) != len(prompts):
@@ -1879,24 +1896,25 @@ def load_study_split(*, repo: Path, split: str) -> list[dict[str, Any]]:
     return result
 
 
-def study_optimizer_rows(*, repo: Path, split: str) -> list[dict[str, str]]:
+def study_optimizer_rows(
+    *, repo: Path, split: str, reference_version: str = "v1",
+) -> list[dict[str, str]]:
     """Foundry optimizer data shape; reject heldout data at this integration boundary."""
     if split not in {"optimizer-train", "optimizer-validation"}:
         raise ValueError("heldout cases must not enter optimizer data")
     return [{
         "id": row["id"], "query": row["task"], "ground_truth": row["ground_truth"],
-    } for row in load_study_split(repo=repo, split=split)]
+    } for row in load_study_split(repo=repo, split=split, reference_version=reference_version)]
 
 
-def foundry_reason_evaluator_body(*, repo: Path) -> dict[str, Any]:
+def foundry_reason_evaluator_body(*, repo: Path, rubric_version: str = "v1") -> dict[str, Any]:
     """Return the local supported native rubric shape; never registers or invokes it.
 
     Shape follows the repository's established reason-text rubric evaluator
-    factory, not its training-derived dimensions. The new rubric is unchanged.
+    factory, not its training-derived dimensions.
     """
-    rubric_path = (
-        repo.resolve() / "modules" / "evals" / "graders" / AGENT / "quality-rubric.json"
-    )
+    rubric_file = {"v1": "quality-rubric.json", "v3": "quality-rubric-v3.json"}[rubric_version]
+    rubric_path = repo.resolve() / "modules" / "evals" / "graders" / AGENT / rubric_file
     rubric = json.loads(rubric_path.read_text(encoding="utf-8"))
     dimensions = [
         {
@@ -1905,7 +1923,9 @@ def foundry_reason_evaluator_body(*, repo: Path) -> dict[str, Any]:
         } for d in rubric["dimensions"]
     ]
     return {
-        "display_name": "Contract policy analyst independent reason-text quality v1",
+        "display_name": (
+            f"Contract policy analyst independent reason-text quality {rubric_version}"
+        ),
         "description": (
             "Identical source-grounded judge across compared models; synthetic pending review. "
             f"Rubric file SHA-256 {_sha(rubric_path.read_bytes())}. "
