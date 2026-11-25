@@ -92,7 +92,10 @@ Probe job `opt_b3e66152116048cea11621393d52835e` established the working path:
   above and for `opt_4fa59c4f…` (r1) are invalid; their run folders contain
   `SCORES-INVALID.json`. castia 0.20.1 fixes ID precedence and adds hosted
   Foundry persistence (sethjuarez/castia#143, sethjuarez/castia#147).
-  This agent pins it. `tests/test_response_ids.py`
+  This agent pins 0.20.2, which also preserves the stock response snapshot
+  fields required by Foundry storage, including `agent_reference`. Hosted
+  requests with incomplete agent identity fail before the handler runs.
+  `tests/test_response_ids.py`
   guards the format. Before trusting any optimizer score, check that its eval
   output_items have no `sample.error`.
 
@@ -117,7 +120,7 @@ The connection credential stays process-local; it is not copied into azd,
 source files or evidence. Existing explicit exporter settings take precedence.
 Discovery failures produce a warning, not a fabricated tracing-success result.
 
-Historical v8 study runs pin Castia 0.19.0; new versions pin 0.20.1. Its operator-only
+Historical v8 study runs pin Castia 0.19.0; new versions pin 0.20.2. Its operator-only
 `CASTIA_TOOL_CAPTURE=blob` mode writes create-only `castia.tool_capture/v1`
 documents containing full tool arguments/results, response/call/trace IDs,
 release provenance, timing and canonical hashes. Client metadata cannot enable
