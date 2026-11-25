@@ -131,6 +131,11 @@ Unknown usage remains unknown, and unverified captures cannot imply complete
 retrieval coverage. When the runner changes, preserve the original manifest and
 grades: a new revision may reuse exact saved responses and hash-bound judge
 requests, never substitute fresh inference for a failed or uncertain attempt.
+Judge connection establishment may try at most three times, with create-only
+request/error/completion receipts under `judge-transport`. Only SDK `ConnectError`
+causes qualify: read/write failures or unresolved started requests fail closed
+because the request may already have reached the model. Completed judge receipts
+are reused exactly; agent inference itself is never retried.
 
 RFT preflight rejects explicit batch sizes outside 1-256; omit the field for
 automatic selection rather than sending `-1`. Before the substantive MAI-2

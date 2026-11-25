@@ -1,8 +1,10 @@
 import copy
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -143,9 +145,18 @@ def test_inference_error_is_operational_failure_not_fabricated_judge_or_free_usa
         inference_failure_record({}, {"error": None})
 
 
-def test_batch_preserves_failed_response_and_continues_only_unissued_trials(tmp_path, monkeypatch):
+@pytest.mark.parametrize("deep_output", [False, True])
+def test_batch_preserves_failed_response_and_continues_unissued_trials(
+    tmp_path, monkeypatch, deep_output,
+):
     import caliber.contract_policy_analyst_batch as batch
 
+    output_argument = tmp_path
+    if deep_output:
+        output_argument = tmp_path / ("nested-" + "x" * 80) / ("nested-" + "y" * 80)
+        tmp_path = (
+            Path("\\\\?\\" + str(output_argument)) if os.name == "nt" else output_argument
+        )
     row = {
         "id": "case", "task": "Task", "task_sha256": "a" * 64,
         "reference_sha256": "b" * 64, "source_family": "family", "scenario_family": "gap",
@@ -181,7 +192,7 @@ def test_batch_preserves_failed_response_and_continues_only_unissued_trials(tmp_
         "batch", "--repo", str(Path(__file__).resolve().parents[3]), "--endpoint", "https://test",
         "--blob-account-url", "https://test", "--version", "6", "--model", "gpt-6-astra",
         "--instructions-sha256", "a" * 64, "--tools-sha256", "b" * 64,
-        "--arm", "baseline", "--split", "optimizer-validation", "--out", str(tmp_path),
+        "--arm", "baseline", "--split", "optimizer-validation", "--out", str(output_argument),
         "--repeats", "2", "--concurrency", "1", "--allow-live",
     ])
     assert batch.main() == 0
@@ -190,3 +201,96 @@ def test_batch_preserves_failed_response_and_continues_only_unissued_trials(tmp_
     assert json.loads((tmp_path / "summary.json").read_text())["rubric_dimensions"] == {}
     assert batch.main() == 0
     assert calls == ["2"]
+
+
+def _judge_client(monkeypatch, outcomes):
+    import azure.identity
+    import openai
+
+    import caliber.contract_policy_analyst_batch as batch
+
+    calls = []
+    iterator = iter(outcomes)
+
+    class Credential:
+        def __init__(self, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get_token(self, *args):
+            return SimpleNamespace(token="fake-test-token")
+
+    class Client(Credential):
+        @property
+        def responses(self):
+            return self
+
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            outcome = next(iterator)
+            if isinstance(outcome, BaseException):
+                raise outcome
+            return outcome
+
+    monkeypatch.setattr(azure.identity, "AzureCliCredential", Credential)
+    monkeypatch.setattr(openai, "OpenAI", Client)
+    monkeypatch.setattr(batch.time, "sleep", lambda seconds: None)
+    return calls
+
+
+def _connection_error(cause_type):
+    openai = pytest.importorskip("openai")
+    httpx = pytest.importorskip("httpx2")
+    error = openai.APIConnectionError(request=httpx.Request("POST", "https://test"))
+    error.__cause__ = cause_type("transport failure")
+    return error
+
+
+def test_judge_retries_unissued_connections_and_reuses_receipt(tmp_path, monkeypatch):
+    import caliber.contract_policy_analyst_batch as batch
+    httpx = pytest.importorskip("httpx2")
+
+    response = SimpleNamespace(model_dump=lambda: {"usage": None}, output_text="{}")
+    calls = _judge_client(monkeypatch, [_connection_error(httpx.ConnectError), response])
+    result = batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                             attempt_dir=tmp_path)
+    assert len(calls) == 2 and calls[0] == calls[1]
+    failed = json.loads(next(tmp_path.glob("*.failed.json")).read_text())
+    assert failed["status"] == "not_sent_connect_error"
+    assert len(list(tmp_path.glob("*.started.json"))) == 2
+    assert batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                            attempt_dir=tmp_path) == result
+    assert len(calls) == 2
+    with pytest.raises(ValueError, match="different inputs"):
+        batch.judge_call("https://test", "prompt", "task", "changed", {}, [],
+                         attempt_dir=tmp_path)
+    write_record(tmp_path / "uncertain.started.json", {
+        "attempt_id": "uncertain", "request_sha256": result["request_sha256"],
+    })
+    with pytest.raises(ValueError, match="Unreconciled"):
+        batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                         attempt_dir=tmp_path)
+
+
+@pytest.mark.parametrize("cause_type", ["ReadTimeout", "WriteError", "ConnectError"])
+def test_judge_transport_budget_and_uncertainty_fail_closed(tmp_path, monkeypatch, cause_type):
+    import caliber.contract_policy_analyst_batch as batch
+    httpx = pytest.importorskip("httpx2")
+    openai = pytest.importorskip("openai")
+
+    calls = _judge_client(monkeypatch, [
+        _connection_error(getattr(httpx, cause_type)) for _ in range(3)
+    ])
+    with pytest.raises(openai.APIConnectionError):
+        batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                         attempt_dir=tmp_path)
+    assert len(calls) == (3 if cause_type == "ConnectError" else 1)
+    with pytest.raises(ValueError, match="budget exhausted|Unreconciled"):
+        batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                         attempt_dir=tmp_path)
+    assert len(calls) == (3 if cause_type == "ConnectError" else 1)

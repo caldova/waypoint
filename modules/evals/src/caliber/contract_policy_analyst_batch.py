@@ -161,30 +161,92 @@ def judge_prompt(rubric: dict[str, Any]) -> str:
 
 
 def judge_call(endpoint: str, prompt: str, task: str, output: str,
-               reference: dict[str, Any], messages: list[Any]) -> dict[str, Any]:
+               reference: dict[str, Any], messages: list[Any], *,
+               attempt_dir: Path | None = None) -> dict[str, Any]:
     from azure.identity import AzureCliCredential
-    from openai import OpenAI
+    from openai import APIConnectionError, APIError, OpenAI
 
     account = endpoint.split("/api/projects/", 1)[0].rstrip("/")
     serialized = judge_input(task, output, reference, messages)
+    request_hash = hashlib.sha256((prompt + "\n" + serialized).encode()).hexdigest()
+    previous = sorted(attempt_dir.glob("*.started.json")) if attempt_dir else []
+    completed_results = []
+    for path in previous:
+        start = read_record(path)
+        if start["request_sha256"] != request_hash:
+            raise ValueError("Judge transport ledger binds different inputs.")
+        completed = attempt_dir / f"{start['attempt_id']}.completed.json"
+        failed = attempt_dir / f"{start['attempt_id']}.failed.json"
+        if completed.exists():
+            completed_results.append(read_record(completed))
+        else:
+            failure = read_record(failed) if failed.exists() else None
+            if (
+                failure is None or failure["request_sha256"] != request_hash
+                or failure["status"] != "not_sent_connect_error"
+            ):
+                raise ValueError("Unreconciled judge request; refusing a potentially issued retry.")
+    if len(completed_results) > 1:
+        raise ValueError("Multiple completed judge requests; refusing ambiguous selection.")
+    if completed_results:
+        if completed_results[0]["request_sha256"] != request_hash:
+            raise ValueError("Completed judge binds different inputs.")
+        return completed_results[0]
+    if len(previous) >= 3:
+        raise ValueError("Judge connection retry budget exhausted; preserved all attempts.")
     with AzureCliCredential(process_timeout=60) as credential:
         token = credential.get_token("https://cognitiveservices.azure.com/.default").token
         with OpenAI(base_url=f"{account}/openai/v1/", api_key=token,
                     max_retries=0, timeout=300) as client:
             started = time.perf_counter()
-            response = client.responses.create(
-                model=JUDGE_MODEL, instructions=prompt,
-                input=serialized,
-                reasoning={"effort": "low"}, max_output_tokens=8192,
-                text={"format": {"type": "json_object"}},
-            )
-    return {
-        "raw": response.model_dump(), "output_text": response.output_text,
-        "usage": response.model_dump().get("usage"),
-        "latency_ms": round((time.perf_counter() - started) * 1000),
-        "requested_model": JUDGE_MODEL,
-        "request_sha256": hashlib.sha256((prompt + "\n" + serialized).encode()).hexdigest(),
-    }
+            for number in range(len(previous), 3):
+                attempt_id = uuid.uuid4().hex
+                if attempt_dir:
+                    write_record(attempt_dir / f"{attempt_id}.started.json", {
+                        "attempt_id": attempt_id, "request_sha256": request_hash,
+                        "created_at": datetime.now(UTC).isoformat(),
+                    })
+                try:
+                    response = client.responses.create(
+                        model=JUDGE_MODEL, instructions=prompt, input=serialized,
+                        reasoning={"effort": "low"}, max_output_tokens=8192,
+                        text={"format": {"type": "json_object"}},
+                    )
+                except APIError as error:
+                    cause = error.__cause__
+                    # ConnectError is connection establishment, not a read/write failure.
+                    not_sent = (
+                        isinstance(error, APIConnectionError)
+                        and cause is not None and type(cause).__name__ == "ConnectError"
+                        and type(cause).__module__.split(".")[0]
+                        in {"httpx", "httpx2", "httpcore", "httpcore2"}
+                    )
+                    if attempt_dir:
+                        write_record(attempt_dir / f"{attempt_id}.failed.json", {
+                            "request_sha256": request_hash,
+                            "status": "not_sent_connect_error" if not_sent else "unreconciled",
+                            "error_type": type(error).__name__,
+                            "cause_type": type(cause).__name__ if cause else None,
+                        })
+                    if not_sent and number < 2:
+                        print(json.dumps({
+                            "judge_transport_error": type(error).__name__,
+                            "request_sha256": request_hash, "not_sent": True,
+                            "next_connection_attempt": number + 2,
+                        }), flush=True)
+                        time.sleep(2 ** number)
+                        continue
+                    raise
+                result = {
+                    "raw": response.model_dump(), "output_text": response.output_text,
+                    "usage": response.model_dump().get("usage"),
+                    "latency_ms": round((time.perf_counter() - started) * 1000),
+                    "requested_model": JUDGE_MODEL, "request_sha256": request_hash,
+                }
+                if attempt_dir:
+                    write_record(attempt_dir / f"{attempt_id}.completed.json", result)
+                return result
+    raise RuntimeError("Judge returned no result.")
 
 def judge_input(task, output, reference, messages) -> str:
     return json.dumps({
@@ -362,6 +424,15 @@ def main() -> int:
         parser.error("Frozen effective instruction/tool hashes must be lowercase SHA256.")
     if args.pilot_limit is not None and (args.split != "optimizer-train" or args.pilot_limit < 1):
         parser.error("Integration pilots may use training only; held-out sets are not sliced.")
+    if os.name == "nt":
+        # Nested hash-bound receipts exceed MAX_PATH in Windows worktrees.
+        output_path = str(args.out.absolute())
+        if not output_path.startswith("\\\\?\\"):
+            output_path = (
+                "\\\\?\\UNC\\" + output_path[2:] if output_path.startswith("\\\\")
+                else "\\\\?\\" + output_path
+            )
+        args.out = Path(output_path)
     rows = load_study_split(repo=args.repo, split=args.split)
     if args.pilot_limit:
         rows = rows[:args.pilot_limit]
@@ -394,6 +465,10 @@ def main() -> int:
         "references": {row["id"]: row["reference_sha256"] for row in rows},
         "record_file_keys": {row["id"]: record_key(row["id"], 1) for row in rows},
         "labels": "synthetic/pending_human_review", "no_inference_retries": True,
+        "judge_transport": {
+            "max_connection_attempts": 3, "retry_scope": "connection_establishment_only",
+            "issued_request_retries": False, "receipts": "judge-transport",
+        },
     }
     path = args.out / "manifest.json"
     if path.exists():
@@ -468,6 +543,7 @@ def main() -> int:
             judged = judge_call(
                 args.endpoint, prompt, row["task"], response["output_text"],
                 row["reference"], adapted["tool_messages"],
+                attempt_dir=args.out / "judge-transport" / record_key(row["id"], run),
             )
             write_record(judge_path, judged)
         genuine = json.loads(judged["output_text"])
