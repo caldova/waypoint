@@ -3,13 +3,13 @@
     "type": "function",
     "function": {
       "name": "contracts-kb-mcp___knowledge_base_retrieve",
-      "description": "Look up helpful contract, policy, or invoice-review context for a supplier billing question.",
+      "description": "Search Caldova's FoundryIQ contracts knowledge base: supplier contracts and statements of work, evidence and billing policies, invoices, and operational observation records. Returns matching passages with their source references.",
       "parameters": {
         "type": "object",
         "properties": {
           "query": {
             "type": "string",
-            "description": "A short search question about the supplier invoice or policy topic."
+            "description": "A focused search query naming the supplier, invoice or line, and the document or topic you need."
           }
         },
         "required": ["query"],

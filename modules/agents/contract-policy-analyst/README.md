@@ -8,13 +8,21 @@ unchanged.
 
 ## Baseline provenance
 
-The baseline copies the initial retrieval-capable instructions from commit
-`5aac278`, with only the agent name changed. It is an honest starter, not a
-prompt sabotaged to produce a large improvement. The later `530f966` seed
-explicitly prohibited retrieval and encouraged inferred citations; that is
-not a valid starting point for this tool-enabled comparison.
+The current baseline (`.agent_configs/baseline`, "naive v2") is better but
+still naive. It states a role, the evidence-only task and read-only boundary,
+the one retrieval tool and its sources, and the answer format. It has no worked
+examples, grader flags, scoring rules, or arithmetic/tier/approval heuristics.
+A rubber-duck review found no rubric leakage. Its tool and query descriptions
+match the runtime defaults in `toolbox.py`.
 
-The short tool and query descriptions come from the expert's runtime defaults.
+The first baseline is preserved byte-for-byte in
+`releases/astra-baseline-v1/baseline` (instructions `9b048c89…`, tools
+`446d29dc…`; deployed as v1–v5). It copies the initial retrieval-capable
+instructions from commit `5aac278` with only the agent name changed. The later
+`530f966` seed prohibited retrieval and encouraged inferred citations, so it
+is not a valid starting point for this tool-enabled comparison. Select the old
+baseline with `deploy_version.ps1 -Release astra-baseline-v1`.
+
 Unlike the historical MCP optimizer overlay, the optimizer sees the exact
 function schema that every model receives. Candidates can change description
 wording; changing the tool name or query schema fails release validation.
@@ -156,17 +164,20 @@ relax any existing cap. Retrospective v2 regrades reuse the exact recorded
 responses, verified captures and bound judge results, and are not prospective
 or human-calibrated.
 
-**Frozen grader (adopted 2026-11-25).** Grader v2 (SHA256
-`64e8ad9a…7d7d`, pinning v1 base `267d5f6c…6f62`) is the single quality grader
-for every future live run: optimizer/candidate evals, checkpoint selection,
-the post-RFT eval and the sealed final test. The batch runner loads only that
-hash-pinned file, records grader version/hashes in each manifest, and refuses
-summaries mixing grader revisions. The comparison anchor is the v2 regrade in
-`runs\baseline-offline-regrade-v2\report.json`; never compare v1 numbers with
-v2 numbers. The RFT trainer reward cannot call the judge, so it remains the
-deterministic code-only surrogate `contract_policy_analyst_rft_reward_v1.py`;
-a test keeps its shared caps (including `false_approval` 0.20) equal to v2.
-Reported quality for tuned checkpoints always comes from v2, not the reward.
+**Frozen grader (v3; supersedes the 2026-11-25 v2 freeze).** Grader v3 (SHA256
+`7c9ce4b3…`, pinning v1 base `267d5f6c…6f62`) with rubric v3, references v3
+and RFT reward v2 (`127729d0…`) is the single quality grader for every future
+live run: optimizer/candidate evals, checkpoint selection, the post-RFT eval
+and the sealed final test. The batch runner hash-checks all four files,
+records versions/hashes in each manifest, and refuses summaries mixing grader
+revisions. The comparison anchor is the v3 regrade in
+`runs\baseline-offline-regrade-v3\report.json` (tracked copy:
+`modules\evals\datasets\contract-policy-analyst\expanded-v1\offline-regrade-v3-report.json`);
+never compare v1, v2 and v3 numbers. The RFT trainer reward cannot call the
+judge, so it is the deterministic code-only surrogate
+`contract_policy_analyst_rft_reward_v2.py`; a test keeps its shared caps equal
+to v3. Reported quality for tuned checkpoints always comes from v3, not the
+reward. The v2 report and files remain immutable history.
 
 RFT preflight rejects explicit batch sizes outside 1-256; omit the field for
 automatic selection rather than sending `-1`. Before the substantive MAI-2

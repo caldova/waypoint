@@ -23,11 +23,13 @@ FOUNDRY_IQ = "foundry_iq"
 # Matches the contracts agent's span; its tuned MAI model still calls _KB_TOOL_NAME.
 FOUNDRY_IQ_SPAN_NAME = "execute_tool foundry_iq_retrieve"
 _KB_TOOL_DESCRIPTION = (
-    "Look up helpful contract, policy, or invoice-review context for a "
-    "supplier billing question."
+    "Search Caldova's FoundryIQ contracts knowledge base: supplier contracts and "
+    "statements of work, evidence and billing policies, invoices, and operational "
+    "observation records. Returns matching passages with their source references."
 )
 _KB_QUERY_GUIDANCE = (
-    "A short search question about the supplier invoice or policy topic."
+    "A focused search query naming the supplier, invoice or line, and the document "
+    "or topic you need."
 )
 
 
