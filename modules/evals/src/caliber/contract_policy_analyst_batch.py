@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import re
 import statistics
 import sys
 import threading
@@ -50,7 +51,9 @@ def load_module(path: Path):
 
 
 def verify_capture(doc: dict[str, Any], response: dict[str, Any], task_hash: str,
-                   attempt_id: str, model: str) -> None:
+                   attempt_id: str, model: str, *,
+                   instructions_hash: str | None = None,
+                   tools_hash: str | None = None) -> None:
     from castia.observe.tool_capture import verify_tool_capture
 
     verification = verify_tool_capture(doc)
@@ -76,6 +79,11 @@ def verify_capture(doc: dict[str, Any], response: dict[str, Any], task_hash: str
         or not provenance.get("tools_sha256")
     ):
         raise ValueError("Capture does not prove the requested runtime configuration.")
+    for field, expected in (
+        ("instructions_sha256", instructions_hash), ("tools_sha256", tools_hash),
+    ):
+        if expected is not None and provenance.get(field) != expected:
+            raise ValueError(f"Effective runtime {field} differs from the frozen configuration.")
 
 
 class CaptureReader:
@@ -303,6 +311,8 @@ def main() -> int:
     )
     parser.add_argument("--version", required=True)
     parser.add_argument("--model", required=True)
+    parser.add_argument("--instructions-sha256", required=True)
+    parser.add_argument("--tools-sha256", required=True)
     parser.add_argument("--arm", required=True)
     parser.add_argument("--split", choices=(
         "optimizer-train", "optimizer-validation", "study-heldout",
@@ -319,6 +329,10 @@ def main() -> int:
         )
     if args.repeats < 1 or args.concurrency < 1:
         parser.error("Repeats and concurrency must be positive.")
+    if any(not re.fullmatch(r"[0-9a-f]{64}", value) for value in (
+        args.instructions_sha256, args.tools_sha256,
+    )):
+        parser.error("Frozen effective instruction/tool hashes must be lowercase SHA256.")
     if args.pilot_limit is not None and (args.split != "optimizer-train" or args.pilot_limit < 1):
         parser.error("Integration pilots may use training only; held-out sets are not sliced.")
     rows = load_study_split(repo=args.repo, split=args.split)
@@ -347,6 +361,8 @@ def main() -> int:
         "judge_sha256": judge_hash, "rubric_sha256": rubric_hash,
         "grader_sha256": grader_hash, "adapter_sha256": adapter_hash,
         "runner_sha256": runner_hash,
+        "instructions_sha256": args.instructions_sha256,
+        "tools_sha256": args.tools_sha256,
         "tasks": {row["id"]: row["task_sha256"] for row in rows},
         "references": {row["id"]: row["reference_sha256"] for row in rows},
         "record_file_keys": {row["id"]: record_key(row["id"], 1) for row in rows},
@@ -392,7 +408,10 @@ def main() -> int:
         if response["error"]:
             raise ValueError(f"Recorded inference failed ({row['id']}, run {run}); not rerun.")
         doc = captures.get(start["attempt_id"])
-        verify_capture(doc, response, row["task_sha256"], start["attempt_id"], args.model)
+        verify_capture(
+            doc, response, row["task_sha256"], start["attempt_id"], args.model,
+            instructions_hash=args.instructions_sha256, tools_hash=args.tools_sha256,
+        )
         adapted = adapter.normalize_tool_messages(doc, reference=row["reference"])
         judge_request_hash = hashlib.sha256((
             prompt + "\n" + judge_input(

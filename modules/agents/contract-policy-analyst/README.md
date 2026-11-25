@@ -38,6 +38,22 @@ OpenAI User on the account. Retrieval uses the toolbox's own scoped token.
 Startup rejects missing or mismatched instruction/tool files rather than
 silently running another arm. `CPA_REASONING_EFFORT` is pinned per release.
 
+Native optimizer candidates arrive at startup through `OPTIMIZATION_CONFIG`,
+or through `OPTIMIZATION_CANDIDATE_ID` with a valid project
+`OPTIMIZATION_RESOLVE_ENDPOINT` under `/agent_optimization_jobs/<job>`.
+The inline path uses the installed optimization SDK. The resolver uses Castia's
+GA candidate-config client; the SDK's older preview resolver route is unsupported.
+Both paths validate the actual candidate payload before constructing the model.
+Only instructions and tool descriptions can change. Unknown fields, missing
+instructions, changed models or schemas, and unresolved candidate IDs stop startup.
+The effective candidate hashes are recorded by native capture.
+
+An operator-applied local candidate must exist and match its own files. Missing
+candidates cannot fall back to `baseline/`. With no injection, the baseline
+instructions and tool definitions remain unchanged. HTTP request instructions,
+tools, and capture metadata do not override the startup configuration. Castia
+0.19.0 has no candidate channel in its request context.
+
 ## Measurement boundaries
 
 The historical 24 cases are regression evidence, not a pristine test. New
@@ -82,6 +98,10 @@ optimizer. The existing expert's Teams protocol and runtime are unchanged.
 Live retrieval can drift. Record queries and retrieval payload hashes for each
 attempt, plus canaries before and after a batch. A matching function tool alone
 does not demonstrate faithful retrieval or tool-use learning from RFT.
+
+Batch invocations require `--instructions-sha256` and `--tools-sha256` from the
+verified effective deployment configuration. Every native capture must match
+these frozen hashes; a nonempty hash or successful reply alone is insufficient.
 
 The first training-only integration pilot exposed two measurement defects:
 native capture success fields differed from the transcript adapter, and shared

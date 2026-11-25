@@ -28,6 +28,16 @@ def test_capture_binds_nonce_runtime_and_exact_payload():
     }
     doc["record_sha256"] = record_hash(doc)
     verify_capture(doc, {"output_text": "response"}, "task", "nonce", "model")
+    verify_capture(
+        doc, {"output_text": "response"}, "task", "nonce", "model",
+        instructions_hash="instructions", tools_hash="tools",
+    )
+    for expected in (
+        {"instructions_hash": "wrong"}, {"tools_hash": "wrong"},
+    ):
+        with pytest.raises(ValueError, match="frozen configuration"):
+            verify_capture(doc, {"output_text": "response"}, "task", "nonce", "model",
+                           **expected)
     for field, value in (("complete", False), ("output_sha256", "other")):
         changed = copy.deepcopy(doc)
         changed[field] = value
