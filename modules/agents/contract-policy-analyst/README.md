@@ -133,9 +133,15 @@ grades: a new revision may reuse exact saved responses and hash-bound judge
 requests, never substitute fresh inference for a failed or uncertain attempt.
 Judge connection establishment may try at most three times, with create-only
 request/error/completion receipts under `judge-transport`. Only SDK `ConnectError`
-causes qualify: read/write failures or unresolved started requests fail closed
-because the request may already have reached the model. Completed judge receipts
-are reused exactly; agent inference itself is never retried.
+causes qualify for connection recovery. Separately, judge HTTP 500/502/503/504/429
+without a judge result may retry once per case/run, up to ten per arm/batch.
+Honor Retry-After with at least ten seconds of backoff. Preserve the failed
+request and its unknown billing; use the first valid judge, never best-of.
+Atomic reservation files prevent a second retry or exceeding the batch cap.
+Any failed HTTP retry, other 4xx, returned judge body, read/write failure or
+unresolved started request stops the batch. Completed judge receipts are reused
+exactly; agent inference itself is never retried. Judge token estimates retain a
+known subtotal, but total judge cost stays unknown after server-error retries.
 
 RFT preflight rejects explicit batch sizes outside 1-256; omit the field for
 automatic selection rather than sending `-1`. Before the substantive MAI-2

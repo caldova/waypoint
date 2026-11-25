@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import re
 import statistics
@@ -16,6 +17,7 @@ import uuid
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +25,7 @@ from .contract_policy_analyst_benchmark import load_study_split
 from .contract_policy_analyst_eval import hosted_call, inference_cost
 
 JUDGE_MODEL = "gpt-6-astra"
+JUDGE_RETRY_HTTP_STATUSES = {429, 500, 502, 503, 504}
 CAPTURE_PREFIX = "contract-policy-analyst/"
 
 
@@ -160,9 +163,70 @@ def judge_prompt(rubric: dict[str, Any]) -> str:
     )
 
 
+class JudgeHTTPRetryBudget:
+    def __init__(self, directory: Path):
+        self.directory = directory
+        self.lock = threading.Lock()
+
+    def reserve(self, case_key: str, request_hash: str, status: int) -> dict[str, Any]:
+        record = {
+            "case_key": case_key, "request_sha256": request_hash, "http_status": status,
+            "billing_status": "unknown", "reserved_at": datetime.now(UTC).isoformat(),
+        }
+        with self.lock:
+            case_path = self.directory / "cases" / f"{case_key}.json"
+            if case_path.exists():
+                raise ValueError("Judge HTTP retry already reserved for this case/run.")
+            write_record(case_path, record)
+            for slot in range(10):
+                try:
+                    write_record(self.directory / f"{slot:02}.json", record)
+                except FileExistsError:
+                    continue
+                return record
+        raise ValueError("Batch judge HTTP retry budget exhausted (10); no further retry issued.")
+
+    def snapshot(self) -> list[dict[str, Any]]:
+        return [read_record(path) for path in sorted(self.directory.glob("*.json"))]
+
+
+def judge_result_in_error(body: Any) -> bool:
+    if isinstance(body, dict):
+        if {"dimensions", "critical_flags", "output", "output_text", "choices"} & body.keys():
+            return True
+        return any(judge_result_in_error(value) for value in body.values())
+    if isinstance(body, list):
+        return any(judge_result_in_error(value) for value in body)
+    if isinstance(body, str):
+        try:
+            parsed = json.loads(body)
+        except json.JSONDecodeError:
+            return False
+        return judge_result_in_error(parsed) if isinstance(parsed, (dict, list)) else False
+    return False
+
+
+def judge_retry_delay(header: str | None) -> float:
+    if header:
+        try:
+            delay = float(header)
+        except ValueError:
+            try:
+                date = parsedate_to_datetime(header)
+                if date.tzinfo is None:
+                    date = date.replace(tzinfo=UTC)
+                delay = (date - datetime.now(UTC)).total_seconds()
+            except (ValueError, TypeError, OverflowError):
+                return 10.0
+        if math.isfinite(delay):
+            return max(10.0, delay)
+    return 10.0
+
+
 def judge_call(endpoint: str, prompt: str, task: str, output: str,
                reference: dict[str, Any], messages: list[Any], *,
-               attempt_dir: Path | None = None) -> dict[str, Any]:
+               attempt_dir: Path | None = None,
+               http_retry_budget: JudgeHTTPRetryBudget | None = None) -> dict[str, Any]:
     from azure.identity import AzureCliCredential
     from openai import APIConnectionError, APIError, OpenAI
 
@@ -171,6 +235,8 @@ def judge_call(endpoint: str, prompt: str, task: str, output: str,
     request_hash = hashlib.sha256((prompt + "\n" + serialized).encode()).hexdigest()
     previous = sorted(attempt_dir.glob("*.started.json")) if attempt_dir else []
     completed_results = []
+    connection_failures = 0
+    server_failures = []
     for path in previous:
         start = read_record(path)
         if start["request_sha256"] != request_hash:
@@ -181,10 +247,34 @@ def judge_call(endpoint: str, prompt: str, task: str, output: str,
             completed_results.append(read_record(completed))
         else:
             failure = read_record(failed) if failed.exists() else None
-            if (
-                failure is None or failure["request_sha256"] != request_hash
-                or failure["status"] != "not_sent_connect_error"
+            recovery = attempt_dir / f"{start['attempt_id']}.retry-recovery.json"
+            if failure is not None and recovery.exists():
+                recovered = read_record(recovery)
+                if (
+                    recovered["failure_sha256"] != hashlib.sha256(failed.read_bytes()).hexdigest()
+                    or recovered["request_sha256"] != request_hash
+                    or recovered["no_judge_result"] is not True
+                    or recovered["http_status"] not in JUDGE_RETRY_HTTP_STATUSES
+                ):
+                    raise ValueError("Judge HTTP recovery receipt is not bound to the failure.")
+                failure = {
+                    **failure, "status": "retryable_http_error",
+                    "http_status": recovered["http_status"], "has_judge_result": False,
+                    "retry_after_seconds": 10.0,
+                }
+            if failure is None or failure["request_sha256"] != request_hash:
+                raise ValueError("Unreconciled judge request; refusing a potentially issued retry.")
+            if start.get("http_retry") or failure["status"] == "http_retry_failed":
+                raise ValueError("Judge HTTP retry failed; no second retry allowed.")
+            if failure["status"] == "not_sent_connect_error":
+                connection_failures += 1
+            elif (
+                failure["status"] == "retryable_http_error"
+                and failure["http_status"] in JUDGE_RETRY_HTTP_STATUSES
+                and failure["has_judge_result"] is False
             ):
+                server_failures.append(failure)
+            else:
                 raise ValueError("Unreconciled judge request; refusing a potentially issued retry.")
     if len(completed_results) > 1:
         raise ValueError("Multiple completed judge requests; refusing ambiguous selection.")
@@ -192,19 +282,35 @@ def judge_call(endpoint: str, prompt: str, task: str, output: str,
         if completed_results[0]["request_sha256"] != request_hash:
             raise ValueError("Completed judge binds different inputs.")
         return completed_results[0]
-    if len(previous) >= 3:
+    if len(server_failures) > 1:
+        raise ValueError("Multiple failed judge HTTP requests; no second retry allowed.")
+    if connection_failures >= 3 and not server_failures:
         raise ValueError("Judge connection retry budget exhausted; preserved all attempts.")
+    http_retry = bool(server_failures)
+    retry_failure = server_failures[0] if server_failures else None
+    if http_retry_budget is not None and attempt_dir is None:
+        raise ValueError("Judge HTTP retries require immutable attempt receipts.")
     with AzureCliCredential(process_timeout=60) as credential:
         token = credential.get_token("https://cognitiveservices.azure.com/.default").token
         with OpenAI(base_url=f"{account}/openai/v1/", api_key=token,
                     max_retries=0, timeout=300) as client:
             started = time.perf_counter()
-            for number in range(len(previous), 3):
+            while True:
+                if http_retry:
+                    if http_retry_budget is None or attempt_dir is None:
+                        raise ValueError("Authorized batch judge HTTP retry budget required.")
+                    if retry_failure is None:
+                        raise ValueError("Judge HTTP retry lacks its original failed receipt.")
+                    http_retry_budget.reserve(
+                        attempt_dir.name, request_hash, retry_failure["http_status"],
+                    )
+                    time.sleep(max(10.0, retry_failure.get("retry_after_seconds", 10.0)))
                 attempt_id = uuid.uuid4().hex
                 if attempt_dir:
                     write_record(attempt_dir / f"{attempt_id}.started.json", {
                         "attempt_id": attempt_id, "request_sha256": request_hash,
                         "created_at": datetime.now(UTC).isoformat(),
+                        "http_retry": http_retry,
                     })
                 try:
                     response = client.responses.create(
@@ -221,20 +327,50 @@ def judge_call(endpoint: str, prompt: str, task: str, output: str,
                         and type(cause).__module__.split(".")[0]
                         in {"httpx", "httpx2", "httpcore", "httpcore2"}
                     )
+                    status = getattr(error, "status_code", None)
+                    has_result = judge_result_in_error(getattr(error, "body", None))
+                    retryable_http = status in JUDGE_RETRY_HTTP_STATUSES and not has_result
+                    error_response = getattr(error, "response", None)
+                    retry_after = (
+                        error_response.headers.get("retry-after")
+                        if error_response is not None else None
+                    )
+                    failure = {
+                        "request_sha256": request_hash,
+                        "status": (
+                            "http_retry_failed" if http_retry else
+                            "not_sent_connect_error" if not_sent else
+                            "retryable_http_error" if retryable_http else "unreconciled"
+                        ),
+                        "error_type": type(error).__name__,
+                        "cause_type": type(cause).__name__ if cause else None,
+                        "http_status": status, "request_id": getattr(error, "request_id", None),
+                        "has_judge_result": has_result,
+                        "billing_status": "not_sent" if not_sent else "unknown",
+                        "retry_after": retry_after,
+                        "retry_after_seconds": judge_retry_delay(retry_after),
+                    }
                     if attempt_dir:
-                        write_record(attempt_dir / f"{attempt_id}.failed.json", {
-                            "request_sha256": request_hash,
-                            "status": "not_sent_connect_error" if not_sent else "unreconciled",
-                            "error_type": type(error).__name__,
-                            "cause_type": type(cause).__name__ if cause else None,
-                        })
-                    if not_sent and number < 2:
+                        write_record(attempt_dir / f"{attempt_id}.failed.json", failure)
+                    if http_retry:
+                        raise
+                    if not_sent:
+                        connection_failures += 1
+                    if not_sent and connection_failures < 3:
                         print(json.dumps({
                             "judge_transport_error": type(error).__name__,
                             "request_sha256": request_hash, "not_sent": True,
-                            "next_connection_attempt": number + 2,
+                            "next_connection_attempt": connection_failures + 1,
                         }), flush=True)
-                        time.sleep(2 ** number)
+                        time.sleep(2 ** (connection_failures - 1))
+                        continue
+                    if retryable_http and http_retry_budget is not None and attempt_dir is not None:
+                        http_retry = True
+                        retry_failure = failure
+                        print(json.dumps({
+                            "judge_http_error": status, "request_sha256": request_hash,
+                            "retry": "one_first-valid-only", "billing_status": "unknown",
+                        }), flush=True)
                         continue
                     raise
                 result = {
@@ -242,11 +378,11 @@ def judge_call(endpoint: str, prompt: str, task: str, output: str,
                     "usage": response.model_dump().get("usage"),
                     "latency_ms": round((time.perf_counter() - started) * 1000),
                     "requested_model": JUDGE_MODEL, "request_sha256": request_hash,
+                    "http_retry": http_retry,
                 }
                 if attempt_dir:
                     write_record(attempt_dir / f"{attempt_id}.completed.json", result)
                 return result
-    raise RuntimeError("Judge returned no result.")
 
 def judge_input(task, output, reference, messages) -> str:
     return json.dumps({
@@ -270,7 +406,8 @@ def validate_judge(value: dict[str, Any], dimensions: set[str]) -> None:
         raise ValueError("Judge did not return six genuine dimensional scores and reasons.")
 
 
-def summary(records: list[dict[str, Any]], expected: int) -> dict[str, Any]:
+def summary(records: list[dict[str, Any]], expected: int,
+            judge_http_retries: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     if not records:
         return {"responses": 0, "expected_responses": expected, "status": "pending"}
     if len(records) != expected:
@@ -312,8 +449,14 @@ def summary(records: list[dict[str, Any]], expected: int) -> dict[str, Any]:
         "cost_exclusions": ["retrieval/indexing", "judge", "training", "hosting", "telemetry"],
         "judge_cost_usd": (
             sum(row["judge_cost"]["usd"] for row in records)
-            if all(row["judge_cost"]["usd"] is not None for row in records) else None
+            if not judge_http_retries
+            and all(row["judge_cost"]["usd"] is not None for row in records) else None
         ),
+        "judge_token_estimate_known_subtotal_usd": sum(
+            row["judge_cost"]["usd"] for row in records if row["judge_cost"]["usd"] is not None
+        ),
+        "judge_http_retries": len(judge_http_retries or []),
+        "failed_judge_http_billing": "unknown" if judge_http_retries else "none_recorded",
         "failure_flags": dict(Counter(flag for row in records for flag in row["flags"])),
         "critical_failures": dict(
             Counter(flag for row in records for flag in row["critical_flags"])
@@ -466,8 +609,12 @@ def main() -> int:
         "record_file_keys": {row["id"]: record_key(row["id"], 1) for row in rows},
         "labels": "synthetic/pending_human_review", "no_inference_retries": True,
         "judge_transport": {
-            "max_connection_attempts": 3, "retry_scope": "connection_establishment_only",
-            "issued_request_retries": False, "receipts": "judge-transport",
+            "max_connection_attempts": 3,
+            "retry_scope": "connection_establishment_or_listed_http_errors_without_judge_result",
+            "retry_http_statuses": sorted(JUDGE_RETRY_HTTP_STATUSES),
+            "max_http_retries_per_case_run": 1, "max_http_retries_per_batch": 10,
+            "retry_after_minimum_seconds": 10, "stop_on_failed_http_retry": True,
+            "judge_result_selection": "first_valid_never_best_of", "receipts": "judge-transport",
         },
     }
     path = args.out / "manifest.json"
@@ -477,6 +624,7 @@ def main() -> int:
     else:
         write_record(path, manifest)
     captures = CaptureReader(args.blob_account_url, args.out)
+    http_retry_budget = JudgeHTTPRetryBudget(args.out / "judge-http-retries")
 
     def evaluate(row, run):
         prefix = args.out / "attempts" / record_key(row["id"], run)
@@ -544,6 +692,7 @@ def main() -> int:
                 args.endpoint, prompt, row["task"], response["output_text"],
                 row["reference"], adapted["tool_messages"],
                 attempt_dir=args.out / "judge-transport" / record_key(row["id"], run),
+                http_retry_budget=http_retry_budget,
             )
             write_record(judge_path, judged)
         genuine = json.loads(judged["output_text"])
@@ -572,6 +721,7 @@ def main() -> int:
             "usage": response["usage"], "output_text": response["output_text"],
             "cost": inference_cost(args.model, response["usage"]),
             "judge_cost": inference_cost(JUDGE_MODEL, judged["usage"]),
+            "judge_http_retry": judged.get("http_retry", False),
             "capture_sha256": doc["record_sha256"], "runtime": doc["provenance"],
             "retrieval_calls": doc["tool_calls"], "adapter_issues": adapted["issues"],
             "citations": {"total": len(refs), "grounded": grounded},
@@ -601,7 +751,7 @@ def main() -> int:
                     raise RuntimeError(
                         f"Batch blocked; all launched response artifacts preserved: {errors[0]}"
                     ) from errors[0]
-        report = summary(records, len(work))
+        report = summary(records, len(work), http_retry_budget.snapshot())
         summary_path = args.out / "summary.json"
         if summary_path.exists():
             if read_record(summary_path) != report:

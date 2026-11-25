@@ -140,6 +140,11 @@ def test_inference_error_is_operational_failure_not_fabricated_judge_or_free_usa
     assert report["retrieval"]["audit_complete_rate"] == 0.5
     assert report["retrieval"]["responses_with_tool_call_rate"] is None
     assert report["cost_usd_per_1k_lines"] is None
+    good["judge_cost"] = {"usd": 0.5}
+    retried = summary([failed, good], 2, [{"billing_status": "unknown"}])
+    assert retried["judge_cost_usd"] is None
+    assert retried["judge_token_estimate_known_subtotal_usd"] == 0.5
+    assert retried["judge_http_retries"] == 1
     assert failed["quality_score"] is None and failed["dimensions"] == []
     with pytest.raises(ValueError, match="explicit recorded inference error"):
         inference_failure_record({}, {"error": None})
@@ -294,3 +299,189 @@ def test_judge_transport_budget_and_uncertainty_fail_closed(tmp_path, monkeypatc
         batch.judge_call("https://test", "prompt", "task", "output", {}, [],
                          attempt_dir=tmp_path)
     assert len(calls) == (3 if cause_type == "ConnectError" else 1)
+
+
+def test_judge_http_error_retains_server_correlation_without_issued_retry(tmp_path, monkeypatch):
+    import caliber.contract_policy_analyst_batch as batch
+    httpx = pytest.importorskip("httpx2")
+    openai = pytest.importorskip("openai")
+
+    response = httpx.Response(503, headers={"x-request-id": "request503"},
+                              request=httpx.Request("POST", "https://test"))
+    error = openai.InternalServerError("Service unavailable", response=response,
+                                      body={"dimensions": []})
+    calls = _judge_client(monkeypatch, [error])
+    with pytest.raises(openai.InternalServerError):
+        batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                         attempt_dir=tmp_path)
+    receipt = json.loads(next(tmp_path.glob("*.failed.json")).read_text())
+    assert receipt["http_status"] == 503 and receipt["request_id"] == "request503"
+    assert receipt["status"] == "unreconciled"
+    with pytest.raises(ValueError, match="Unreconciled"):
+        batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                         attempt_dir=tmp_path)
+    assert len(calls) == 1
+
+
+def _http_error(status, body=None, retry_after="15"):
+    openai = pytest.importorskip("openai")
+    httpx = pytest.importorskip("httpx2")
+    response = httpx.Response(
+        status, headers={"retry-after": retry_after, "x-request-id": "request"},
+        request=httpx.Request("POST", "https://test"),
+    )
+    return openai.APIStatusError("HTTP error", response=response,
+                                body=body if body is not None else {"error": "unavailable"})
+
+
+@pytest.mark.parametrize("status", [429, 500, 502, 503, 504])
+def test_authorized_http_retry_is_once_identical_and_preserves_unknown_bill(
+    tmp_path, monkeypatch, status,
+):
+    import caliber.contract_policy_analyst_batch as batch
+
+    response = SimpleNamespace(model_dump=lambda: {"usage": None}, output_text="{}")
+    calls = _judge_client(monkeypatch, [_http_error(status), response])
+    delays = []
+    monkeypatch.setattr(batch.time, "sleep", delays.append)
+    directory = tmp_path / "case"
+    budget = batch.JudgeHTTPRetryBudget(tmp_path / "budget")
+    result = batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                             attempt_dir=directory, http_retry_budget=budget)
+    assert len(calls) == 2 and calls[0] == calls[1]
+    assert delays == [15.0]
+    assert result["http_retry"] is True
+    receipt = json.loads(next(directory.glob("*.failed.json")).read_text())
+    assert receipt["billing_status"] == "unknown"
+    assert receipt["http_status"] == status and receipt["status"] == "retryable_http_error"
+    assert len(budget.snapshot()) == 1
+    assert batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                            attempt_dir=directory, http_retry_budget=budget) == result
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("last_error", ["http", "connect", "read"])
+def test_failed_http_retry_stops_without_third_request(tmp_path, monkeypatch, last_error):
+    import caliber.contract_policy_analyst_batch as batch
+    httpx = pytest.importorskip("httpx2")
+    openai = pytest.importorskip("openai")
+
+    error = _http_error(503) if last_error == "http" else _connection_error(
+        httpx.ConnectError if last_error == "connect" else httpx.ReadTimeout,
+    )
+    calls = _judge_client(monkeypatch, [_http_error(503), error])
+    budget = batch.JudgeHTTPRetryBudget(tmp_path / "budget")
+    with pytest.raises(openai.APIError):
+        batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                         attempt_dir=tmp_path / "case", http_retry_budget=budget)
+    with pytest.raises(ValueError, match="retry failed"):
+        batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                         attempt_dir=tmp_path / "case", http_retry_budget=budget)
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("status,body", [
+    (400, {"error": "bad input"}), (401, {"error": "unauthorized"}),
+    (503, {"dimensions": []}), (502, {"error": {"output_text": "judge result"}}),
+])
+def test_http_errors_with_judge_body_or_other_4xx_never_retry(
+    tmp_path, monkeypatch, status, body,
+):
+    import caliber.contract_policy_analyst_batch as batch
+    openai = pytest.importorskip("openai")
+
+    calls = _judge_client(monkeypatch, [_http_error(status, body)])
+    budget = batch.JudgeHTTPRetryBudget(tmp_path / "budget")
+    with pytest.raises(openai.APIError):
+        batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                         attempt_dir=tmp_path / "case", http_retry_budget=budget)
+    assert len(calls) == 1 and budget.snapshot() == []
+
+
+def test_http_retry_reservations_survive_restart_and_cannot_exceed_ten(tmp_path):
+    from caliber.contract_policy_analyst_batch import JudgeHTTPRetryBudget
+
+    budget = JudgeHTTPRetryBudget(tmp_path)
+    for index in range(10):
+        budget.reserve(f"case{index}", "hash", 503)
+    restarted = JudgeHTTPRetryBudget(tmp_path)
+    with pytest.raises(ValueError, match="budget exhausted"):
+        restarted.reserve("eleventh", "hash", 503)
+    with pytest.raises(ValueError, match="already reserved"):
+        restarted.reserve("case0", "hash", 503)
+    assert len(restarted.snapshot()) == 10
+
+
+@pytest.mark.parametrize("header,expected", [
+    (None, 10), ("1", 10), ("20", 20), ("nonsense", 10), ("inf", 10),
+])
+def test_http_retry_backoff_honors_header_and_minimum(header, expected):
+    from caliber.contract_policy_analyst_batch import judge_retry_delay
+
+    assert judge_retry_delay(header) == expected
+
+
+def test_http_retry_honors_date_header():
+    from datetime import UTC, datetime, timedelta
+    from email.utils import format_datetime
+
+    from caliber.contract_policy_analyst_batch import judge_retry_delay
+
+    header = format_datetime(datetime.now(UTC) + timedelta(seconds=60), usegmt=True)
+    assert 58 <= judge_retry_delay(header) <= 60
+
+
+@pytest.mark.parametrize("valid_recovery", [True, False])
+def test_http_recovery_binds_original_failure_and_never_overwrites_it(
+    tmp_path, monkeypatch, valid_recovery,
+):
+    import caliber.contract_policy_analyst_batch as batch
+    openai = pytest.importorskip("openai")
+
+    response = SimpleNamespace(model_dump=lambda: {"usage": None}, output_text="{}")
+    calls = _judge_client(monkeypatch, [_http_error(503), response])
+    directory = tmp_path / "case"
+    with pytest.raises(openai.APIError):
+        batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                         attempt_dir=directory)
+    failure_path = next(directory.glob("*.failed.json"))
+    original = failure_path.read_bytes()
+    receipt = json.loads(original)
+    attempt_id = failure_path.name.removesuffix(".failed.json")
+    batch.write_record(directory / f"{attempt_id}.retry-recovery.json", {
+        "failure_sha256": hashlib.sha256(original).hexdigest() if valid_recovery else "wrong",
+        "request_sha256": receipt["request_sha256"],
+        "no_judge_result": True, "http_status": 503,
+    })
+    budget = batch.JudgeHTTPRetryBudget(tmp_path / "budget")
+    if valid_recovery:
+        result = batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                                 attempt_dir=directory, http_retry_budget=budget)
+        assert result["http_retry"] is True and len(calls) == 2
+    else:
+        with pytest.raises(ValueError, match="not bound"):
+            batch.judge_call("https://test", "prompt", "task", "output", {}, [],
+                             attempt_dir=directory, http_retry_budget=budget)
+        assert len(calls) == 1
+    assert failure_path.read_bytes() == original
+
+
+def test_http_retry_cap_is_atomic_across_budget_instances(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+
+    from caliber.contract_policy_analyst_batch import JudgeHTTPRetryBudget
+
+    budgets = [JudgeHTTPRetryBudget(tmp_path), JudgeHTTPRetryBudget(tmp_path)]
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [
+            pool.submit(budgets[index % 2].reserve, f"case{index}", "hash", 503)
+            for index in range(20)
+        ]
+        successes = 0
+        for future in futures:
+            try:
+                future.result()
+                successes += 1
+            except ValueError as error:
+                assert "budget exhausted" in str(error)
+    assert successes == 10 and len(budgets[0].snapshot()) == 10
