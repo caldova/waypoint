@@ -171,13 +171,23 @@ def _reference_metadata(metadata: Any) -> bool:
 
 def _raw_reference_passages(value: Any) -> list[dict[str, Any]]:
     """Only successful retrieval protocol slots can supply raw reference metadata."""
-    calls = value.get("records", [value]) if isinstance(value, dict) else value
+    native = isinstance(value, dict) and value.get("schema") == "castia.tool_capture/v1"
+    calls = (
+        value.get("tool_calls", []) if native
+        else value.get("records", [value]) if isinstance(value, dict) else value
+    )
     found = []
     for call in calls if isinstance(calls, list) else []:
         if (
             not isinstance(call, dict) or call.get("name", call.get("tool_name", TOOL)) != TOOL
-            or call.get("status") not in (None, "succeeded")
         ):
+            continue
+        successful = (
+            call.get("status") == "ok" and call.get("tool_reported_ok") is True
+            and call.get("error") is None
+            if native else call.get("status") in (None, "succeeded")
+        )
+        if not successful:
             continue
         result = call.get("result", call)
         result = _parse(result) if isinstance(result, str) else result

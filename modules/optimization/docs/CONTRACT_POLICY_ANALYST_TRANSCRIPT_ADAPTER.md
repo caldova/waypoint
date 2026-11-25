@@ -36,6 +36,7 @@ Input may be:
 - An actual `{ok, content, structured_content}` result.
 - A list of `{name: <actual tool name>, result: <actual result>}` envelopes.
 - A read-only canary snapshot `{records: [{query, result}, ...]}`.
+- A native `{"schema": "castia.tool_capture/v1", "tool_calls": [...]}` document.
 
 Raw-result and canary callers explicitly assert trusted retrieval origin.
 Envelopes with another tool name, failed outer status, or `ok != true` are not
@@ -212,3 +213,23 @@ is still a false gap. Other uncertainty wording remains a later calibration matt
 Final post-hardening results:
 `modules\evals\graders\contract-policy-analyst\rft-reward-protocol-validation.json`.
 Earlier validation reports remain historical evidence with their original hashes.
+
+## Native-v1 envelope compatibility
+
+Native Castia 0.19.0 captures use `tool_calls` and call status `"ok"`, rather than
+legacy `records` / `"succeeded"`. The reader recognizes the exact
+`castia.tool_capture/v1` profile. A native retrieval call must have `"status": "ok"`,
+`"tool_reported_ok": true`, no call error, the known retrieval tool name and
+`result.ok == true`. `"ok"` is not a blanket success alias for unrelated legacy
+envelopes. The grader and portable reward raw verifiers use the same native profile.
+
+The entire native document remains retained without rewriting status, arguments,
+results, hashes or other capture metadata. Normalized grader-facing messages still
+use `"succeeded"`; their raw native source remains `"ok"`. Native record/complete
+validation remains the evaluator host's responsibility. No caps, rubric, labels
+or public signatures change.
+
+Preserved-pilot parser calibration is local replay only, with unchanged saved
+responses and genuine saved judge scores. Its generated report is ignored:
+`modules\evals\graders\contract-policy-analyst\runs\native-v1-pilot-parser-calibration.json`.
+It is not a new inference, judge call, heldout evaluation or promotion decision.

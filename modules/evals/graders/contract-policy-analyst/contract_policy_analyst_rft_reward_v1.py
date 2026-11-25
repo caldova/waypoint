@@ -12,7 +12,6 @@ import json
 import math
 import re
 from typing import Any
-from urllib.parse import urlsplit
 
 VERSION = "contract-policy-analyst-code-rft-reward-v1"
 TOOL = "contracts-kb-mcp___knowledge_base_retrieve"
@@ -239,13 +238,23 @@ def _reference_metadata(metadata: Any) -> bool:
 
 def _raw_passages(value: Any) -> list[dict[str, Any]]:
     """Only successful retrieval protocol slots can supply raw reference metadata."""
-    calls = value.get("records", [value]) if isinstance(value, dict) else value
+    native = isinstance(value, dict) and value.get("schema") == "castia.tool_capture/v1"
+    calls = (
+        value.get("tool_calls", []) if native
+        else value.get("records", [value]) if isinstance(value, dict) else value
+    )
     found = []
     for call in calls if isinstance(calls, list) else []:
         if (
             not isinstance(call, dict) or call.get("name", call.get("tool_name", TOOL)) != TOOL
-            or call.get("status") not in (None, "succeeded")
         ):
+            continue
+        successful = (
+            call.get("status") == "ok" and call.get("tool_reported_ok") is True
+            and call.get("error") is None
+            if native else call.get("status") in (None, "succeeded")
+        )
+        if not successful:
             continue
         result = _parse(call.get("result", call))
         if not isinstance(result, dict) or result.get("ok") is not True:
@@ -291,6 +300,20 @@ def _expected_path(ref: str) -> str:
     return ""
 
 
+def _https_blob_path(uri: str) -> str | None:
+    # Only the HTTPS Azure blob profile used by the adapter; never decode or repair a URL.
+    if any(ord(character) <= 32 or ord(character) == 127 for character in uri):
+        return None
+    match = re.fullmatch(
+        r"(?i:https)://([A-Za-z0-9.-]+)(?::[0-9]+)?"
+        r"(/[^?#]*)(?:\?[^#]*)?(?:#.*)?",
+        uri,
+    )
+    if not match or not match[1].lower().endswith(".blob.core.windows.net"):
+        return None
+    return match[2]
+
+
 def _adapter_verified(source: dict[str, Any], message: dict[str, Any]) -> bool:
     if (
         message.get("adapter_version") != "contract-policy-analyst-transcript-v1"
@@ -310,14 +333,7 @@ def _adapter_verified(source: dict[str, Any], message: dict[str, Any]) -> bool:
     for origin in origins:
         if not isinstance(origin, dict) or not isinstance(origin.get("uri"), str):
             return False
-        try:
-            uri = urlsplit(origin["uri"])
-        except ValueError:
-            return False
-        if (
-            uri.scheme != "https" or not (uri.hostname or "").endswith(".blob.core.windows.net")
-            or uri.path != path or uri.username or uri.password
-        ):
+        if _https_blob_path(origin["uri"]) != path:
             return False
         matches = [
             p["sourceData"]["snippet"] for p in passages

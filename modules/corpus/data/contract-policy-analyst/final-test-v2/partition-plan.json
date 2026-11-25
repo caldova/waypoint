@@ -1,0 +1,127 @@
+{
+  "families": [
+    {
+      "domain": "solid-dose",
+      "rows": 12,
+      "source_family": "CPA2-F001",
+      "source_paths": [
+        "contracts/source-markdown/cpa2-f001-solid-dose-sow.md",
+        "policies/source-markdown/cpa2-f001-evidence-policy.md"
+      ],
+      "status": "sealed-uningested",
+      "supplier_name": "Cinderbrook Formulation Works"
+    },
+    {
+      "domain": "sterile-fill",
+      "rows": 12,
+      "source_family": "CPA2-F002",
+      "source_paths": [
+        "contracts/source-markdown/cpa2-f002-sterile-fill-sow.md",
+        "policies/source-markdown/cpa2-f002-evidence-policy.md"
+      ],
+      "status": "sealed-uningested",
+      "supplier_name": "Juniper Vale Aseptic Services"
+    },
+    {
+      "domain": "serialization",
+      "rows": 12,
+      "source_family": "CPA2-F003",
+      "source_paths": [
+        "contracts/source-markdown/cpa2-f003-serialization-sow.md",
+        "policies/source-markdown/cpa2-f003-evidence-policy.md"
+      ],
+      "status": "sealed-uningested",
+      "supplier_name": "Morrowglass Serialization"
+    },
+    {
+      "domain": "api-supply",
+      "rows": 12,
+      "source_family": "CPA2-F004",
+      "source_paths": [
+        "contracts/source-markdown/cpa2-f004-api-supply-sow.md",
+        "policies/source-markdown/cpa2-f004-evidence-policy.md"
+      ],
+      "status": "sealed-uningested",
+      "supplier_name": "Copperfern Active Ingredients"
+    },
+    {
+      "domain": "gmp-testing",
+      "rows": 12,
+      "source_family": "CPA2-F005",
+      "source_paths": [
+        "contracts/source-markdown/cpa2-f005-gmp-testing-sow.md",
+        "policies/source-markdown/cpa2-f005-evidence-policy.md"
+      ],
+      "status": "sealed-uningested",
+      "supplier_name": "Violet Basin Analytical"
+    },
+    {
+      "domain": "clinical-supply",
+      "rows": 12,
+      "source_family": "CPA2-F006",
+      "source_paths": [
+        "contracts/source-markdown/cpa2-f006-clinical-supply-sow.md",
+        "policies/source-markdown/cpa2-f006-evidence-policy.md"
+      ],
+      "status": "sealed-uningested",
+      "supplier_name": "Kestrel Hollow Clinical Supply"
+    },
+    {
+      "domain": "cold-logistics",
+      "rows": 12,
+      "source_family": "CPA2-F007",
+      "source_paths": [
+        "contracts/source-markdown/cpa2-f007-cold-logistics-sow.md",
+        "policies/source-markdown/cpa2-f007-evidence-policy.md"
+      ],
+      "status": "sealed-uningested",
+      "supplier_name": "Silverquay Temperature Logistics"
+    },
+    {
+      "domain": "biologic-capacity",
+      "rows": 12,
+      "source_family": "CPA2-F008",
+      "source_paths": [
+        "contracts/source-markdown/cpa2-f008-biologic-capacity-sow.md",
+        "policies/source-markdown/cpa2-f008-evidence-policy.md"
+      ],
+      "status": "sealed-uningested",
+      "supplier_name": "Emberwick Biologic Capacity"
+    },
+    {
+      "domain": "device-assembly",
+      "rows": 12,
+      "source_family": "CPA2-F009",
+      "source_paths": [
+        "contracts/source-markdown/cpa2-f009-device-assembly-sow.md",
+        "policies/source-markdown/cpa2-f009-evidence-policy.md"
+      ],
+      "status": "sealed-uningested",
+      "supplier_name": "Larchhaven Device Assembly"
+    },
+    {
+      "domain": "sterilization",
+      "rows": 12,
+      "source_family": "CPA2-F010",
+      "source_paths": [
+        "contracts/source-markdown/cpa2-f010-sterilization-sow.md",
+        "policies/source-markdown/cpa2-f010-evidence-policy.md"
+      ],
+      "status": "sealed-uningested",
+      "supplier_name": "Wrenstone Sterilization"
+    }
+  ],
+  "ingestion_authorized": false,
+  "optimizer_selection_frozen": false,
+  "release_gate": "Do not upload/index any CPA2 source until BOTH optimizer candidate selection AND RFT/checkpoint selection are frozen by the parent. Do not expose final-test prompts, references, labels or canary answers to either selection process.",
+  "rft_checkpoint_selection_frozen": false,
+  "seed": "CPA2-offline-seal-2026-11-25",
+  "splits": {
+    "final-test-v2": {
+      "rows": 120,
+      "source_families": 10
+    }
+  },
+  "status": "sealed-uningested",
+  "version": "contract-policy-analyst-final-test-v2"
+}

@@ -2,6 +2,22 @@
 
 ## Compatibility finding
 
+### Restricted-runtime import revision
+
+The parent reports remote rejection of `urllib.parse` in the substantive reward.
+The portable reward now uses an import-free HTTPS Azure blob URL profile, retaining
+exact path, raw URI/reference identity, snippet and context hash checks. It never
+decodes paths, guesses basenames, accepts credentials or repairs malformed URLs;
+control characters are rejected. Quality grader and native transcript parsing
+remain frozen and may still import `urllib`.
+
+`rft-reward-restricted-runtime-validation.json` records the new local revision
+and reward hash. Allowlisted-import wrapper tests use training-origin synthetic
+API replays, not final-test data. Existing citation, boundary, poison and gap caps
+remain unchanged. The old protocol validation report is preserved. Local tests
+are not remote acceptance or reward calibration; the parent must validate the new
+source remotely before training.
+
 The matched quality evaluator cannot be submitted unchanged as a useful
 judge-free Python RFT reward. `evaluate(...).score` requires the genuine,
 hash-bound `gpt-6-astra` six-dimension result and remains capped at 0.49 without

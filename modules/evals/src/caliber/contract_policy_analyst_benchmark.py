@@ -456,10 +456,20 @@ def main() -> None:
         "--expanded", action="store_true",
         help="Build the separately sealed 48-family newly authored fictional corpus and study",
     )
-    args = parser.parse_args()
-    report = (
-        build_expanded_study(repo=args.repo) if args.expanded else build_benchmark(repo=args.repo)
+    parser.add_argument(
+        "--final-test-v2", action="store_true",
+        help="Seal 120 fresh CPA2 cases and sources offline; never upload or invoke models",
     )
+    args = parser.parse_args()
+    if args.expanded and args.final_test_v2:
+        parser.error("--expanded and --final-test-v2 are mutually exclusive")
+    if args.final_test_v2:
+        report = build_final_test_v2(repo=args.repo)
+    else:
+        report = (
+            build_expanded_study(repo=args.repo)
+            if args.expanded else build_benchmark(repo=args.repo)
+        )
     print(json.dumps({
         key: report[key] for key in ("sizes", "offline_ready", "live_eval_ready", "sealed_ready")
     }, indent=2))
@@ -1261,11 +1271,584 @@ def build_expanded_study(*, repo: Path) -> dict[str, Any]:
     return report
 
 
+FINAL_TEST_VERSION = "contract-policy-analyst-final-test-v2"
+FINAL_TEST_SEED = "CPA2-offline-seal-2026-11-25"
+FINAL_TEST_PREFIX = "knowledge/contracts/policy-analyst-v2"
+FINAL_TEST_SUPPLIERS = (
+    "Cinderbrook Formulation Works", "Juniper Vale Aseptic Services",
+    "Morrowglass Serialization", "Copperfern Active Ingredients",
+    "Violet Basin Analytical", "Kestrel Hollow Clinical Supply",
+    "Silverquay Temperature Logistics", "Emberwick Biologic Capacity",
+    "Larchhaven Device Assembly", "Wrenstone Sterilization",
+)
+FINAL_TEST_ARCHETYPES = (
+    ("confirmed-calculation", None, "approve"),
+    ("amount-variance", None, "recover"),
+    ("tier-threshold-boundary", "tier", "approve"),
+    ("tier-basis-variance", "tier", "recover"),
+    ("capped-credit-variance", "capped_cost", "recover"),
+    ("valid-pre-service-waiver", None, "approve"),
+    ("absent-pre-service-waiver", None, "review"),
+    ("single-attestation", None, "review"),
+    ("outside-date-window", "window", "recover"),
+    ("conflicting-quality-status", None, "escalate"),
+    ("wrong-service-record", None, "review"),
+    ("wrong-supplier-record", None, "review"),
+)
+
+
+def _final_test_roots(repo: Path) -> tuple[Path, Path]:
+    return (
+        repo.resolve() / "modules" / "corpus" / "data" / AGENT / "final-test-v2",
+        repo.resolve() / "modules" / "evals" / "datasets" / AGENT / "final-test-v2",
+    )
+
+
+def _numerical_fingerprint(reference: dict[str, Any]) -> str:
+    """Ignore identities and prose; fingerprint all stipulated numeric business facts."""
+    truth = reference["ground_truth"]
+    numeric: dict[str, Any] = {}
+
+    def collect(value: Any, path: str) -> None:
+        if isinstance(value, bool):
+            return
+        if isinstance(value, (int, float)) or (
+            isinstance(value, str) and re.fullmatch(r"-?\d+(?:\.\d+)?", value)
+        ):
+            numeric[path] = str(_decimal(value).normalize())
+        elif isinstance(value, dict):
+            for key, child in value.items():
+                collect(child, path + "." + key)
+
+    for field in ("authored_rule", "observed_facts", "invoice_facts"):
+        collect(truth[field], field)
+    if not numeric:
+        raise ValueError("missing numerical business facts")
+    return _sha(_json(numeric).encode())
+
+
+def audit_final_test_independence(
+    *, references: list[dict[str, Any]], prior_references: list[dict[str, Any]],
+    source_rows: list[dict[str, Any]], prior_source_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Reject renamed CPA1 data, reused commercial values, or unsealed source inventories."""
+    identity_fields = ("source_family", "scenario_family")
+    overlaps = {}
+    for field in identity_fields:
+        current = {r["ground_truth"][field] for r in references}
+        prior = {r["ground_truth"][field] for r in prior_references}
+        overlaps[field] = sorted(current & prior)
+    for field in ("invoice_id", "line_id", "supplier_id", "service_id"):
+        overlaps[field] = sorted(
+            {r["ground_truth"]["invoice_facts"][field] for r in references}
+            & {r["ground_truth"]["invoice_facts"][field] for r in prior_references}
+        )
+    overlaps["source_bytes"] = sorted(
+        {s["sha256"] for s in source_rows} & {s["sha256"] for s in prior_source_rows}
+    )
+    overlaps["source_basenames"] = sorted(
+        {Path(s["path"]).name for s in source_rows}
+        & {Path(s["path"]).name for s in prior_source_rows}
+    )
+    overlaps["numerical_fingerprints"] = sorted(
+        {_numerical_fingerprint(r) for r in references}
+        & {_numerical_fingerprint(r) for r in prior_references}
+    )
+    for field in (
+        "rate", "threshold", "discount_percent", "allowance_percent",
+        "markup_percent", "cap", "window_end_day", "period_days",
+    ):
+        overlaps["commercial_" + field] = sorted(
+            {
+                str(_decimal(r["ground_truth"]["authored_rule"]["parameters"][field]).normalize())
+                for r in references
+            }
+            & {
+                str(_decimal(r["ground_truth"]["authored_rule"]["parameters"][field]).normalize())
+                for r in prior_references
+            }
+        )
+    if any(overlaps.values()):
+        raise ValueError(f"CPA2/CPA1 overlap: {overlaps}")
+    if (
+        len(references) != 120
+        or len({r["ground_truth"]["source_family"] for r in references}) != 10
+    ):
+        raise ValueError("final-test-v2 requires 120 cases across 10 source families")
+    if len(source_rows) != 260 or len({s["path"] for s in source_rows}) != 260:
+        raise ValueError("final-test-v2 requires 260 distinct source documents")
+    for source in source_rows:
+        if (
+            source.get("status") != "sealed-uningested"
+            or source.get("kb_ingestion_verified") is not False
+            or source.get("review_status") != "pending_human_review"
+            or source.get("synthetic") is not True
+            or not re.fullmatch(r"CPA2-F00[1-9]|CPA2-F010", source["source_family"])
+        ):
+            raise ValueError("unsealed or ingested final-test-v2 source")
+    return {
+        "status": "sealed-uningested", "rows": 120, "source_families": 10,
+        "source_documents": 260, "overlap_with_CPA1": overlaps,
+        "numerical_audit": (
+            "Numeric business-fact vectors and every commercial parameter above are disjoint. "
+            "Neutral constants such as one fixed service item can recur; not all number tokens "
+            "or abstract calculation primitives are claimed novel."
+        ),
+        "global_pristine": False, "study_local_source_independence": True,
+        "prior_study_heldout_status": "exposed-source-regression",
+        "prior_exposure_basis": (
+            "Parent reports training captures incidentally retrieved CPA1 families "
+            "40,41,43,44,48. No independent trace inspection in this offline build. "
+            "Original study-heldout prompts, labels, manifests and sources remain unchanged."
+        ),
+        "release_gate": (
+            "Do not upload/index any CPA2 source until BOTH optimizer candidate selection "
+            "AND RFT/checkpoint selection are frozen by the parent. Do not expose final-test "
+            "prompts, references, labels or canary answers to either selection process."
+        ),
+    }
+
+
+def derive_final_test_expectation(
+    *, rule: list[Any], parameters: dict[str, Any], facts: dict[str, Any],
+    invoice: dict[str, Any],
+) -> dict[str, Any]:
+    """CPA2 adds a supplier-only identity trap without changing the frozen CPA1 oracle."""
+    if facts["supplier_id"] != invoice["supplier_id"]:
+        return {
+            "supports": "review",
+            "gap": "Matching operational evidence for this billed supplier is unverified.",
+            "reason": "The retrieved operational record identifies a different supplier.",
+            "record_supports": "unknown",
+        }
+    return derive_study_expectation(rule=rule, parameters=parameters, facts=facts, invoice=invoice)
+
+
+def build_final_test_v2(*, repo: Path) -> dict[str, Any]:
+    """Deterministically author and seal CPA2 offline; no model, tool or ingestion calls."""
+    corpus, out = _final_test_roots(repo)
+    parent = corpus.parent
+    catalog_path = parent / "domain-catalog.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    if catalog["version"] != "contract-policy-analyst-fictional-authority-v1":
+        raise ValueError("unexpected authority catalog")
+    prior_root = out.parent / "expanded-v1"
+    prior_references = [
+        reference for split in STUDY_SPLITS
+        for reference in read_jsonl(prior_root / "references" / f"{split}.jsonl")
+    ]
+    prior_manifest_path = parent / "v1" / "source-manifest.json"
+    prior_sources = json.loads(prior_manifest_path.read_text(encoding="utf-8"))["source_documents"]
+    sources: dict[str, str] = {}
+    prompts, references, reviews, cases, canaries, families = [], [], [], [], [], []
+
+    def heading(section: str, body: str, path: str) -> str:
+        ref = _source_ref(FINAL_TEST_PREFIX + "/" + Path(path).name, section)
+        return f"## {section}\n\n**Source ref:** {ref}\n\n{body}"
+
+    def source(path: str, section: str, text: str, family: str, classification: str) -> dict:
+        document = FINAL_TEST_PREFIX + "/" + Path(path).name
+        return {
+            "document": document, "section": section, "source_ref": _source_ref(document, section),
+            "text": text, "classification": classification, "source_family": family,
+            "local_path": path, "section_sha256": _sha(text.encode()),
+            "blob_name": "contracts/policy-analyst-v2/" + Path(path).name,
+            "container": "knowledge",
+        }
+
+    def document(title: str, family: str, sections: list[str]) -> str:
+        return (
+            f"# {title}\n\n**Supplier/source family:** {family}\n"
+            "**Authority:** New fictional study source authored for final-test-v2; "
+            "not a human-reviewed contract or policy.\n"
+            "**Review status:** pending_human_review\n"
+            "**Service period:** January 2027\n\n" + "\n\n".join(sections) + "\n"
+        )
+
+    for number, supplier in enumerate(FINAL_TEST_SUPPLIERS, 1):
+        family = f"CPA2-F{number:03d}"
+        domain = catalog["domains"][number - 1]
+        contract_path = f"contracts/source-markdown/{family.lower()}-{domain['id']}-sow.md"
+        policy_path = f"policies/source-markdown/{family.lower()}-evidence-policy.md"
+        policy_section = "1. Evidence escalation"
+        policy_text = heading(
+            policy_section,
+            f"This fictional procedure applies only to supplier {family} in January 2027. "
+            "Conflicting sponsor and provider quality statuses for the same billed service "
+            "item require evidence escalation and reconciliation before billability is "
+            "resolved. Neither party's status automatically prevails. Unverified prerequisites "
+            "require evidence review. A record identifying another supplier, invoice line or "
+            "service ID cannot confirm the billed item. The controller retains all payment "
+            "and business-system decisions; evidence direction is not an executed action.",
+            policy_path,
+        )
+        policy_source = source(policy_path, policy_section, policy_text, family, "standard")
+        sources[policy_path] = document(
+            f"{supplier}: fictional evidence policy", family, [policy_text],
+        )
+        contract_sections = []
+        plans = sorted(
+            FINAL_TEST_ARCHETYPES,
+            key=lambda plan: _sha(f"{FINAL_TEST_SEED}:{family}:{plan[0]}".encode()),
+        )
+        families.append({
+            "source_family": family, "supplier_name": supplier, "domain": domain["id"],
+            "rows": 12, "status": "sealed-uningested",
+            "source_paths": [contract_path, policy_path],
+        })
+        for index, (archetype, forced_kind, desired) in enumerate(plans):
+            original_rule = domain["rules"][(number + index) % 8]
+            kind = forced_kind or original_rule[2]
+            rule = [
+                f"{family}-R{index + 1:03d}", original_rule[1], kind, original_rule[3],
+            ]
+            parameters = {
+                "rate": _money(_decimal("419.37") + number * _decimal("29.13") + index * 7),
+                "threshold": 1703 + number * 41 + index * 53,
+                "discount_percent": 13 + (number + index) % 7,
+                "tier_basis": "all_units" if number % 2 else "incremental_units",
+                "allowance_percent": 5 + (number + index) % 5,
+                "markup_percent": 11 + (number + index) % 7,
+                "cap": 7903 + number * 127 + index * 139,
+                "window_end_day": 22 + (number + index) % 5,
+                "window_end_inclusive": bool(number % 2),
+                "period_days": 31,
+                "waiver_mode": "waiver" in archetype,
+                "dual_attestation": archetype == "single-attestation",
+            }
+            section = f"{index + 1}. Commercial rule {rule[0]}"
+            clause = _rule_text(
+                rule, parameters, family, f"{family} sponsor commercial officer",
+            ).replace("October 2026", "January 2027")
+            clause_text = heading(section, clause, contract_path)
+            contract_sections.append(clause_text)
+            clause_source = source(contract_path, section, clause_text, family, "confidential")
+            line_id, invoice_id = f"{family}-L{index + 1:03d}", f"{family}-INV{index + 1:03d}"
+            service_id = f"{family}-S{index + 1:03d}"
+            operational_path = f"operational/source-markdown/{line_id.lower()}-observations.md"
+            invoice_path = f"invoices/source-markdown/{invoice_id.lower()}.md"
+            observed = _observed_facts(kind, parameters, rule[3], service_id)
+            quantity = parameters["threshold"] + 43
+            if kind == "shortfall":
+                quantity = parameters["threshold"] - 29
+            elif kind in {"fixed", "window"}:
+                quantity = 1
+            elif kind == "proration":
+                quantity = 17
+            elif kind == "allowance":
+                quantity = parameters["allowance_percent"] * 37 + 59
+            if archetype == "tier-threshold-boundary":
+                quantity = parameters["threshold"]
+            observed.update({
+                "supplier_id": family, "invoice_line_id": line_id, "quantity": quantity,
+                "accepted_quantity": max(quantity - 23, 0), "rejected_quantity": 7,
+                "issued_quantity": 3263 + number * 41, "unit_cost": "53.17",
+                "actual_cost": parameters["cap"] + 431, "prior_credit": "83.29",
+                "sponsor_quality_status": DOMAIN_STATUSES[domain["id"]][0],
+                "provider_quality_status": DOMAIN_STATUSES[domain["id"]][0],
+            })
+            amount = commercial_amount(kind, parameters, observed)
+            invoice = {
+                "invoice_id": invoice_id, "line_id": line_id, "supplier_id": family,
+                "service_id": service_id, "description": rule[1], "currency": "USD",
+                "invoice_date": "2027-01-31", "service_period": "2027-01",
+                "quantity": quantity, "amount": _money(amount),
+                "observation_document": Path(operational_path).name,
+            }
+            if archetype == "amount-variance":
+                invoice["amount"] = _money(amount + _decimal("109.43"))
+            elif archetype == "tier-basis-variance":
+                other = dict(parameters)
+                other["tier_basis"] = (
+                    "incremental_units" if parameters["tier_basis"] == "all_units" else "all_units"
+                )
+                invoice["amount"] = _money(commercial_amount(kind, other, observed))
+            elif archetype == "capped-credit-variance":
+                invoice["amount"] = _money(_decimal(parameters["cap"]))
+            elif archetype == "absent-pre-service-waiver":
+                observed.pop("pre_service_exception", None)
+            elif archetype == "single-attestation":
+                observed["provider_first_attestation"] = "not supplied"
+            elif archetype == "outside-date-window":
+                observed["completion_day"] = parameters["window_end_day"] + 1
+            elif archetype == "conflicting-quality-status":
+                observed["provider_quality_status"] = DOMAIN_STATUSES[domain["id"]][1]
+            elif archetype == "wrong-service-record":
+                observed["service_id"] = service_id + "-OTHER"
+                observed["invoice_line_id"] = line_id + "-OTHER"
+            elif archetype == "wrong-supplier-record":
+                observed["supplier_id"] = f"CPA2-F{number % 10 + 1:03d}"
+            expectation = derive_final_test_expectation(
+                rule=rule, parameters=parameters, facts=observed, invoice=invoice,
+            )
+            if expectation["supports"] != desired:
+                raise ValueError(f"CPA2 authored source/oracle mismatch: {line_id}")
+            record_section, invoice_section = "1. Operational observations", "1. Invoice line"
+            record_text = heading(
+                record_section,
+                "These are stipulated fictional operational observations. Omitted fields "
+                "are not supplied by this record.\n\n```json\n"
+                + json.dumps(observed, indent=2, sort_keys=True) + "\n```",
+                operational_path,
+            )
+            invoice_text = heading(
+                invoice_section,
+                "This is a fictional supplier invoice for the stated service period.\n\n```json\n"
+                + json.dumps(invoice, indent=2, sort_keys=True) + "\n```",
+                invoice_path,
+            )
+            sources[operational_path] = document(
+                f"{line_id}: fictional observations", family, [record_text],
+            )
+            sources[invoice_path] = document(
+                f"{supplier}: fictional invoice {invoice_id}", family, [invoice_text],
+            )
+            pinned = [
+                clause_source, policy_source,
+                source(operational_path, record_section, record_text, family, "confidential"),
+                source(invoice_path, invoice_section, invoice_text, family, "standard"),
+            ]
+            wrong_item = archetype in {"wrong-service-record", "wrong-supplier-record"}
+            claims = [
+                f"The cited fictional SOW defines {rule[1].lower()} with "
+                f"{kind.replace('_', ' ')} pricing and item-specific prerequisites.",
+                "The family policy routes same-item conflicting quality statuses to evidence "
+                "escalation and reserves business decisions.",
+                "The retrieved operational record identifies a different supplier or service "
+                "item from the billed line." if wrong_item else
+                "The retrieved operational observations identify this billed service item "
+                "and its documented quantities, prerequisites and status fields.",
+                f"The retrieved invoice identifies {line_id}, service {service_id}, "
+                f"and a billed USD {invoice['amount']} amount.",
+            ]
+            supports = [
+                "review" if desired == "escalate" else desired,
+                "escalate" if desired == "escalate" else "review",
+                expectation["record_supports"], "review",
+            ]
+            evidence = [{
+                "claim": claim, "supports": support, "source_ref": src["source_ref"],
+                "classification": src["classification"], "confidence": 0.86,
+            } for src, claim, support in zip(pinned, claims, supports, strict=True)]
+            expected = {
+                "agent": AGENT, "plane": "foundryiq", "invoice_id": invoice_id,
+                "output_type": "expert_evidence", "evidence": evidence,
+                "unsupported": [expectation["gap"]] if expectation["gap"] else [],
+                "summary": expectation["reason"] + " The controller retains the decision.",
+                "correlation": {
+                    "waypoint_invoice_id": invoice_id, "waypoint_run_id": "unknown",
+                },
+            }
+            row_id = "cpa-final-v2:" + line_id
+            metadata = {
+                "split": "final-test-v2", "source_family": family, "supplier_id": family,
+                "scenario_family": family + ":" + rule[0], "invoice_line_id": line_id,
+                "document_names": [Path(s["local_path"]).name for s in pinned],
+                "domain": domain["id"], "synthetic": True,
+                "review_status": "pending_human_review", "authority": catalog["authority"],
+                "global_pristine": False, "kb_ingestion_verified": False,
+                "status": "sealed-uningested",
+            }
+            payload = {
+                "request": f"Retrieve fictional invoice {invoice_id}, line {line_id}, the "
+                f"{family} supplier SOW and family evidence policy, and its linked operational "
+                "observations. Assess the cited evidence and identify anything unverified. "
+                "Do not treat document identifiers as contents.",
+                "supplier": {"id": family, "name": supplier},
+                "invoice": {"invoice_id": invoice_id},
+                "line": {"line_id": line_id, "service_id": service_id, "description": rule[1]},
+            }
+            prompts.append({
+                "id": row_id, "messages": [
+                    {"role": "developer", "content": INSTRUCTIONS},
+                    {"role": "user", "content": json.dumps(payload, sort_keys=True)},
+                ], "expected_tools": [TOOL], "reference_id": row_id, "metadata": metadata,
+            })
+            reference = {
+                "id": row_id, "version": FINAL_TEST_VERSION, "synthetic": True,
+                "review_status": "pending_human_review",
+                "label_source": "new_fictional_clause_and_record_computation_not_human_reviewed",
+                "expected_output_json": expected, "sources": pinned,
+                "allowed_claims": {
+                    s["source_ref"]: [c] for s, c in zip(pinned, claims, strict=True)
+                },
+                "required_gaps": expected["unsupported"], "historical_reference": None,
+                "ground_truth": {
+                    "primary_supports": desired,
+                    "support_by_source": {e["source_ref"]: e["supports"] for e in evidence},
+                    "required_gaps": expected["unsupported"],
+                    "acceptable_citations": [s["source_ref"] for s in pinned],
+                    "source_family": family, "scenario_family": metadata["scenario_family"],
+                    "authored_rule": {
+                        "id": rule[0], "topic": rule[1], "calculation": kind,
+                        "prerequisites": rule[3], "parameters": parameters,
+                    },
+                    "observed_facts": observed, "invoice_facts": invoice,
+                    "derived_expectation": expectation,
+                },
+            }
+            references.append(reference)
+            cases.append({
+                "id": row_id, "source_family": family, "archetype": archetype,
+                "primary_supports": desired, "numerical_sha256": _numerical_fingerprint(reference),
+            })
+            reviews.append({
+                "id": row_id, "source_family": family, "review_status": "pending_human_review",
+                "source_paths": [s["local_path"] for s in pinned],
+                "required_review": [
+                    "fictional authority and clause realism", "prerequisites and arithmetic",
+                    "supplier/service identity distractors", "per-source support and gaps",
+                    "genuine retrieval after both selections freeze",
+                ],
+            })
+        sources[contract_path] = document(
+            f"{supplier}: fictional statement of work", family, contract_sections,
+        )
+        canaries.append({
+            "family": family, "split": "final-test-v2",
+            "query": f"{family} {supplier} January 2027 SOW evidence policy",
+            "expected_documents": [Path(contract_path).name, Path(policy_path).name],
+            "status": "sealed-uningested", "verification_status": "not_run_offline_definition",
+            "not_optimizer_input": True, "release_gate": "both_selections_frozen",
+        })
+    source_rows = [{
+        "path": path, "sha256": _sha(text.encode()),
+        "source_family": re.search(r"cpa2-f\d{3}", path)[0].upper(),
+        "blob_name": "contracts/policy-analyst-v2/" + Path(path).name,
+        "container": "knowledge", "split": "final-test-v2", "status": "sealed-uningested",
+        "synthetic": True, "review_status": "pending_human_review", "kb_ingestion_verified": False,
+    } for path, text in sorted(sources.items())]
+    audit = audit_final_test_independence(
+        references=references, prior_references=prior_references,
+        source_rows=source_rows, prior_source_rows=prior_sources,
+    )
+    sources["partition-plan.json"] = _json({
+        "version": FINAL_TEST_VERSION, "seed": FINAL_TEST_SEED,
+        "splits": {"final-test-v2": {"rows": 120, "source_families": 10}},
+        "status": "sealed-uningested", "families": families,
+        "ingestion_authorized": False, "optimizer_selection_frozen": False,
+        "rft_checkpoint_selection_frozen": False, "release_gate": audit["release_gate"],
+    })
+    sources["review-list.jsonl"] = _jsonl(reviews)
+    sources["cases-index.jsonl"] = _jsonl(cases)
+    sources["retrieval-canaries.jsonl"] = _jsonl(canaries)
+    sources["source-manifest.json"] = _json({
+        "version": FINAL_TEST_VERSION, "status": "sealed-uningested",
+        "rows": 120, "source_families": 10, "source_documents": source_rows,
+        "source_counts": dict(Counter(s["path"].split("/", 1)[0] for s in source_rows)),
+        "authority": catalog["authority"], "review_status": "pending_human_review",
+        "catalog_sha256": _sha(catalog_path.read_bytes()),
+        "planned_blob_prefix": "contracts/policy-analyst-v2",
+        "ingestion_authorized": False, "release_gate": audit["release_gate"],
+        "never_upload": [
+            "partition-plan.json", "review-list.jsonl", "cases-index.jsonl",
+            "retrieval-canaries.jsonl", "source-manifest.json",
+        ],
+    })
+    artifacts = {
+        "final-test-v2.jsonl": _jsonl(prompts),
+        "references/final-test-v2.jsonl": _jsonl(references),
+        "leakage-audit.json": _json(audit),
+    }
+    artifacts["seal-manifest.json"] = _json({
+        "version": FINAL_TEST_VERSION, "seed": FINAL_TEST_SEED, "status": "sealed-uningested",
+        "rows": 120, "source_families": 10, "source_documents": 260,
+        "review_status": "pending_human_review", "global_pristine": False,
+        "splits": {"final-test-v2": {"rows": 120, "source_families": 10,
+                                   "status": "sealed-uningested"}},
+        "artifact_sha256": {path: _sha(text.encode()) for path, text in artifacts.items()},
+        "corpus_artifact_sha256": {path: _sha(text.encode()) for path, text in sources.items()},
+        "prior_source_manifest_sha256": _sha(prior_manifest_path.read_bytes()),
+        "catalog_sha256": _sha(catalog_path.read_bytes()),
+        "release_gate": audit["release_gate"], "ingestion_authorized": False,
+        "prior_study_heldout_status": "exposed-source-regression",
+    })
+    report = {
+        "version": FINAL_TEST_VERSION, "sizes": {"final-test-v2": 120},
+        "source_families": 10, "source_documents": 260, "status": "sealed-uningested",
+        "offline_ready": True, "live_eval_ready": False, "sealed_ready": True,
+        "review_status": "pending_human_review", "global_pristine": False,
+        "artifact_sha256": {path: _sha(text.encode()) for path, text in artifacts.items()},
+        "corpus_manifest_sha256": _sha(sources["source-manifest.json"].encode()),
+        "coverage": {
+            "archetypes": dict(Counter(c["archetype"] for c in cases)),
+            "primary_supports": dict(Counter(c["primary_supports"] for c in cases)),
+            "calculation_primitives": dict(Counter(
+                r["ground_truth"]["authored_rule"]["calculation"] for r in references
+            )),
+        },
+        "release_gate": audit["release_gate"],
+        "status_evidence": "offline builder declaration; no remote index/blob inspection",
+        "prior_study_heldout_status": "exposed-source-regression",
+        "original_canaries": (
+            "modules/corpus/data/contract-policy-analyst/v1/retrieval-canaries.jsonl"
+        ),
+    }
+    artifacts["validation-report.json"] = _json(report)
+    for root, expected in ((corpus, sources), (out, artifacts)):
+        extra = {
+            p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file()
+        } - expected.keys()
+        if extra:
+            raise ValueError(f"unsealed final-test-v2 artifacts: {sorted(extra)}")
+    _persist([(corpus, sources), (out, artifacts)])
+    return report
+
+
+def _verify_final_test_v2(repo: Path) -> Path:
+    corpus, root = _final_test_roots(repo)
+    report = json.loads((root / "validation-report.json").read_text(encoding="utf-8"))
+    seal = json.loads((root / "seal-manifest.json").read_text(encoding="utf-8"))
+    if (
+        report.get("status") != "sealed-uningested"
+        or seal.get("status") != "sealed-uningested"
+        or seal.get("ingestion_authorized") is not False
+        or seal.get("rows") != 120 or seal.get("source_families") != 10
+    ):
+        raise ValueError("unsealed final-test-v2 manifest")
+    for base, hashes in (
+        (root, report["artifact_sha256"]),
+        (root, seal["artifact_sha256"]),
+        (corpus, seal["corpus_artifact_sha256"]),
+    ):
+        for path, expected_hash in hashes.items():
+            target = (base / path).resolve()
+            if (
+                not target.is_relative_to(base.resolve()) or not target.is_file()
+                or _sha(target.read_bytes()) != expected_hash
+            ):
+                raise ValueError(f"sealed final-test-v2 artifact drift: {path}")
+    manifest = json.loads((corpus / "source-manifest.json").read_text(encoding="utf-8"))
+    if (
+        manifest.get("status") != "sealed-uningested"
+        or manifest.get("ingestion_authorized") is not False
+    ):
+        raise ValueError("unsealed final-test-v2 sources")
+    for source in manifest["source_documents"]:
+        if (
+            source.get("status") != "sealed-uningested"
+            or source.get("kb_ingestion_verified") is not False
+            or source.get("review_status") != "pending_human_review"
+        ):
+            raise ValueError("unsealed final-test-v2 source entry")
+    actual_sources = {
+        p.relative_to(corpus).as_posix()
+        for folder in ("contracts", "policies", "operational", "invoices")
+        for p in (corpus / folder / "source-markdown").rglob("*") if p.is_file()
+    }
+    if actual_sources != {s["path"] for s in manifest["source_documents"]}:
+        raise ValueError("unsealed final-test-v2 source inventory")
+    return root
+
+
 def load_study_split(*, repo: Path, split: str) -> list[dict[str, Any]]:
     """Parent-facing read-only API; references never become part of model task text."""
-    if split not in STUDY_SPLITS:
+    if split not in (*STUDY_SPLITS, "final-test-v2"):
         raise ValueError(f"unknown study split: {split}")
-    root = repo.resolve() / "modules" / "evals" / "datasets" / AGENT / "expanded-v1"
+    root = (
+        _verify_final_test_v2(repo) if split == "final-test-v2"
+        else repo.resolve() / "modules" / "evals" / "datasets" / AGENT / "expanded-v1"
+    )
     report = json.loads((root / "validation-report.json").read_text(encoding="utf-8"))
     paths = [f"{split}.jsonl", f"references/{split}.jsonl"]
     for path in paths:

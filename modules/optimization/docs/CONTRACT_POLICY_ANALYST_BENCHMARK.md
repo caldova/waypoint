@@ -7,9 +7,70 @@
 > See [Expanded fictional-authority study](#expanded-fictional-authority-study)
 > for the additive corpus, seals, canaries, and exact parent APIs.
 
+> **Replacement headline test:** `final-test-v2` now seals **120 CPA2 cases /
+> 10 new source families / 260 documents**, entirely offline. The parent reports
+> incidental CPA1 study-heldout source exposure in training captures; that old
+> partition is now **exposed-source regression**, not the headline test. Its
+> original files and labels are unchanged. CPA2 remains **sealed-uningested**
+> until both optimizer candidate selection and RFT/checkpoint selection freeze.
+
 These are independent preparation assets, not a renamed expert training set or
 evidence-analyst runtime. No model, agent, KB, optimizer, RFT job, or cloud state
 was changed. All generated labels are synthetic `pending_human_review`.
+
+## Fresh final-test-v2: offline release gate
+
+Build only, with no ingestion, retrieval, inference, judge or training calls:
+
+```powershell
+uv run --project modules\evals python -m caliber.contract_policy_analyst_benchmark --repo . --final-test-v2
+```
+
+`build_final_test_v2(repo=Path(...))` uses the fixed seed
+`CPA2-offline-seal-2026-11-25`. CPA2 names, supplier/service/line identities,
+commercial parameters, source bytes and numeric business-fact vectors are
+distinct from CPA1. Calculation primitives and neutral constants such as one
+fixed service item intentionally recur; this is not global/pretraining
+pristineness. New fictional clauses are authored authority, not approved policies.
+
+Each family has all 12 scenario archetypes: established calculation, amount
+variance, tier threshold boundary, tier basis variance, capped cost/credit
+variance, valid waiver, absent waiver, single attestation, outside date window,
+quality-status conflict, wrong service and wrong supplier. The supplier-only
+trap retains the correct line/service IDs. Coverage is 30 approval-direction,
+40 recovery-direction, 40 review-direction and 10 escalation-direction cases;
+these are evidence directions, never executed business decisions.
+
+- Corpus: `modules\corpus\data\contract-policy-analyst\final-test-v2\`
+  contains 10 SOWs, 10 policies, 120 records and 120 supplier invoices in the four
+  `source-markdown` folders. Scenario labels, review lists and canary definitions
+  stay outside those folders.
+- Requests:
+  `modules\evals\datasets\contract-policy-analyst\final-test-v2\final-test-v2.jsonl`.
+- Evaluator-only references: the same dataset root's
+  `references\final-test-v2.jsonl`, joined by request `reference_id` to reference `id`.
+- `seal-manifest.json` exposes `rows`, `source_families`, `status`,
+  all prompt/reference/source hashes, catalog pin and prior CPA1 manifest pin.
+  `source-manifest.json` pins all 260 source bytes. `review-list.jsonl` lists all
+  120 pending reviews; `leakage-audit.json` discloses prior source exposure.
+- `load_study_split(repo=..., split="final-test-v2")` returns the unchanged
+  `id/task/messages/reference/ground_truth/metadata` contract with task/reference
+  hashes. It verifies the seal, all source bytes and inventory. Missing, changed,
+  extra or unsealed sources fail closed. `study_optimizer_rows` rejects this split.
+- Future source refs use `knowledge/contracts/policy-analyst-v2/`; that is a
+  **planned** blob namespace, not evidence of uploaded or indexed documents.
+- New canaries are offline definitions in the new corpus root's
+  `retrieval-canaries.jsonl`. **Do not run them or upload/index CPA2 until BOTH
+  selection processes freeze.** No final-test prompts/gold/labels may enter either
+  selection process. Status is a builder declaration, not remote inspection.
+- Original CPA1 retry canaries remain exactly
+  `modules\corpus\data\contract-policy-analyst\v1\retrieval-canaries.jsonl`.
+
+The deterministic builder refuses changed or extra artifacts across both roots
+before writing. Focused tests cover CPA1 identity/byte/numeric overlap, renamed
+numeric facts, supplier-only distractors, source-backed oracle consistency,
+unchanged v1 artifacts, unsealed sources and loader tampering. They do not grade
+model outputs or perform final-test calibration.
 
 ## Source audit and limits
 

@@ -37,7 +37,7 @@ def hosted_call(
         ) as client:
             response = client.responses.create(
                 input=task,
-                metadata=metadata,
+                **({"metadata": metadata} if metadata is not None else {}),
                 extra_body={
                     "agent_reference": {
                         "type": "agent_reference",

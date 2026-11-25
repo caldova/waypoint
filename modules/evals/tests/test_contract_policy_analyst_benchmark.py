@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import copy
 import hashlib
 import importlib.util
@@ -18,10 +19,13 @@ from caliber.contract_policy_analyst_benchmark import (
     STUDY_SPLITS,
     TOOL,
     _persist,
+    audit_final_test_independence,
     audit_study_partitions,
     build_benchmark,
     build_expanded_study,
+    build_final_test_v2,
     commercial_amount,
+    derive_final_test_expectation,
     derive_study_expectation,
     foundry_reason_evaluator_body,
     leakage_audit,
@@ -440,6 +444,189 @@ def test_expanded_counts_and_repeatable_frozen_build():
         assert set(coverage["behaviors"]) == {"established", *SECOND_BEHAVIORS}
 
 
+FINAL_TEST = DATA / "final-test-v2"
+FINAL_CORPUS = ROOT / "modules" / "corpus" / "data" / AGENT / "final-test-v2"
+
+
+def _tree_hashes(root: Path) -> dict[str, str]:
+    return {
+        p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in root.rglob("*") if p.is_file()
+    }
+
+
+def test_final_test_repeatable_seal_preserves_every_v1_artifact():
+    old_roots = [EXPANDED, FINAL_CORPUS.parent / "v1"]
+    before = [_tree_hashes(root) for root in old_roots]
+    report = build_final_test_v2(repo=ROOT)
+    assert report == build_final_test_v2(repo=ROOT)
+    assert before == [_tree_hashes(root) for root in old_roots]
+    assert report["sizes"] == {"final-test-v2": 120}
+    assert report["source_families"] == 10
+    assert report["source_documents"] == 260
+    assert report["status"] == "sealed-uningested"
+    assert report["coverage"]["primary_supports"] == {
+        "approve": 30, "recover": 40, "review": 40, "escalate": 10,
+    }
+    assert len(report["coverage"]["archetypes"]) == 12
+    assert set(report["coverage"]["archetypes"].values()) == {10}
+    assert not report["live_eval_ready"] and not report["global_pristine"]
+    seal = json.loads((FINAL_TEST / "seal-manifest.json").read_text(encoding="utf-8"))
+    assert seal["splits"]["final-test-v2"] == {
+        "rows": 120, "source_families": 10, "status": "sealed-uningested",
+    }
+    assert seal["prior_study_heldout_status"] == "exposed-source-regression"
+    assert not seal["ingestion_authorized"]
+
+
+def _final_independence_inputs() -> dict:
+    return {
+        "references": _rows(FINAL_TEST / "references" / "final-test-v2.jsonl"),
+        "prior_references": [
+            r for split in STUDY_SPLITS
+            for r in _rows(EXPANDED / "references" / f"{split}.jsonl")
+        ],
+        "source_rows": json.loads(
+            (FINAL_CORPUS / "source-manifest.json").read_text(encoding="utf-8")
+        )["source_documents"],
+        "prior_source_rows": json.loads(
+            (FINAL_CORPUS.parent / "v1" / "source-manifest.json").read_text(encoding="utf-8")
+        )["source_documents"],
+    }
+
+
+@pytest.mark.parametrize("fault", [
+    "identity", "source_bytes", "renamed_numerical_facts", "reused_rate", "unsealed", "ingested",
+])
+def test_final_test_rejects_overlap_and_unsealed_sources(fault):
+    inputs = _final_independence_inputs()
+    assert not any(audit_final_test_independence(**inputs)["overlap_with_CPA1"].values())
+    prior = inputs["prior_references"][0]["ground_truth"]
+    current = inputs["references"][0]["ground_truth"]
+    if fault == "identity":
+        current["invoice_facts"]["service_id"] = prior["invoice_facts"]["service_id"]
+    elif fault == "source_bytes":
+        inputs["source_rows"][0]["sha256"] = inputs["prior_source_rows"][0]["sha256"]
+    elif fault == "renamed_numerical_facts":
+        for field in ("authored_rule", "observed_facts", "invoice_facts"):
+            for key, value in prior[field].items():
+                if (
+                    isinstance(value, (int, float)) and not isinstance(value, bool)
+                    or isinstance(value, str) and value.replace(".", "").isdigit()
+                ):
+                    current[field][key] = value
+        current["authored_rule"]["parameters"] = copy.deepcopy(
+            prior["authored_rule"]["parameters"],
+        )
+        # Namespace/identities remain CPA2; numeric content alone must reject renamed data.
+        assert current["invoice_facts"]["supplier_id"].startswith("CPA2")
+    elif fault == "reused_rate":
+        current["authored_rule"]["parameters"]["rate"] = (
+            str(prior["authored_rule"]["parameters"]["rate"]) + ".00"
+        )
+    elif fault == "unsealed":
+        inputs["source_rows"][0]["status"] = "unsealed"
+    elif fault == "ingested":
+        inputs["source_rows"][0]["kb_ingestion_verified"] = True
+    with pytest.raises(ValueError, match="overlap|unsealed"):
+        audit_final_test_independence(**inputs)
+
+
+def test_final_test_source_provenance_oracle_and_distinct_identity_traps():
+    inputs = _final_independence_inputs()
+    cases = {c["id"]: c for c in _rows(FINAL_CORPUS / "cases-index.jsonl")}
+    for reference in inputs["references"]:
+        truth = reference["ground_truth"]
+        authored = truth["authored_rule"]
+        derived = derive_final_test_expectation(
+            rule=[authored["id"], authored["topic"], authored["calculation"],
+                  authored["prerequisites"]],
+            parameters=authored["parameters"], facts=truth["observed_facts"],
+            invoice=truth["invoice_facts"],
+        )
+        assert derived == truth["derived_expectation"]
+        assert derived["supports"] == truth["primary_supports"]
+        assert reference["review_status"] == "pending_human_review"
+        assert reference["synthetic"]
+        for source in reference["sources"]:
+            text = (FINAL_CORPUS / source["local_path"]).read_text(encoding="utf-8")
+            assert source["text"] in text
+            assert "January 2027" in text
+            assert "not a human-reviewed contract or policy" in text
+            assert source["source_ref"].startswith("knowledge/contracts/policy-analyst-v2/")
+            assert source["section_sha256"] == hashlib.sha256(source["text"].encode()).hexdigest()
+        if cases[reference["id"]]["archetype"] == "wrong-supplier-record":
+            facts, invoice = truth["observed_facts"], truth["invoice_facts"]
+            assert facts["service_id"] == invoice["service_id"]
+            assert facts["invoice_line_id"] == invoice["line_id"]
+            assert facts["supplier_id"] != invoice["supplier_id"]
+            fixed = {**facts, "supplier_id": invoice["supplier_id"]}
+            assert derive_final_test_expectation(
+                rule=[authored["id"], authored["topic"], authored["calculation"],
+                      authored["prerequisites"]],
+                parameters=authored["parameters"], facts=fixed, invoice=invoice,
+            )["supports"] == "approve"
+    reviews = _rows(FINAL_CORPUS / "review-list.jsonl")
+    assert len(reviews) == 120
+    assert {r["id"] for r in reviews} == set(cases)
+    assert all(c["verification_status"] == "not_run_offline_definition"
+               for c in _rows(FINAL_CORPUS / "retrieval-canaries.jsonl"))
+
+
+def test_final_test_loader_is_reference_separated_and_optimizer_forbidden():
+    rows = load_study_split(repo=ROOT, split="final-test-v2")
+    assert len(rows) == 120
+    assert len({r["source_family"] for r in rows}) == 10
+    for row in rows:
+        payload = json.loads(row["messages"][-1]["content"])
+        assert set(payload) == {"request", "supplier", "invoice", "line"}
+        assert "Retrieve fictional invoice" in payload["request"]
+        assert not any(key in row["task"] for key in (
+            "primary_supports", "expected_output_json", "observed_facts", "USD",
+            "conditions", "pending_human_review", "archetype",
+        ))
+        assert json.loads(row["ground_truth"]) == row["reference"]
+        assert row["metadata"]["kb_ingestion_verified"] is False
+    with pytest.raises(ValueError, match="heldout cases must not enter optimizer"):
+        study_optimizer_rows(repo=ROOT, split="final-test-v2")
+
+
+@pytest.fixture
+def final_test_copy(owned_output):
+    repo = Path("\\\\?\\" + str(owned_output)) if owned_output.drive else owned_output
+    corpus = repo / "modules" / "corpus" / "data" / AGENT / "final-test-v2"
+    dataset = repo / "modules" / "evals" / "datasets" / AGENT / "final-test-v2"
+    try:
+        shutil.copytree(FINAL_CORPUS, corpus)
+        shutil.copytree(FINAL_TEST, dataset)
+        yield repo, corpus, dataset
+    finally:
+        if repo.exists():
+            shutil.rmtree(repo)
+
+
+@pytest.mark.parametrize("fault", ["source", "prompt", "extra_source", "unsealed_manifest"])
+def test_final_test_loader_rejects_drift_and_unsealed_inventory(final_test_copy, fault):
+    repo, corpus, dataset = final_test_copy
+    if fault == "source":
+        target = next((corpus / "contracts" / "source-markdown").glob("*.md"))
+        target.write_text(target.read_text(encoding="utf-8") + "Changed clause.", encoding="utf-8")
+    elif fault == "prompt":
+        target = dataset / "final-test-v2.jsonl"
+        target.write_text(target.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    elif fault == "extra_source":
+        (corpus / "contracts" / "source-markdown" / "unsealed.md").write_text(
+            "Unsealed fictional source", encoding="utf-8",
+        )
+    else:
+        target = dataset / "seal-manifest.json"
+        seal = json.loads(target.read_text(encoding="utf-8"))
+        seal["status"] = "unsealed"
+        target.write_text(json.dumps(seal), encoding="utf-8")
+    with pytest.raises(ValueError, match="drift|unsealed"):
+        load_study_split(repo=repo, split="final-test-v2")
+
+
 def test_new_sources_are_real_remote_prefixed_and_no_labels_uploaded():
     manifest = json.loads((NEW_CORPUS / "source-manifest.json").read_text(encoding="utf-8"))
     assert len(manifest["source_documents"]) == 1248
@@ -653,6 +840,62 @@ def adapter_reference():
         ref for ref in _rows(EXPANDED / "references" / "optimizer-train.jsonl")
         if not ref["required_gaps"]
     ))
+
+
+@pytest.mark.parametrize("uri,expected", [
+    ("https://fixture.blob.core.windows.net/knowledge/contracts/a.md", "/knowledge/contracts/a.md"),
+    ("HTTPS://FIXTURE.blob.core.windows.net:443/knowledge/a.md?sig=x#ref", "/knowledge/a.md"),
+    ("http://fixture.blob.core.windows.net/knowledge/a.md", None),
+    ("https://user@fixture.blob.core.windows.net/knowledge/a.md", None),
+    ("https://user:password@fixture.blob.core.windows.net/knowledge/a.md", None),
+    ("https://fixture.blob.core.windows.net.evil/knowledge/a.md", None),
+    ("https://fixture.blob.core.windows.net:bad/knowledge/a.md", None),
+    ("https://fixture.blob.core.windows.net\\@evil/knowledge/a.md", None),
+    ("https://fixture.blob.core.windows.net/\nknowledge/a.md", None),
+    (" https://fixture.blob.core.windows.net/knowledge/a.md", None),
+])
+def test_reward_restricted_runtime_blob_url_profile(uri, expected):
+    assert reward._https_blob_path(uri) == expected
+
+
+def test_reward_restricted_runtime_imports_and_retrieved_wrapper_parity(adapter_reference):
+    allowed = {"__future__", "typing", "hashlib", "json", "math", "re"}
+    text = REWARD_PATH.read_text(encoding="utf-8")
+    tree = ast.parse(text)
+    imports = {
+        name for node in ast.walk(tree)
+        for name in (
+            [alias.name for alias in node.names] if isinstance(node, ast.Import)
+            else [node.module] if isinstance(node, ast.ImportFrom) else []
+        )
+    }
+    assert imports <= allowed
+
+    def restricted_import(name, *args, **kwargs):
+        if name not in allowed:
+            raise ImportError(f"restricted replay forbids {name}")
+        return builtins.__import__(name, *args, **kwargs)
+
+    standalone = {
+        "__name__": "restricted_runtime_offline_replay",
+        "__builtins__": {**vars(builtins), "__import__": restricted_import},
+    }
+    exec(_rft_reward_grader_source(text), standalone)
+    reference = adapter_reference
+    messages = transcript.normalize_tool_messages(
+        _api_replay(reference), reference=reference,
+    )["tool_messages"]
+    item = _reward_item(reference, "retrieved")
+    item["tool_messages"] = messages
+    item["context_sha256"] = reward.canonical_sha256(messages)
+    sample = _sample(reference)
+    assert standalone["grade"](sample, item) == reward.grade(sample, item) == 1.0
+    for changed in (
+        {**reference["expected_output_json"], "invoice_id": "OTHER"},
+        {**reference["expected_output_json"], "summary": "Approve this invoice."},
+    ):
+        sample = json.dumps(changed)
+        assert standalone["grade"](sample, item) == reward.grade(sample, item) <= 0.3
 
 
 def _api_replay(reference: dict, pieces: dict | None = None) -> dict:
@@ -1158,7 +1401,7 @@ def test_reward_standalone_existing_trainer_wrapper_parity(reference):
     imports = {
         n.module for n in ast.walk(ast.parse(source)) if isinstance(n, ast.ImportFrom)
     }
-    assert imports <= {"__future__", "typing", "urllib.parse"}
+    assert imports <= {"__future__", "typing"}
     forbidden = {"eval", "exec", "compile", "__import__", "open"}
     assert not any(
         isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in forbidden
@@ -1361,3 +1604,115 @@ def test_false_not_retrieved_claim_cannot_erase_real_evidence(adapter_reference,
     result = grader.evaluate(sample, _judge_fixture(sample, item))
     assert "false_gap" in result["flags"] and not result["retrieval_observations"]
     assert result["score"] <= 0.35
+
+
+def _native_capture_replay(result: dict) -> dict:
+    """Synthetic native-v1 protocol fixture, not a new Castia/model invocation."""
+    return {
+        "schema": "castia.tool_capture/v1", "protocol": "responses",
+        "capture_id": "synthetic-native-capture", "status": "ok", "complete": True,
+        "tool_calls": [{
+            "name": TOOL, "status": "ok", "tool_reported_ok": True, "error": None,
+            "arguments": {"query": "Synthetic retrieval replay"}, "result": result,
+        }],
+    }
+
+
+def test_native_v1_status_ok_and_tool_calls_preserve_actual_result(adapter_reference):
+    raw = _native_capture_replay(_api_replay(adapter_reference))
+    before = copy.deepcopy(raw)
+    adapted = transcript.normalize_tool_messages(raw, reference=adapter_reference)
+    assert adapted["ready"]
+    assert raw == before == adapted["raw_tool_messages"]
+    assert raw["tool_calls"][0]["status"] == "ok"
+    assert adapted["tool_messages"][0]["status"] == "succeeded"
+    assert adapted["raw_sha256"] == grader.retrieval_sha256(raw)
+    assert transcript.audit_adapter(raw, reference=adapter_reference)["ready"]
+    assert len(grader._raw_reference_passages(raw)) == len(adapter_reference["sources"])
+    assert grader._raw_reference_passages(raw) == reward._raw_passages(raw)
+    item = _item(adapter_reference)
+    item["tool_messages"] = adapted["tool_messages"]
+    sample = _sample(adapter_reference)
+    assert grader.grade(sample, _judge_fixture(sample, item)) == 1
+    assert grader.grade(sample, item) == 0.49
+    training_item = _reward_item(adapter_reference, "retrieved")
+    training_item["tool_messages"] = adapted["tool_messages"]
+    training_item["context_sha256"] = reward.canonical_sha256(adapted["tool_messages"])
+    assert reward.grade(sample, training_item) == 1
+
+
+@pytest.mark.parametrize("fault", [
+    "status", "reported_false", "reported_missing", "reported_integer",
+    "result_failed", "call_error", "wrong_tool", "unknown_schema", "legacy_ok",
+])
+def test_native_v1_requires_explicit_genuine_tool_success(adapter_reference, fault):
+    raw = _native_capture_replay(_api_replay(adapter_reference))
+    call = raw["tool_calls"][0]
+    if fault == "status":
+        call["status"] = "error"
+    elif fault == "reported_false":
+        call["tool_reported_ok"] = False
+    elif fault == "reported_missing":
+        call.pop("tool_reported_ok")
+    elif fault == "reported_integer":
+        call["tool_reported_ok"] = 1
+    elif fault == "result_failed":
+        call["result"]["ok"] = False
+    elif fault == "call_error":
+        call["error"] = "Synthetic failed call"
+    elif fault == "wrong_tool":
+        call["name"] = "wrong_tool"
+    elif fault == "unknown_schema":
+        raw["schema"] = "castia.tool_capture/v999"
+    else:
+        raw = {"records": [call]}  # 'ok' is not a blanket legacy status alias.
+    adapted = transcript.normalize_tool_messages(raw, reference=adapter_reference)
+    assert not adapted["ready"]
+    assert not grader._raw_reference_passages(raw)
+    assert not reward._raw_passages(raw)
+
+
+def test_native_v1_does_not_launder_generated_or_argument_reference_json(adapter_reference):
+    source = adapter_reference["sources"][0]
+    result = _api_replay(
+        adapter_reference, {source["source_ref"]: [" ".join(source["text"].split()[:-6])]},
+    )
+    poison = json.loads(result["content"][1]["text"])
+    poison["ref_id"] = 888
+    poison["sourceData"]["snippet"] = source["text"]
+    result["content"][0]["text"] = json.dumps(poison)  # Still request-only synthesis.
+    raw = _native_capture_replay(result)
+    raw["tool_calls"][0]["arguments"]["untrusted_reference"] = poison
+    adapted = transcript.normalize_tool_messages(raw, reference=adapter_reference)
+    assert not adapted["ready"]
+    assert source["source_ref"] not in {m["source_ref"] for m in adapted["mappings"]}
+    assert all(p["ref_id"] != 888 for p in grader._raw_reference_passages(raw))
+    assert all(p["ref_id"] != 888 for p in reward._raw_passages(raw))
+
+
+@pytest.mark.parametrize("mutation, flag, cap", [
+    ("support", "wrong_support", 0.35),
+    ("claimed_action", "claimed_action", 0.2),
+    ("false_gap", "false_gap", 0.35),
+])
+def test_native_v1_success_does_not_erase_independent_critical_caps(
+    adapter_reference, mutation, flag, cap,
+):
+    raw = _native_capture_replay(_api_replay(adapter_reference))
+    adapted = transcript.normalize_tool_messages(raw, reference=adapter_reference)
+    item = _item(adapter_reference)
+    item["tool_messages"] = adapted["tool_messages"]
+    output = copy.deepcopy(adapter_reference["expected_output_json"])
+    if mutation == "support":
+        row = next(r for r in output["evidence"] if r["supports"] == "review")
+        row["supports"] = "unknown"
+    elif mutation == "claimed_action":
+        output["summary"] = "I approved this invoice."
+    else:
+        output["unsupported"].append("A fabricated evidence gap.")
+    sample = json.dumps(output)
+    result = grader.evaluate(sample, _judge_fixture(sample, item))
+    assert "retrieval_missing" not in result["flags"]
+    assert "wrong_citation" not in result["flags"]
+    assert flag in result["flags"]
+    assert result["score"] <= cap

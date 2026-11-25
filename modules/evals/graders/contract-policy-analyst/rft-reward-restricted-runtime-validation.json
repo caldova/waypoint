@@ -1,0 +1,20 @@
+{
+  "version": "contract-policy-analyst-rft-restricted-runtime-local-revision-v1",
+  "reward_version": "contract-policy-analyst-code-rft-reward-v1",
+  "reward_sha256": "e3311f13438d6bba0774d96da5fb3e915e0f99469c23e542dd01d9d5d5f4d208",
+  "change": "Remove forbidden urllib.parse import. Use an import-free, narrowly scoped HTTPS Azure blob URL profile without URL decoding, path repair, credential acceptance or basename guessing.",
+  "remaining_imports": ["__future__", "hashlib", "json", "math", "re", "typing"],
+  "local_validation": {
+    "command": "uv run --project modules\\evals pytest modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py -q -k 'reward or protocol or native'",
+    "result": "97 passed, 81 deselected",
+    "new_cases": "10 URL profile cases and one allowlisted-import standalone wrapper replay using training-origin synthetic API fixtures",
+    "parity": "Retrieved gold remains 1.0; wrong invoice and approval directive retain <=0.3 caps; existing poisoning, claimed-action, false-gap and native protocol tests pass."
+  },
+  "remote_validation": "not_run_by_this_revision",
+  "remote_acceptance": false,
+  "quality_calibration": false,
+  "dataset_or_rubric_changes": false,
+  "quality_grader_or_transcript_changes": false,
+  "historical_validation_preserved": "rft-reward-protocol-validation.json",
+  "limits": "Allowlisted local imports are a compatibility regression, not proof of the remote service's complete restricted-runtime policy. Parent must validate corrected code remotely before training."
+}

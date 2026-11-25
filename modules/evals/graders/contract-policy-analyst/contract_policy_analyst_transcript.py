@@ -193,13 +193,20 @@ def normalize_tool_messages(
     """Return raw payload, normalized messages, mappings, aliases and audit issues.
 
     Accept a raw ``{ok,content,structured_content}``, tool envelopes with
-    ``name`` and ``result``, or the read-only canary's ``{records:[...]}``.
+    ``name`` and ``result``, the canary's ``{records:[...]}``, or a native
+    ``castia.tool_capture/v1`` document with ``tool_calls``. Native calls require
+    status ``ok``, explicit ``tool_reported_ok=True``, no call error and result ``ok=True``.
     Raw-result/canary callers are explicitly asserting trusted retrieval origin;
     an envelope bearing another tool name is never promoted into retrieval.
     """
     raw = copy.deepcopy(tool_messages)
+    native = (
+        isinstance(tool_messages, dict)
+        and tool_messages.get("schema") == "castia.tool_capture/v1"
+    )
     calls = (
-        tool_messages.get("records", [tool_messages])
+        tool_messages.get("tool_calls", []) if native
+        else tool_messages.get("records", [tool_messages])
         if isinstance(tool_messages, dict) else tool_messages
     )
     issues: list[dict[str, Any]] = []
@@ -216,8 +223,13 @@ def normalize_tool_messages(
             continue
         result = call.get("result", call)
         result = _parse(result) if isinstance(result, str) else result
+        successful = (
+            call.get("status") == "ok" and call.get("tool_reported_ok") is True
+            and call.get("error") is None
+            if native else call.get("status") in (None, "succeeded")
+        )
         if (
-            call.get("status") not in (None, "succeeded")
+            not successful
             or not isinstance(result, dict) or result.get("ok") is not True
         ):
             issues.append({"kind": "failed_or_unverified_call", "call_index": call_index})

@@ -1,8 +1,10 @@
 import copy
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
-from caliber.contract_policy_analyst_eval import inference_cost, paired_records
+from caliber.contract_policy_analyst_eval import hosted_call, inference_cost, paired_records
 
 
 def rows(score):
@@ -53,3 +55,28 @@ def test_missing_usage_is_unknown_not_zero_cost():
     assert inference_cost(
         "unresolved-model", {"input_tokens": 1, "output_tokens": 1}
     )["usd"] is None
+
+
+@pytest.mark.parametrize("metadata", [None, {"cpa_attempt_id": "nonce"}])
+def test_hosted_call_omits_null_metadata_and_preserves_capture_nonce(monkeypatch, metadata):
+    identity = pytest.importorskip("azure.identity")
+    openai = pytest.importorskip("openai")
+    credential = MagicMock()
+    credential.get_token.return_value = SimpleNamespace(token="fixture-token")
+    client = MagicMock()
+    client.__enter__.return_value = client
+    response = MagicMock(output_text="{}", id="response-fixture")
+    response.model_dump.return_value = {"model": "model", "usage": None}
+    client.responses.create.return_value = response
+    monkeypatch.setattr(identity, "AzureCliCredential", lambda **kwargs: credential)
+    monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: client)
+
+    result = hosted_call("https://example.test/api/projects/study", "1", "task",
+                         metadata=metadata)
+
+    assert result["error"] is None
+    sent = client.responses.create.call_args.kwargs
+    if metadata is None:
+        assert "metadata" not in sent
+    else:
+        assert sent["metadata"] == metadata
