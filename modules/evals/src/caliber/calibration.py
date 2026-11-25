@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -26,35 +27,40 @@ def calibrate_grader(
 
     selected_thresholds = thresholds or list(DEFAULT_THRESHOLDS)
     for threshold in selected_thresholds:
-        if threshold < 0.0 or threshold > 1.0:
+        if not math.isfinite(threshold) or threshold < 0.0 or threshold > 1.0:
             raise ValueError(f"threshold must be between 0.0 and 1.0: {threshold}")
 
     rows = read_jsonl(dataset_path)
     outputs = read_jsonl(outputs_path)
     grader = load_grader(grader_path)
-    dataset_by_id = {str(row.get("id")): row for row in rows if row.get("id")}
     is_gold_answer_ceiling = _is_gold_answer_ceiling(outputs)
+    matches, match_details = _match_outputs(rows, outputs)
 
     scored = []
-    unmatched_outputs = []
-    for index, output_row in enumerate(outputs):
-        item = _match_dataset_row(
-            output_row=output_row,
-            output_index=index,
-            dataset_rows=rows,
-            dataset_by_id=dataset_by_id,
-        )
-        if item is None:
-            unmatched_outputs.append(_output_identifier(output_row, index))
-            continue
+    for index, output_row, item in matches:
         output_text = _extract_output_text(output_row)
         score = require_score_range(float(grader({"output_text": output_text}, item)))
+        usage = output_row.get("usage")
+        if usage is not None and not isinstance(usage, dict):
+            raise ValueError(f"{_output_identifier(output_row, index)}: usage must be an object")
+        latency_ms = output_row.get("latency_ms")
+        if latency_ms is not None and (
+            not isinstance(latency_ms, (int, float))
+            or isinstance(latency_ms, bool)
+            or not math.isfinite(latency_ms)
+            or latency_ms < 0
+        ):
+            raise ValueError(
+                f"{_output_identifier(output_row, index)}: latency_ms must be non-negative"
+            )
         scored.append(
             {
                 "id": item.get("id"),
                 "output_id": _output_identifier(output_row, index),
                 "score": score,
                 "has_output_text": bool(output_text.strip()),
+                "usage": usage,
+                "latency_ms": latency_ms,
             }
         )
 
@@ -67,21 +73,22 @@ def calibrate_grader(
         threshold
         for threshold in selected_thresholds
         if 0.25 <= (1.0 - pass_rates[str(threshold)]) <= 0.50
-    ]
+    ] if match_details["matched_complete"] else []
 
     return {
-        "ready": bool(scored) and not unmatched_outputs,
+        "ready": bool(scored) and match_details["matched_complete"],
         "dataset": dataset,
         "outputs": {"path": str(outputs_path), "rows": len(outputs)},
         "grader": {"path": str(grader_path), "bytes": grader_path.stat().st_size},
         "scored_rows": len(scored),
-        "unmatched_outputs": unmatched_outputs,
+        "scores": scored,
+        **match_details,
         "score_summary": _score_summary(scores),
         "pass_rates": pass_rates,
         "recommended_thresholds": recommended_thresholds,
         "recommendation": _recommendation(
             scored,
-            unmatched_outputs,
+            match_details["matched_complete"],
             recommended_thresholds,
             is_gold_answer_ceiling=is_gold_answer_ceiling,
         ),
@@ -139,6 +146,7 @@ def build_model_output_calibration_plan(
     teacher_outputs_path: Path,
     base_outputs_path: Path,
     thresholds: list[float] | None = None,
+    require_base_signal: bool = False,
 ) -> dict[str, Any]:
     dataset = validate_jsonl(dataset_path)
     if not grader_path.exists():
@@ -171,24 +179,52 @@ def build_model_output_calibration_plan(
             missing[name] = str(path)
 
     base_ready = (
-        ("mai_base" in scored and not scored["mai_base"]["unmatched_outputs"])
+        ("mai_base" in scored and scored["mai_base"]["ready"])
         or "mai_base" in unavailable
     )
+    base_thresholds = (
+        scored.get("mai_base", {}).get("recommended_thresholds", [])
+        if scored.get("mai_base", {}).get("ready")
+        else []
+    )
+    base_signal_ready = not require_base_signal or bool(base_thresholds)
     ready_for_threshold_selection = (
         "gold_answer_ceiling" in scored
+        and scored["gold_answer_ceiling"]["ready"]
+        and scored["gold_answer_ceiling"]["score_summary"]["min"] == 1.0
         and "optimized_teacher" in scored
-        and not scored["optimized_teacher"]["unmatched_outputs"]
+        and scored["optimized_teacher"]["ready"]
         and base_ready
+        and base_signal_ready
     )
+    next_step = _model_output_next_step(missing, unavailable)
+    if not ready_for_threshold_selection and not missing:
+        if require_base_signal and "mai_base" in unavailable:
+            next_step = (
+                "MAI/base outputs are required for this comparison; do not use the "
+                "unavailable-base waiver."
+            )
+        elif require_base_signal and "mai_base" in scored and not base_thresholds:
+            next_step = (
+                "No tested threshold yields a 25-50% base-model failure rate; revise "
+                "the grader, dataset, or thresholds before RFT submission."
+            )
+        else:
+            next_step = (
+                "Resolve incomplete or mismatched output IDs and gold-answer scores "
+                "before selecting a threshold."
+            )
     return {
         "ready_for_threshold_selection": ready_for_threshold_selection,
+        "base_signal_required": require_base_signal,
+        "base_recommended_thresholds": base_thresholds,
         "dataset": dataset,
         "grader": {"path": str(grader_path), "bytes": grader_path.stat().st_size},
         "scored": scored,
         "missing_outputs": missing,
         "unavailable_outputs": unavailable,
         "expected_outputs": {name: str(path) for name, path in outputs.items()},
-        "next_step": _model_output_next_step(missing, unavailable),
+        "next_step": next_step,
     }
 
 
@@ -200,7 +236,7 @@ def build_threshold_failure_report(
     threshold: float,
     out_path: Path | None = None,
 ) -> dict[str, Any]:
-    if threshold < 0.0 or threshold > 1.0:
+    if not math.isfinite(threshold) or threshold < 0.0 or threshold > 1.0:
         raise ValueError(f"threshold must be between 0.0 and 1.0: {threshold}")
     dataset = validate_jsonl(dataset_path)
     if not outputs_path.exists():
@@ -208,20 +244,10 @@ def build_threshold_failure_report(
     scorer = _load_diagnostic_scorer(grader_path)
     rows = read_jsonl(dataset_path)
     outputs = read_jsonl(outputs_path)
-    dataset_by_id = {str(row.get("id")): row for row in rows if row.get("id")}
+    matches, match_details = _match_outputs(rows, outputs)
 
     scored: list[dict[str, Any]] = []
-    unmatched_outputs: list[str] = []
-    for index, output_row in enumerate(outputs):
-        item = _match_dataset_row(
-            output_row=output_row,
-            output_index=index,
-            dataset_rows=rows,
-            dataset_by_id=dataset_by_id,
-        )
-        if item is None:
-            unmatched_outputs.append(_output_identifier(output_row, index))
-            continue
+    for _, output_row, item in matches:
         output_text = _extract_output_text(output_row)
         score_result = scorer({"output_text": output_text}, item)
         score = require_score_range(float(score_result["score"]))
@@ -243,7 +269,7 @@ def build_threshold_failure_report(
 
     failures = [row for row in scored if not row["passed"]]
     result = {
-        "ready": bool(scored) and not unmatched_outputs,
+        "ready": bool(scored) and match_details["matched_complete"],
         "threshold": threshold,
         "dataset": dataset,
         "outputs": {"path": str(outputs_path), "rows": len(outputs)},
@@ -251,10 +277,14 @@ def build_threshold_failure_report(
         "scored_rows": len(scored),
         "passed_rows": len(scored) - len(failures),
         "failed_rows": len(failures),
-        "unmatched_outputs": unmatched_outputs,
+        **match_details,
         "score_summary": _score_summary([row["score"] for row in scored]),
         "failures": failures,
-        "next_step": _threshold_report_next_step(failures),
+        "next_step": (
+            _threshold_report_next_step(failures)
+            if match_details["matched_complete"]
+            else "Resolve incomplete or mismatched output IDs before using this report."
+        ),
     }
     if out_path is not None:
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -263,21 +293,55 @@ def build_threshold_failure_report(
     return result
 
 
-def _match_dataset_row(
-    *,
-    output_row: dict[str, Any],
-    output_index: int,
+def _match_outputs(
     dataset_rows: list[dict[str, Any]],
-    dataset_by_id: dict[str, dict[str, Any]],
-) -> dict[str, Any] | None:
-    output_id = output_row.get("id")
-    if output_id is not None:
-        match = dataset_by_id.get(str(output_id))
-        if match is not None:
-            return match
-    if output_index < len(dataset_rows):
-        return dataset_rows[output_index]
-    return None
+    outputs: list[dict[str, Any]],
+) -> tuple[list[tuple[int, dict[str, Any], dict[str, Any]]], dict[str, Any]]:
+    by_id: dict[str, int] = {}
+    duplicate_dataset_ids: list[str] = []
+    for index, row in enumerate(dataset_rows):
+        if row.get("id") is not None:
+            row_id = str(row["id"])
+            if row_id in by_id:
+                duplicate_dataset_ids.append(row_id)
+            by_id[row_id] = index
+
+    matches = []
+    unmatched: list[str] = []
+    duplicate: list[str] = []
+    positional: list[str] = []
+    matched_indices: set[int] = set()
+    for index, output in enumerate(outputs):
+        identifier = _output_identifier(output, index)
+        output_id = output.get("id")
+        if output_id is None:
+            positional.append(identifier)
+            row_index = index if index < len(dataset_rows) else None
+        else:
+            row_index = by_id.get(str(output_id))
+        if row_index is None:
+            unmatched.append(identifier)
+            continue
+        if row_index in matched_indices:
+            duplicate.append(identifier)
+        matched_indices.add(row_index)
+        matches.append((index, output, dataset_rows[row_index]))
+
+    missing = [
+        str(row.get("id", f"dataset-index:{index}"))
+        for index, row in enumerate(dataset_rows)
+        if index not in matched_indices
+    ]
+    return matches, {
+        "matched_complete": not (
+            unmatched or duplicate or positional or missing or duplicate_dataset_ids
+        ),
+        "unmatched_outputs": unmatched,
+        "duplicate_outputs": duplicate,
+        "positional_outputs": positional,
+        "missing_dataset_rows": missing,
+        "duplicate_dataset_ids": duplicate_dataset_ids,
+    }
 
 
 def _load_diagnostic_scorer(path: Path):
@@ -484,13 +548,13 @@ def _threshold_report_next_step(failures: list[dict[str, Any]]) -> str:
 
 def _recommendation(
     scored: list[dict[str, Any]],
-    unmatched_outputs: list[str],
+    matching_ready: bool,
     recommended_thresholds: list[float],
     *,
     is_gold_answer_ceiling: bool = False,
 ) -> str:
-    if unmatched_outputs:
-        return "Resolve unmatched outputs before using calibration results."
+    if not matching_ready:
+        return "Resolve missing, duplicate, or unmatched output IDs before using calibration."
     if not scored:
         return "No outputs were scored; export or capture model outputs first."
     if is_gold_answer_ceiling:

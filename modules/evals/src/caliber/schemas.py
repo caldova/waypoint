@@ -15,6 +15,8 @@ class DatasetRow:
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> DatasetRow:
+        if not isinstance(data, dict):
+            raise ValueError("dataset row must be a JSON object")
         messages = data.get("messages")
         if not isinstance(messages, list) or not messages:
             raise ValueError("dataset row must include a non-empty messages list")

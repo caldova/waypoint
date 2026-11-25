@@ -792,3 +792,622 @@ Use economics as a promotion gate, not a slide-only claim. The expected shape is
 
 Promote the RFT model only if it stays within the accepted quality band of the
 optimized current v2 candidate and materially lowers measured eval cost.
+
+## MAI-2 (`mai-code-2-flash`) RFT pre-work
+
+Status: **do not start a paid run**. The original v2 references fail the
+boundary check because they contain finance-disposition directives. The v3
+preflight report records seven passing offline checks, but a follow-up source
+audit found that all 152 prepared train, validation, and eval rows cite
+`cmo-*` contract paths and supplier IDs absent from the current Waypoint corpus,
+which uses `sup-*`. That older preflight checked corpus provenance only for
+challenge rows, so its 7/7 result is stale. The updated preflight checks all
+splits and fails the current v3 package. Rebuild or explicitly map the source
+data and citations before any model call. The v3 labels also remain synthetic
+and `pending_human_review`; domain review, real-output calibration, remote
+acceptance and current budget confirmation remain open. Spend was authorized
+for this effort, but authorization does not resolve data or grader defects. No
+MAI-2 data was uploaded, job submitted, model invoked or deployment created by
+this preparation. A local `ready_to_run` or `ready_to_submit` field in a
+generic plan is not authorization or proof of remote readiness.
+
+### Reproduce the offline package and checks
+
+Use PowerShell 7.4+ from `modules\evals` with existing dependencies. Pick a
+**new** `$o` for each attempt; never overwrite prior runs. These commands do not
+contact Foundry. `PSNativeCommandUseErrorActionPreference` stops the script if a
+native command fails.
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
+$env:UV_OFFLINE = '1'
+$d = 'datasets\contract-policy-expert'
+$g = 'graders\contract-policy-expert\contract_policy_evidence_grader_v2.py'
+$o = 'runs\rft\contract-policy-expert-mai2\replace-with-new-run-id'
+if (Test-Path $o) { throw "Run already exists: $o" }
+New-Item -ItemType Directory -Path $o -Force | Out-Null
+
+foreach ($split in @('train', 'validation', 'eval')) {
+  uv run --no-sync caliber rft prepare-prompts `
+    --source "$d\contract-policy-expert-$split.jsonl" --out "$o\$split.jsonl"
+}
+uv run --no-sync caliber rft prepare-prompts `
+  --source "$d\contract-policy-expert-challenge-candidates.jsonl" --out "$o\challenge.jsonl"
+uv run --no-sync caliber rft package --train "$o\train.jsonl" `
+  --validation "$o\validation.jsonl" --grader $g --preset mai2-waypoint-local `
+  --pass-threshold 0.9 --suffix cpe-mai2-prep --out-dir "$o\package"
+uv run --no-sync caliber rft grader-validation-request --package-dir "$o\package" `
+  --suite --out "$o\grader-validation-suite.json" | Out-Null
+uv run --no-sync caliber rft audit-data --train "$o\train.jsonl" `
+  --validation "$o\validation.jsonl" --eval "$o\eval.jsonl" --eval "$o\challenge.jsonl" `
+  --grader $g --out "$o\data-audit.json" | Out-Null
+uv run --no-sync caliber grader robustness --dataset "$o\train.jsonl" `
+  --dataset "$o\validation.jsonl" --dataset "$o\eval.jsonl" `
+  --dataset "$o\challenge.jsonl" --grader $g --out "$o\grader-robustness-v2.json" | Out-Null
+try {
+  uv run --no-sync caliber rft preflight --train "$o\train.jsonl" `
+    --validation "$o\validation.jsonl" --eval "$o\eval.jsonl" --challenge "$o\challenge.jsonl" `
+    --grader $g --package-dir "$o\package" --grader-suite "$o\grader-validation-suite.json" `
+    --corpus-path ..\corpus --source-root datasets --out "$o\preflight.json" | Out-Null
+} finally {
+  if (Test-Path "$o\preflight.json") {
+    Get-Content "$o\preflight.json" -Raw | ConvertFrom-Json |
+      Select-Object local_checks_passed, ready_to_run_meter, errors, warnings
+  }
+}
+Get-FileHash "$o\eval.jsonl", "$o\challenge.jsonl"
+```
+
+Preflight exits nonzero on failed local checks and refuses to overwrite a
+report. It verifies source transformations, source hashes and retrieved corpus
+excerpts, split identity and prompt leakage, RFT row shape, a conservative
+reference-directive screen, grader score bounds and adversarial cases,
+job/manifest/threshold consistency, and parity with the packaged trainer
+wrapper. The directive screen is not semantic review and can miss problems.
+Preflight currently exits nonzero; it performs no tokenization or remote
+checks, and `ready_to_run_meter` is deliberately `false`.
+
+The prepared prompts remove `expected_decision_state`, `issue_category`,
+scenario hints and supplier risk examples from model-visible input. They retain
+source hashes and removed paths. Historical references use `ledgerfield-seed`
+even though no run ID is supplied; derived references use the requested
+`unknown` instead and record that normalization. An actual run ID present in
+the request is preserved. Original rows and business labels are untouched.
+
+### Local evidence and limits
+
+In the recorded run at
+`modules\evals\runs\rft\contract-policy-expert-mai2\local-ready-20261124-v2`:
+
+- The audit passed for 80 train, 16 validation, 24 original eval and six
+  challenge rows, with no identity, normalized-prompt or cross-split leakage.
+  Supplier aliases are compared by normalized name as well as ID.
+- Preflight passed **6/7 checks** and failed the reference-boundary check:
+  a conservative phrase screen flagged 75 of 126 rows. This is a lower bound,
+  not a substitute for human review. (The screen was later broadened to
+  include recalculate, reprice, credit, present and similar verbs; it now flags
+  all 126 original rows.) There are also five coverage warnings.
+  The longest row was about 1,308 tokens by a chars/4 estimate, **not** a
+  tokenizer result or an upper bound. Verify real tokens and the current model
+  limit before upload.
+- The final report is `preflight-advisory-boundary.json`; `data-audit.json`,
+  `grader-robustness-v2.json`, `grader-validation-suite.json` and the `package\`
+  directory are beside it. Earlier `preflight*.json` reports predate the new
+  boundary check and must not be used as evidence of current readiness.
+- With `UV_OFFLINE=1`, `uv run --no-sync pytest -q` reported **97 passed**, and
+  `uv run --no-sync ruff check src tests graders` passed. The previously
+  skipped real-agent eval-asset check now runs: the validator accepts the
+  current `dataset` key as well as `dataset_reference`, and rejects conflicting
+  aliases. Asset validity does not make its training split a held-out set.
+- The new `datasets\contract-policy-expert\contract-policy-expert-challenge-candidates.jsonl`
+  contains six fictional, clause-grounded scenarios across three suppliers,
+  all marked `pending_human_review`; all six have distractors, two expect an
+  evidence gap, and one expects `approve`. Each records its derivation and
+  UTF-8/LF-normalized corpus source hashes. These are counterfactuals, not
+  actual operational records or independently reviewed labels. The suppliers
+  are disjoint from train/validation but are the same three as the old eval.
+- Train and validation still contain **no** distractors or expected gaps, and
+  no `approve` examples. The candidate holdout does not fix that training
+  coverage. Obtain independently reviewed, representative additions without
+  moving held-out cases into training. The 24-row eval alone is coarse and
+  saturated; six candidates are not evidence of generalization.
+- Snapshot SHA-256 values for the prepared original eval and challenge are
+  `fe9e0148059919dd925d8eb22f2e911d5a97f1cef3b50e0cb81d9b91b48e9865`
+  and `5dc56aff011e74711c293d9f7ea7db6eddbdf30e4159d61004531d4f13baf7b4`.
+  Freeze and verify the actual reviewed holdout hashes before any model run;
+  source paths and line endings can change derived file hashes across checkouts.
+
+### Grader v2 and remote validation
+
+`graders\contract-policy-expert\contract_policy_evidence_grader_v2.py` leaves
+v1 intact. At provisional threshold 0.9, its 48 gold-derived perturbation
+types produced 5,430 applicable samples across 126 rows, with zero expectation
+violations. Local source/wrapper parity was exact in 10,860 comparisons.
+
+| Synthetic response | Observed score |
+|---|---|
+| Gold, reordered gold, negated boundary disclaimer | 1.00 |
+| Empty / malformed or duplicate-key JSON | 0.00 / 0.02 |
+| Wrong support, retrieved distractor, or missing expected gap | 0.40 |
+| Wrong invoice, run ID, or invented citation | 0.35 |
+| Payment/boundary violation | 0.20 |
+| All unsupported | 0.40-0.45 |
+| Keyword stuffing, irrelevant or contradicted text | 0.45 |
+
+No known-bad variant scored above 0.45, but these are mechanically perturbed
+references, not model outputs. They cannot establish grader calibration,
+training efficacy or remote trainer parity. Alaska saw a trainer/reward
+mismatch in an always-true-grader side experiment; that was separate from e6.
+The boundary perturbation above tests claims that an action **was performed**.
+It does not establish that v2 rejects a directive to a reviewer. In fact,
+historical directive references currently score 1.0; see the conflict below.
+
+`grader-validation-suite.json` contains six **unexecuted** requests for
+`POST /openai/v1/fine_tuning/alpha/graders/run`: gold (1.0), wrong supports
+(0.4), wrong invoice (0.35), fabricated citation (0.35), boundary violation
+(0.2) and empty output (0.0). Each suite entry contains a `request` body and
+its expected local score. After explicit authorization, compare and retain
+every remote response, including failures; one successful gold-only response
+is insufficient.
+
+### Reference and decision-boundary conflict
+
+The current optimized task and rubric establish an evidence-only boundary:
+`.agent_configs\optimized\instructions.md:5-10,63-67` reserves finance actions
+and decisions, and
+`evaluators\contract-policy-expert-generated-rubric\rubric_dimensions.json:32-35`
+prohibits a final outcome directing approval, dispute, payment, hold or
+reconciliation. These paths are relative to
+`modules\agents\contract-policy-expert`.
+
+The older generator copies each scenario's `recommended_action` into **both**
+the evidence claims and summary (`modules\evals\src\caliber\contract_policy.py:681-697`);
+v2 scores the summary against that recommendation
+(`modules\evals\graders\contract-policy-expert\contract_policy_evidence_grader_v2.py:651-663`)
+and its boundary check is primarily about claimed actions already performed.
+Examples in the unchanged originals include:
+
+- `modules\evals\datasets\contract-policy-expert\contract-policy-expert-train.jsonl:9`:
+  “Withhold the batch-related charges until QA release evidence is available.”
+- `modules\evals\datasets\contract-policy-expert\contract-policy-expert-validation.jsonl:1`:
+  “Withhold the release packet fee until final sponsor QA acceptance is provided.”
+- `modules\evals\datasets\contract-policy-expert\contract-policy-expert-eval.jsonl:1`:
+  “Pay at the capped escalation rate and request a corrected invoice or approval evidence.”
+- `modules\evals\datasets\contract-policy-expert\contract-policy-expert-challenge-candidates.jsonl:1`:
+  “Dispute the separate standard certificate charge because it is included in unit cost.”
+  This last row is synthetic and still `pending_human_review`.
+
+For the first validation row, the directive reference scores 1.0. An
+illustrative, non-directive response describing the conditional evidence and
+an unverified QA sign-off scores 0.45. This illustrates both recommendation
+matching and the empty-gap-label problem; it is **not** a reviewed replacement
+answer or a calibrated model result.
+
+The evidence-only direction is already established in the current repository;
+no new policy choice is needed merely to identify the inconsistency. The old
+grader describes a looser intermediate recommendation contract, however, so
+do not assume its finance directives are authorized for the current agent.
+Correct evidence claims, missing-evidence labels and the meaning of each
+`supports` value still require a domain owner's review; a phrase filter cannot
+invent or verify them.
+
+| Option | Benefit | Consequence |
+|---|---|---|
+| **Recommended:** create separately versioned, reviewed evidence-only references and align v2's reward and boundary checks | Matches the current no-decision contract; retains historical data and v1 results | Requires scenario-level domain review, new labels and recalibration before training |
+| Suppress summary matching alone | Small code change | Insufficient: directive claims and false empty-gap labels remain, and correctness is not established |
+| Allow finance dispositions for a different task | Preserves legacy recommendations | Conflicts with the current agent and rubric; requires explicit product/policy approval and a separately scoped contract |
+
+### v3 evidence-only remediation
+
+This implements the recommended option above, as candidates for review. The
+originals, v1/v2 graders and the v2 run are unchanged.
+
+- `modules\evals\src\caliber\contract_policy_evidence_only.py` derives
+  `datasets\contract-policy-expert\evidence-only-v3\{train,validation,eval,challenge}.jsonl`
+  and `manifest.json` deterministically from the originals
+  (`caliber rft evidence-only --dataset-dir ... --out-dir ... [--verify]`).
+  Each row moves `recommended_action`, `decision_state` and `issue_category`
+  into `metadata.historical_reference`, and gets claims that paraphrase the
+  cited clause, a specific evidence gap, and a neutral `reference_summary`
+  ending "The payment decision remains reserved to the controller."
+  `metadata.evidence_only_reference` records the source hash, derivation,
+  uncertainty and `support_review_flag`. Labels are
+  `synthetic_evidence_only_reference_v3`, `pending_human_review`.
+- Rows: train 106 (80 transformed, 10 distractor, 7 approval-evidence,
+  9 missing-evidence), validation 22 (16/2/2/2), eval 24, challenge 6.
+  Coverage rows are synthetic and only in train/validation.
+  `support_review_flag` is set on 27 train, 9 validation and 16 eval rows;
+  those carry the historical `supports` value unchanged and need a domain
+  owner's check.
+- `graders\contract-policy-expert\contract_policy_evidence_grader_v3.py`
+  scores the summary against `reference_summary`, caps any directive in the
+  summary, claims or gaps at 0.2, and caps gaps that assert the missing
+  evidence was present ("contents are visible", "was supplied") at 0.4.
+- Robustness adds `directive_summary` (the historical action as summary),
+  `directive_claim`, `should_directive` and broader `affirmed_gap` variants.
+  These apply to v3 rows only; the v2 test results are unchanged.
+
+Reproduce with the runbook above, but build the v3 sources first and point
+prepare-prompts at them, using grader v3:
+
+```powershell
+$v = "$d\evidence-only-v3"
+$g = 'graders\contract-policy-expert\contract_policy_evidence_grader_v3.py'
+uv run --no-sync caliber rft evidence-only --dataset-dir $d --out-dir $v --verify
+foreach ($split in @('train', 'validation', 'eval', 'challenge')) {
+  uv run --no-sync caliber rft prepare-prompts --source "$v\$split.jsonl" --out "$o\$split.jsonl"
+}
+# then package, grader-validation-request, audit-data, grader robustness and
+# preflight exactly as above.
+```
+
+Recorded run: `modules\evals\runs\rft\contract-policy-expert-mai2\local-ready-20261124-v3`.
+
+- Preflight `preflight.json`: **7/7 checks pass**, `local_checks_passed=true`,
+  `ready_to_run_meter=false`. The boundary screen finds 0 of 158 rows with
+  directives. Trainer-wrapper parity: 0 mismatches in 15,510 comparisons.
+  The one warning is that a 30-row held-out set is coarse (3.3 points per row).
+- Robustness `grader-robustness-v3.json`: 51 perturbation types, 7,755
+  samples over 158 rows, 0 expectation violations. Gold scores 1.0; directive
+  variants 0.2; boundary violation 0.2; wrong invoice and fabricated citation
+  0.35; wrong supports, distractor, missing gap and affirmed gap 0.4;
+  contradicted or irrelevant summary 0.45; prose 0.02; empty 0.
+- Validation has 22 rows, but the `mai2-waypoint-local` preset still samples
+  16 for eval. Pass `--hyperparameter eval_samples=22` to package if
+  full-validation evals are wanted.
+- With `UV_OFFLINE=1`: `pytest -q` reported **101 passed**; ruff passed.
+- Prepared SHA-256: train `4bf140cce1ee7b53e35580623dcc079f0de68b437c8eae53d5f5a2b361ac8175`,
+  validation `c02a7e099818c989ca41bcc3e7f4e49df7da1f6212b34cc06864054c71310ff1`,
+  eval `b9be73608d8e12b9c3ebddd064d68fb96d45224a78e119dd35932fb3f9ef867f`,
+  challenge `736c62e9cead99019e75f13521c69ea8cadf820e9b3ea6da85b9b03ee3f2a0e9`.
+  Re-freeze after review edits.
+
+Limits: the v3 summary reward is term overlap against a long neutral summary,
+so real model paraphrases may score lower than gold. Calibrate on base and
+teacher outputs before choosing the threshold. Passing local checks does not
+make the synthetic labels correct.
+
+### Follow-up corpus review (2026-11-24)
+
+An independent read-only audit of the prepared prompts found a blocking source
+identity mismatch:
+
+- All **152** train (106), validation (22), and eval (24) rows cite contract
+  paths such as `data/contracts/source-markdown/cmo-001-...md` and use supplier
+  IDs `cmo-001` through `cmo-015`. None of the 15 `cmo-*` contract files exists
+  in `modules\corpus`; the checked-out documents and supplier records use
+  `sup-001` through `sup-015`. The six challenge rows use `sup-*` references
+  and resolve against the current corpus.
+- The prepared model input preserves those `cmo-*` citation strings, so a
+  response citing them would not match the current corpus source references.
+  Some corresponding `sup-*` clauses appear similar, but a filename/supplier
+  ID substitution is not evidence that the full documents, source history, or
+  labels are equivalent.
+- The recorded 7/7 check validated corpus sources only for the challenge file.
+  The updated `rft_preflight` checks supplier identity, prompt/reference
+  context agreement, source path safety, and exact retrieved sections across
+  every split. The new report records **7/8 checks passing**, with corpus
+  alignment failing; it is not evidence that invoice facts or labels are
+  correct.
+- A reproducible audit compared all 120 original train/validation/eval rows
+  across all 15 historical scenarios. With identifier normalization from
+  `cmo-*` to `sup-*`, every prompt-visible supplier, invoice, and line field
+  matched its corresponding current record, and every cited section's text,
+  classification, and normalized citation matched. This supports a candidate
+  mapping, not equivalence of complete documents or approval of the inherited
+  labels. The audit script and hash-bearing result are in the ignored
+  `runs\rft\contract-policy-expert-mai2\local-ready-20261124-v3\` directory as
+  `audit_historical_mapping.py` and `historical-corpus-mapping-audit.json`.
+- The same run directory contains `evidence-label-review-bundle.json` and
+  `build_review_bundle.py`. The bundle groups the 158 v3 rows into 53
+  representative cases, including all 26 hypothetical approval,
+  missing-evidence and challenge cases. It includes the proposed labels,
+  supplied invoice facts, hypothetical facts, current cited passages, and
+  source hashes. Grouping fails if factual inputs or expected outputs differ.
+  Every case remains `pending_human_review`; this is not approved ground truth.
+- The 52 `support_review_flag` rows reduce to six underlying scenarios. Each
+  carries historical `recover` across all cited evidence rows; the negative
+  premise is supplied in the invoice description, while the cited document
+  contents do not independently establish it. The rubric requires separating
+  supplied assertions from documentary findings and says missing documents
+  alone do not establish non-billability. Keep these labels pending owner
+  review; do not convert the invoice-description claims into facts.
+- In the blister-packaging scenario, the optimized instructions specifically
+  say the charge is conditional when the authorization contents are not
+  supplied. Yet v3 labels both cited passages `recover` and scores the
+  unchanged answer with `review` supports at 0.4 versus 1.0 for `recover`.
+  The grader and reference-consistency check currently require one shared
+  support value for every citation, even when passages play different roles.
+  Correct the evidence contract and review source-specific labels before
+  calibrating or training; a passing synthetic perturbation suite cannot
+  resolve this disagreement.
+- The synthetic missing-evidence coverage rows sometimes add a historical
+  policy citation that does not resolve the missing predicate (for example,
+  the premium-freight case cites dispute-packet procedure). Review or remove
+  those secondary claims/citations before freezing the training labels.
+
+Next local step: build separately versioned train, validation, and eval data
+with exact current `sup-*` references, preserving original lineage; reconcile
+the per-source support semantics and seek human review of the reference labels
+and synthetic cases. Rerun the source audit and preflight on that new data.
+Do not upload or calibrate on the current prepared prompts.
+
+### Corpus-aligned candidate (2026-11-24)
+
+The prior mapping audit was rerun from its source hashes. It verified 120
+original train, validation, and eval rows across 15 scenarios: supplier,
+invoice, and invoice-line fields match the current corpus after the `cmo-*` to
+`sup-*` identifier mapping, as do the cited section text, classification, and
+normalized references. The reproducible mapping audit is
+`modules\evals\runs\rft\contract-policy-expert-mai2\local-ready-20261124-v3\historical-corpus-mapping-audit.json`.
+
+Without changing the original files, a new candidate was generated at
+`modules\evals\runs\rft\contract-policy-expert-mai2\local-ready-20261124-v3\corpus-aligned-candidate\`.
+All eight offline preflight checks pass against its prepared splits, including
+exact source-section verification. The report is
+`corpus-aligned-candidate\preflight.json`. Its
+`ready_to_run_meter` remains `false`: the historical support labels and
+source-specific roles are unresolved, all candidate references remain
+`pending_human_review`, and there is no real-output calibration or remote
+grader acceptance yet. The builder script is
+`rebuild_corpus_aligned_candidate.py`; the original datasets and earlier v3
+candidate are unchanged. No model call, upload, deployment, job, or spend was
+made for this corpus-aligned run.
+
+### Provisional job recipe
+
+`mai2-alaska-e6` preserves Alaska's verified recipe unchanged, including
+`eval_samples: 50`. `mai2-waypoint-local` changes that value to **16**, the
+validation row count; it otherwise starts from e6:
+
+- model `mai-code-2-flash-2026-11-17`; `trainingType: developerTier`;
+  seed 1266282111
+- 3 epochs, learning-rate multiplier 2, compute multiplier 1, eval interval 2,
+  16 eval samples and low reasoning effort
+- Python grader `image_tag: 2025-05-08`, provisional threshold 0.9 inside the
+  grader only, and no `response_format`
+
+The grader-only threshold is an **explicit provisional choice** because that
+was Alaska e6's shape; the earlier MAI-1.1 job used both grader and
+reinforcement placements. Local checks verify placement and propagation, not
+which MAI-2 configuration Foundry accepts. Resolve placement and threshold
+with remote validation and real outputs before submission. The generated
+`contract-policy-expert-rft-job.submit-template.json` contains file-ID
+placeholders, not uploaded files or a submitted job. Omitting response format
+means JSON shape relies on the prompt and grader.
+
+Alaska also saw transient submit HTTP 500s, rejected checkpoint continuation,
+and resubmissions after a backend recipe change. Preserve every attempt and do
+not assume retries or checkpoint continuation are safe.
+
+### Cloud facts (read-only check, 2026-11-24)
+
+Account: seth@notareal.co, tenant `dfa98250-28be-4cda-b270-45c05319c07c`. The
+default subscription has no AI Services accounts. Subscription
+`ME-Caldova42003915-annekrupke-1` has `aif-caldova` (swedencentral).
+
+- The model list shows `mai-code-2-flash` 2026-11-17 as Preview in swedencentral
+  and eastus, with `devTierFineTune`, `globalFineTune` and `blossomFineTune`
+  capabilities and a per-example limit of 196,608 tokens.
+
+| Region | DeveloperTier fine-tune | `GlobalStandard.mai-code-2-flash-finetune` | `GlobalStandard.mai-code-2-flash` (base serving) |
+|---|---|---|---|
+| swedencentral | 0 / 2000 | 110 / 2000 | 100 / 100 (full at check time; see update below) |
+| eastus | 0 / 2000 | 600 / 2000 | 100 / 100 (full) |
+
+- Base and tuned serving use **separate meters**. The full base meter
+  (`GlobalStandard.mai-code-2-flash`, 100/100 in swedencentral) blocks only a
+  new **base** MAI-2 evaluation deployment. It does not block a GlobalStandard
+  tuned MAI-2 deployment, which draws on
+  `GlobalStandard.mai-code-2-flash-finetune` (110/2000 used in swedencentral).
+  The DeveloperTier fine-tune meter is a third, separate meter (0/2000 used in
+  swedencentral).
+- In swedencentral the base meter was fully consumed by an existing base
+  deployment (`caldova-recovery-base-v1` in `meridian-foundry-42cwgm`) that
+  serves another current demo. Don't delete it based on its name.
+- **Update (2026-11-24, user-approved):** the coordinator changed only the
+  capacity of that deployment, from 100 to 10 units (100k to 10k TPM). That frees
+  90 base-serving units in swedencentral for Waypoint evals.
+  Tuned quota stays unchanged, with 1,890 units of headroom. This change
+  started no training or eval deployment.
+- **Live read-only recheck (2026-11-24):** subscription usage confirms
+  `AIServices.GlobalStandard.mai-code-2-flash` at 10/100,
+  `AIServices.GlobalStandard.mai-code-2-flash-finetune` at 110/2000, and
+  `AIServices.DeveloperTier.mai-code-2-flash-finetune` at 0/2000.
+  `aif-caldova` (`rg-caldova`) has no MAI-2 deployment yet; the existing
+  `caldova-recovery-base-v1` remains at capacity 10 in
+  `meridian-foundry-42cwgm` (`rg-meridian`). The current catalog still lists
+  `mai-code-2-flash` version `2026-11-17` in swedencentral, with a
+  per-example limit of 196,608 tokens.
+- **After the evals finish:** split the swedencentral base meter **50/50**
+  between the two resources (`caldova-recovery-base-v1` back up to 50, and the
+  Waypoint eval deployment at 50). Do this as part of the tuning
+  handoff.
+- Neither the catalog listing nor these quota meters proves a job will be
+  accepted. A real job is the only confirmation.
+
+### Pricing assumptions
+
+Source: public Azure Retail Prices API (`productName eq 'MAI Models'`,
+swedencentral), rechecked 2026-11-24; listed prices are effective
+2026-11-01. These are **retail list prices**, not negotiated rates, and MAI-2
+is Preview, so prices may change.
+
+| MAI-2 meter | List price |
+|---|---|
+| Fine-tuned GlobalStandard input / output | $0.05 / $0.25 per 1M tokens |
+| Fine-tuned GlobalStandard cached input | $0.01 per 1M tokens |
+| Fine-tuned GlobalStandard hosting | $1.60 per hour |
+| Base GlobalStandard input / output | $0.05 / $0.25 per 1M tokens |
+| Base GlobalStandard cached input | $0.005 per 1M tokens |
+| RFT training, Developer / Global / Data Zone | $40 / $80 / $88 per hour |
+
+- The base rates are now present in the current retail API results; earlier
+  notes that no base serving meter was listed are stale.
+- The $0.20 input / $1.20 output figures quoted elsewhere are MAI-1.1 Flash base
+  meters, not MAI-2.
+
+Calculate cost from measured uncached input, cached input and billed output
+tokens at the applicable prices; do not double-count reasoning tokens if the
+provider includes them in output. Add all deployment hosting hours, separately
+metered training time, and the actual teacher/base costs. The retrieved prices
+are not a quote: negotiated rates, teacher model/region, usage, training
+duration and taxes are unknown. As arithmetic only, two DeveloperTier training
+hours plus three tuned-hosting hours at the current list rates would be
+$80 + $4.80 = $84.80, **before** inference and other charges. Set a spend cap
+only after estimating the intended run.
+
+### Offline rehearsal
+
+The following can be run separately for local diagnostics even while preflight
+is blocked. They create plans and a gold-answer ceiling only. The absent teacher
+and base files are intentional; do not create fake outputs to make the plan pass.
+
+```powershell
+uv run --no-sync caliber grader gold-outputs --dataset "$o\validation.jsonl" `
+  --out "$o\validation-gold-output-items.jsonl"
+uv run --no-sync caliber grader calibrate --dataset "$o\validation.jsonl" `
+  --outputs "$o\validation-gold-output-items.jsonl" --grader $g --json |
+  Set-Content -Encoding utf8 "$o\validation-gold-calibration.json"
+uv run --no-sync caliber grader model-output-plan --dataset "$o\validation.jsonl" `
+  --grader $g --gold-outputs "$o\validation-gold-output-items.jsonl" `
+  --teacher-outputs "$o\validation-teacher-output-items.jsonl" `
+  --base-outputs "$o\validation-base-output-items.jsonl" --json |
+  Set-Content -Encoding utf8 "$o\calibration-plan.json"
+uv run --no-sync caliber eval plan --dataset "$o\eval.jsonl" --grader $g `
+  --model mai-code-2-flash-base --json | Set-Content -Encoding utf8 "$o\baseline-eval-plan.json"
+uv run --no-sync caliber eval plan --dataset "$o\eval.jsonl" --grader $g `
+  --model mai-code-2-flash-tuned-pending --json |
+  Set-Content -Encoding utf8 "$o\tuned-eval-plan.json"
+uv run --no-sync caliber eval plan --dataset "$o\challenge.jsonl" --grader $g `
+  --model mai-code-2-flash-base --json | Set-Content -Encoding utf8 "$o\candidate-eval-plan.json"
+uv run --no-sync caliber rft plan --train "$o\train.jsonl" --validation "$o\validation.jsonl" `
+  --grader $g --base-model mai-code-2-flash-2026-11-17 --suffix cpe-mai2-prep --json |
+  Set-Content -Encoding utf8 "$o\training-plan.json"
+```
+
+In the recorded pre-boundary-check rehearsal the 16 gold rows scored 1.0, while
+`calibration-plan.json` correctly reported `ready_for_threshold_selection:
+false` and both real-output captures missing. `eval plan` checks the local
+dataset and three reference scores; it does not run an agent or enforce matched
+tools. The 1.0 reference score is not a safety result. The generic calibration
+planner supports an unavailable-base waiver for other workflows; **do not use
+that waiver for this MAI-2 comparison**.
+
+### Gated baseline → calibration → training → evaluation
+
+Nothing below is authorized by the offline preflight. Use a new run directory
+and preserve every request, response, attempt and failure.
+
+1. **Review and freeze.** Align the reward and separately versioned references
+   with the evidence-only boundary. Have a policy owner independently review
+   each underlying scenario, candidate answer and source, correct or reject
+   unsupported labels, and add separately reviewed training examples for the
+   missing categories. Preserve the originals. Re-run preparation, audit and
+   preflight; freeze the reviewed held-out files and their SHA-256 hashes.
+   Preregister the quality band, safety gates, comparison arms, sampling, token
+   limits and retry policy before inspecting held-out results.
+2. **Authorize and baseline.** Recheck region, model, quota and current prices
+   without prompting for an unexpected login. Obtain explicit budget approval
+   for each remote step. Capture base MAI-2 and teacher outputs on the
+   **validation** rows with the same developer prompt, schema instruction,
+   retrieved context, tool path and run settings. Save raw attempts as
+   separate, uniquely named files. Capture per-row IDs, output, usage, elapsed
+   milliseconds, configuration, model/deployment version and any error. Never
+   fill missing output or usage with a fabricated value.
+3. **Calibrate on validation only.** Use the exact captured paths with
+   `caliber grader model-output-plan`, then inspect false positives and false
+   negatives with `caliber grader calibrate` and `caliber grader
+   threshold-report`. The calibrator records per-row scores and preserves
+   `usage` and `latency_ms` when present. It marks incomplete, duplicate,
+   unrecognized or positional-only IDs not ready; every output must match one
+   dataset ID. Retain the full raw files, including failed attempts. Choose a
+   threshold only after reviewing real base and teacher outputs; do not use
+   holdout outcomes for calibration.
+4. **Validate and package.** After separately authorized remote grader
+   validation, compare all six suite results with local scores. Resolve any
+   mismatch and confirm threshold placement with the service. Freeze a new
+   manifest and job template with the selected, reviewed settings; rerun
+   preflight. The local wrapper check does not substitute for this step.
+5. **Train only after approval.** With a separately approved spend cap and
+   confirmed current prices/model support, upload the reviewed train and
+   validation files, wait for their processed states, substitute their IDs into
+   the frozen template, and submit. Keep IDs and request/response artifacts in
+   ignored `runs\` storage. Poll with a bound; do not overwrite attempts or
+   assume a failed submission is safe to retry. Select checkpoints using
+   validation data, not held-out scores.
+6. **Evaluate after training.** Compare base MAI-2, tuned MAI-2, tuned MAI-1.1
+   and the optimized teacher on the same frozen held-out rows. Use the same
+   schema/developer prompt, retrieved content and tool path, reasoning setting
+   and `max_completion_tokens` of 8192; record model-specific differences that
+   prevent a true match. Use five runs per arm, retaining every partial,
+   failed and repeated attempt rather than replacing poor results. Report each
+   arm's distribution and denominator for v2 scores, pass rate, JSON validity,
+   wrong/missing IDs, supports and citations, evidence gaps, and boundary
+   violations; require zero boundary violations. Report input, output and
+   reasoning tokens, p50/p95 latency, missing telemetry and measured cost.
+   Report the original eval and reviewed challenge separately. Promote only
+   within the preregistered quality band and with lower measured cost.
+7. **Restore capacity.** After evals, coordinate the requested 50/50 split of
+   the two Sweden Central base-serving resources. Do not remove the other
+   deployment; tuned serving uses its separate quota meter.
+
+Historical MAI-1.1's reported five 24/24 runs are selected: run 4 initially
+scored 23/24 and was replaced by a 24/24 rerun. Those prompts also exposed
+decision hints, so the old numbers are not apples-to-apples with the cleaned
+prompts. A perfect 24-case result does not prove generalization or that MAI-2
+can improve only cost/speed.
+
+The agent's existing `modules\agents\contract-policy-expert\eval.yaml:8-9`
+points to the **training** split for rubric generation; do not use it unchanged
+as the held-out comparison. The local plans above point to the separate
+prepared 24-row eval and six-row, still-unreviewed challenge files. Neither
+becomes an independently reviewed holdout until the stated review and freeze.
+
+### Live MAI-2 baseline and grader validation (2026-11-24)
+
+The MAI-1.1-style one-epoch package is
+`modules\evals\runs\rft\contract-policy-expert-mai2\local-ready-20261124-v3\corpus-aligned-candidate\package-v4-mai11-v4\`.
+It uses the 22-row validation split, low reasoning, DeveloperTier, learning-rate
+multiplier 2, compute multiplier 1, evaluation interval 5, batch size `-1`,
+seed `1266282111`, and provisional threshold `0.9` in both placements. Its
+manifest remains `ready_for_live_submit: false`.
+
+Matched live captures for all 22 validation rows are preserved under
+`modules\evals\runs\rft\contract-policy-expert-mai2\local-ready-20261124-v3\corpus-aligned-candidate\live-calibration-20261124T232249Z\`
+for base `mai-code-2-flash` and teacher `gpt-6-astra`. All 44 outputs parsed as
+JSON. Both arms scored exactly
+`0.40` on every row; neither had a passing row at thresholds `0.5` through
+`0.95`, so there is no useful threshold or base-model failure band. On each
+arm, only 11/22 rows matched the expected support categories. More importantly,
+all 44 outputs hit the grader's `MISSING_GAP_CAP` of `0.40`: each reference
+expects one broad `unsupported` entry, while base outputs list 2-6 specific
+gaps and teacher outputs list 2-5. The grader also applies lexical gap checks.
+This punishes some answers for listing specific verification gaps and means the
+current reward cannot safely guide RFT; do not lower the threshold to make the
+package appear ready.
+
+The packaged grader was separately validated remotely on all six positive and
+negative cases, matching the local expected scores: gold `1.0`, wrong support
+`0.4`, wrong invoice `0.35`, fabricated citation `0.35`, boundary violation
+`0.2`, and empty output `0.0`. This confirms grader execution, not that the
+reference labels or their gap semantics are correct.
+
+The final offline report,
+`modules\evals\runs\rft\contract-policy-expert-mai2\local-ready-20261124-v3\corpus-aligned-candidate\preflight-v4-mai11-postcalibration-final.json`,
+passes all eight local checks but correctly keeps `ready_to_run_meter: false`;
+it made no live calls. For this v4 candidate, preflight used
+`--source-root runs\rft\contract-policy-expert-mai2\local-ready-20261124-v3`
+because its provenance points into `mapped-source` under that tree, not
+`datasets`.
+The warning that the 30-row combined eval/challenge set is coarse remains.
+`UV_OFFLINE=1 uv run --no-sync pytest -q` passes 103 tests, and Ruff passes.
+No training files were uploaded and no RFT job was submitted.
+
+**Next gate:** have a domain owner review the v4 support and missing-evidence
+references, then align the grader's gap semantics with the required evidence
+contract without rewarding invented gaps. Re-freeze the reviewed splits and
+rerun base/teacher calibration; only proceed to training if the reward has a
+meaningful failure band and threshold placement, model support, quota, current
+prices, and the spend/cleanup plan are rechecked.

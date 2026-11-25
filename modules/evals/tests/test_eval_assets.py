@@ -71,6 +71,25 @@ def test_validate_eval_config_passes_for_well_formed_assets(tmp_path: Path) -> N
     assert result["rubric_issues"] == []
 
 
+def test_validate_eval_config_supports_current_dataset_key(tmp_path: Path) -> None:
+    eval_config = _write_eval_config(tmp_path)
+    eval_config.write_text(
+        eval_config.read_text(encoding="utf-8").replace("dataset_reference:", "dataset:"),
+        encoding="utf-8",
+    )
+    assert validate_eval_config(eval_config)["ok"] is True
+
+
+def test_validate_eval_config_rejects_conflicting_dataset_aliases(tmp_path: Path) -> None:
+    eval_config = _write_eval_config(tmp_path)
+    with eval_config.open("a", encoding="utf-8") as handle:
+        handle.write("\ndataset:\n    local_uri: elsewhere.jsonl\n")
+    result = validate_eval_config(eval_config)
+    assert result["ok"] is False
+    check = next(c for c in result["checks"] if c["name"] == "dataset_alias_consistency")
+    assert check["ok"] is False
+
+
 def test_validate_eval_config_missing_file_raises(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="does not exist"):
         validate_eval_config(tmp_path / "eval.yaml")
@@ -153,9 +172,7 @@ def test_validate_eval_config_against_real_contract_policy_expert_asset() -> Non
     # Guards against regressions in the actual in-scope eval asset this
     # command targets: modules/agents/contract-policy-expert/eval.yaml.
     modules_dir = Path(__file__).resolve().parents[2]
-    eval_config = (
-        modules_dir / "agents" / "agents" / "contract-policy-expert" / "eval.yaml"
-    )
+    eval_config = modules_dir / "agents" / "contract-policy-expert" / "eval.yaml"
     if not eval_config.exists():
         pytest.skip(f"contract-policy-expert eval.yaml not found at {eval_config}")
     result = validate_eval_config(eval_config)

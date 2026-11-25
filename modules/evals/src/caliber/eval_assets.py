@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-REQUIRED_TOP_LEVEL_FIELDS = ("name", "agent", "dataset_reference", "evaluators")
+REQUIRED_TOP_LEVEL_FIELDS = ("name", "agent", "evaluators")
 REQUIRED_DIMENSION_FIELDS = ("id", "description", "weight")
 
 
@@ -26,14 +26,28 @@ def validate_eval_config(eval_config_path: Path) -> dict[str, Any]:
     base_dir = eval_config_path.parent
 
     missing_fields = [key for key in REQUIRED_TOP_LEVEL_FIELDS if key not in config]
+    if "dataset" not in config and "dataset_reference" not in config:
+        missing_fields.append("dataset or dataset_reference")
+    conflicting_datasets = (
+        "dataset" in config
+        and "dataset_reference" in config
+        and config["dataset"] != config["dataset_reference"]
+    )
     checks = [
         _check(
             "required_fields",
             not missing_fields,
-            "eval config must include: " + ", ".join(REQUIRED_TOP_LEVEL_FIELDS)
+            "eval config is missing: " + ", ".join(missing_fields)
             if missing_fields
             else "all required top-level fields are present.",
-        )
+        ),
+        _check(
+            "dataset_alias_consistency",
+            not conflicting_datasets,
+            "dataset and dataset_reference must agree when both are supplied."
+            if conflicting_datasets
+            else "dataset aliases are consistent.",
+        ),
     ]
 
     agent = config.get("agent")
@@ -46,7 +60,7 @@ def validate_eval_config(eval_config_path: Path) -> dict[str, Any]:
         )
     )
 
-    dataset_reference = config.get("dataset_reference")
+    dataset_reference = config.get("dataset", config.get("dataset_reference"))
     dataset_local_uri = (
         dataset_reference.get("local_uri") if isinstance(dataset_reference, dict) else None
     )
@@ -56,9 +70,9 @@ def validate_eval_config(eval_config_path: Path) -> dict[str, Any]:
         _check(
             "dataset_reference_resolves",
             bool(dataset_files),
-            f"dataset_reference.local_uri resolved to {len(dataset_files)} file(s)."
+            f"dataset local_uri resolved to {len(dataset_files)} file(s)."
             if dataset_files
-            else f"dataset_reference.local_uri did not resolve to any files: {dataset_dir}",
+            else f"dataset local_uri did not resolve to any files: {dataset_dir}",
         )
     )
 

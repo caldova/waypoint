@@ -323,6 +323,19 @@ def test_model_output_plan_blocks_until_teacher_and_base_outputs_exist(tmp_path:
     assert ready_plan["scored"]["optimized_teacher"]["score_summary"]["avg"] == 1.0
     assert ready_plan["scored"]["mai_base"]["score_summary"]["avg"] < 1.0
 
+    guarded_plan = build_model_output_calibration_plan(
+        dataset_path=dataset,
+        grader_path=grader,
+        gold_outputs_path=gold_outputs,
+        teacher_outputs_path=teacher_outputs,
+        base_outputs_path=base_outputs,
+        require_base_signal=True,
+    )
+    assert guarded_plan["ready_for_threshold_selection"] is False
+    assert guarded_plan["base_signal_required"] is True
+    assert guarded_plan["base_recommended_thresholds"] == []
+    assert "25-50% base-model failure rate" in guarded_plan["next_step"]
+
 
 def test_threshold_failure_report_includes_diagnostics(tmp_path: Path) -> None:
     row = _contract_policy_row()
@@ -394,7 +407,7 @@ def test_grader_validation_request_uses_python_grader_without_job_submit(tmp_pat
 
     assert result["route"] == "/openai/v1/fine_tuning/alpha/graders/run"
     assert result["live_side_effects"] == "grader_validation_only_no_file_upload_no_job_submission"
-    assert result["expected_score"] == 5.0
+    assert result["expected_score"] == 1.0
     assert request_path.exists()
 
     payload = result["request"]

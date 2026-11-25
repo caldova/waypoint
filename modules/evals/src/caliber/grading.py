@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import math
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -11,7 +12,7 @@ class Grader(Protocol):
 
 
 def require_score_range(score: float) -> float:
-    if score < 0.0 or score > 1.0:
+    if not math.isfinite(score) or score < 0.0 or score > 1.0:
         raise ValueError(f"grader score must be between 0.0 and 1.0, got {score}")
     return score
 
