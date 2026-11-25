@@ -15,7 +15,7 @@ import toolbox
 def clean_optimizer_env(monkeypatch):
     for name in (
         "OPTIMIZATION_CONFIG", "OPTIMIZATION_CANDIDATE_ID",
-        "OPTIMIZATION_RESOLVE_ENDPOINT", "OPTIMIZATION_LOCAL_DIR",
+        "OPTIMIZATION_RESOLVE_ENDPOINT", "OPTIMIZATION_LOCAL_DIR", "CPA_APPLIED_CANDIDATE_ID",
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("CASTIA_TOOL_CAPTURE", "")
@@ -120,6 +120,39 @@ def test_unresolvable_mini_id_refuses_baseline_fallback(monkeypatch, clean_optim
     monkeypatch.setenv("OPTIMIZATION_CANDIDATE_ID", "mini-unresolvable")
     with pytest.raises(ValueError, match="refusing baseline fallback"):
         configuration.load_release()
+
+
+def _applied_release(tmp_path, monkeypatch):
+    import shutil
+
+    root = Path(configuration.__file__).parent
+    release = root / "releases" / f"pytest-{tmp_path.name}"
+    shutil.copytree(root / ".agent_configs" / "baseline", release / "baseline")
+    shutil.copytree(release / "baseline", release / "cand_job_0001")
+    (release / "cand_job_0001" / "instructions.md").write_text("Applied candidate prompt.\n", encoding="utf-8")
+    monkeypatch.setenv("OPTIMIZATION_LOCAL_DIR", f"releases/{release.name}")
+    return release
+
+
+def test_applied_candidate_loads_without_baseline_fallback(tmp_path, monkeypatch, clean_optimizer_env):
+    import shutil
+
+    release = _applied_release(tmp_path, monkeypatch)
+    try:
+        monkeypatch.setenv("OPTIMIZATION_CANDIDATE_ID", "")
+        monkeypatch.setenv("CPA_APPLIED_CANDIDATE_ID", "cand_job_0001")
+        config = configuration.load_release()
+        assert config.instructions.strip() == "Applied candidate prompt."
+        assert config.source == f"local:{release / 'cand_job_0001'}"
+        monkeypatch.setenv("OPTIMIZATION_CANDIDATE_ID", "cand_job_0001_mini_abc")
+        with pytest.raises(ValueError, match="conflicts"):
+            configuration.load_release()
+        monkeypatch.setenv("OPTIMIZATION_CANDIDATE_ID", "")
+        monkeypatch.setenv("CPA_APPLIED_CANDIDATE_ID", "cand_missing")
+        with pytest.raises(ValueError, match="refusing baseline fallback"):
+            configuration.load_release()
+    finally:
+        shutil.rmtree(release)
 
 
 def test_native_resolver_rejects_legacy_or_foreign_uri(monkeypatch, clean_optimizer_env):

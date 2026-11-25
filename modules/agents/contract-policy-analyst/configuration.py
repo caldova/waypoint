@@ -34,6 +34,17 @@ def load_release() -> Any:
     )
     inline = os.getenv("OPTIMIZATION_CONFIG", "").strip()
     candidate_id = os.getenv("OPTIMIZATION_CANDIDATE_ID", "").strip()
+    # Deploy-time selection of an `optimize apply` candidate. Kept separate from
+    # the platform-injected OPTIMIZATION_CANDIDATE_ID so a deployed baseline never
+    # declares that variable; a conflicting injection fails closed.
+    applied = os.getenv("CPA_APPLIED_CANDIDATE_ID", "").strip()
+    if applied:
+        if inline or os.getenv("OPTIMIZATION_RESOLVE_ENDPOINT", "").strip() or (
+            candidate_id and candidate_id != applied
+        ):
+            raise ValueError("Applied candidate conflicts with an injected optimizer config.")
+        candidate_id = applied
+        os.environ["OPTIMIZATION_CANDIDATE_ID"] = applied
     resolver = os.getenv("OPTIMIZATION_RESOLVE_ENDPOINT", "").strip()
     if inline:
         from azure.ai.agentserver.optimization import load_config

@@ -62,6 +62,29 @@ instructions and tool definitions remain unchanged. HTTP request instructions,
 tools, and capture metadata do not override the startup configuration. Castia
 0.19.0 has no candidate channel in its request context.
 
+### Optimizer flow (azd agents extension 1.2.0)
+
+Probe job `opt_b3e66152116048cea11621393d52835e` established the working path:
+
+- Submit with a GA `OptimizeRequest` file via `azd ai agent optimize --config`.
+  Legacy `eval.yaml` is rejected. With `--no-prompt`, the flag and
+  `--eval-config` routes omit `agent_optimization_space` and return 400. The
+  request file must set `target_attributes` (e.g. `[instructions, tools]`).
+- During screening, the platform injects mini IDs
+  (`cand_<job>_<NNNN>_mini_<sha>`) with a job-scoped resolver. The GA
+  `/candidates/<mini>/config` route serves them; captures showed each candidate's
+  own hashes.
+- `optimize apply` resolves only materialized candidates and returns 404 on mini
+  IDs. It also rewrites `azure.yaml` with a static `OPTIMIZATION_CANDIDATE_ID`.
+  Restore `azure.yaml`. The CLI also rewrites `.agent_configs/baseline/metadata.yaml`
+  (drops `tools_file`) and reformats `tools.json`; revert both.
+- To deploy a candidate, place its files in `.agent_configs/<id>/` (from `apply`,
+  or from the `/config` payload for a mini ID). Then run
+  `scripts/deploy_version.ps1 -Release baseline -Candidate <id>`. That sets
+  `CPA_APPLIED_CANDIDATE_ID`, which stays separate from the platform-injected
+  variable; a conflicting injection fails startup. Version 9 served the applied
+  candidate's hashes, not the baseline's, with real retrieval.
+
 ## Measurement boundaries
 
 The historical 24 cases are regression evidence, not a pristine test. New
