@@ -494,6 +494,90 @@ def load_records(arm: str, split: str) -> list[dict[str, Any]]:
     ]
 
 
+ARMS: dict[str, dict[str, str]] = {
+    "baseline": {
+        "agent_version": "1",
+        "model": "gpt-6-astra",
+        "instructions": ".agent_configs/baseline/instructions.md",
+        "description": "Minimal honest starter prompt on the teacher model",
+    },
+    "optimized": {
+        "agent_version": "2",
+        "model": "gpt-6-astra",
+        "instructions": "releases/optimized/baseline/instructions.md",
+        "description": "Agent Optimizer candidate opt_1a50d6dd..._0001 on the teacher model",
+    },
+    "mai2-base": {
+        "agent_version": "3",
+        "model": "mai-code-2-flash-base",
+        "instructions": "releases/mai2-base/baseline/instructions.md",
+        "description": "Optimized prompt on untuned MAI-Code-2-Flash",
+    },
+    "mai2-rft": {
+        "agent_version": "4",
+        "model": "tuned mai-code-2-flash (contract-evidence-mai2-r1)",
+        "instructions": "releases/mai2-rft/baseline/instructions.md",
+        "description": "Optimized prompt on RFT-tuned MAI-Code-2-Flash",
+    },
+}
+QUALITY_SPLITS = ("dev_eval", "validation", "final_test")
+
+
+def build_quality() -> dict[str, Any]:
+    """Collect every recorded arm/split summary into one machine-readable evidence file."""
+    arms: dict[str, Any] = {}
+    for arm, meta in ARMS.items():
+        results = {}
+        for split in QUALITY_SPLITS:
+            path = EVIDENCE / "runs" / f"{arm}-{split}.jsonl"
+            if path.exists():
+                results[split] = summarize_records(load_records(arm, split))
+        if results:
+            instructions = AGENT_DIR / meta["instructions"]
+            arms[arm] = {
+                **meta,
+                "instructions_sha256": sha256(instructions.read_text(encoding="utf-8"))
+                if instructions.exists()
+                else None,
+                "results": results,
+            }
+    manifest = json.loads((DATASET_DIR / "manifest.json").read_text(encoding="utf-8"))
+    rft_job = EVIDENCE / "mai2-rft" / "job.final.json"
+    return {
+        "agent": AGENT_NAME,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "grader": {
+            "path": str(GRADER_PATH.relative_to(REPO)).replace("\\", "/"),
+            "sha256": sha256(GRADER_PATH.read_text(encoding="utf-8")),
+            "version": load_grader().GRADER_VERSION,
+            "pass_threshold": PASS_THRESHOLD,
+        },
+        "benchmark": {
+            "path": str(DATASET_DIR.relative_to(REPO)).replace("\\", "/"),
+            "splits": manifest.get("splits"),
+            "selection_policy": (
+                "Prompt/checkpoint selection used train/validation/dev_eval only; final_test "
+                "was run once per arm after that arm was frozen."
+            ),
+        },
+        "prices_usd_per_1m_tokens": {
+            model: {"input": p[0], "output": p[1], "source": PRICE_SOURCES[model]}
+            for model, p in PRICES.items()
+        },
+        "rft_job": json.loads(rft_job.read_text(encoding="utf-8")) if rft_job.exists() else None,
+        "arms": arms,
+        "caveats": [
+            "Benchmark labels are synthetic and pending_human_review; scores measure agreement "
+            "with synthetic references, not audited ground truth.",
+            "The code grader's decision-language screen is a phrase screen, not a semantic "
+            "guarantee.",
+            "gpt-6-astra price is the Alaska-report list price; MAI-2 price is the retail base "
+            "serving price and excludes fine-tuned hosting fees and RFT training cost.",
+            "Cost covers model tokens only, not hosted-agent compute.",
+        ],
+    }
+
+
 def _main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -510,6 +594,7 @@ def _main() -> None:
     summ = sub.add_parser("summarize")
     summ.add_argument("--arm", required=True)
     summ.add_argument("--split", required=True)
+    sub.add_parser("quality")
     args = ap.parse_args()
     endpoint = os.environ.get("FOUNDRY_PROJECT_ENDPOINT", "")
     if args.cmd == "optimizer-data":
@@ -535,6 +620,10 @@ def _main() -> None:
         print(path)
     elif args.cmd == "summarize":
         print(json.dumps(summarize_records(load_records(args.arm, args.split)), indent=2))
+    elif args.cmd == "quality":
+        out = EVIDENCE / "quality.json"
+        out.write_text(json.dumps(build_quality(), indent=2) + "\n", encoding="utf-8")
+        print(out)
 
 
 if __name__ == "__main__":
