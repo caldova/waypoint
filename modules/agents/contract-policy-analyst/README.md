@@ -90,8 +90,9 @@ Probe job `opt_b3e66152116048cea11621393d52835e` established the working path:
   response. Every eval item then reports `TARGET_INVOCATION_FAILED` and is
   scored on empty output. Because of this, the optimizer scores for the probe
   above and for `opt_4fa59c4f…` (r1) are invalid; their run folders contain
-  `SCORES-INVALID.json`. castia 0.20.0 fixes this (sethjuarez/castia#143,
-  sethjuarez/castia#144), and this agent pins it. `tests/test_response_ids.py`
+  `SCORES-INVALID.json`. castia 0.20.1 fixes ID precedence and adds hosted
+  Foundry persistence (sethjuarez/castia#143, sethjuarez/castia#147).
+  This agent pins it. `tests/test_response_ids.py`
   guards the format. Before trusting any optimizer score, check that its eval
   output_items have no `sample.error`.
 
@@ -116,7 +117,7 @@ The connection credential stays process-local; it is not copied into azd,
 source files or evidence. Existing explicit exporter settings take precedence.
 Discovery failures produce a warning, not a fabricated tracing-success result.
 
-Historical v8 study runs pin Castia 0.19.0; new versions pin 0.20.0. Its operator-only
+Historical v8 study runs pin Castia 0.19.0; new versions pin 0.20.1. Its operator-only
 `CASTIA_TOOL_CAPTURE=blob` mode writes create-only `castia.tool_capture/v1`
 documents containing full tool arguments/results, response/call/trace IDs,
 release provenance, timing and canonical hashes. Client metadata cannot enable
@@ -124,14 +125,18 @@ capture. Payload caps and sink failures do not change the model response;
 evaluation rejects missing, incomplete, ambiguous or hash-invalid evidence.
 Capture is off by default and enabled only on evaluation versions.
 
-The private `castia-tool-captures` container holds captures and shared Responses
-state. The hosted identity needs container-scoped Storage Blob Data Contributor;
-the evaluator needs read access. `response_store.py` supplies atomic ETag-checked
-state updates for background evaluation/optimizer polling across replicas.
-Backend failures propagate rather than impersonating missing responses.
-In-flight execution remains process-bound even with shared state; preserve
-failed attempts if a worker restarts. No automatic deletion or retention sweep
-is configured. Existing 0.15.0 smoke captures remain historical evidence.
+The private `castia-tool-captures` container holds captures and historical
+Responses state. The hosted identity needs container-scoped Storage Blob Data
+Contributor for captures; the evaluator needs read access. New hosted versions
+use Castia's default `FoundryResponseStore`, not `BlobResponseStore`: responses
+are published to Foundry storage and read through the project Responses API.
+Blob persistence alone does not make a response visible there.
+`response_store.py` remains available for local and historical Blob workflows;
+it must not replace the hosted Foundry store. Background and
+`previous_response_id` are unsupported on the Foundry store. Backend failures
+propagate rather than impersonating missing responses. No automatic deletion
+or capture-retention sweep is configured. Existing 0.15.0 smoke captures remain
+historical evidence.
 
 This independent evaluation agent serves Responses only, as required by the
 optimizer. The existing expert's Teams protocol and runtime are unchanged.

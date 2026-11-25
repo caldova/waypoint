@@ -1,3 +1,3 @@
-castia[optimize,capture]==0.20.0
+castia[optimize,capture]==0.20.1
 python-dotenv>=1.0.1
 azure-storage-blob>=12.25.1,<13
