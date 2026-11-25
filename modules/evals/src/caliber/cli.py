@@ -17,12 +17,15 @@ from .contract_policy import (
     build_contract_policy_datasets,
     write_contract_policy_foundry_eval_input,
 )
+from .contract_policy_challenge import build_contract_policy_challenge
+from .contract_policy_evidence_only import build_evidence_only_v3, verify_evidence_only_v3
 from .doctor import run_doctor
 from .eval import build_eval_plan
 from .eval_assets import validate_eval_config
 from .forge import inspect_forge
 from .foundry_eval import export_eval_output_items
 from .gates import evaluate_gates
+from .grader_robustness import run_grader_robustness
 from .lineage import (
     REVIEW_STATUSES,
     VERIFY_STATUSES,
@@ -37,14 +40,71 @@ from .lineage import (
 from .manifest import build_manifest
 from .optimizer import build_optimizer_plan
 from .rft import (
+    GRADER_VALIDATION_VARIANTS,
+    PACKAGE_PRESETS,
+    THRESHOLD_PLACEMENTS,
     build_grader_validation_request,
+    build_grader_validation_suite,
     build_integration_preflight,
     build_rft_plan,
     package_rft_assets,
     read_rft_status,
 )
+from .rft_data_audit import DEFAULT_MAX_TOKENS_PER_EXAMPLE, audit_rft_datasets
+from .rft_preflight import run_offline_preflight
+from .rft_prompt_preparation import prepare_rft_prompts
 from .rle import build_rle_plan
 from .telemetry import build_telemetry_backfill_plan
+
+
+def _package_handler(args: argparse.Namespace) -> dict[str, Any]:
+    preset = dict(PACKAGE_PRESETS[args.preset]) if args.preset else {}
+    hyperparameters = dict(preset.get("hyperparameters") or {})
+    for item in args.hyperparameters or []:
+        key, sep, raw = item.partition("=")
+        if not sep or not key:
+            raise ValueError(f"--hyperparameter must be KEY=VALUE: {item}")
+        try:
+            value: Any = json.loads(raw)
+        except json.JSONDecodeError:
+            value = raw
+        hyperparameters[key] = value
+    include_response_format = preset.get("include_response_format", True)
+    if args.omit_response_format:
+        include_response_format = False
+
+    def pick(name: str, default: Any = None) -> Any:
+        value = getattr(args, name)
+        return value if value is not None else preset.get(name, default)
+
+    return package_rft_assets(
+        train_path=args.train,
+        validation_path=args.validation,
+        grader_path=args.grader,
+        out_dir=args.out_dir,
+        agent=args.agent,
+        base_model=pick("base_model", "o4-mini"),
+        suffix=args.suffix or None,
+        optimizer_job_id=args.optimizer_job_id or None,
+        optimizer_candidate_id=args.optimizer_candidate_id or None,
+        pass_threshold=args.pass_threshold,
+        include_response_format=include_response_format,
+        training_type=pick("training_type"),
+        seed=pick("seed"),
+        hyperparameters=hyperparameters or None,
+        grader_image_tag=pick("grader_image_tag"),
+        threshold_placement=pick("threshold_placement", "both"),
+        preset=args.preset,
+    )
+
+
+def _evidence_only(args: argparse.Namespace) -> dict[str, Any]:
+    if args.verify:
+        errors = verify_evidence_only_v3(dataset_dir=args.dataset_dir, out_dir=args.out_dir)
+        if errors:
+            raise ValueError("; ".join(errors))
+        return {"out_dir": str(args.out_dir), "verified": True}
+    return build_evidence_only_v3(dataset_dir=args.dataset_dir, out_dir=args.out_dir)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -68,6 +128,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2, sort_keys=True))
     else:
         _print_human(result)
+    if getattr(args, "fail_unless_local_ready", False) and not result.get("local_checks_passed"):
+        return 1
     return 0
 
 
@@ -144,6 +206,19 @@ def _build_parser() -> argparse.ArgumentParser:
             variants_per_scenario=args.variants_per_scenario,
             agent=args.agent,
             forge_agent=args.forge_agent or None,
+        )
+    )
+    challenge = contract_policy_sub.add_parser(
+        "challenge",
+        help="Build a fictional, pending-review held-out challenge set from corpus clauses.",
+    )
+    challenge.add_argument("--corpus-path", required=True, type=Path, help="Local corpus root.")
+    challenge.add_argument("--out", required=True, type=Path, help="New candidate JSONL path.")
+    challenge.add_argument("--json", action="store_true", help="Print JSON.")
+    challenge.set_defaults(
+        handler=lambda args: build_contract_policy_challenge(
+            corpus_path=args.corpus_path,
+            out=args.out,
         )
     )
     contract_policy_foundry_eval = contract_policy_sub.add_parser(
@@ -347,10 +422,36 @@ def _build_parser() -> argparse.ArgumentParser:
     package.add_argument("--agent", default="contract-policy-expert", help="Target agent name.")
     package.add_argument(
         "--base-model",
-        default="o4-mini",
-        help="Cheap base model deployment name.",
+        default=None,
+        help="Cheap base model deployment name (default o4-mini, or the preset's model).",
     )
     package.add_argument("--suffix", default="", help="Optional fine-tune suffix.")
+    package.add_argument(
+        "--preset",
+        choices=sorted(PACKAGE_PRESETS),
+        default=None,
+        help=(
+            "Start from a recorded job recipe (e.g. mai2-alaska-e6). Explicit flags override "
+            "preset values. Presets are dry-run defaults, not validated settings for this task."
+        ),
+    )
+    package.add_argument("--training-type", default=None, help="Job trainingType field.")
+    package.add_argument("--seed", type=int, default=None, help="Job seed.")
+    package.add_argument(
+        "--hyperparameter",
+        dest="hyperparameters",
+        action="append",
+        default=None,
+        metavar="KEY=VALUE",
+        help="Reinforcement hyperparameter; repeat for multiple values.",
+    )
+    package.add_argument("--grader-image-tag", default=None, help="Python grader image_tag.")
+    package.add_argument(
+        "--threshold-placement",
+        choices=sorted(THRESHOLD_PLACEMENTS),
+        default=None,
+        help="Where pass_threshold goes: grader, reinforcement, or both (default both).",
+    )
     package.add_argument(
         "--pass-threshold",
         type=float,
@@ -382,20 +483,112 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional optimizer candidate ID used as the gold-standard behavior target.",
     )
     package.add_argument("--json", action="store_true", help="Print JSON.")
-    package.set_defaults(
-        handler=lambda args: package_rft_assets(
+    package.set_defaults(handler=_package_handler)
+
+    audit_data = rft_sub.add_parser(
+        "audit-data",
+        help="Audit RFT splits for schema, duplicates, held-out leakage, and provenance.",
+    )
+    audit_data.add_argument("--train", required=True, type=Path, help="Training JSONL file.")
+    audit_data.add_argument("--validation", required=True, type=Path, help="Validation JSONL.")
+    audit_data.add_argument(
+        "--eval",
+        dest="eval_paths",
+        required=True,
+        action="append",
+        type=Path,
+        help="Held-out eval JSONL; repeat for multiple files.",
+    )
+    audit_data.add_argument(
+        "--grader", type=Path, default=None, help="Optional grader for gold-parity checks."
+    )
+    audit_data.add_argument(
+        "--max-tokens-per-example",
+        type=int,
+        default=DEFAULT_MAX_TOKENS_PER_EXAMPLE,
+        help="Per-example token limit (mai-code-2-flash reports 196608).",
+    )
+    audit_data.add_argument("--out", type=Path, default=None, help="Optional report JSON path.")
+    audit_data.add_argument("--json", action="store_true", help="Print JSON.")
+    audit_data.set_defaults(
+        handler=lambda args: audit_rft_datasets(
             train_path=args.train,
             validation_path=args.validation,
+            eval_paths=args.eval_paths,
             grader_path=args.grader,
-            out_dir=args.out_dir,
-            agent=args.agent,
-            base_model=args.base_model,
-            suffix=args.suffix or None,
-            optimizer_job_id=args.optimizer_job_id or None,
-            optimizer_candidate_id=args.optimizer_candidate_id or None,
-            pass_threshold=args.pass_threshold,
-            include_response_format=not args.omit_response_format,
+            max_tokens_per_example=args.max_tokens_per_example,
+            out=args.out,
         )
+    )
+
+    prepare_data = rft_sub.add_parser(
+        "prepare-prompts",
+        help="Create a separate RFT dataset without answer-revealing prompt fields.",
+    )
+    prepare_data.add_argument("--source", required=True, type=Path, help="Original JSONL dataset.")
+    prepare_data.add_argument("--out", required=True, type=Path, help="New prepared JSONL path.")
+    prepare_data.add_argument("--json", action="store_true", help="Print JSON.")
+    prepare_data.set_defaults(
+        handler=lambda args: prepare_rft_prompts(source=args.source, out=args.out)
+    )
+
+    evidence_only = rft_sub.add_parser(
+        "evidence-only",
+        help="Build (or --verify) v3 evidence-only reference candidates from the originals.",
+    )
+    evidence_only.add_argument(
+        "--dataset-dir", required=True, type=Path, help="Directory with the original splits."
+    )
+    evidence_only.add_argument("--out-dir", required=True, type=Path, help="v3 output directory.")
+    evidence_only.add_argument(
+        "--verify", action="store_true", help="Only check out-dir against a fresh rebuild."
+    )
+    evidence_only.add_argument("--json", action="store_true", help="Print JSON.")
+    evidence_only.set_defaults(handler=_evidence_only)
+
+    preflight = rft_sub.add_parser(
+        "preflight",
+        help="Run strictly offline dataset, grader, and package readiness checks.",
+    )
+    preflight.add_argument("--train", required=True, type=Path, help="Prepared training JSONL.")
+    preflight.add_argument(
+        "--validation", required=True, type=Path, help="Prepared validation JSONL."
+    )
+    preflight.add_argument(
+        "--eval", dest="eval_paths", action="append", required=True, type=Path,
+        help="Prepared independent eval JSONL; repeat for multiple files.",
+    )
+    preflight.add_argument(
+        "--challenge", required=True, type=Path, help="Prepared pending-review challenge JSONL."
+    )
+    preflight.add_argument("--grader", required=True, type=Path, help="Local Python grader.")
+    preflight.add_argument(
+        "--package-dir", required=True, type=Path, help="Dry-run package directory."
+    )
+    preflight.add_argument(
+        "--grader-suite", required=True, type=Path, help="Unexecuted grader-validation suite JSON."
+    )
+    preflight.add_argument("--corpus-path", required=True, type=Path, help="Local corpus root.")
+    preflight.add_argument(
+        "--source-root", type=Path, default=Path("datasets"),
+        help="Root containing the original, unmodified datasets (default: datasets).",
+    )
+    preflight.add_argument("--out", required=True, type=Path, help="New preflight report JSON.")
+    preflight.add_argument("--json", action="store_true", help="Print JSON.")
+    preflight.set_defaults(
+        fail_unless_local_ready=True,
+        handler=lambda args: run_offline_preflight(
+            train_path=args.train,
+            validation_path=args.validation,
+            eval_paths=args.eval_paths,
+            challenge_path=args.challenge,
+            grader_path=args.grader,
+            package_dir=args.package_dir,
+            grader_suite_path=args.grader_suite,
+            corpus_path=args.corpus_path,
+            source_root=args.source_root,
+            out=args.out,
+        ),
     )
 
     status = rft_sub.add_parser("status", help="Read local RFT job metadata if present.")
@@ -462,16 +655,54 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional path to save the grader-run request JSON.",
     )
+    grader_validation_request.add_argument(
+        "--variant",
+        choices=GRADER_VALIDATION_VARIANTS,
+        default="gold",
+        help="Local positive or negative validation sample (default: gold).",
+    )
+    grader_validation_request.add_argument(
+        "--suite",
+        action="store_true",
+        help="Prepare all positive and negative requests; do not execute them.",
+    )
     grader_validation_request.add_argument("--json", action="store_true", help="Print JSON.")
     grader_validation_request.set_defaults(
-        handler=lambda args: build_grader_validation_request(
-            package_dir=args.package_dir,
-            out=args.out,
+        handler=lambda args: (
+            build_grader_validation_suite(package_dir=args.package_dir, out=args.out)
+            if args.suite
+            else build_grader_validation_request(
+                package_dir=args.package_dir, out=args.out, variant=args.variant
+            )
         )
     )
 
     grader = sub.add_parser("grader", help="Grader calibration helpers.")
     grader_sub = grader.add_subparsers(dest="grader_command")
+    robustness = grader_sub.add_parser(
+        "robustness",
+        help="Score gold-derived good/bad/malformed/reward-gaming perturbations.",
+    )
+    robustness.add_argument(
+        "--dataset",
+        dest="datasets",
+        required=True,
+        action="append",
+        type=Path,
+        help="Dataset JSONL; repeat for multiple files.",
+    )
+    robustness.add_argument("--grader", required=True, type=Path, help="Python grader file.")
+    robustness.add_argument("--pass-threshold", type=float, default=0.9, help="Pass threshold.")
+    robustness.add_argument("--out", type=Path, default=None, help="Optional report JSON path.")
+    robustness.add_argument("--json", action="store_true", help="Print JSON.")
+    robustness.set_defaults(
+        handler=lambda args: run_grader_robustness(
+            dataset_paths=args.datasets,
+            grader_path=args.grader,
+            pass_threshold=args.pass_threshold,
+            out=args.out,
+        )
+    )
     calibrate = grader_sub.add_parser(
         "calibrate",
         help="Score captured outputs and report pass rates across thresholds.",
@@ -544,6 +775,11 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         help="Threshold to test; repeat for multiple values.",
     )
+    model_plan.add_argument(
+        "--require-base-signal",
+        action="store_true",
+        help="Require a tested threshold with 25-50% base-model failures.",
+    )
     model_plan.add_argument("--json", action="store_true", help="Print JSON.")
     model_plan.set_defaults(
         handler=lambda args: build_model_output_calibration_plan(
@@ -553,6 +789,7 @@ def _build_parser() -> argparse.ArgumentParser:
             teacher_outputs_path=args.teacher_outputs,
             base_outputs_path=args.base_outputs,
             thresholds=args.thresholds,
+            require_base_signal=args.require_base_signal,
         )
     )
     threshold_report = grader_sub.add_parser(

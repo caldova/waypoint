@@ -1,0 +1,8 @@
+agent         : contract-evidence-analyst
+eval model    : gpt-6-astra
+optimize model: gpt-5.5
+tools         : (none)
+job           : opt_1a50d6dd0fa041fbb6f41633a872a013
+status        : queued
+result        : submitted (billable optimizer job)
+--- r1 failure: opt_92c3e1d2a5024d67957da0c693edd48c failed OptimizationFailed, 0 candidates, evaluator contract-evidence-accuracy only; eval runs evalrun_488af553 / evalrun_890122ff completed 15/15

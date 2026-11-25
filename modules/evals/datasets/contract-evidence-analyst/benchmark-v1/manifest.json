@@ -1,0 +1,105 @@
+{
+  "agent": "contract-evidence-analyst",
+  "audit": {
+    "counts": {
+      "dev_eval": 38,
+      "final_test": 44,
+      "train": 146,
+      "validation": 33
+    },
+    "distinct_scenarios": 261,
+    "families": {
+      "dev_eval": 7,
+      "final_test": 8,
+      "train": 26,
+      "validation": 6
+    },
+    "final_test_segments": {
+      "heldout_clause_kind": 10,
+      "unseen_supplier": 34
+    },
+    "modifiers": {
+      "dev_eval": {
+        "distractor": 12,
+        "injection": 8,
+        "wrong_entity": 2
+      },
+      "final_test": {
+        "distractor": 17,
+        "injection": 5,
+        "wrong_entity": 4
+      },
+      "train": {
+        "distractor": 73,
+        "injection": 25,
+        "wrong_entity": 17
+      },
+      "validation": {
+        "distractor": 15,
+        "injection": 3,
+        "wrong_entity": 4
+      }
+    },
+    "ok": true,
+    "outcomes": {
+      "dev_eval": {
+        "approve_evidence": 7,
+        "escalate": 7,
+        "missing_evidence": 10,
+        "recover": 7,
+        "review_assertion": 7
+      },
+      "final_test": {
+        "approve_evidence": 8,
+        "escalate": 8,
+        "missing_evidence": 12,
+        "recover": 8,
+        "review_assertion": 8
+      },
+      "train": {
+        "approve_evidence": 26,
+        "escalate": 25,
+        "missing_evidence": 42,
+        "recover": 34,
+        "review_assertion": 19
+      },
+      "validation": {
+        "approve_evidence": 6,
+        "escalate": 6,
+        "missing_evidence": 10,
+        "recover": 7,
+        "review_assertion": 4
+      }
+    },
+    "problems": []
+  },
+  "benchmark_version": "contract-evidence-benchmark-v1",
+  "final_test_policy": "never used for prompt, checkpoint, or threshold selection",
+  "label_source": "rule_derived_from_contract_text",
+  "operational_records": "synthetic",
+  "review_status": "pending_human_review",
+  "seed": 20261125,
+  "splits": {
+    "dev_eval": {
+      "ids_sha256": "076a84b8e87e43e1ddecc571627712aedbbd654157988814d9d16e5947ca9e26",
+      "rows": 38,
+      "sha256": "3d92ea4ee3e9d0f6b8af0d429dfb9de853da755d23810ad878c12d6909363086"
+    },
+    "final_test": {
+      "ids_sha256": "ec80064772e46cd72eb8919e462122568859fb756153b179a679e180fa2dd448",
+      "rows": 44,
+      "sha256": "f83b0174b3fbd250927959bb6e909835c89e872e5dd8324d1d2f7e13fd8028a5"
+    },
+    "train": {
+      "ids_sha256": "860cca0ebb02b042cfff115f043dd6c9c19c1ffec7e836b5cee8f7431b344fde",
+      "rows": 146,
+      "sha256": "745b05a4dfcbeb1efb31595c592989bf9f3e01b54a3945337c3fd2c25146dc88"
+    },
+    "validation": {
+      "ids_sha256": "81407512c0648d2d55e3d7a34041c6d6a17d996cca397147fdd058d9caa2f685",
+      "rows": 33,
+      "sha256": "af67d4e6c2509921b79e230fc5b2da0fc0e93fa55f975a9d17a2ad45cc6a5571"
+    }
+  },
+  "task_contract_sha256": "74fba677eaee3a7a12e05c3314b6f6f824490c3c95424ca8ed0cf183cca880dd"
+}

@@ -1,0 +1,20 @@
+[project]
+name = "contract-evidence-analyst"
+version = "0.1.0"
+description = "Evidence-only invoice-line review agent: baseline -> optimizer -> MAI-2 RFT pipeline."
+requires-python = ">=3.11"
+dependencies = [
+    "castia[optimize]==0.15.0",
+    "python-dotenv>=1.0.1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+prerelease = "allow"
+environments = ["sys_platform == 'linux'", "sys_platform == 'win32'"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

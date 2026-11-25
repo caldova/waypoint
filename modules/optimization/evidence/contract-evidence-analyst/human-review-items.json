@@ -1,0 +1,177 @@
+{
+  "status": "pending_human_review",
+  "labels_modified": false,
+  "known_label_defects": {
+    "description": "The missing_evidence generator adds a same-titled operational record for a different entity (wrong_entity). In these rows the altered identifier appears nowhere else in the task and the amount matches the bill, so the reference's 'record not supplied' label cannot be derived from the sources. Excluded from optimizer r2 selection data only; RFT and eval splits are unchanged.",
+    "found_by": "identifier-token detectability scan over wrong_entity distractors",
+    "items": [
+      {
+        "id": "sup009-utilized-capacity--missing-batch-records",
+        "split": "train",
+        "issue": "undetectable wrong-entity distractor"
+      },
+      {
+        "id": "sup015-country-scope--missing-work-order",
+        "split": "train",
+        "issue": "undetectable wrong-entity distractor"
+      },
+      {
+        "id": "sup013-material-surcharge--missing-market-event",
+        "split": "dev_eval",
+        "issue": "undetectable wrong-entity distractor"
+      }
+    ]
+  },
+  "wrong_entity_distractor_cases": {
+    "description": "All rows with the wrong_entity modifier. Reviewers should confirm the distractor's entity is distinguishable from the billed line and that the missing-record label holds.",
+    "counts": {
+      "train": 17,
+      "validation": 4,
+      "dev_eval": 2,
+      "final_test": 4
+    },
+    "items": [
+      {
+        "id": "sup001-batch-release-fee--missing-qa",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup001-material-escalation--missing-consumption",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup002-release-testing-fee--missing-release",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup002-deviation-investigation--missing-deviation-record",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup003-serialized-units--missing-commissioned",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup003-serialized-units--missing-receipt",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup006-changeover--missing-changeover-log",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup006-cleaning-validation--missing-cv-protocol",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup006-cleaning-validation--missing-work-log",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup008-customs-brokerage--missing-broker-of-record",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup009-utilized-capacity--missing-batch-records",
+        "split": "train",
+        "undetectable": true
+      },
+      {
+        "id": "sup009-contamination-costs--missing-root-cause",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup009-contamination-costs--missing-quality-approval",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup012-gmp-batch-classification--missing-qa-acceptance",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup015-country-scope--missing-work-order",
+        "split": "train",
+        "undetectable": true
+      },
+      {
+        "id": "sup015-rush-translation--missing-rush-approval",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup015-rush-translation--missing-request-reason",
+        "split": "train",
+        "undetectable": false
+      },
+      {
+        "id": "sup004-expedited-release--missing-expedite-request",
+        "split": "validation",
+        "undetectable": false
+      },
+      {
+        "id": "sup004-expedited-release--missing-coa-timing",
+        "split": "validation",
+        "undetectable": false
+      },
+      {
+        "id": "sup010-assembly-units--missing-final-inspection",
+        "split": "validation",
+        "undetectable": false
+      },
+      {
+        "id": "sup010-assembly-units--missing-receipt",
+        "split": "validation",
+        "undetectable": false
+      },
+      {
+        "id": "sup005-method-validation--missing-report-acceptance",
+        "split": "dev_eval",
+        "undetectable": false
+      },
+      {
+        "id": "sup013-material-surcharge--missing-market-event",
+        "split": "dev_eval",
+        "undetectable": true
+      },
+      {
+        "id": "sup011-repeat-cycle--missing-cycle-record",
+        "split": "final_test",
+        "undetectable": false
+      },
+      {
+        "id": "sup011-repeat-cycle--missing-repeat-cause",
+        "split": "final_test",
+        "undetectable": false
+      },
+      {
+        "id": "sup011-bioburden-retest--missing-retest-trigger",
+        "split": "final_test",
+        "undetectable": false
+      },
+      {
+        "id": "sup011-release-packet--missing-qa-acceptance",
+        "split": "final_test",
+        "undetectable": false
+      }
+    ]
+  },
+  "grader_review": [
+    {
+      "component": "contract_evidence_grader v1 _score_gaps supplied-predicate keywords",
+      "issue": "A model gap that names a document type also mentioned in a supplied record (e.g. a purchase order 'identifying ... final-report deliverables' matching [report]+[final]) is flagged false_gap and capped at 0.6. Frozen grader not changed; review with the P1 'authorized source document' convention."
+    }
+  ]
+}

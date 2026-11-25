@@ -1,0 +1,43 @@
+{
+  "agent": {
+    "agent_name": "contract-evidence-analyst",
+    "agent_version": "1"
+  },
+  "evaluators": [
+    {
+      "name": "contract-evidence-accuracy",
+      "version": "1"
+    },
+    {
+      "name": "contract-evidence-quality",
+      "version": "2"
+    }
+  ],
+  "options": {
+    "eval_model": "gpt-6-astra",
+    "optimization_model": "gpt-5.5",
+    "optimization_config": {
+      "model": "gpt-6-astra",
+      "system_prompt": "You review supplier invoice lines against the supplied contract and policy excerpts and return the requested JSON.\n",
+      "skills": []
+    },
+    "max_candidates": 20,
+    "max_stalls": 12,
+    "max_concurrent_agent_runs": 6
+  },
+  "train_dataset": {
+    "type": "inline",
+    "rows": 30,
+    "sha256_of_items_json": "dbe5528f54b5ace50e5f3fe6f8b26d2bd8524d87f7a4b7395f9012615a9e054b",
+    "provenance": "modules/agents/contract-evidence-analyst/optimizer/r2/optimizer-data.json"
+  },
+  "validation_dataset": {
+    "type": "inline",
+    "rows": 33,
+    "sha256_of_items_json": "7e84ac520ff983f66648a4bd8ab36232b20984b117b0906d5dc4a8ec44a6935f",
+    "provenance": "modules/agents/contract-evidence-analyst/optimizer/r2/optimizer-data.json"
+  },
+  "job_id": "opt_4ede4173873b4e36929ea1a55251e8c4",
+  "config": "modules/agents/contract-evidence-analyst/eval.r2.yaml",
+  "note": "Request as previewed by castia optimize run --dry-run immediately before submission; inline rows replaced by ids+hash (rows live in agent optimizer/r2)."
+}

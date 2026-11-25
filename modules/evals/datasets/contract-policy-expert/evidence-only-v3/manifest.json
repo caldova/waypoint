@@ -1,0 +1,58 @@
+{
+  "label_source": "synthetic_evidence_only_reference_v3",
+  "note": "Synthetic evidence-only reference candidates derived from the historical labels. Not human-reviewed ground truth; supports labels are carried over unchanged.",
+  "review_status": "pending_human_review",
+  "splits": {
+    "challenge": {
+      "coverage_kinds": {
+        "label_transform": 6
+      },
+      "path": "challenge.jsonl",
+      "rows": 6,
+      "sha256": "bf98e5379385d02c80d08d841018be102c58a91f59f9ec882f44e190f86b8e29",
+      "source_path": "contract-policy-expert-challenge-candidates.jsonl",
+      "source_sha256": "5c15e3ffe419a48988c22d06f4a23c51dbd77c9bc456ad49c7ca9dfc6c2dcee4",
+      "support_review_flags": 0
+    },
+    "eval": {
+      "coverage_kinds": {
+        "label_transform": 24
+      },
+      "path": "eval.jsonl",
+      "rows": 24,
+      "sha256": "1cccead12321fe187cf753b7e8afa0e0ad1d8cd0ce68d155e495bd56e6c58af3",
+      "source_path": "contract-policy-expert-eval.jsonl",
+      "source_sha256": "dc08265d095b242a0f1f429471da954a9355512d2fda327e021f7d2fd1db5ac0",
+      "support_review_flags": 16
+    },
+    "train": {
+      "coverage_kinds": {
+        "distractor_context": 10,
+        "label_transform": 80,
+        "missing_evidence": 9,
+        "supported_approval_evidence": 7
+      },
+      "path": "train.jsonl",
+      "rows": 106,
+      "sha256": "970262eda7dddf2e4a3fd7bf9dcfb201a51e804ef247c5d8543ba034a0650722",
+      "source_path": "contract-policy-expert-train.jsonl",
+      "source_sha256": "8ca4b02ef19e0e3dfd9c2889d9fcbba222ef5ee24e0dccd1f647d25f9762456c",
+      "support_review_flags": 27
+    },
+    "validation": {
+      "coverage_kinds": {
+        "distractor_context": 2,
+        "label_transform": 16,
+        "missing_evidence": 2,
+        "supported_approval_evidence": 2
+      },
+      "path": "validation.jsonl",
+      "rows": 22,
+      "sha256": "e17d27cfab5690706522318b332db91e88cd7963fdb2c23c20aba5cefe551ff3",
+      "source_path": "contract-policy-expert-validation.jsonl",
+      "source_sha256": "0934d021a7f8fca4fdcaf194b4f654586a25cac4f9620c0efdf74f7f76e4cceb",
+      "support_review_flags": 9
+    }
+  },
+  "version": "contract-policy-evidence-only-v3"
+}

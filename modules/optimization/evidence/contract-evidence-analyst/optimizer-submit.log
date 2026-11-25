@@ -1,0 +1,7 @@
+agent         : contract-evidence-analyst
+eval model    : gpt-6-astra
+optimize model: gpt-5.5
+tools         : (none)
+job           : opt_92c3e1d2a5024d67957da0c693edd48c
+status        : queued
+result        : submitted (billable optimizer job)

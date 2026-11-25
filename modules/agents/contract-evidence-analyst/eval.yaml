@@ -1,0 +1,35 @@
+# Foundry Agent Optimizer config for contract-evidence-analyst (independent of contract-policy-expert).
+#
+# Runtime model: gpt-6-astra (agent). Proposer: gpt-5.5 (optimization_model; astra is rejected as a proposer).
+# Judge model: gpt-6-astra (eval_model). Scoring: the frozen code grader v1 registered as the
+# `contract-evidence-accuracy` evaluator (0-1). The optimizer keeps only {query, ground_truth}, so ground_truth
+# carries the full reference JSON. Optimizer rows come from train/validation only; dev_eval and final_test never
+# enter optimization. Optimizer scores are not accuracy; re-score candidates on dev_eval before applying.
+#
+# Regenerate data: uv run python -m caliber.contract_evidence_eval optimizer-data   (from modules/evals)
+name: contract-evidence-analyst-optimize
+agent:
+    name: contract-evidence-analyst
+    kind: hosted
+    version: "1"
+    config: .agent_configs/baseline/metadata.yaml
+    model: gpt-6-astra
+dataset:
+    local_uri: optimizer/optimizer-train.jsonl
+validation_dataset:
+    local_uri: optimizer/optimizer-validation.jsonl
+evaluators:
+    - name: contract-evidence-accuracy
+      version: "1"
+    # Judge rubric (gpt-6-astra) paired with the code grader, as in Alaska's successful optimizer runs: the
+    # code evaluator returns no reason text, and opt_92c3e1d2 (code grader only) failed in the propose step
+    # with 0 candidates after two clean minibatch evals. Sanity check on 12 baseline outputs:
+    # modules/optimization/evidence/contract-evidence-analyst/optimizer/rubric-sanity-v1.json. The judge does
+    # not reliably see ground_truth, so the code grader remains the accuracy metric.
+    - name: contract-evidence-quality
+      version: "1"
+options:
+    eval_model: gpt-6-astra
+    optimization_model: gpt-5.5
+    max_candidates: 8
+    max_stalls: 6

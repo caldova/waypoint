@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import math
 import os
+import re
 from pathlib import Path
 from typing import Any
 
+from .grader_robustness import PERTURBATIONS, build_perturbations
 from .grading import load_grader, require_score_range
 from .schemas import read_jsonl, validate_jsonl
 
@@ -22,6 +26,51 @@ EXPERT_EVIDENCE_SCHEMA_PROMPT = (
     "Choose the supports label that best matches the cited evidence and requested "
     "recommendation. Use an empty unsupported array only when retrieved_context contains "
     "all evidence needed for the recommendation."
+)
+
+THRESHOLD_PLACEMENTS = {"both", "grader", "reinforcement"}
+KNOWN_HYPERPARAMETERS = {
+    "n_epochs",
+    "batch_size",
+    "learning_rate_multiplier",
+    "compute_multiplier",
+    "eval_interval",
+    "eval_samples",
+    "reasoning_effort",
+}
+# Alaska e6 MAI-2 payload (alaska-ata-agent/mai2-rft/payload.e6.json). Starting
+# point only: it was tuned for a different task and grader.
+MAI2_ALASKA_E6_PRESET: dict[str, Any] = {
+    "base_model": "mai-code-2-flash-2026-11-17",
+    "training_type": "developerTier",
+    "seed": 1266282111,
+    "hyperparameters": {
+        "n_epochs": 3,
+        "learning_rate_multiplier": 2,
+        "compute_multiplier": 1,
+        "eval_interval": 2,
+        "eval_samples": 50,
+        "reasoning_effort": "low",
+    },
+    "grader_image_tag": "2025-05-08",
+    "threshold_placement": "grader",
+    "include_response_format": False,
+}
+MAI2_WAYPOINT_PRESET: dict[str, Any] = {
+    **MAI2_ALASKA_E6_PRESET,
+    "hyperparameters": {**MAI2_ALASKA_E6_PRESET["hyperparameters"], "eval_samples": 16},
+}
+PACKAGE_PRESETS = {
+    "mai2-alaska-e6": MAI2_ALASKA_E6_PRESET,
+    "mai2-waypoint-local": MAI2_WAYPOINT_PRESET,
+}
+GRADER_VALIDATION_VARIANTS = (
+    "gold",
+    "wrong_supports",
+    "wrong_invoice",
+    "fabricated_section",
+    "boundary_violation",
+    "empty",
 )
 
 
@@ -74,13 +123,33 @@ def package_rft_assets(
     optimizer_candidate_id: str | None = None,
     pass_threshold: float | None = None,
     include_response_format: bool = True,
+    training_type: str | None = None,
+    seed: int | None = None,
+    hyperparameters: dict[str, Any] | None = None,
+    grader_image_tag: str | None = None,
+    threshold_placement: str = "both",
+    preset: str | None = None,
 ) -> dict[str, Any]:
     """Package reviewed Caliber rows into Foundry RFT-ready local artifacts."""
 
     if not agent.strip():
         raise ValueError("agent is required")
-    if pass_threshold is not None and (pass_threshold < 0.0 or pass_threshold > 1.0):
+    if pass_threshold is not None and (
+        isinstance(pass_threshold, bool)
+        or not math.isfinite(pass_threshold)
+        or pass_threshold < 0.0
+        or pass_threshold > 1.0
+    ):
         raise ValueError(f"pass_threshold must be between 0.0 and 1.0: {pass_threshold}")
+    if threshold_placement not in THRESHOLD_PLACEMENTS:
+        raise ValueError(
+            f"threshold_placement must be one of {sorted(THRESHOLD_PLACEMENTS)}: "
+            f"{threshold_placement}"
+        )
+    if hyperparameters is not None:
+        unknown = set(hyperparameters) - KNOWN_HYPERPARAMETERS
+        if unknown:
+            raise ValueError(f"unknown hyperparameters: {sorted(unknown)}")
 
     train = _package_split(source_path=train_path, split="train")
     validation = _package_split(source_path=validation_path, split="validation")
@@ -97,6 +166,7 @@ def package_rft_assets(
     endpoint_grader_out = out_dir / f"{agent}-rft-blossom-endpoint-grader.py"
     response_format_out = out_dir / f"{agent}-rft-response-format.json"
     job_spec_out = out_dir / f"{agent}-rft-job.dry-run.json"
+    submit_template_out = out_dir / f"{agent}-rft-job.submit-template.json"
     manifest_out = out_dir / "manifest.json"
 
     _write_jsonl(train_out, train["rows"])
@@ -123,26 +193,29 @@ def package_rft_assets(
         response_format_out.unlink()
 
     resolved_suffix = suffix or f"{agent}-cost"
+    outer_threshold = pass_threshold if threshold_placement in {"both", "reinforcement"} else None
+    grader_threshold = pass_threshold if threshold_placement in {"both", "grader"} else None
+    grader_config: dict[str, Any] = {
+        "type": "python",
+        "name": f"{_safe_name(agent)}_evidence_grader",
+        "source": rft_grader_source,
+        **({"pass_threshold": grader_threshold} if grader_threshold is not None else {}),
+        **({"image_tag": grader_image_tag} if grader_image_tag else {}),
+    }
     job_spec = {
         "status": "dry_run_not_submitted",
         "model": base_model,
         "suffix": resolved_suffix,
         "training_file": "<upload " + str(train_out) + ">",
         "validation_file": "<upload " + str(validation_out) + ">",
+        **({"trainingType": training_type} if training_type else {}),
+        **({"seed": seed} if seed is not None else {}),
         "method": {
             "type": "reinforcement",
             "reinforcement": {
-                **({"pass_threshold": pass_threshold} if pass_threshold is not None else {}),
-                "grader": {
-                    "type": "python",
-                    "name": f"{_safe_name(agent)}_evidence_grader",
-                    "source": rft_grader_source,
-                    **(
-                        {"pass_threshold": pass_threshold}
-                        if pass_threshold is not None
-                        else {}
-                    ),
-                },
+                **({"pass_threshold": outer_threshold} if outer_threshold is not None else {}),
+                "grader": grader_config,
+                **({"hyperparameters": dict(hyperparameters)} if hyperparameters else {}),
                 "endpoint_grader_fallback": {
                     "type": "endpoint",
                     "name": f"{_safe_name(agent)}_blossom_endpoint_grader",
@@ -157,6 +230,10 @@ def package_rft_assets(
         },
     }
     job_spec_out.write_text(json.dumps(job_spec, indent=2, sort_keys=True), encoding="utf-8")
+    submit_template = _submit_template(job_spec)
+    submit_template_out.write_text(
+        json.dumps(submit_template, indent=2, sort_keys=True), encoding="utf-8"
+    )
 
     if pass_threshold is not None:
         next_step = (
@@ -179,6 +256,27 @@ def package_rft_assets(
         "base_model": base_model,
         "suffix": resolved_suffix,
         "pass_threshold": pass_threshold,
+        "threshold_placement": threshold_placement if pass_threshold is not None else None,
+        "threshold_placement_rationale": (
+            (
+                "Provisional Alaska e6 shape: threshold inside the grader only. "
+                "MAI-1.1 used both placements; remote acceptance and calibration are pending."
+            )
+            if pass_threshold is not None and threshold_placement == "grader"
+            else (
+                "Explicit local threshold placement; remote acceptance and calibration are pending."
+                if pass_threshold is not None
+                else None
+            )
+        ),
+        "training_type": training_type,
+        "seed": seed,
+        "hyperparameters": dict(hyperparameters) if hyperparameters else None,
+        "grader_image_tag": grader_image_tag,
+        "preset": preset,
+        "remote_grader_validation": "pending_not_run",
+        "grader_version": _grader_version(grader_source),
+        "grader_source_sha256": hashlib.sha256(rft_grader_source.encode("utf-8")).hexdigest(),
         "goal": "cost_optimization_after_agent_optimizer",
         "response_format_mode": "strict" if response_format is not None else "omitted",
         "ready_for_live_submit": False,
@@ -203,6 +301,22 @@ def package_rft_assets(
             "train": str(train_path),
             "validation": str(validation_path),
             "grader": str(grader_path),
+        },
+        "source_sha256": {
+            "train": _sha256_file(train_path),
+            "validation": _sha256_file(validation_path),
+            "grader": _sha256_file(grader_path),
+        },
+        "artifact_sha256": {
+            "train": _sha256_file(train_out),
+            "validation": _sha256_file(validation_out),
+            "grader": _sha256_file(grader_out),
+            "endpoint_grader": _sha256_file(endpoint_grader_out),
+            "job_spec": _sha256_file(job_spec_out),
+            "submit_template": _sha256_file(submit_template_out),
+            "response_format": (
+                _sha256_file(response_format_out) if response_format is not None else None
+            ),
         },
         "artifacts": {
             "train": {"path": str(train_out), "rows": train["count"]},
@@ -231,6 +345,7 @@ def package_rft_assets(
                 }
             ),
             "job_spec": str(job_spec_out),
+            "submit_template": str(submit_template_out),
         },
         "checks": [
             _check("train_rft_format", train["count"] > 0, "Training rows end with user turns."),
@@ -293,10 +408,66 @@ def package_rft_assets(
             ),
         ],
         "gold_answer_parity": gold_answer_parity,
+        "warnings": _package_warnings(
+            hyperparameters=hyperparameters,
+            validation_rows=validation["count"],
+            include_response_format=response_format is not None,
+        ),
         "next_step": next_step,
     }
     manifest_out.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
     return manifest
+
+
+def _package_warnings(
+    *,
+    hyperparameters: dict[str, Any] | None,
+    validation_rows: int,
+    include_response_format: bool,
+) -> list[str]:
+    warnings = []
+    eval_samples = (hyperparameters or {}).get("eval_samples")
+    if isinstance(eval_samples, int) and eval_samples > validation_rows:
+        warnings.append(
+            f"eval_samples={eval_samples} exceeds {validation_rows} validation rows; the "
+            "trainer may resample or reject it. Confirm behavior before submit."
+        )
+    if not include_response_format:
+        warnings.append(
+            "response_format omitted: JSON shape is enforced only by prompt and grader reward."
+        )
+    return warnings
+
+
+def _grader_version(source: str) -> str | None:
+    match = re.search(r'^GRADER_VERSION\s*=\s*["\']([^"\']+)["\']', source, re.MULTILINE)
+    return match.group(1) if match else None
+
+
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _submit_template(job_spec: dict[str, Any]) -> dict[str, Any]:
+    """API-shaped POST /openai/v1/fine_tuning/jobs body with file-id placeholders.
+
+    Drops dry-run-only fields (status, endpoint_grader_fallback). Never submitted here.
+    """
+
+    reinforcement = {
+        key: value
+        for key, value in job_spec["method"]["reinforcement"].items()
+        if key != "endpoint_grader_fallback"
+    }
+    body = {
+        key: value
+        for key, value in job_spec.items()
+        if key not in {"status", "method", "training_file", "validation_file"}
+    }
+    body["training_file"] = "<file-id of uploaded training jsonl>"
+    body["validation_file"] = "<file-id of uploaded validation jsonl>"
+    body["method"] = {"type": "reinforcement", "reinforcement": reinforcement}
+    return body
 
 
 def read_rft_status(state_path: Path) -> dict[str, Any]:
@@ -421,6 +592,7 @@ def build_grader_validation_request(
     *,
     package_dir: Path,
     out: Path | None = None,
+    variant: str = "gold",
 ) -> dict[str, Any]:
     """Build a no-job grader-run request for Foundry's pre-submit grader validation API."""
 
@@ -448,22 +620,48 @@ def build_grader_validation_request(
     if expected_output is None:
         raise ValueError("validation row does not contain expected_output_json")
 
+    variants = build_perturbations(item)
+    if variant not in variants:
+        raise ValueError(f"grader validation variant is unavailable for this row: {variant}")
+    model_sample = variants[variant]
+    grader_path = package_dir / "contract-policy-expert-rft-grader.py"
+    expected_score = require_score_range(float(load_grader(grader_path)(model_sample, item)))
     request = {
         "grader": grader,
         "item": item,
-        "model_sample": json.dumps(expected_output, sort_keys=True),
+        "model_sample": model_sample,
     }
     result = {
         "route": "/openai/v1/fine_tuning/alpha/graders/run",
         "method": "POST",
         "live_side_effects": "grader_validation_only_no_file_upload_no_job_submission",
         "package_dir": str(package_dir),
+        "variant": variant,
+        "expected_result": PERTURBATIONS[variant][0],
         "request": request,
-        "expected_score": 5.0,
+        "expected_score": expected_score,
         "next_step": (
-            "POST this request to the grader-run validation route with an Azure AI bearer token; "
-            "do not upload files or create a fine-tuning job until it returns the expected score."
+            "After approval, compare the remote grader-run result with this local score; "
+            "do not upload files or submit a job until positive and negative cases agree."
         ),
+    }
+    if out is not None:
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
+        result["path"] = str(out)
+    return result
+
+
+def build_grader_validation_suite(*, package_dir: Path, out: Path | None = None) -> dict[str, Any]:
+    """Prepare positive and negative grader requests without executing any of them."""
+    requests = {
+        variant: build_grader_validation_request(package_dir=package_dir, variant=variant)
+        for variant in GRADER_VALIDATION_VARIANTS
+    }
+    result = {
+        "execution": "not_run",
+        "requests": requests,
+        "note": "Local expectations only; remote grader acceptance and parity are unverified.",
     }
     if out is not None:
         out.parent.mkdir(parents=True, exist_ok=True)

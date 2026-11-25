@@ -1,0 +1,43 @@
+# Optimizer iteration r2 for contract-evidence-analyst. r1 (eval.yaml, opt_1a50d6dd) is preserved unchanged.
+#
+# Same seed as r1: agent version 1 and the weak starter baseline in .agent_configs/baseline. The differences are
+# deliberate and limited to search inputs:
+#   - Budget: max_candidates 20 (r1: 8) and max_stalls 12 (r1: 6). The service exposes no separate
+#     iteration/round or minibatch knob; each GEPA proposal is one candidate attempt, so r1's "10+ turns" were
+#     proposal iterations under max_candidates 8, including the dropped candidate 0002.
+#   - max_concurrent_agent_runs 6 to bound wall time.
+#   - Judge: contract-evidence-quality v2 (graders/contract-evidence-analyst/quality-rubric-v2.json), which states
+#     the benchmark's evidence conventions and grades false_approval / missed_approval / supplied-record-listed-
+#     as-missing as critical with actionable reasons. The optimizer judge was observed not to see ground_truth
+#     (rubric-sanity-v1.json), so these conventions encode the synthetic labels and still need human review.
+#   - Data: optimizer/r2, 30 train rows (6/outcome) and all 33 validation rows minus known label defects
+#     (KNOWN_LABEL_DEFECTS in caliber.contract_evidence_eval). No dev_eval or final_test rows.
+# More candidates do not guarantee a better result. Re-score the chosen candidate on dev_eval before use.
+# Scope: the agent has no tools (tools: none in the request); sources are supplied inline. This search optimizes
+# supplied-evidence reasoning only, not retrieval, tool use or tool descriptions.
+#
+# Regenerate data (from modules/evals):
+#   uv run python -m caliber.contract_evidence_eval optimizer-data --train-per-outcome 6 --val-per-outcome 99 \
+#     --subdir r2 --exclude-known-defects
+name: contract-evidence-analyst-optimize-r2
+agent:
+    name: contract-evidence-analyst
+    kind: hosted
+    version: "1"
+    config: .agent_configs/baseline/metadata.yaml
+    model: gpt-6-astra
+dataset:
+    local_uri: optimizer/r2/optimizer-train.jsonl
+validation_dataset:
+    local_uri: optimizer/r2/optimizer-validation.jsonl
+evaluators:
+    - name: contract-evidence-accuracy
+      version: "1"
+    - name: contract-evidence-quality
+      version: "2"
+options:
+    eval_model: gpt-6-astra
+    optimization_model: gpt-5.5
+    max_candidates: 20
+    max_stalls: 12
+    max_concurrent_agent_runs: 6

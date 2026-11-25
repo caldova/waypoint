@@ -1,0 +1,122 @@
+{
+  "split": "dev_eval",
+  "arm_a": "baseline",
+  "arm_b": "optimized",
+  "grader_version": "contract-evidence-analyst-v1",
+  "cases": 38,
+  "families": 7,
+  "runs_per_case": {
+    "baseline": [
+      5
+    ],
+    "optimized": [
+      5
+    ]
+  },
+  "mean_score": {
+    "baseline": 0.8887218052631579,
+    "optimized": 0.9097932368421052
+  },
+  "mean_diff": 0.02107143157894737,
+  "ci95_case_bootstrap": [
+    -0.008355263157894742,
+    0.05738722105263159
+  ],
+  "ci95_family_bootstrap": [
+    -0.008026315789473685,
+    0.047600738461538464
+  ],
+  "sign_flip_p": 0.25,
+  "pass_rate_diff": 0.05789473684210527,
+  "pass_rate_ci95_case_bootstrap": [
+    -0.015789473684210527,
+    0.14736842105263157
+  ],
+  "pass_rate_sign_flip_p": 0.25,
+  "cases_improved": 6,
+  "cases_worse": 3,
+  "cases_tied": 29,
+  "per_outcome_mean_diff": {
+    "approve_evidence": 0.07999999999999999,
+    "escalate": -0.004897942857142877,
+    "missing_evidence": 0.00025000000000000575,
+    "recover": 0.01571428571428573,
+    "review_assertion": 0.023214285714285725
+  },
+  "critical_flags": {
+    "false_approval": {
+      "baseline": 5,
+      "optimized": 5
+    },
+    "missed_approval": {
+      "baseline": 27,
+      "optimized": 20
+    }
+  },
+  "largest_moves": [
+    {
+      "id": "sup005-stability-pull--approve",
+      "outcome": "approve_evidence",
+      "diff": -0.24,
+      "baseline": 0.84,
+      "optimized": 0.6
+    },
+    {
+      "id": "sup005-release-testing--escalate-billing-history",
+      "outcome": "escalate",
+      "diff": -0.0343,
+      "baseline": 0.9914,
+      "optimized": 0.9571
+    },
+    {
+      "id": "sup005-stability-pull--recover-pull-window",
+      "outcome": "recover",
+      "diff": -0.01,
+      "baseline": 1.0,
+      "optimized": 0.99
+    },
+    {
+      "id": "sup013-escalation-cap--assertion-escalation-approval",
+      "outcome": "review_assertion",
+      "diff": 0.0025,
+      "baseline": 0.9975,
+      "optimized": 1.0
+    },
+    {
+      "id": "sup013-escalation-cap--missing-escalation-approval",
+      "outcome": "missing_evidence",
+      "diff": 0.0025,
+      "baseline": 0.9975,
+      "optimized": 1.0
+    },
+    {
+      "id": "sup005-method-validation--recover-report-acceptance",
+      "outcome": "recover",
+      "diff": 0.12,
+      "baseline": 0.82,
+      "optimized": 0.94
+    },
+    {
+      "id": "sup013-material-surcharge--assertion-market-event",
+      "outcome": "review_assertion",
+      "diff": 0.16,
+      "baseline": 0.6,
+      "optimized": 0.76
+    },
+    {
+      "id": "sup005-release-testing--approve",
+      "outcome": "approve_evidence",
+      "diff": 0.4,
+      "baseline": 0.6,
+      "optimized": 1.0
+    },
+    {
+      "id": "sup013-rush-order--approve",
+      "outcome": "approve_evidence",
+      "diff": 0.4,
+      "baseline": 0.6,
+      "optimized": 1.0
+    }
+  ],
+  "method": "Per-case mean over runs, paired on identical task_sha256; 95% percentile bootstrap (10000 resamples, seed 7) over cases and over families (families are correlated scenario templates, so the family CI is the conservative one); two-sided sign-flip randomization test on per-case diffs. Repeated runs reduce within-case noise only; inference is over cases."
+}

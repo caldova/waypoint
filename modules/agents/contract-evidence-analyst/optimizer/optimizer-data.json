@@ -1,0 +1,51 @@
+{
+  "train": {
+    "split": "train",
+    "rows": 20,
+    "ids": [
+      "sup001-batch-release-fee--assertion-qa",
+      "sup001-batch-release-fee--escalate-qa",
+      "sup001-material-escalation--assertion-escalation-approval",
+      "sup001-material-escalation--missing-escalation-approval",
+      "sup001-material-escalation--recover-escalation-approval",
+      "sup001-packaging-format--escalate-packaging-auth",
+      "sup002-release-testing-fee--approve",
+      "sup002-release-testing-fee--escalate-release",
+      "sup003-relabeling--assertion-label-auth",
+      "sup003-serialized-units--approve",
+      "sup006-changeover--approve",
+      "sup006-cleaning-validation--assertion-cv-protocol",
+      "sup006-cleaning-validation--missing-cv-protocol",
+      "sup006-cleaning-validation--recover-work-log",
+      "sup006-moq-aggregate--escalate-family-volume",
+      "sup014-capacity-reservation--recover-active-po",
+      "sup014-volume-tier--approve",
+      "sup015-rush-translation--missing-rush-approval",
+      "sup015-variation-filing--missing-filing-evidence",
+      "sup015-variation-filing--recover-filing-evidence"
+    ],
+    "sha256": "d8a324303ae3c2442b5569f7490eb5259238d7b686ac25199e335c9d81847cbc"
+  },
+  "validation": {
+    "split": "validation",
+    "rows": 15,
+    "ids": [
+      "sup004-expedited-release--approve",
+      "sup004-expedited-release--assertion-expedite-request",
+      "sup004-expedited-release--missing-expedite-request",
+      "sup004-expedited-release--recover-coa-timing",
+      "sup004-raw-material-escalation--assertion-escalation-approval",
+      "sup004-raw-material-escalation--escalate-escalation-approval",
+      "sup004-raw-material-escalation--missing-consumption",
+      "sup004-raw-material-escalation--recover-escalation-approval",
+      "sup004-yield-true-up--escalate-released-yield",
+      "sup004-yield-true-up--missing-released-yield",
+      "sup010-assembly-units--escalate-final-inspection",
+      "sup010-eco-labor--approve",
+      "sup010-eco-labor--assertion-eco-approval",
+      "sup010-eco-labor--recover-eco-approval",
+      "sup010-scrap-allowance--approve"
+    ],
+    "sha256": "6bb82226a315bc2544290b7af4721b7d128715962422c2264a1700e5ac416344"
+  }
+}
