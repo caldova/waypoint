@@ -8,7 +8,7 @@ export const FIXTURE_URL = "/quality/fixtures/contract-policy-analyst.fixture.js
 
 export interface RubricDimension {
   label?: string;
-  mean_score: number;
+  mean_score: number | null;
 }
 
 export interface RetrievalSummary {

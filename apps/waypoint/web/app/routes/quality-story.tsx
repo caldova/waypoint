@@ -447,7 +447,7 @@ function Evidence({ story }: { story: StoryView }) {
                     const score = arm.dimensions[dim.id]?.mean_score;
                     return (
                       <td key={arm.arm} className="px-4 py-2 text-right font-mono tabular-nums">
-                        {score === undefined ? t("evidence.notMeasured") : fmt.number(score, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {typeof score !== "number" ? t("evidence.notMeasured") : fmt.number(score, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                     );
                   })}
