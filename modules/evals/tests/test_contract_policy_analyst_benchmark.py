@@ -6,12 +6,14 @@ import copy
 import hashlib
 import importlib.util
 import json
+import re
 import shutil
 import uuid
 from pathlib import Path
 
 import pytest
 
+from caliber.contract_policy_analyst_batch import judge_prompt
 from caliber.contract_policy_analyst_benchmark import (
     AGENT,
     SECOND_BEHAVIORS,
@@ -44,6 +46,12 @@ SPEC = importlib.util.spec_from_file_location(
 assert SPEC is not None and SPEC.loader is not None
 grader = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(grader)
+V2_SPEC = importlib.util.spec_from_file_location(
+    "contract_policy_analyst_grader_v2", GRADERS / "contract_policy_analyst_grader_v2.py",
+)
+assert V2_SPEC is not None and V2_SPEC.loader is not None
+grader_v2 = importlib.util.module_from_spec(V2_SPEC)
+V2_SPEC.loader.exec_module(grader_v2)
 TRANSCRIPT_SPEC = importlib.util.spec_from_file_location(
     "contract_policy_analyst_transcript", GRADERS / "contract_policy_analyst_transcript.py",
 )
@@ -110,6 +118,48 @@ def _judge_fixture(sample: str, item: dict, flags: list[str] | None = None) -> d
         } for key in grader.DIMENSION_WEIGHTS],
     }
     return item
+
+
+def _prompt_critical_flags(prompt: str) -> set[str]:
+    declared = re.search(r"Use critical_flags (.*?) when applicable", prompt)
+    assert declared
+    requested = set(re.findall(r"\b[a-z]+_[a-z_]+\b", declared.group(1)))
+    requested.update(re.findall(r"\b(?:Use|and)\s+([a-z]+_[a-z_]+)\s+for\b", prompt))
+    requested.update(re.findall(r"\bflag\s+([a-z]+_[a-z_]+)", prompt))
+    return requested
+
+
+def test_judge_prompt_critical_flags_all_have_v2_caps():
+    rubric = json.loads((GRADERS / "quality-rubric.json").read_text(encoding="utf-8"))
+    prompt = judge_prompt(rubric)
+    requested = _prompt_critical_flags(prompt)
+    assert {"false_approval", "missed_approval"} <= requested
+    assert requested <= grader_v2.CAPS.keys()
+    assert not _prompt_critical_flags(prompt + " Use new_critical_flag for example.") <= (
+        grader_v2.CAPS.keys()
+    )
+
+
+@pytest.mark.parametrize(("flag", "cap"), [("false_approval", 0.2), ("missed_approval", 0.35)])
+def test_v2_accepts_and_caps_approval_flags_without_changing_v1(reference, flag, cap):
+    sample = _sample(reference)
+    item = _judge_fixture(sample, _item(reference), [flag])
+    assert "judge_unverified" in grader.evaluate(sample, item)["flags"]
+    corrected = grader_v2.evaluate(sample, item)
+    assert corrected["judge_score"] == 1.0
+    assert flag in corrected["flags"]
+    assert corrected["score"] <= cap
+    assert "judge_unverified" not in corrected["flags"]
+    assert grader_v2.grade(sample, item) == corrected["score"]
+    assert flag not in grader.CAPS
+
+
+def test_v2_still_rejects_unknown_judge_flags(reference):
+    sample = _sample(reference)
+    item = _judge_fixture(sample, _item(reference), ["unrecognized_critical_failure"])
+    result = grader_v2.evaluate(sample, item)
+    assert "judge_unverified" in result["flags"]
+    assert result["judge_score"] is None
 
 
 def test_repeatable_build_and_exact_sizes(owned_output):

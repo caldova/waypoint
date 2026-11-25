@@ -148,6 +148,15 @@ unresolved started request stops the batch. Completed judge receipts are reused
 exactly; agent inference itself is never retried. Judge token estimates retain a
 known subtotal, but total judge cost stays unknown after server-error retries.
 
+The original quality grader v1 rejects judge flags `false_approval` and
+`missed_approval` as unrecognized, leaving those judgments unverified. Keep
+v1 results and hashes intact. The separate `contract_policy_analyst_grader_v2.py`
+pins v1 and adds explicit caps of 0.20 and 0.35 respectively; it does not
+relax any existing cap. Retrospective v2 regrades reuse the exact recorded
+responses, verified captures and bound judge results, and are not prospective
+or human-calibrated. The batch runner still selects v1; before another live
+comparison, explicitly adopt and freeze one corrected grader for every arm.
+
 RFT preflight rejects explicit batch sizes outside 1-256; omit the field for
 automatic selection rather than sending `-1`. Before the substantive MAI-2
 job, verify an always-true reward probe in the actual trainer. A successful
