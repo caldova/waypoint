@@ -90,10 +90,10 @@ Probe job `opt_b3e66152116048cea11621393d52835e` established the working path:
   response. Every eval item then reports `TARGET_INVOCATION_FAILED` and is
   scored on empty output. Because of this, the optimizer scores for the probe
   above and for `opt_4fa59c4f…` (r1) are invalid; their run folders contain
-  `SCORES-INVALID.json`. `response_ids.py` is a temporary shim for
-  sethjuarez/castia#143 (fix in sethjuarez/castia#144). It does nothing once
-  castia ships `_platform_id`. Before trusting any optimizer score, check that
-  its eval output_items have no `sample.error`.
+  `SCORES-INVALID.json`. castia 0.20.0 fixes this (sethjuarez/castia#143,
+  sethjuarez/castia#144), and this agent pins it. `tests/test_response_ids.py`
+  guards the format. Before trusting any optimizer score, check that its eval
+  output_items have no `sample.error`.
 
 ## Measurement boundaries
 

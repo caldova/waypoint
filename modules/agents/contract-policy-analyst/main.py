@@ -13,13 +13,11 @@ from configuration import config_evidence, load_release
 from dotenv import load_dotenv
 from model_route import routed_model
 from observability import configure_project_export
-from response_ids import install as install_platform_response_ids
 from response_store import BlobResponseStore
 
 from toolbox import foundryiq_runtime_tools, foundryiq_toolbox_tools
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
-install_platform_response_ids()
 
 app = Agent(name="contract-policy-analyst", response_store=BlobResponseStore.from_env())
 
