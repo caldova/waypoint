@@ -149,9 +149,9 @@ The page uses, per arm and for `headline_split`:
 | `retrieval.query_variants_mean` | Only when real MCP dispatch variants are captured; otherwise `null` |
 | top-level `comparisons[]` (`a`, `b`, `split`, `mean_difference`, `ci95`) | Paired change |
 
-The `retrieval.*` field names are this page's proposal; the eval session
-confirmed the measures but not the names. Rename them here and in the adapter
-if the pipeline's names differ. Unknown values must stay `null`, never zero.
+The eval session confirmed it emits these exact `retrieval.*` names. Every arm
+is scored by the same frozen six-dimension gpt-6-astra judge. Unknown values
+must stay `null`, never zero.
 
 Missing optional fields render as "not measured", never as zero. The TypeScript
 types and adapter live in `apps/waypoint/web/lib/analystQuality.ts`.
