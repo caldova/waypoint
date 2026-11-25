@@ -11,8 +11,8 @@ from pathlib import Path
 from .agent_surface import artifact_status, generate_all_artifacts
 from .db import append_live_invoices, database_url, get_status, seed_database, to_pretty_json
 from .docx_docs import generate_docx_documents
-from .paths import repo_root
 from .invoice_docs import generate_invoice_documents
+from .paths import repo_root
 from .waypoint_seed import generate_waypoint_seed
 
 
@@ -165,7 +165,7 @@ def main() -> None:
 
     kb_parser = subparsers.add_parser(
         "upload-contracts-kb",
-        help="Idempotently sync supplier contracts into the contracts-kb blob container and reindex.",
+        help="Sync contracts into the knowledge source; --append-only preserves existing evidence.",
     )
     kb_parser.add_argument(
         "--storage-account",
@@ -191,6 +191,18 @@ def main() -> None:
         "--include-policies",
         action="store_true",
         help="Also upload policy source documents alongside contracts.",
+    )
+    kb_parser.add_argument(
+        "--source-root", type=Path,
+        help="Alternate canonical markdown root; requires --append-only.",
+    )
+    kb_parser.add_argument(
+        "--include-operational", action="store_true",
+        help="Include operational and invoice markdown, never scenario/answer metadata.",
+    )
+    kb_parser.add_argument(
+        "--append-only", action="store_true",
+        help="Never delete or overwrite blobs; identical existing documents are reused.",
     )
     kb_parser.add_argument(
         "--regenerate",
@@ -337,6 +349,9 @@ def main() -> None:
                 search_endpoint=args.search_endpoint,
                 indexer=args.indexer,
                 search_api_version=args.search_api_version,
+                source_root=args.source_root,
+                include_operational=args.include_operational,
+                append_only=args.append_only,
             )
         except Exception as error:
             print(f"contracts-kb upload failed: {error}", file=sys.stderr)

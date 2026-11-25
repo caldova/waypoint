@@ -1,0 +1,26 @@
+name: contract-policy-analyst
+services:
+  contract-policy-analyst:
+    project: .
+    host: azure.ai.agent
+    language: python
+    kind: hosted
+    name: contract-policy-analyst
+    description: Read-only contract review through real FoundryIQ retrieval.
+    codeConfiguration:
+      runtime: python_3_13
+      entryPoint: main.py
+      dependencyResolution: remote_build
+    protocols:
+      - protocol: responses
+        version: 2.0.0
+      - protocol: activity
+        version: 1.0.0
+    env:
+      AZURE_AI_MODEL_DEPLOYMENT_NAME: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+      FOUNDRY_PROJECT_ENDPOINT: ${FOUNDRY_PROJECT_ENDPOINT}
+      TOOLBOX_NAME: ${TOOLBOX_NAME}
+      TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT: ${TOOLBOX_CONTRACT_TOOLBOX_MCP_ENDPOINT}
+      OPTIMIZATION_LOCAL_DIR: ${OPTIMIZATION_LOCAL_DIR}
+      CPA_MODEL_ROUTE: account
+      CPA_REASONING_EFFORT: ${CPA_REASONING_EFFORT}

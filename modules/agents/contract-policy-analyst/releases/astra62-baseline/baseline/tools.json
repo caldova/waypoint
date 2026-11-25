@@ -1,0 +1,20 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "contracts-kb-mcp___knowledge_base_retrieve",
+      "description": "Look up helpful contract, policy, or invoice-review context for a supplier billing question.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "A short search question about the supplier invoice or policy topic."
+          }
+        },
+        "required": ["query"],
+        "additionalProperties": false
+      }
+    }
+  }
+]

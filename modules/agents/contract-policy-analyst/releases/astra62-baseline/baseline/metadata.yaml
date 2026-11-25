@@ -1,0 +1,4 @@
+model: gpt-6.2-astra
+instruction_file: instructions.md
+tool_file: tools.json
+tools_file: tools.json
