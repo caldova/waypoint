@@ -38,7 +38,9 @@ def test_descriptions_can_change_but_schema_cannot():
         toolbox.validate_tool_definitions(tools)
 
 
-@pytest.mark.parametrize("change", ["wrong_name", "extra_tool", "extra_property", "empty"])
+@pytest.mark.parametrize(
+    "change", ["wrong_name", "extra_tool", "extra_property", "empty", "strict", "mcp_envelope"]
+)
 def test_rejects_non_dispatchable_candidate(change):
     tools = copy.deepcopy(baseline())
     if change == "wrong_name":
@@ -47,6 +49,10 @@ def test_rejects_non_dispatchable_candidate(change):
         tools.append(copy.deepcopy(tools[0]))
     elif change == "extra_property":
         tools[0]["function"]["parameters"]["properties"]["invoice"] = {"type": "string"}
+    elif change == "strict":
+        tools[0]["function"]["strict"] = True
+    elif change == "mcp_envelope":
+        tools[0]["type"] = "mcp"
     else:
         tools[0]["function"]["description"] = ""
     with pytest.raises(ValueError):

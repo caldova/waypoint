@@ -11,10 +11,12 @@ from castia import (
     Teams,
     action_chips,
 )
-from configuration import load_release
+from configuration import config_evidence, load_release
 from dotenv import load_dotenv
 from model_route import routed_model
+from observability import configure_project_export
 
+from retrieval_audit import capture, persist
 from toolbox import foundryiq_runtime_tools, foundryiq_toolbox_tools
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
@@ -35,13 +37,16 @@ app.tools(foundryiq_toolbox_tools)
 
 @app.responses()
 async def reply(text: str, model: Model = _CHAT_MODEL_DEPENDENCY) -> str:
-    tools = foundryiq_runtime_tools(_config.tool_definitions)
-    if not tools:
-        return (
-            "FoundryIQ is not configured. Set TOOLBOX_NAME and the matching "
-            "TOOLBOX_<NAME>_MCP_ENDPOINT."
-        )
-    return await model.respond_with_tools(text, tools=tools, activity=None)
+    output = None
+    with capture(text, config_evidence(_config)) as audit:
+        try:
+            tools = foundryiq_runtime_tools(_config.tool_definitions)
+            if not tools:
+                raise RuntimeError("FoundryIQ toolbox endpoint is not configured.")
+            output = await model.respond_with_tools(text, tools=tools, activity=None)
+            return output
+        finally:
+            await persist(audit, output)
 
 
 @app.activity(Teams.direct, Teams.group, Teams.channel_mention)
@@ -59,4 +64,5 @@ async def ask(msg: Message, model: Model = _CHAT_MODEL_DEPENDENCY) -> None:
 
 
 if __name__ == "__main__":
+    configure_project_export()
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8088")))

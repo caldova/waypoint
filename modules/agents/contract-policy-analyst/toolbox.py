@@ -16,6 +16,8 @@ from castia import (
 from castia.inference.tools import Tool
 from opentelemetry import trace
 
+from retrieval_audit import record_tool
+
 _KB_TOOL_NAME = "contracts-kb-mcp___knowledge_base_retrieve"
 # Telemetry label for the execute_tool span's gen_ai.tool.type. Castia 0.10 has
 # no Tool.kind, so the impl stamps it onto the active execute_tool span.
@@ -70,13 +72,20 @@ def validate_tool_definitions(tool_definitions: Sequence[dict[str, Any]]) -> Non
     function = _optimized_function(tool_definitions)
     if len(tool_definitions) != 1 or not function:
         raise ValueError("Exactly one FoundryIQ knowledge_base_retrieve tool is required.")
+    item = tool_definitions[0]
+    expected_fields = (
+        {"type", "function"} if "function" in item
+        else {"type", "name", "description", "parameters"}
+    )
+    if item.get("type") != "function" or set(item) - expected_fields:
+        raise ValueError("Candidate changed the function-tool envelope.")
     description = function.get("description")
     if not isinstance(description, str) or not description.strip():
         raise ValueError("Tool description must be non-empty text.")
     parameters = function.get("parameters")
     if parameters != _runtime_parameters(parameters):
         raise ValueError("Candidate changed the FoundryIQ query schema, not just its description.")
-    if set(function) - {"name", "description", "parameters", "strict"}:
+    if set(function) - {"name", "description", "parameters"}:
         raise ValueError("Candidate contains unsupported function fields.")
 
 
@@ -115,6 +124,12 @@ def _runtime_parameters(optimized: object | None) -> dict[str, Any]:
 
 
 async def _call_foundryiq_toolbox(activity: Any, **kwargs: Any) -> dict[str, Any]:
+    result = await _dispatch_foundryiq_toolbox(activity, **kwargs)
+    record_tool(kwargs.get("query"), result)
+    return result
+
+
+async def _dispatch_foundryiq_toolbox(activity: Any, **kwargs: Any) -> dict[str, Any]:
     # Stamp before binding arguments so malformed calls are still labeled.
     del activity
     span = trace.get_current_span()
