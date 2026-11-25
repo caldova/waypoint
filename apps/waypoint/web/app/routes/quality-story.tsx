@@ -75,7 +75,11 @@ export default function QualityStory() {
   const [error, setError] = useState<string | null>(null);
   const step = parseStep(params.get("step"));
   const requestedTrack = parseTrack(params.get("track"));
-  const story = useMemo(() => (file ? buildStory(file, requestedTrack) : null), [file, requestedTrack]);
+  const requestedSplit = params.get("split");
+  const story = useMemo(
+    () => (file ? buildStory(file, requestedTrack, requestedSplit) : null),
+    [file, requestedTrack, requestedSplit],
+  );
 
   const goTo = useCallback(
     (next: number) => {
@@ -89,6 +93,13 @@ export default function QualityStory() {
   const setTrack = (track: TrackId) => {
     const updated = new URLSearchParams(params);
     updated.set("track", track);
+    setParams(updated, { replace: true, preventScrollReset: true });
+  };
+
+  const setSplit = (split: string, headline: boolean) => {
+    const updated = new URLSearchParams(params);
+    if (headline) updated.delete("split");
+    else updated.set("split", split);
     setParams(updated, { replace: true, preventScrollReset: true });
   };
 
@@ -122,6 +133,22 @@ export default function QualityStory() {
               <h1 className="text-2xl font-semibold tracking-tight text-slate-950">{t("title")}</h1>
               <p className="mt-1 max-w-[80ch] text-sm leading-6 text-slate-600">{t("subtitle")}</p>
             </div>
+            <div className="flex flex-col items-end gap-2">
+            {story && story.splits.length > 1 ? (
+              <div role="group" aria-label={t("split.label")} className="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm">
+                {story.splits.map((split) => (
+                  <button
+                    key={split.id}
+                    type="button"
+                    aria-pressed={split.id === story.split}
+                    onClick={() => setSplit(split.id, split.role === "headline")}
+                    className={`rounded-md px-3 py-1 ${split.id === story.split ? "bg-white font-semibold text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`}
+                  >
+                    {t(`split.${split.role}`, { split: split.id })}
+                  </button>
+                ))}
+              </div>
+            ) : null}
             {story && story.tracks.length > 1 ? (
               <div role="group" aria-label={t("track.label")} className="flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-sm">
                 {story.tracks.map((track) => (
@@ -137,7 +164,17 @@ export default function QualityStory() {
                 ))}
               </div>
             ) : null}
+            </div>
           </header>
+          {story?.regressionView ? (
+            <p
+              role="status"
+              className="mb-5 flex items-start gap-2 rounded-lg border border-slate-300 bg-slate-100 px-4 py-3 text-sm text-slate-800"
+            >
+              <HiOutlineInformationCircle className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+              {t("split.regressionBanner", { split: story.split, headline: story.headlineSplit })}
+            </p>
+          ) : null}
           {story?.fixture ? (
             <p
               role="status"
@@ -393,6 +430,7 @@ function Evidence({ story }: { story: StoryView }) {
             grader: story.graderVersion ?? "—",
             threshold: story.passThreshold ?? "—",
           })}
+          {story.sourceFamilies !== null ? ` · ${t("evidence.families", { n: story.sourceFamilies })}` : null}
           {generated ? ` · ${t("evidence.generated", { date: generated })}` : null}
         </p>
       </div>

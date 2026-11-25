@@ -59,8 +59,14 @@ export interface AnalystQualityFile {
   fixture?: boolean;
   evaluation_scope?: { capability?: string; tools?: string; statement?: string };
   grader?: { path?: string; version?: string; pass_threshold?: number };
-  benchmark?: { path?: string; splits?: Record<string, { rows?: number }>; selection_policy?: string };
+  benchmark?: {
+    path?: string;
+    splits?: Record<string, { rows?: number; source_families?: number }>;
+    selection_policy?: string;
+  };
   headline_split?: string;
+  /** Splits that are regression evidence only (e.g. exposed-source `study-heldout`); never the headline. */
+  regression_splits?: string[];
   rft_job?: { id?: string; base_model?: string; train_rows?: number; status?: string } | null;
   arms: Record<string, ArmRecord>;
   comparisons?: Comparison[];
@@ -126,7 +132,14 @@ export interface RungView extends ArmView {
 export interface StoryView {
   agent: string;
   fixture: boolean;
+  /** The split every figure on the page reads: the headline, or a regression split when one was requested. */
   split: string;
+  headlineSplit: string;
+  /** True when `split` is a regression split rather than the headline. */
+  regressionView: boolean;
+  /** The headline first, then each regression split that every rung reports. */
+  splits: { id: string; role: "headline" | "regression" }[];
+  sourceFamilies: number | null;
   generatedAt: string | null;
   track: TrackId;
   tracks: { id: TrackId; model: string }[];
@@ -171,15 +184,24 @@ export function availableTracks(file: AnalystQualityFile): TrackId[] {
   return TRACKS.filter((t) => isArm(file.arms[`baseline-${t}`]) && isArm(file.arms[`optimized-${t}`]));
 }
 
-/** `headline_split` when set, else `study-heldout`, else the first split all three rungs report. */
+function reportedByRungs(file: AnalystQualityFile, track: TrackId, split: string): boolean {
+  return Object.values(rungArms(track)).every((arm) => split in file.arms[arm].results);
+}
+
+/** `headline_split` when set, else the first split all three rungs report that isn't a regression split. */
 export function headlineSplit(file: AnalystQualityFile, track: TrackId = availableTracks(file)[0]): string {
   if (file.headline_split) return file.headline_split;
-  const rungs = Object.values(rungArms(track)).map((arm) => file.arms[arm]);
-  const shared = (split: string) => rungs.every((r) => split in r.results);
-  if (shared("study-heldout")) return "study-heldout";
-  const first = Object.keys(rungs[0].results).find(shared);
-  if (!first) throw new Error("no split is reported by every rung");
+  const regression = new Set(file.regression_splits ?? []);
+  const first = Object.keys(file.arms[rungArms(track).baseline].results).find(
+    (split) => !regression.has(split) && reportedByRungs(file, track, split),
+  );
+  if (!first) throw new Error("no headline split is reported by every rung");
   return first;
+}
+
+/** Regression splits every rung reports, in file order; the headline split is never one of them. */
+export function regressionSplits(file: AnalystQualityFile, track: TrackId, headline: string): string[] {
+  return (file.regression_splits ?? []).filter((s) => s !== headline && reportedByRungs(file, track, s));
 }
 
 function armView(arm: string, record: ArmRecord, split: string): ArmView {
@@ -200,8 +222,15 @@ function armView(arm: string, record: ArmRecord, split: string): ArmView {
   };
 }
 
-/** Builds the view for `requested` when that track is complete, else the default (or first complete) track. */
-export function buildStory(file: AnalystQualityFile, requested?: TrackId | null): StoryView {
+/**
+ * Builds the view for `requested` when that track is complete, else the default (or first complete) track.
+ * `requestedSplit` only takes effect for a declared regression split; anything else reads the headline.
+ */
+export function buildStory(
+  file: AnalystQualityFile,
+  requested?: TrackId | null,
+  requestedSplit?: string | null,
+): StoryView {
   const available = availableTracks(file);
   const track =
     requested && available.includes(requested)
@@ -209,7 +238,9 @@ export function buildStory(file: AnalystQualityFile, requested?: TrackId | null)
       : available.includes(DEFAULT_TRACK)
         ? DEFAULT_TRACK
         : available[0];
-  const split = headlineSplit(file, track);
+  const headline = headlineSplit(file, track);
+  const regression = regressionSplits(file, track, headline);
+  const split = requestedSplit && regression.includes(requestedSplit) ? requestedSplit : headline;
   const armIds = rungArms(track);
   const rungs = RUNG_DEFS.map((r) => ({
     ...armView(armIds[r.id], file.arms[armIds[r.id]], split),
@@ -231,6 +262,13 @@ export function buildStory(file: AnalystQualityFile, requested?: TrackId | null)
     agent: file.agent,
     fixture: file.fixture === true,
     split,
+    headlineSplit: headline,
+    regressionView: split !== headline,
+    splits: [
+      { id: headline, role: "headline" as const },
+      ...regression.map((id) => ({ id, role: "regression" as const })),
+    ],
+    sourceFamilies: num(file.benchmark?.splits?.[split]?.source_families),
     generatedAt: file.generated_at ?? null,
     track,
     tracks: available.map((id) => ({ id, model: file.arms[`baseline-${id}`].model })),

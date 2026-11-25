@@ -42,6 +42,9 @@ const tracks = ["astra62", "astra"].filter(
   (t) => data.arms?.[`baseline-${t}`]?.results && data.arms?.[`optimized-${t}`]?.results,
 );
 if (tracks.length === 0) fail('needs a complete track: "baseline-astra62" + "optimized-astra62" or the "astra" pair');
+if (data.headline_split && (data.regression_splits ?? []).includes(data.headline_split)) {
+  fail(`headline_split "${data.headline_split}" is listed in regression_splits; exposed-source evidence can't be the headline`);
+}
 
 copyFileSync(source, target);
 console.log(`quality:sync: ${path.relative(repoRoot, source)} -> ${path.relative(repoRoot, target)}`);

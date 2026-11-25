@@ -44,7 +44,7 @@ On screen: the baseline rung on `{{baseline.model}}`, its pass rate, cost per
 1K reviews and median latency.
 
 > We start with a short, honest starter prompt on `{{baseline.model}}`. It
-> passes `{{baseline.pass_rate}}` of `{{cases}}` held-out cases. It calls the
+> passes `{{baseline.pass_rate}}` of `{{cases}}` sealed final-test cases. It calls the
 > retrieval tool, but it doesn't always cite the passage that settles the
 > question. That's the gap the rubric picks up.
 
@@ -126,10 +126,20 @@ Confirmed with the eval session:
   one frontier track (`?track=astra62`, the default, or `?track=astra`). The
   Train rung is always `mai2-rft`, and `mai2-base` is the untuned marker. The
   evidence tables show all six arms.
-- **Headline split:** `study-heldout` (120 cases, 10 source families). It is
-  held out from this study, not a globally pristine set, so say "held-out
-  cases" and not "unseen data". `optimizer-validation` is the optimizer's
-  validation split and is not the headline.
+- **Headline split:** `final-test-v2` (target 120 cases, 10 fresh supplier
+  source families). It is sealed offline and ingested into the knowledge base
+  only after optimizer, RFT and config selection are frozen. Say "sealed final
+  test cases". `headline_split` names it.
+- **Regression split:** `study-heldout` (120 cases, 10 source families) is
+  listed in `regression_splits`. The live knowledge base already returns
+  passages from its source families (no prompt or gold use), so it is
+  exposed-source regression evidence, never the headline. The page opens it with
+  `?split=study-heldout` and labels it with a neutral banner. Rungs, payoff and
+  evidence all switch to that split.
+- `optimizer-validation` is the optimizer's validation split and is never shown
+  as a result.
+- `benchmark.splits.<id>.{rows, source_families}` feeds the evidence lineage
+  line.
 - **Rubric dimensions:** `grounded_reasoning`, `support_direction`,
   `evidence_gaps`, `retrieval_and_citations`, `evidence_only_boundary`,
   `output_contract`.

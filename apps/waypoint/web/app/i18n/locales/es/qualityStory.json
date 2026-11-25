@@ -1,6 +1,6 @@
 {
   "title": "Contract Policy Analyst: calidad y costo",
-  "subtitle": "De un prompt inicial a un modelo pequeño ajustado, medido con los mismos casos reservados y el mismo evaluador.",
+  "subtitle": "De un prompt inicial a un modelo pequeño ajustado, medido con los mismos casos de evaluación y el mismo evaluador.",
   "fixtureBanner": "Datos de ejemplo: valores ilustrativos, no resultados de evaluación. Ejecute npm run quality:sync cuando el pipeline genere quality.json.",
   "loading": "Cargando evidencia de calidad",
   "error": {
@@ -35,7 +35,7 @@
     "vsStarter": "+{{points}} puntos frente al prompt inicial",
     "vsUntuned": "+{{points}} puntos frente a {{model}} sin ajustar",
     "beforeRft": "{{model}} sin ajustar: {{value}}",
-    "cases": "{{cases}} casos reservados × {{runs}} ejecuciones"
+    "cases": "{{cases}} casos de evaluación × {{runs}} ejecuciones"
   },
   "payoff": {
     "title": "El resultado",
@@ -65,7 +65,8 @@
     "lineage": "División {{split}} · {{cases}} casos · evaluador {{grader}} · umbral {{threshold}}",
     "generated": "Generado {{date}}",
     "caveats": "Advertencias",
-    "ms": "{{value}} ms"
+    "ms": "{{value}} ms",
+    "families": "{{n}} familias de fuentes"
   },
   "nav": {
     "label": "Pasos de la historia",
@@ -87,5 +88,11 @@
   },
   "track": {
     "label": "Modelo frontera para los peldaños Construir y Optimizar"
+  },
+  "split": {
+    "label": "Conjunto de evaluación",
+    "headline": "Principal · {{split}}",
+    "regression": "Regresión · {{split}}",
+    "regressionBanner": "Evidencia de regresión con fuentes expuestas: {{split}} usa familias de fuentes que la base de conocimiento ya devuelve, así que sirve para detectar regresiones y no es el resultado principal. El resultado principal es {{headline}}."
   }
 }

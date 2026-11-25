@@ -33,7 +33,12 @@ const minimal = (results: Record<string, object>): AnalystQualityFile => ({
 test("the committed fixture is labelled and drives every rung", () => {
   const story = buildStory(parseQualityFile(fixture));
   assert.equal(story.fixture, true);
-  assert.equal(story.split, "study-heldout");
+  assert.equal(story.split, "final-test-v2");
+  assert.equal(story.regressionView, false);
+  assert.deepEqual(story.splits, [
+    { id: "final-test-v2", role: "headline" },
+    { id: "study-heldout", role: "regression" },
+  ]);
   assert.deepEqual(story.rungs.map((r) => r.arm), ["baseline-astra62", "optimized-astra62", "mai2-rft"]);
   assert.equal(story.beforeRft?.arm, "mai2-base");
   assert.equal(story.arms.length, 6);
@@ -55,10 +60,20 @@ test("parseQualityFile rejects files missing the RFT arm or a complete track", (
   assert.throws(() => parseQualityFile(noTrack), /complete track/);
 });
 
-test("headline split prefers the declared split, then study-heldout, then a shared split", () => {
+test("headline split prefers the declared split and never falls back to a regression split", () => {
   assert.equal(headlineSplit({ ...minimal({ x: {} }), headline_split: "optimizer-validation" }), "optimizer-validation");
-  assert.equal(headlineSplit(minimal({ a: {}, "study-heldout": {} })), "study-heldout");
-  assert.equal(headlineSplit(minimal({ a: {} })), "a");
+  const exposed = { ...minimal({ "study-heldout": {}, fresh: {} }), regression_splits: ["study-heldout"] };
+  assert.equal(headlineSplit(exposed), "fresh");
+  assert.throws(() => headlineSplit({ ...minimal({ "study-heldout": {} }), regression_splits: ["study-heldout"] }));
+});
+
+test("the split parameter only opens a declared regression view; the headline stays the default", () => {
+  const regression = buildStory(fixture, null, "study-heldout");
+  assert.equal(regression.regressionView, true);
+  assert.equal(regression.headlineSplit, "final-test-v2");
+  assert.equal(regression.benchmarkRows, 120);
+  assert.ok(regression.comparisons.every((c) => c.split === "study-heldout"));
+  assert.equal(buildStory(fixture, null, "optimizer-validation").split, "final-test-v2");
 });
 
 test("missing measurements stay null instead of zero", () => {

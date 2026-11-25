@@ -15,8 +15,13 @@
   "benchmark": {
     "path": "fixture",
     "splits": {
+      "final-test-v2": {
+        "rows": 120,
+        "source_families": 10
+      },
       "study-heldout": {
-        "rows": 120
+        "rows": 120,
+        "source_families": 10
       },
       "optimizer-validation": {
         "rows": 40
@@ -24,7 +29,7 @@
     },
     "selection_policy": "fixture"
   },
-  "headline_split": "study-heldout",
+  "headline_split": "final-test-v2",
   "rft_job": {
     "id": "fixture",
     "base_model": "MAI-2",
@@ -36,6 +41,54 @@
       "model": "gpt-6-astra",
       "description": "FIXTURE: starter prompt",
       "results": {
+        "final-test-v2": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.7,
+          "pass_rate": 0.47,
+          "latency_ms": {
+            "p50": 15000,
+            "p95": 24000,
+            "mean": 18000
+          },
+          "cost_usd_per_1k_lines": 18,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.68
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.6
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.72
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.92
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.64
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.78
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 0.9,
+            "tool_calls_mean": 1.3,
+            "tool_call_latency_ms_p50": 900,
+            "tool_failures_reported": 2,
+            "audit_complete_rate": 0.97,
+            "citations_grounded_rate": 0.68,
+            "query_variants_mean": null
+          }
+        },
         "study-heldout": {
           "unique_cases": 120,
           "runs": 3,
@@ -90,6 +143,54 @@
       "model": "gpt-6.2-astra",
       "description": "FIXTURE: starter prompt",
       "results": {
+        "final-test-v2": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.72,
+          "pass_rate": 0.52,
+          "latency_ms": {
+            "p50": 14000,
+            "p95": 22400,
+            "mean": 16800
+          },
+          "cost_usd_per_1k_lines": 21,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.7
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.62
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.74
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.93
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.66
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.8
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 0.92,
+            "tool_calls_mean": 1.4,
+            "tool_call_latency_ms_p50": 880,
+            "tool_failures_reported": 2,
+            "audit_complete_rate": 0.98,
+            "citations_grounded_rate": 0.69,
+            "query_variants_mean": null
+          }
+        },
         "study-heldout": {
           "unique_cases": 120,
           "runs": 3,
@@ -144,6 +245,54 @@
       "model": "gpt-6-astra",
       "description": "FIXTURE: Agent Optimizer candidate",
       "results": {
+        "final-test-v2": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.86,
+          "pass_rate": 0.77,
+          "latency_ms": {
+            "p50": 17000,
+            "p95": 27200,
+            "mean": 20400
+          },
+          "cost_usd_per_1k_lines": 28,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.86
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.84
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.83
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.96
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.88
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.94
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 1,
+            "tool_calls_mean": 2.1,
+            "tool_call_latency_ms_p50": 910,
+            "tool_failures_reported": 0,
+            "audit_complete_rate": 1,
+            "citations_grounded_rate": 0.89,
+            "query_variants_mean": null
+          }
+        },
         "study-heldout": {
           "unique_cases": 120,
           "runs": 3,
@@ -198,6 +347,54 @@
       "model": "gpt-6.2-astra",
       "description": "FIXTURE: Agent Optimizer candidate",
       "results": {
+        "final-test-v2": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.88,
+          "pass_rate": 0.82,
+          "latency_ms": {
+            "p50": 16500,
+            "p95": 26400,
+            "mean": 19800
+          },
+          "cost_usd_per_1k_lines": 34,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.88
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.86
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.85
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.96
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.9
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.95
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 1,
+            "tool_calls_mean": 2.2,
+            "tool_call_latency_ms_p50": 890,
+            "tool_failures_reported": 0,
+            "audit_complete_rate": 1,
+            "citations_grounded_rate": 0.91,
+            "query_variants_mean": null
+          }
+        },
         "study-heldout": {
           "unique_cases": 120,
           "runs": 3,
@@ -252,6 +449,54 @@
       "model": "MAI-2",
       "description": "FIXTURE: optimized prompt on untuned MAI-2",
       "results": {
+        "final-test-v2": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.68,
+          "pass_rate": 0.45,
+          "latency_ms": {
+            "p50": 5200,
+            "p95": 8320,
+            "mean": 6240
+          },
+          "cost_usd_per_1k_lines": 0.9,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.64
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.58
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.68
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.92
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.6
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.76
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 0.85,
+            "tool_calls_mean": 1.2,
+            "tool_call_latency_ms_p50": 870,
+            "tool_failures_reported": 3,
+            "audit_complete_rate": 0.96,
+            "citations_grounded_rate": 0.62,
+            "query_variants_mean": null
+          }
+        },
         "study-heldout": {
           "unique_cases": 120,
           "runs": 3,
@@ -306,6 +551,54 @@
       "model": "MAI-2 (RFT)",
       "description": "FIXTURE: optimized prompt on RFT-tuned MAI-2",
       "results": {
+        "final-test-v2": {
+          "unique_cases": 120,
+          "runs": 3,
+          "responses": 360,
+          "mean_score": 0.87,
+          "pass_rate": 0.8,
+          "latency_ms": {
+            "p50": 5400,
+            "p95": 8640,
+            "mean": 6480
+          },
+          "cost_usd_per_1k_lines": 0.9,
+          "rubric_dimensions": {
+            "grounded_reasoning": {
+              "label": "Grounded reasoning",
+              "mean_score": 0.87
+            },
+            "support_direction": {
+              "label": "Support direction",
+              "mean_score": 0.85
+            },
+            "evidence_gaps": {
+              "label": "Evidence gaps",
+              "mean_score": 0.84
+            },
+            "retrieval_and_citations": {
+              "label": "Retrieval and citations",
+              "mean_score": 0.96
+            },
+            "evidence_only_boundary": {
+              "label": "Evidence-only boundary",
+              "mean_score": 0.88
+            },
+            "output_contract": {
+              "label": "Output contract",
+              "mean_score": 0.94
+            }
+          },
+          "retrieval": {
+            "responses_with_tool_call_rate": 1,
+            "tool_calls_mean": 2.1,
+            "tool_call_latency_ms_p50": 880,
+            "tool_failures_reported": 0,
+            "audit_complete_rate": 1,
+            "citations_grounded_rate": 0.9,
+            "query_variants_mean": null
+          }
+        },
         "study-heldout": {
           "unique_cases": 120,
           "runs": 3,
@@ -358,6 +651,61 @@
     }
   },
   "comparisons": [
+    {
+      "a": "baseline-astra62",
+      "b": "optimized-astra62",
+      "split": "final-test-v2",
+      "mean_difference": 0.16,
+      "ci95": [
+        0.11,
+        0.21
+      ],
+      "paired_sign_flip_p": 0.001
+    },
+    {
+      "a": "baseline-astra",
+      "b": "optimized-astra",
+      "split": "final-test-v2",
+      "mean_difference": 0.16,
+      "ci95": [
+        0.1,
+        0.22
+      ],
+      "paired_sign_flip_p": 0.001
+    },
+    {
+      "a": "mai2-base",
+      "b": "mai2-rft",
+      "split": "final-test-v2",
+      "mean_difference": 0.19,
+      "ci95": [
+        0.13,
+        0.25
+      ],
+      "paired_sign_flip_p": 0.001
+    },
+    {
+      "a": "optimized-astra62",
+      "b": "mai2-rft",
+      "split": "final-test-v2",
+      "mean_difference": -0.01,
+      "ci95": [
+        -0.04,
+        0.02
+      ],
+      "paired_sign_flip_p": 0.52
+    },
+    {
+      "a": "optimized-astra",
+      "b": "mai2-rft",
+      "split": "final-test-v2",
+      "mean_difference": 0.01,
+      "ci95": [
+        -0.02,
+        0.04
+      ],
+      "paired_sign_flip_p": 0.61
+    },
     {
       "a": "baseline-astra62",
       "b": "optimized-astra62",
@@ -416,6 +764,10 @@
   ],
   "caveats": [
     "FIXTURE DATA - replace with the pipeline's quality.json before presenting.",
-    "study-heldout is held out from this study (120 cases, 10 source families), not a globally pristine set."
+    "final-test-v2 is sealed offline from fresh supplier families and ingested only after optimizer, RFT and config selection are frozen.",
+    "study-heldout uses source families the live knowledge base already returns, so it is exposed-source regression evidence, not the headline."
+  ],
+  "regression_splits": [
+    "study-heldout"
   ]
 }

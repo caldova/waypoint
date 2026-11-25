@@ -1,6 +1,6 @@
 {
   "title": "Contract Policy Analyst: quality and cost",
-  "subtitle": "From a starter prompt to a fine-tuned small model, measured on the same held-out cases with the same grader.",
+  "subtitle": "From a starter prompt to a fine-tuned small model, measured on the same evaluation cases with the same grader.",
   "fixtureBanner": "Fixture data: illustrative values, not evaluation results. Run npm run quality:sync after the pipeline writes quality.json.",
   "loading": "Loading quality evidence",
   "error": {
@@ -35,7 +35,7 @@
     "vsStarter": "+{{points}} points vs the starter prompt",
     "vsUntuned": "+{{points}} points vs untuned {{model}}",
     "beforeRft": "Untuned {{model}}: {{value}}",
-    "cases": "{{cases}} held-out cases × {{runs}} runs"
+    "cases": "{{cases}} evaluation cases × {{runs}} runs"
   },
   "payoff": {
     "title": "The payoff",
@@ -65,7 +65,8 @@
     "lineage": "{{split}} split · {{cases}} cases · grader {{grader}} · pass threshold {{threshold}}",
     "generated": "Generated {{date}}",
     "caveats": "Caveats",
-    "ms": "{{value}} ms"
+    "ms": "{{value}} ms",
+    "families": "{{n}} source families"
   },
   "nav": {
     "label": "Story steps",
@@ -87,5 +88,11 @@
   },
   "track": {
     "label": "Frontier model for the Build and Optimize rungs"
+  },
+  "split": {
+    "label": "Evaluation split",
+    "headline": "Headline · {{split}}",
+    "regression": "Regression · {{split}}",
+    "regressionBanner": "Exposed-source regression evidence: {{split}} draws on source families the live knowledge base already returns, so it checks for regressions and is not the headline. The headline result is {{headline}}."
   }
 }
