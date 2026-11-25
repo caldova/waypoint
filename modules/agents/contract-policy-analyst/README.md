@@ -131,9 +131,14 @@ Unknown usage remains unknown, and unverified captures cannot imply complete
 retrieval coverage. When the runner changes, preserve the original manifest and
 grades: a new revision may reuse exact saved responses and hash-bound judge
 requests, never substitute fresh inference for a failed or uncertain attempt.
-Judge connection establishment may try at most three times, with create-only
+Judge connection establishment may try at most five times, with create-only
 request/error/completion receipts under `judge-transport`. Only SDK `ConnectError`
-causes qualify for connection recovery. Separately, judge HTTP 500/502/503/504/429
+causes with no HTTP status or judge body qualify for unissued connection recovery.
+Back off 10/20/40/60 seconds plus bounded positive jitter; prior failed attempts
+count after resume. Five exhausted unissued connections produce an explicit
+operational zero with unknown task quality, while preserving the actual agent
+response, capture and model cost. Continue until more than five cases in an arm
+exhaust connections, then stop as an outage. Separately, judge HTTP 500/502/503/504/429
 without a judge result may retry once per case/run, up to ten per arm/batch.
 Honor Retry-After with at least ten seconds of backoff. Preserve the failed
 request and its unknown billing; use the first valid judge, never best-of.

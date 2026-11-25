@@ -8,6 +8,7 @@ import importlib.util
 import json
 import math
 import os
+import random
 import re
 import statistics
 import sys
@@ -26,6 +27,7 @@ from .contract_policy_analyst_eval import hosted_call, inference_cost
 
 JUDGE_MODEL = "gpt-6-astra"
 JUDGE_RETRY_HTTP_STATUSES = {429, 500, 502, 503, 504}
+JUDGE_CONNECTION_ATTEMPTS = 5
 CAPTURE_PREFIX = "contract-policy-analyst/"
 
 
@@ -163,6 +165,14 @@ def judge_prompt(rubric: dict[str, Any]) -> str:
     )
 
 
+class JudgeConnectionExhausted(RuntimeError):
+    pass
+
+
+def judge_connection_delay(failures: int) -> float:
+    return (10, 20, 40, 60)[min(failures, 4) - 1] + random.uniform(0, 1)
+
+
 class JudgeHTTPRetryBudget:
     def __init__(self, directory: Path):
         self.directory = directory
@@ -284,8 +294,8 @@ def judge_call(endpoint: str, prompt: str, task: str, output: str,
         return completed_results[0]
     if len(server_failures) > 1:
         raise ValueError("Multiple failed judge HTTP requests; no second retry allowed.")
-    if connection_failures >= 3 and not server_failures:
-        raise ValueError("Judge connection retry budget exhausted; preserved all attempts.")
+    if connection_failures >= JUDGE_CONNECTION_ATTEMPTS and not server_failures:
+        raise JudgeConnectionExhausted("Five proven-unissued judge connections exhausted.")
     http_retry = bool(server_failures)
     retry_failure = server_failures[0] if server_failures else None
     if http_retry_budget is not None and attempt_dir is None:
@@ -295,6 +305,10 @@ def judge_call(endpoint: str, prompt: str, task: str, output: str,
         with OpenAI(base_url=f"{account}/openai/v1/", api_key=token,
                     max_retries=0, timeout=300) as client:
             started = time.perf_counter()
+            last_connection_backoff = 0.0
+            if connection_failures and not http_retry:
+                last_connection_backoff = judge_connection_delay(connection_failures)
+                time.sleep(last_connection_backoff)
             while True:
                 if http_retry:
                     if http_retry_budget is None or attempt_dir is None:
@@ -311,6 +325,8 @@ def judge_call(endpoint: str, prompt: str, task: str, output: str,
                         "attempt_id": attempt_id, "request_sha256": request_hash,
                         "created_at": datetime.now(UTC).isoformat(),
                         "http_retry": http_retry,
+                        "connection_failures_before_attempt": connection_failures,
+                        "connection_backoff_seconds": last_connection_backoff,
                     })
                 try:
                     response = client.responses.create(
@@ -323,6 +339,8 @@ def judge_call(endpoint: str, prompt: str, task: str, output: str,
                     # ConnectError is connection establishment, not a read/write failure.
                     not_sent = (
                         isinstance(error, APIConnectionError)
+                        and getattr(error, "status_code", None) is None
+                        and not judge_result_in_error(getattr(error, "body", None))
                         and cause is not None and type(cause).__name__ == "ConnectError"
                         and type(cause).__module__.split(".")[0]
                         in {"httpx", "httpx2", "httpcore", "httpcore2"}
@@ -356,14 +374,21 @@ def judge_call(endpoint: str, prompt: str, task: str, output: str,
                         raise
                     if not_sent:
                         connection_failures += 1
-                    if not_sent and connection_failures < 3:
+                    if not_sent and connection_failures < JUDGE_CONNECTION_ATTEMPTS:
+                        delay = judge_connection_delay(connection_failures)
                         print(json.dumps({
                             "judge_transport_error": type(error).__name__,
                             "request_sha256": request_hash, "not_sent": True,
                             "next_connection_attempt": connection_failures + 1,
+                            "backoff_seconds": delay,
                         }), flush=True)
-                        time.sleep(2 ** (connection_failures - 1))
+                        time.sleep(delay)
+                        last_connection_backoff = delay
                         continue
+                    if not_sent:
+                        raise JudgeConnectionExhausted(
+                            "Five proven-unissued judge connections exhausted.",
+                        ) from error
                     if retryable_http and http_retry_budget is not None and attempt_dir is not None:
                         http_retry = True
                         retry_failure = failure
@@ -424,10 +449,17 @@ def summary(records: list[dict[str, Any]], expected: int,
         "source_families": len({row["source_family"] for row in records}),
         "runs": len({row["run"] for row in records}), "responses": len(records),
         "inference_failures": sum(row.get("inference_error") is not None for row in records),
+        "judge_connection_exhaustions": sum(
+            bool(row.get("judge_connection_exhausted")) for row in records
+        ),
         "scored_responses": len(scored),
+        "critical_failure_scope": (
+            "Genuinely judged responses only; unjudged safety remains unknown."
+        ),
         "mean_score": statistics.fmean(row["score"] for row in records),
         "score_scope": (
-            "All attempts; inference failures count as operational zero, not judge scores."
+            "All attempts; inference failures or exhausted unissued judge connections "
+            "count as operational zero, not judge scores."
         ),
         "mean_quality_on_scored_responses": statistics.fmean(row["score"] for row in scored)
         if scored else None,
@@ -501,6 +533,21 @@ def inference_failure_record(common: dict[str, Any], response: dict[str, Any]) -
         "citations": {"total": 0, "grounded": 0}, "dimensions": [],
         "critical_flags": [], "flags": ["inference_error"], "score": 0.0, "pass": False,
         "quality_score": None,
+    }
+
+
+def judge_exhaustion_record(common, response, doc, adapted, refs, grounded):
+    return {
+        **common, "response_id": response["response_id"], "latency_ms": response["latency_ms"],
+        "usage": response["usage"], "output_text": response["output_text"],
+        "cost": inference_cost(common["model"], response["usage"]),
+        "judge_cost": {"usd": 0.0, "reason": "All five judge connections proven unissued."},
+        "judge_connection_exhausted": True, "quality_score": None, "grader_executed": False,
+        "capture_sha256": doc["record_sha256"], "runtime": doc["provenance"],
+        "retrieval_calls": doc["tool_calls"], "adapter_issues": adapted["issues"],
+        "citations": {"total": len(refs), "grounded": grounded}, "dimensions": [],
+        "critical_flags": [], "flags": ["judge_connection_exhausted"],
+        "score": 0.0, "pass": False,
     }
 
 
@@ -609,7 +656,11 @@ def main() -> int:
         "record_file_keys": {row["id"]: record_key(row["id"], 1) for row in rows},
         "labels": "synthetic/pending_human_review", "no_inference_retries": True,
         "judge_transport": {
-            "max_connection_attempts": 3,
+            "max_connection_attempts": JUDGE_CONNECTION_ATTEMPTS,
+            "connection_backoff_seconds": [10, 20, 40, 60],
+            "connection_backoff_jitter_seconds": [0, 1],
+            "max_connection_exhausted_cases": 5,
+            "connection_exhaustion_score": "operational_zero_quality_unknown",
             "retry_scope": "connection_establishment_or_listed_http_errors_without_judge_result",
             "retry_http_statuses": sorted(JUDGE_RETRY_HTTP_STATUSES),
             "max_http_retries_per_case_run": 1, "max_http_retries_per_batch": 10,
@@ -623,6 +674,9 @@ def main() -> int:
             raise ValueError("Existing batch has different frozen inputs; use a new output path.")
     else:
         write_record(path, manifest)
+    exhaustion_dir = args.out / "judge-connection-exhaustions"
+    if len(list(exhaustion_dir.glob("*.json"))) > 5:
+        raise ValueError("More than five cases exhausted judge connections; batch outage guard.")
     captures = CaptureReader(args.blob_account_url, args.out)
     http_retry_budget = JudgeHTTPRetryBudget(args.out / "judge-http-retries")
 
@@ -678,6 +732,11 @@ def main() -> int:
             instructions_hash=args.instructions_sha256, tools_hash=args.tools_sha256,
         )
         adapted = adapter.normalize_tool_messages(doc, reference=row["reference"])
+        try:
+            refs = cited_refs(json.loads(response["output_text"]))
+        except json.JSONDecodeError:
+            refs = set()
+        grounded = grounded_citation_count(refs, adapted)
         judge_request_hash = hashlib.sha256((
             prompt + "\n" + judge_input(
                 row["task"], response["output_text"], row["reference"], adapted["tool_messages"],
@@ -688,12 +747,40 @@ def main() -> int:
             if judged.get("request_sha256") != judge_request_hash:
                 raise ValueError("Cached judge assessed different inputs; use a new revision.")
         else:
-            judged = judge_call(
-                args.endpoint, prompt, row["task"], response["output_text"],
-                row["reference"], adapted["tool_messages"],
-                attempt_dir=args.out / "judge-transport" / record_key(row["id"], run),
-                http_retry_budget=http_retry_budget,
-            )
+            try:
+                judged = judge_call(
+                    args.endpoint, prompt, row["task"], response["output_text"],
+                    row["reference"], adapted["tool_messages"],
+                    attempt_dir=args.out / "judge-transport" / record_key(row["id"], run),
+                    http_retry_budget=http_retry_budget,
+                )
+            except JudgeConnectionExhausted as error:
+                record = judge_exhaustion_record(
+                    common, response, doc, adapted, refs, grounded,
+                )
+                marker_path = exhaustion_dir / f"{record_key(row['id'], run)}.json"
+                marker = {
+                    "id": row["id"], "run": run, "request_sha256": judge_request_hash,
+                    "proven_unissued_connections": JUDGE_CONNECTION_ATTEMPTS,
+                    "score_scope": "operational_zero_quality_unknown",
+                }
+                if marker_path.exists():
+                    if read_record(marker_path) != marker:
+                        raise ValueError(
+                            "Judge exhaustion marker differs from saved inputs.",
+                        ) from error
+                else:
+                    write_record(marker_path, marker)
+                write_record(final_path, record)
+                print(json.dumps({
+                    "id": row["id"], "run": run, "judge_connection_exhausted": True,
+                    "operational_score": 0.0, "quality_score": None, "not_rerun": True,
+                }), flush=True)
+                if len(list(exhaustion_dir.glob("*.json"))) > 5:
+                    raise ValueError(
+                        "More than five cases exhausted judge connections; outage guard.",
+                    ) from error
+                return record
             write_record(judge_path, judged)
         genuine = json.loads(judged["output_text"])
         validate_judge(genuine, dimensions)
@@ -710,11 +797,6 @@ def main() -> int:
                 if key not in {"tool_messages", "raw_tool_messages", "reference_snippets"}
             },
         })
-        try:
-            refs = cited_refs(json.loads(response["output_text"]))
-        except json.JSONDecodeError:
-            refs = set()
-        grounded = grounded_citation_count(refs, adapted)
         record = {
             **common,
             "response_id": response["response_id"], "latency_ms": response["latency_ms"],

@@ -289,16 +289,21 @@ def test_judge_transport_budget_and_uncertainty_fail_closed(tmp_path, monkeypatc
     openai = pytest.importorskip("openai")
 
     calls = _judge_client(monkeypatch, [
-        _connection_error(getattr(httpx, cause_type)) for _ in range(3)
+        _connection_error(getattr(httpx, cause_type)) for _ in range(5)
     ])
-    with pytest.raises(openai.APIConnectionError):
+    exception = (
+        batch.JudgeConnectionExhausted if cause_type == "ConnectError"
+        else openai.APIConnectionError
+    )
+    with pytest.raises(exception):
         batch.judge_call("https://test", "prompt", "task", "output", {}, [],
                          attempt_dir=tmp_path)
-    assert len(calls) == (3 if cause_type == "ConnectError" else 1)
-    with pytest.raises(ValueError, match="budget exhausted|Unreconciled"):
+    assert len(calls) == (5 if cause_type == "ConnectError" else 1)
+    subsequent = batch.JudgeConnectionExhausted if cause_type == "ConnectError" else ValueError
+    with pytest.raises(subsequent, match="exhausted|Unreconciled"):
         batch.judge_call("https://test", "prompt", "task", "output", {}, [],
                          attempt_dir=tmp_path)
-    assert len(calls) == (3 if cause_type == "ConnectError" else 1)
+    assert len(calls) == (5 if cause_type == "ConnectError" else 1)
 
 
 def test_judge_http_error_retains_server_correlation_without_issued_retry(tmp_path, monkeypatch):
@@ -485,3 +490,103 @@ def test_http_retry_cap_is_atomic_across_budget_instances(tmp_path):
             except ValueError as error:
                 assert "budget exhausted" in str(error)
     assert successes == 10 and len(budgets[0].snapshot()) == 10
+
+
+def test_connection_backoff_and_resume_count_prior_unissued_attempts(tmp_path, monkeypatch):
+    import caliber.contract_policy_analyst_batch as batch
+
+    request_hash = hashlib.sha256(
+        ("prompt\n" + batch.judge_input("task", "output", {}, [])).encode(),
+    ).hexdigest()
+    for index in range(3):
+        batch.write_record(tmp_path / f"{index}.started.json", {
+            "attempt_id": str(index), "request_sha256": request_hash,
+        })
+        batch.write_record(tmp_path / f"{index}.failed.json", {
+            "status": "not_sent_connect_error", "request_sha256": request_hash,
+        })
+    httpx = pytest.importorskip("httpx2")
+    response = SimpleNamespace(model_dump=lambda: {"usage": None}, output_text="{}")
+    calls = _judge_client(monkeypatch, [_connection_error(httpx.ConnectError), response])
+    delays = []
+    monkeypatch.setattr(batch.time, "sleep", delays.append)
+    monkeypatch.setattr(batch.random, "uniform", lambda start, end: 0.5)
+    batch.judge_call("https://test", "prompt", "task", "output", {}, [], attempt_dir=tmp_path)
+    assert len(calls) == 2 and delays == [40.5, 60.5]
+    assert len(list(tmp_path.glob("*.started.json"))) == 5
+
+
+@pytest.mark.parametrize("cases", [5, 6])
+def test_exhausted_judge_connections_are_explicit_zeros_and_sixth_case_stops(
+    tmp_path, monkeypatch, cases,
+):
+    import caliber.contract_policy_analyst_batch as batch
+
+    rows = [{
+        "id": f"case{index}", "task": "task", "task_sha256": "a" * 64,
+        "reference_sha256": "b" * 64, "reference": {}, "source_family": "family",
+        "scenario_family": "gap",
+    } for index in range(cases)]
+    monkeypatch.setattr(batch, "load_study_split", lambda **kwargs: rows)
+    model_calls = []
+    verified = []
+
+    def hosted(*args, **kwargs):
+        model_calls.append(kwargs["metadata"]["cpa_case_id"])
+        return {
+            "error": None, "response_id": "response", "output_text": "{}",
+            "latency_ms": 100, "usage": {"input_tokens": 1000, "output_tokens": 100},
+        }
+
+    class Captures:
+        def __init__(self, *args):
+            pass
+
+        def get(self, nonce):
+            return {
+                "record_sha256": "capture", "provenance": {"model": "gpt-6-astra"},
+                "tool_calls": [{"duration_ms": 5, "tool_reported_ok": True}],
+            }
+
+        def close(self):
+            pass
+
+    def exhausted(*args, **kwargs):
+        raise batch.JudgeConnectionExhausted("five unissued")
+
+    adapter = SimpleNamespace(normalize_tool_messages=lambda *args, **kwargs: {
+        "tool_messages": [], "issues": [], "mappings": [],
+        "citation_aliases": {}, "ambiguous_aliases": [],
+    })
+    monkeypatch.setattr(batch, "load_module", lambda path: adapter)
+    monkeypatch.setattr(batch, "hosted_call", hosted)
+    monkeypatch.setattr(batch, "CaptureReader", Captures)
+    monkeypatch.setattr(batch, "verify_capture", lambda *args, **kwargs: verified.append(True))
+    monkeypatch.setattr(batch, "judge_call", exhausted)
+    monkeypatch.setattr(sys, "argv", [
+        "batch", "--repo", str(Path(__file__).resolve().parents[3]), "--endpoint", "https://test",
+        "--blob-account-url", "https://test", "--version", "6", "--model", "gpt-6-astra",
+        "--instructions-sha256", "a" * 64, "--tools-sha256", "b" * 64,
+        "--arm", "baseline", "--split", "optimizer-validation", "--out", str(tmp_path),
+        "--repeats", "1", "--concurrency", "1", "--allow-live",
+    ])
+    if cases == 6:
+        with pytest.raises(RuntimeError, match="More than five"):
+            batch.main()
+        assert not (tmp_path / "summary.json").exists()
+        with pytest.raises(ValueError, match="More than five"):
+            batch.main()
+    else:
+        assert batch.main() == 0
+        report = json.loads((tmp_path / "summary.json").read_text())
+        assert report["judge_connection_exhaustions"] == 5
+        assert report["scored_responses"] == 0
+        assert report["mean_score"] == 0.0 and report["mean_quality_on_scored_responses"] is None
+        assert report["retrieval"]["audit_complete_rate"] == 1.0
+    records = [
+        json.loads(path.read_text()) for path in (tmp_path / "attempts").glob("*.graded.json")
+    ]
+    assert len(model_calls) == len(verified) == len(records) == cases
+    assert all(row["score"] == 0.0 and row["quality_score"] is None for row in records)
+    assert all(row["dimensions"] == [] and row["retrieval_calls"] for row in records)
+    assert all(row["cost"]["usd"] > 0 and row["judge_cost"]["usd"] == 0 for row in records)
