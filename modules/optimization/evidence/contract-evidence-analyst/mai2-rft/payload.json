@@ -1,7 +1,7 @@
 {
   "model": "mai-code-2-flash-2026-11-17",
-  "training_file": "<set by upload>",
-  "validation_file": "<set by upload>",
+  "training_file": "file-c03d82e7dc284065a90729d2cad43817",
+  "validation_file": "file-94c6bd983c554211b48a2771d3ee0fdc",
   "suffix": "contract-evidence-mai2-r1",
   "seed": 1266282111,
   "trainingType": "developerTier",

@@ -1,0 +1,663 @@
+{
+  "agent": "contract-evidence-analyst",
+  "generated_at": "2026-11-25T03:23:08.316838+00:00",
+  "grader": {
+    "path": "modules/evals/graders/contract-evidence-analyst/contract_evidence_grader.py",
+    "sha256": "b86d04dc148e89ab2fc8fe0a252f94a7b2d89e701c783bd22c8414d2f72ef0fe",
+    "version": "contract-evidence-analyst-v1",
+    "pass_threshold": 0.8
+  },
+  "benchmark": {
+    "path": "modules/evals/datasets/contract-evidence-analyst/benchmark-v1",
+    "splits": {
+      "dev_eval": {
+        "ids_sha256": "076a84b8e87e43e1ddecc571627712aedbbd654157988814d9d16e5947ca9e26",
+        "rows": 38,
+        "sha256": "3d92ea4ee3e9d0f6b8af0d429dfb9de853da755d23810ad878c12d6909363086"
+      },
+      "final_test": {
+        "ids_sha256": "ec80064772e46cd72eb8919e462122568859fb756153b179a679e180fa2dd448",
+        "rows": 44,
+        "sha256": "f83b0174b3fbd250927959bb6e909835c89e872e5dd8324d1d2f7e13fd8028a5"
+      },
+      "train": {
+        "ids_sha256": "860cca0ebb02b042cfff115f043dd6c9c19c1ffec7e836b5cee8f7431b344fde",
+        "rows": 146,
+        "sha256": "745b05a4dfcbeb1efb31595c592989bf9f3e01b54a3945337c3fd2c25146dc88"
+      },
+      "validation": {
+        "ids_sha256": "81407512c0648d2d55e3d7a34041c6d6a17d996cca397147fdd058d9caa2f685",
+        "rows": 33,
+        "sha256": "af67d4e6c2509921b79e230fc5b2da0fc0e93fa55f975a9d17a2ad45cc6a5571"
+      }
+    },
+    "selection_policy": "Prompt/checkpoint selection used train/validation/dev_eval only; final_test was run once per arm after that arm was frozen."
+  },
+  "prices_usd_per_1m_tokens": {
+    "gpt-6-astra": {
+      "input": 10.0,
+      "output": 50.0,
+      "source": "Alaska rubric_eval.PRICES (eastus Global Standard retail, as used in the Alaska report)"
+    },
+    "mai-code-2-flash": {
+      "input": 0.05,
+      "output": 0.25,
+      "source": "Azure retail prices API, swedencentral, MAI Models product (read 2026)"
+    }
+  },
+  "rft_job": null,
+  "arms": {
+    "baseline": {
+      "agent_version": "1",
+      "model": "gpt-6-astra",
+      "instructions": ".agent_configs/baseline/instructions.md",
+      "description": "Minimal honest starter prompt on the teacher model",
+      "instructions_sha256": "322eafc372b28ae59c52b73f12f69fa3ec77df1cc46d6cb65bc40f901032ee5b",
+      "results": {
+        "dev_eval": {
+          "unique_cases": 38,
+          "runs": 5,
+          "responses": 190,
+          "mean_score": 0.8887218052631579,
+          "pass_rate": 0.7368421052631579,
+          "run_mean_scores": [
+            0.8860432368421053,
+            0.8898026315789473,
+            0.8980263157894737,
+            0.8901315789473684,
+            0.8796052631578948
+          ],
+          "run_pass_rates": [
+            0.7368421052631579,
+            0.7368421052631579,
+            0.7631578947368421,
+            0.7368421052631579,
+            0.7105263157894737
+          ],
+          "run_score_sd": 0.006000260531730469,
+          "unique_case_mean_score": 0.8887218052631579,
+          "unique_case_majority_pass_rate": 0.7368421052631579,
+          "cases_always_pass": 27,
+          "cases_never_pass": 9,
+          "per_outcome": {
+            "approve_evidence": {
+              "cases": 7,
+              "mean_score": 0.6914285714285714,
+              "majority_pass_rate": 0.2857142857142857
+            },
+            "escalate": {
+              "cases": 7,
+              "mean_score": 0.9987755142857143,
+              "majority_pass_rate": 1
+            },
+            "missing_evidence": {
+              "cases": 10,
+              "mean_score": 0.89225,
+              "majority_pass_rate": 0.8
+            },
+            "recover": {
+              "cases": 7,
+              "mean_score": 0.9742857142857143,
+              "majority_pass_rate": 0.8571428571428571
+            },
+            "review_assertion": {
+              "cases": 7,
+              "mean_score": 0.8853571428571428,
+              "majority_pass_rate": 0.7142857142857143
+            }
+          },
+          "flag_counts": {
+            "missed_approval": 27,
+            "false_gap": 23,
+            "distractor_misused": 5,
+            "false_approval": 5,
+            "missing_evidence_not_flagged": 3,
+            "primary_term_misread": 3
+          },
+          "critical_failures": {
+            "invalid_json": 0,
+            "invalid_shape": 0,
+            "boundary_violation": 0,
+            "false_approval": 5,
+            "fabricated_ref": 0,
+            "agent_error": 0
+          },
+          "unrecovered_errors": 0,
+          "retried_calls": 45,
+          "latency_ms": {
+            "p50": 12795,
+            "p95": 16266,
+            "mean": 13307.910526315789
+          },
+          "tokens_mean": {
+            "input_tokens": 732.7105263157895,
+            "output_tokens": 348.6842105263158,
+            "reasoning_tokens": 11.9
+          },
+          "cost_usd_total": 4.70465,
+          "cost_usd_per_1k_lines": 24.76131578947368,
+          "models": {
+            "gpt-6-astra": 190
+          },
+          "grader_versions": [
+            "contract-evidence-analyst-v1"
+          ]
+        },
+        "final_test": {
+          "unique_cases": 44,
+          "runs": 1,
+          "responses": 44,
+          "mean_score": 0.9094697045454545,
+          "pass_rate": 0.7954545454545454,
+          "run_mean_scores": [
+            0.9094697045454545
+          ],
+          "run_pass_rates": [
+            0.7954545454545454
+          ],
+          "run_score_sd": 0.0,
+          "unique_case_mean_score": 0.9094697045454545,
+          "unique_case_majority_pass_rate": 0.7954545454545454,
+          "cases_always_pass": 35,
+          "cases_never_pass": 9,
+          "per_outcome": {
+            "approve_evidence": {
+              "cases": 8,
+              "mean_score": 0.7,
+              "majority_pass_rate": 0.25
+            },
+            "escalate": {
+              "cases": 8,
+              "mean_score": 0.975,
+              "majority_pass_rate": 1
+            },
+            "missing_evidence": {
+              "cases": 12,
+              "mean_score": 0.9291666666666667,
+              "majority_pass_rate": 0.8333333333333334
+            },
+            "recover": {
+              "cases": 8,
+              "mean_score": 0.983333375,
+              "majority_pass_rate": 1
+            },
+            "review_assertion": {
+              "cases": 8,
+              "mean_score": 0.95,
+              "majority_pass_rate": 0.875
+            }
+          },
+          "flag_counts": {
+            "false_gap": 7,
+            "missed_approval": 6
+          },
+          "critical_failures": {
+            "invalid_json": 0,
+            "invalid_shape": 0,
+            "boundary_violation": 0,
+            "false_approval": 0,
+            "fabricated_ref": 0,
+            "agent_error": 0
+          },
+          "unrecovered_errors": 0,
+          "retried_calls": 3,
+          "latency_ms": {
+            "p50": 13122,
+            "p95": 15341,
+            "mean": 13149.727272727272
+          },
+          "tokens_mean": {
+            "input_tokens": 727.5454545454545,
+            "output_tokens": 321.5,
+            "reasoning_tokens": 10.818181818181818
+          },
+          "cost_usd_total": 1.02742,
+          "cost_usd_per_1k_lines": 23.350454545454546,
+          "models": {
+            "gpt-6-astra": 44
+          },
+          "grader_versions": [
+            "contract-evidence-analyst-v1"
+          ]
+        }
+      }
+    },
+    "optimized": {
+      "agent_version": "2",
+      "model": "gpt-6-astra",
+      "instructions": "releases/optimized/baseline/instructions.md",
+      "description": "Agent Optimizer candidate opt_1a50d6dd..._0001 on the teacher model",
+      "instructions_sha256": "570f9df34424dcbe0a65087d8478206a281117dcfeb79217a58a60631736e072",
+      "results": {
+        "dev_eval": {
+          "unique_cases": 38,
+          "runs": 5,
+          "responses": 190,
+          "mean_score": 0.9097932368421052,
+          "pass_rate": 0.7947368421052632,
+          "run_mean_scores": [
+            0.9074248157894736,
+            0.9100563947368421,
+            0.9074248157894736,
+            0.9061090263157895,
+            0.9179511315789474
+          ],
+          "run_pass_rates": [
+            0.7894736842105263,
+            0.7894736842105263,
+            0.7894736842105263,
+            0.7894736842105263,
+            0.8157894736842105
+          ],
+          "run_score_sd": 0.004275809686650509,
+          "unique_case_mean_score": 0.9097932368421052,
+          "unique_case_majority_pass_rate": 0.7894736842105263,
+          "cases_always_pass": 29,
+          "cases_never_pass": 7,
+          "per_outcome": {
+            "approve_evidence": {
+              "cases": 7,
+              "mean_score": 0.7714285714285715,
+              "majority_pass_rate": 0.42857142857142855
+            },
+            "escalate": {
+              "cases": 7,
+              "mean_score": 0.9938775714285715,
+              "majority_pass_rate": 1
+            },
+            "missing_evidence": {
+              "cases": 10,
+              "mean_score": 0.8925,
+              "majority_pass_rate": 0.8
+            },
+            "recover": {
+              "cases": 7,
+              "mean_score": 0.99,
+              "majority_pass_rate": 1
+            },
+            "review_assertion": {
+              "cases": 7,
+              "mean_score": 0.9085714285714286,
+              "majority_pass_rate": 0.7142857142857143
+            }
+          },
+          "flag_counts": {
+            "missed_approval": 20,
+            "false_gap": 15,
+            "distractor_misused": 5,
+            "false_approval": 5,
+            "primary_term_misread": 1,
+            "missing_evidence_not_flagged": 1
+          },
+          "critical_failures": {
+            "invalid_json": 0,
+            "invalid_shape": 0,
+            "boundary_violation": 0,
+            "false_approval": 5,
+            "fabricated_ref": 0,
+            "agent_error": 0
+          },
+          "unrecovered_errors": 0,
+          "retried_calls": 36,
+          "latency_ms": {
+            "p50": 14143,
+            "p95": 20290,
+            "mean": 15159.173684210526
+          },
+          "tokens_mean": {
+            "input_tokens": 2451.7105263157896,
+            "output_tokens": 342.7421052631579,
+            "reasoning_tokens": 9.868421052631579
+          },
+          "cost_usd_total": 7.9143,
+          "cost_usd_per_1k_lines": 41.654210526315794,
+          "models": {
+            "gpt-6-astra": 190
+          },
+          "grader_versions": [
+            "contract-evidence-analyst-v1"
+          ]
+        },
+        "final_test": {
+          "unique_cases": 44,
+          "runs": 1,
+          "responses": 44,
+          "mean_score": 0.9549621363636364,
+          "pass_rate": 0.9090909090909091,
+          "run_mean_scores": [
+            0.9549621363636364
+          ],
+          "run_pass_rates": [
+            0.9090909090909091
+          ],
+          "run_score_sd": 0.0,
+          "unique_case_mean_score": 0.9549621363636364,
+          "unique_case_majority_pass_rate": 0.9090909090909091,
+          "cases_always_pass": 40,
+          "cases_never_pass": 4,
+          "per_outcome": {
+            "approve_evidence": {
+              "cases": 8,
+              "mean_score": 0.85,
+              "majority_pass_rate": 0.625
+            },
+            "escalate": {
+              "cases": 8,
+              "mean_score": 0.9824999999999999,
+              "majority_pass_rate": 1
+            },
+            "missing_evidence": {
+              "cases": 12,
+              "mean_score": 0.9583333333333334,
+              "majority_pass_rate": 0.9166666666666666
+            },
+            "recover": {
+              "cases": 8,
+              "mean_score": 0.995833375,
+              "majority_pass_rate": 1
+            },
+            "review_assertion": {
+              "cases": 8,
+              "mean_score": 0.986458375,
+              "majority_pass_rate": 1
+            }
+          },
+          "flag_counts": {
+            "missed_approval": 3,
+            "false_gap": 2
+          },
+          "critical_failures": {
+            "invalid_json": 0,
+            "invalid_shape": 0,
+            "boundary_violation": 0,
+            "false_approval": 0,
+            "fabricated_ref": 0,
+            "agent_error": 0
+          },
+          "unrecovered_errors": 0,
+          "retried_calls": 1,
+          "latency_ms": {
+            "p50": 12682,
+            "p95": 18427,
+            "mean": 13077.613636363636
+          },
+          "tokens_mean": {
+            "input_tokens": 2446.5454545454545,
+            "output_tokens": 306.9318181818182,
+            "reasoning_tokens": 5.840909090909091
+          },
+          "cost_usd_total": 1.75173,
+          "cost_usd_per_1k_lines": 39.812045454545455,
+          "models": {
+            "gpt-6-astra": 44
+          },
+          "grader_versions": [
+            "contract-evidence-analyst-v1"
+          ]
+        }
+      }
+    },
+    "mai2-base": {
+      "agent_version": "3",
+      "model": "mai-code-2-flash-base",
+      "instructions": "releases/mai2-base/baseline/instructions.md",
+      "description": "Optimized prompt on untuned MAI-Code-2-Flash",
+      "instructions_sha256": "570f9df34424dcbe0a65087d8478206a281117dcfeb79217a58a60631736e072",
+      "results": {
+        "dev_eval": {
+          "unique_cases": 38,
+          "runs": 5,
+          "responses": 190,
+          "mean_score": 0.9415037631578947,
+          "pass_rate": 0.8947368421052632,
+          "run_mean_scores": [
+            0.9080827105263158,
+            0.9620300789473685,
+            0.9396616578947369,
+            0.9416353421052631,
+            0.9561090263157894
+          ],
+          "run_pass_rates": [
+            0.8157894736842105,
+            0.9473684210526315,
+            0.8947368421052632,
+            0.8947368421052632,
+            0.9210526315789473
+          ],
+          "run_score_sd": 0.01873510488694027,
+          "unique_case_mean_score": 0.9415037631578947,
+          "unique_case_majority_pass_rate": 0.9210526315789473,
+          "cases_always_pass": 28,
+          "cases_never_pass": 0,
+          "per_outcome": {
+            "approve_evidence": {
+              "cases": 7,
+              "mean_score": 0.9207142857142857,
+              "majority_pass_rate": 0.8571428571428571
+            },
+            "escalate": {
+              "cases": 7,
+              "mean_score": 0.957449,
+              "majority_pass_rate": 1
+            },
+            "missing_evidence": {
+              "cases": 10,
+              "mean_score": 0.912,
+              "majority_pass_rate": 0.9
+            },
+            "recover": {
+              "cases": 7,
+              "mean_score": 0.9871428571428571,
+              "majority_pass_rate": 1
+            },
+            "review_assertion": {
+              "cases": 7,
+              "mean_score": 0.9428571428571428,
+              "majority_pass_rate": 0.8571428571428571
+            }
+          },
+          "flag_counts": {
+            "false_gap": 11,
+            "distractor_misused": 9,
+            "false_approval": 5,
+            "missed_approval": 4,
+            "missing_evidence_not_flagged": 3,
+            "primary_term_misread": 2,
+            "required_gap_missed": 1
+          },
+          "critical_failures": {
+            "invalid_json": 0,
+            "invalid_shape": 0,
+            "boundary_violation": 0,
+            "false_approval": 5,
+            "fabricated_ref": 0,
+            "agent_error": 0
+          },
+          "unrecovered_errors": 0,
+          "retried_calls": 8,
+          "latency_ms": {
+            "p50": 10916,
+            "p95": 14958,
+            "mean": 11193.72105263158
+          },
+          "tokens_mean": {
+            "input_tokens": 2451.7105263157896,
+            "output_tokens": 585.1368421052632,
+            "reasoning_tokens": 271.2526315789474
+          },
+          "cost_usd_total": 0.05108525,
+          "cost_usd_per_1k_lines": 0.2688697368421053,
+          "models": {
+            "mai-code-2-flash-base": 190
+          },
+          "grader_versions": [
+            "contract-evidence-analyst-v1"
+          ]
+        },
+        "validation": {
+          "unique_cases": 33,
+          "runs": 1,
+          "responses": 33,
+          "mean_score": 0.9373232424242425,
+          "pass_rate": 0.8787878787878788,
+          "run_mean_scores": [
+            0.9373232424242425
+          ],
+          "run_pass_rates": [
+            0.8787878787878788
+          ],
+          "run_score_sd": 0.0,
+          "unique_case_mean_score": 0.9373232424242425,
+          "unique_case_majority_pass_rate": 0.8787878787878788,
+          "cases_always_pass": 29,
+          "cases_never_pass": 4,
+          "per_outcome": {
+            "approve_evidence": {
+              "cases": 6,
+              "mean_score": 0.8611111666666666,
+              "majority_pass_rate": 0.6666666666666666
+            },
+            "escalate": {
+              "cases": 6,
+              "mean_score": 0.9733333333333334,
+              "majority_pass_rate": 1
+            },
+            "missing_evidence": {
+              "cases": 10,
+              "mean_score": 0.97,
+              "majority_pass_rate": 1
+            },
+            "recover": {
+              "cases": 7,
+              "mean_score": 0.8892857142857142,
+              "majority_pass_rate": 0.7142857142857143
+            },
+            "review_assertion": {
+              "cases": 4,
+              "mean_score": 1.0,
+              "majority_pass_rate": 1
+            }
+          },
+          "flag_counts": {
+            "false_gap": 2,
+            "distractor_misused": 1,
+            "missed_approval": 1,
+            "primary_term_misread": 1
+          },
+          "critical_failures": {
+            "invalid_json": 0,
+            "invalid_shape": 0,
+            "boundary_violation": 0,
+            "false_approval": 0,
+            "fabricated_ref": 0,
+            "agent_error": 0
+          },
+          "unrecovered_errors": 0,
+          "retried_calls": 1,
+          "latency_ms": {
+            "p50": 11757,
+            "p95": 14811,
+            "mean": 12085.121212121212
+          },
+          "tokens_mean": {
+            "input_tokens": 2472.6060606060605,
+            "output_tokens": 707.969696969697,
+            "reasoning_tokens": 375.2121212121212
+          },
+          "cost_usd_total": 0.00992055,
+          "cost_usd_per_1k_lines": 0.30062272727272726,
+          "models": {
+            "mai-code-2-flash-base": 33
+          },
+          "grader_versions": [
+            "contract-evidence-analyst-v1"
+          ]
+        },
+        "final_test": {
+          "unique_cases": 44,
+          "runs": 1,
+          "responses": 44,
+          "mean_score": 0.9502651590909091,
+          "pass_rate": 0.9090909090909091,
+          "run_mean_scores": [
+            0.9502651590909091
+          ],
+          "run_pass_rates": [
+            0.9090909090909091
+          ],
+          "run_score_sd": 0.0,
+          "unique_case_mean_score": 0.9502651590909091,
+          "unique_case_majority_pass_rate": 0.9090909090909091,
+          "cases_always_pass": 40,
+          "cases_never_pass": 4,
+          "per_outcome": {
+            "approve_evidence": {
+              "cases": 8,
+              "mean_score": 0.85,
+              "majority_pass_rate": 0.625
+            },
+            "escalate": {
+              "cases": 8,
+              "mean_score": 0.9775,
+              "majority_pass_rate": 1
+            },
+            "missing_evidence": {
+              "cases": 12,
+              "mean_score": 0.9583333333333334,
+              "majority_pass_rate": 0.9166666666666666
+            },
+            "recover": {
+              "cases": 8,
+              "mean_score": 0.995833375,
+              "majority_pass_rate": 1
+            },
+            "review_assertion": {
+              "cases": 8,
+              "mean_score": 0.965625,
+              "majority_pass_rate": 1
+            }
+          },
+          "flag_counts": {
+            "missed_approval": 2,
+            "false_gap": 2,
+            "distractor_misused": 1
+          },
+          "critical_failures": {
+            "invalid_json": 0,
+            "invalid_shape": 0,
+            "boundary_violation": 0,
+            "false_approval": 0,
+            "fabricated_ref": 0,
+            "agent_error": 0
+          },
+          "unrecovered_errors": 0,
+          "retried_calls": 1,
+          "latency_ms": {
+            "p50": 11164,
+            "p95": 15094,
+            "mean": 11573.318181818182
+          },
+          "tokens_mean": {
+            "input_tokens": 2446.5454545454545,
+            "output_tokens": 556.2045454545455,
+            "reasoning_tokens": 258.90909090909093
+          },
+          "cost_usd_total": 0.01150065,
+          "cost_usd_per_1k_lines": 0.2613784090909091,
+          "models": {
+            "mai-code-2-flash-base": 44
+          },
+          "grader_versions": [
+            "contract-evidence-analyst-v1"
+          ]
+        }
+      }
+    }
+  },
+  "caveats": [
+    "Benchmark labels are synthetic and pending_human_review; scores measure agreement with synthetic references, not audited ground truth.",
+    "The code grader's decision-language screen is a phrase screen, not a semantic guarantee.",
+    "gpt-6-astra price is the Alaska-report list price; MAI-2 price is the retail base serving price and excludes fine-tuned hosting fees and RFT training cost.",
+    "Cost covers model tokens only, not hosted-agent compute."
+  ]
+}

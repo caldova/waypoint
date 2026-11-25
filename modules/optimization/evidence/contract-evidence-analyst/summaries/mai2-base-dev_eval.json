@@ -1,0 +1,90 @@
+{
+  "unique_cases": 38,
+  "runs": 5,
+  "responses": 190,
+  "mean_score": 0.9415037631578947,
+  "pass_rate": 0.8947368421052632,
+  "run_mean_scores": [
+    0.9080827105263158,
+    0.9620300789473685,
+    0.9396616578947369,
+    0.9416353421052631,
+    0.9561090263157894
+  ],
+  "run_pass_rates": [
+    0.8157894736842105,
+    0.9473684210526315,
+    0.8947368421052632,
+    0.8947368421052632,
+    0.9210526315789473
+  ],
+  "run_score_sd": 0.01873510488694027,
+  "unique_case_mean_score": 0.9415037631578947,
+  "unique_case_majority_pass_rate": 0.9210526315789473,
+  "cases_always_pass": 28,
+  "cases_never_pass": 0,
+  "per_outcome": {
+    "approve_evidence": {
+      "cases": 7,
+      "mean_score": 0.9207142857142857,
+      "majority_pass_rate": 0.8571428571428571
+    },
+    "escalate": {
+      "cases": 7,
+      "mean_score": 0.957449,
+      "majority_pass_rate": 1
+    },
+    "missing_evidence": {
+      "cases": 10,
+      "mean_score": 0.912,
+      "majority_pass_rate": 0.9
+    },
+    "recover": {
+      "cases": 7,
+      "mean_score": 0.9871428571428571,
+      "majority_pass_rate": 1
+    },
+    "review_assertion": {
+      "cases": 7,
+      "mean_score": 0.9428571428571428,
+      "majority_pass_rate": 0.8571428571428571
+    }
+  },
+  "flag_counts": {
+    "false_gap": 11,
+    "distractor_misused": 9,
+    "false_approval": 5,
+    "missed_approval": 4,
+    "missing_evidence_not_flagged": 3,
+    "primary_term_misread": 2,
+    "required_gap_missed": 1
+  },
+  "critical_failures": {
+    "invalid_json": 0,
+    "invalid_shape": 0,
+    "boundary_violation": 0,
+    "false_approval": 5,
+    "fabricated_ref": 0,
+    "agent_error": 0
+  },
+  "unrecovered_errors": 0,
+  "retried_calls": 8,
+  "latency_ms": {
+    "p50": 10916,
+    "p95": 14958,
+    "mean": 11193.72105263158
+  },
+  "tokens_mean": {
+    "input_tokens": 2451.7105263157896,
+    "output_tokens": 585.1368421052632,
+    "reasoning_tokens": 271.2526315789474
+  },
+  "cost_usd_total": 0.05108525,
+  "cost_usd_per_1k_lines": 0.2688697368421053,
+  "models": {
+    "mai-code-2-flash-base": 190
+  },
+  "grader_versions": [
+    "contract-evidence-analyst-v1"
+  ]
+}

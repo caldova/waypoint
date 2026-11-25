@@ -1,0 +1,77 @@
+{
+  "unique_cases": 44,
+  "runs": 1,
+  "responses": 44,
+  "mean_score": 0.9094697045454545,
+  "pass_rate": 0.7954545454545454,
+  "run_mean_scores": [
+    0.9094697045454545
+  ],
+  "run_pass_rates": [
+    0.7954545454545454
+  ],
+  "run_score_sd": 0.0,
+  "unique_case_mean_score": 0.9094697045454545,
+  "unique_case_majority_pass_rate": 0.7954545454545454,
+  "cases_always_pass": 35,
+  "cases_never_pass": 9,
+  "per_outcome": {
+    "approve_evidence": {
+      "cases": 8,
+      "mean_score": 0.7,
+      "majority_pass_rate": 0.25
+    },
+    "escalate": {
+      "cases": 8,
+      "mean_score": 0.975,
+      "majority_pass_rate": 1
+    },
+    "missing_evidence": {
+      "cases": 12,
+      "mean_score": 0.9291666666666667,
+      "majority_pass_rate": 0.8333333333333334
+    },
+    "recover": {
+      "cases": 8,
+      "mean_score": 0.983333375,
+      "majority_pass_rate": 1
+    },
+    "review_assertion": {
+      "cases": 8,
+      "mean_score": 0.95,
+      "majority_pass_rate": 0.875
+    }
+  },
+  "flag_counts": {
+    "false_gap": 7,
+    "missed_approval": 6
+  },
+  "critical_failures": {
+    "invalid_json": 0,
+    "invalid_shape": 0,
+    "boundary_violation": 0,
+    "false_approval": 0,
+    "fabricated_ref": 0,
+    "agent_error": 0
+  },
+  "unrecovered_errors": 0,
+  "retried_calls": 3,
+  "latency_ms": {
+    "p50": 13122,
+    "p95": 15341,
+    "mean": 13149.727272727272
+  },
+  "tokens_mean": {
+    "input_tokens": 727.5454545454545,
+    "output_tokens": 321.5,
+    "reasoning_tokens": 10.818181818181818
+  },
+  "cost_usd_total": 1.02742,
+  "cost_usd_per_1k_lines": 23.350454545454546,
+  "models": {
+    "gpt-6-astra": 44
+  },
+  "grader_versions": [
+    "contract-evidence-analyst-v1"
+  ]
+}
