@@ -1,0 +1,86 @@
+{
+  "version": "contract-policy-analyst-expanded-local-validation-v1",
+  "scope": "Offline new fictional authority corpus, family seal, benchmark, code grader and shared native reason-text evaluator factory",
+  "review_status": "pending_human_review",
+  "checks": [
+    {
+      "command": "uv run --project modules\\evals python -m caliber.contract_policy_analyst_benchmark --repo . --expanded",
+      "result": "passed",
+      "details": "Repeatable no-op build. 48 source families; 336 optimizer train, 120 optimizer validation, 120 study-heldout cases."
+    },
+    {
+      "command": "uv run --project modules\\evals python -m caliber.contract_policy_analyst_benchmark --repo .",
+      "result": "passed",
+      "details": "Preserved original preparation partitions: 10 train, 2 validation, 24 historical regression, 5 grounded document candidates, 0 globally pristine heldout."
+    },
+    {
+      "command": "uv run --project modules\\evals pytest modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py -q -p no:cacheprovider",
+      "result": "passed",
+      "tests_passed": 62,
+      "details": "62 passed in 6.50s. Tests cover all 576 source-derived new references, 1248 real source documents, arithmetic basis traps, source/supplier/scenario/line/prompt independence, heldout optimizer rejection, remote citation markers, retrieval canaries, schema/grader gaming, real retrieval requirements and bound synthetic judge fixtures."
+    },
+    {
+      "command": "uv run --project modules\\evals ruff check modules\\evals\\src\\caliber\\contract_policy_analyst_benchmark.py modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_grader.py",
+      "result": "passed",
+      "details": "All checks passed."
+    },
+    {
+      "command": "Compare current SHA-256 values with every original validation-report.json source_hashes entry",
+      "result": "passed",
+      "details": "All inspected original corpus artifacts, historical expert datasets, frozen graders and original generator/audit/preparation modules unchanged."
+    },
+    {
+      "command": "Check remaining datasets\\contract-policy-analyst\\.test-* directories",
+      "result": "passed",
+      "details": "No test scratch directories remain."
+    }
+  ],
+  "validated_sha256": {
+    "modules/evals/src/caliber/contract_policy_analyst_benchmark.py": "825ccf86d6e01cfec25211c43c34fbd781f092c696855ea17571b80ff58645d4",
+    "modules/evals/tests/test_contract_policy_analyst_benchmark.py": "5ddc7ca24861877d8858300dbf4991ab565a98850b8f8a261653669602650114",
+    "modules/evals/graders/contract-policy-analyst/contract_policy_analyst_grader.py": "9d51ea29d21d4813a9939d1f8a5a7d10fce0a0e058ae260180a60084b4ba7c51",
+    "modules/evals/graders/contract-policy-analyst/quality-rubric.json": "725c17970c61944413c1a19315f7ffe246b6e0640d0a78d2ee412f742e60768a",
+    "modules/corpus/data/contract-policy-analyst/domain-catalog.json": "8375774921898a82e8e300039430b18a9e52e82789ba48f57eb2d05a1df51154",
+    "modules/corpus/data/contract-policy-analyst/v1/source-manifest.json": "e21f47631fc647f5cfcb763760725698e0f4d9ab6a36d3e441017b8319878fb8",
+    "modules/evals/datasets/contract-policy-analyst/expanded-v1/seal-manifest.json": "b5a7afe29abf1d0d78c956316e3c83e69906d6849fc9ff33b57fca80d59552c2"
+  },
+  "native_evaluator_payload": {
+    "factory": "caliber.contract_policy_analyst_benchmark.foundry_reason_evaluator_body(repo=Path('.'))",
+    "serialization": "json.dumps(body, ensure_ascii=False, sort_keys=True).encode()",
+    "sha256": "723d7beb3f308ff095be72539fcb90d570ea82d9f81157f8cbca60bb7d3aa000",
+    "judge_model": "gpt-6-astra",
+    "registered": false,
+    "live_judge_run": false
+  },
+  "corpus": {
+    "root": "modules/corpus/data/contract-policy-analyst/v1",
+    "contracts": 48,
+    "policies": 48,
+    "operational_records": 576,
+    "invoice_documents": 576,
+    "distinct_invoice_lines": 576,
+    "authored_domain_rule_archetypes": 96,
+    "materialized_source_clause_families": 288,
+    "review_pending_cases": 576,
+    "authority": "New fictional clauses and policies authored for this study, not human-reviewed customer authority"
+  },
+  "separation": {
+    "optimizer_train": {"source_families": 28, "cases": 336},
+    "optimizer_validation": {"source_families": 10, "cases": 120},
+    "study_heldout": {"source_families": 10, "cases": 120},
+    "source_family_overlap": 0,
+    "scenario_family_overlap": 0,
+    "invoice_line_overlap": 0,
+    "globally_pristine_claim": false,
+    "abstract_recipe_overlap_disclosed": true,
+    "runtime_exposure_audit_still_required": true
+  },
+  "not_run": [
+    "Network, cloud, additive KB ingestion or live retrieval canaries",
+    "Live gpt-6-astra semantic judge or evaluator registration",
+    "Hosted baseline, optimizer, RFT or original-expert smoke",
+    "Commit, push or modification of original source/runtime/job state",
+    "Full unrelated repository test suite"
+  ],
+  "conclusion": "New corpus and study-local sealed benchmark are persistent and locally verified. Human review, actual remote citation mapping, ingestion, canaries and live matched evaluation remain parent-owned. Fixture pass rates are not model accuracy."
+}

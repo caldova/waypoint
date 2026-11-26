@@ -1,0 +1,60 @@
+{
+  "artifact_sha256": {
+    "final-test-v2.jsonl": "c8cfd2635b5af587a73f8982facac080be2cb064e6e29ff98748d1846884c467",
+    "leakage-audit.json": "c2e2c1839cb15c1e1980450bb46a3f0fb9cfdc32464e0a15d69c88f57fee70ee",
+    "references/final-test-v2.jsonl": "ce49269485cf8939aa5e3b9f20c24067ef13f70427732c249ac1901c5bf282c1",
+    "seal-manifest.json": "ead449a13e977abc2bf022425e7d631f045bf8e2a31d316ed2a18f273558b3c3"
+  },
+  "corpus_manifest_sha256": "4fdc720ad4838aa78bc30042ec3c121323d47296b6b8cbba618187064b1fd666",
+  "coverage": {
+    "archetypes": {
+      "absent-pre-service-waiver": 10,
+      "amount-variance": 10,
+      "capped-credit-variance": 10,
+      "confirmed-calculation": 10,
+      "conflicting-quality-status": 10,
+      "outside-date-window": 10,
+      "single-attestation": 10,
+      "tier-basis-variance": 10,
+      "tier-threshold-boundary": 10,
+      "valid-pre-service-waiver": 10,
+      "wrong-service-record": 10,
+      "wrong-supplier-record": 10
+    },
+    "calculation_primitives": {
+      "allowance": 4,
+      "capped_cost": 22,
+      "fixed": 15,
+      "lesser": 2,
+      "overage": 7,
+      "pass_through": 10,
+      "proration": 3,
+      "shortfall": 5,
+      "tier": 27,
+      "unit": 9,
+      "window": 16
+    },
+    "primary_supports": {
+      "approve": 30,
+      "escalate": 10,
+      "recover": 40,
+      "review": 40
+    }
+  },
+  "global_pristine": false,
+  "live_eval_ready": false,
+  "offline_ready": true,
+  "original_canaries": "modules/corpus/data/contract-policy-analyst/v1/retrieval-canaries.jsonl",
+  "prior_study_heldout_status": "exposed-source-regression",
+  "release_gate": "Do not upload/index any CPA2 source until BOTH optimizer candidate selection AND RFT/checkpoint selection are frozen by the parent. Do not expose final-test prompts, references, labels or canary answers to either selection process.",
+  "review_status": "pending_human_review",
+  "sealed_ready": true,
+  "sizes": {
+    "final-test-v2": 120
+  },
+  "source_documents": 260,
+  "source_families": 10,
+  "status": "sealed-uningested",
+  "status_evidence": "offline builder declaration; no remote index/blob inspection",
+  "version": "contract-policy-analyst-final-test-v2"
+}

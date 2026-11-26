@@ -1,0 +1,96 @@
+{
+  "version": "contract-policy-analyst-rft-protocol-validation-v1",
+  "validated_at_utc": "2026-11-25T07:11:23.938591+00:00",
+  "status": "quality_grader_and_transcript_frozen_after_safety_fixes",
+  "checks": [
+    {
+      "command": "uv run --project modules\\evals pytest modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py -k 'reward or protocol or retrieval_gap or false_not_retrieved' -q -p no:cacheprovider",
+      "result": "passed",
+      "tests_passed": 76,
+      "tests_deselected": 77,
+      "duration_seconds": 1.05
+    },
+    {
+      "command": "uv run --project modules\\evals pytest modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py -q -p no:cacheprovider",
+      "result": "passed",
+      "tests_passed": 153,
+      "duration_seconds": 8.65
+    },
+    {
+      "command": "uv run --project modules\\evals ruff check modules\\evals",
+      "result": "passed"
+    },
+    {
+      "command": "$base = 'modules\\evals\\datasets\\contract-policy-analyst\\.test-code-rft-v1-suite'; $env:GIT_CEILING_DIRECTORIES = Join-Path (Get-Location).Path $base; uv run --project modules\\evals pytest modules\\evals\\tests -q -p no:cacheprovider --basetemp $base",
+      "result": "passed",
+      "tests_passed": 291,
+      "duration_seconds": 32.44,
+      "scratch_cleaned": true
+    },
+    {
+      "command": "git --no-pager diff --check -- modules\\evals\\graders\\contract-policy-analyst modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py modules\\optimization\\docs\\CONTRACT_POLICY_ANALYST_RFT_REWARD.md modules\\optimization\\docs\\CONTRACT_POLICY_ANALYST_TRANSCRIPT_ADAPTER.md",
+      "result": "passed"
+    }
+  ],
+  "asset_sha256": {
+    "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_grader.py": "36161742dc4f55f2f0b7dc01e9ba7afb3a3bb7bc81b2420933c1d60949e22832",
+    "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_transcript.py": "71d36b0ad66889a257c1c833472b4cbe0e8005cbc8b856c2c6e767ddf778d36a",
+    "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_rft_reward_v1.py": "677c053125276252e54ddf2b2d21fabb772624698868042dd543c73c476b2436",
+    "modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py": "cfe468cfc2a6ef6bb20d7851bdc689e1e67297d6f2531c9ea5af20a802a51e1a",
+    "modules\\optimization\\docs\\CONTRACT_POLICY_ANALYST_RFT_REWARD.md": "1adf2b8fca8c4419bb076500f07dc545a51b52e2046e627763916490dcc78caa",
+    "modules\\optimization\\docs\\CONTRACT_POLICY_ANALYST_TRANSCRIPT_ADAPTER.md": "0bdf82cb04464d0b936848c076d752d1fdad72591a76852a67829b471a78da4c"
+  },
+  "quality_gates": {
+    "pass_threshold": 0.8,
+    "required_judge_model": "gpt-6-astra",
+    "six_dimension_weights_unchanged": true,
+    "all_critical_caps_unchanged": true,
+    "unverified_judge_cap": 0.49,
+    "original_response_hash_binding_unchanged": true,
+    "v1_capture_interface_preserved": true
+  },
+  "safety_fixes": [
+    "Read only successful tool-result protocol reference slots, never recursive arbitrary JSON.",
+    "Exclude request-only synthesis metadata, including reference-shaped JSON in generated synthesis.",
+    "Preserve genuine reference decorations with shared request IDs, null titles and boolean preserveExactValue.",
+    "Keep JSON inside snippets opaque and retain actual snippet values and raw payloads.",
+    "Reject poisoned normalization in both quality and portable reward raw verification.",
+    "Distinguish bound not-retrieved observations from claims of nonexistence; keep retrieval/citation caps."
+  ],
+  "validation_boundary": {
+    "fake_protocol_replays": true,
+    "existing_real_canary_read_only_replay_passed": true,
+    "new_live_retrieval_or_judge_calls": 0,
+    "real_model_calibration": false,
+    "remote_reward_acceptance": false,
+    "human_review_claim": false,
+    "reward_protocol_fixtures_use_training_families": true,
+    "standalone_reward_wrapper_positive_and_adversarial_parity": true
+  },
+  "preserved_assets": {
+    "rubric_sha256": "725c17970c61944413c1a19315f7ffe246b6e0640d0a78d2ee412f742e60768a",
+    "source_manifest_sha256": "e21f47631fc647f5cfcb763760725698e0f4d9ab6a36d3e441017b8319878fb8",
+    "seal_manifest_sha256": "b5a7afe29abf1d0d78c956316e3c83e69906d6849fc9ff33b57fca80d59552c2",
+    "corpus_documents_hash_verified": 1248,
+    "heldout_prompts_references_and_family_partition_hashes_verified": true
+  },
+  "rft_status": {
+    "implementation": "local_preparation_complete_parked",
+    "source": "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_rft_reward_v1.py",
+    "callable": "grade(sample, item) -> float in [0,1]",
+    "common_item_fields": ["reference", "reference_sha256", "context_mode", "context_sha256"],
+    "inlined_item_fields": ["retrieved_context", "messages"],
+    "retrieved_item_fields": ["tool_messages"],
+    "not_reported_as_quality": true,
+    "pending": ["real_context_preparation", "model_output_calibration", "human_review", "remote_acceptance"],
+    "does_not_block_baseline": true
+  },
+  "historical_reports": [
+    "transcript-adapter-validation.json",
+    "rft-reward-v1-validation.json"
+  ],
+  "runtime_or_eval_harness_modified": false,
+  "sealed_datasets_modified": false,
+  "test_scratch_remaining": 0,
+  "committed_or_pushed": false
+}

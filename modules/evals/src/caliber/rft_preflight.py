@@ -627,9 +627,9 @@ def _hyperparameter_errors(values: dict[str, Any]) -> list[str]:
         if (
             not isinstance(value, int)
             or isinstance(value, bool)
-            or (value <= 0 and value != -1)
+            or not 1 <= value <= 256
         ):
-            issues.append("batch_size must be a positive integer or -1 for automatic")
+            issues.append("batch_size must be an integer in [1, 256]; omit it for automatic")
     for key in ("learning_rate_multiplier", "compute_multiplier"):
         if key in values:
             value = values[key]

@@ -1,0 +1,184 @@
+{
+  "cross_split_family_overlap": {
+    "historical-regression_vs_new-grounded-candidates": [
+      "supplier-013-evergreen-excipients-supply-agreement.md",
+      "supplier-014-atlas-regional-manufacturing-sow.md",
+      "supplier-015-signal-ridge-regulatory-services-agreement.md"
+    ],
+    "historical-regression_vs_sealed-heldout": [],
+    "new-grounded-candidates_vs_sealed-heldout": [],
+    "train_vs_historical-regression": [
+      "invoice-dispute-and-recovery-procedure.md",
+      "invoice-reconciliation-policy.md"
+    ],
+    "train_vs_new-grounded-candidates": [
+      "supplier-001-aster-ridge-biomanufacturing-sow.md",
+      "supplier-003-heliopack-pharma-services-packaging-agreement.md"
+    ],
+    "train_vs_sealed-heldout": [],
+    "train_vs_validation": [
+      "invoice-reconciliation-policy.md",
+      "quality-release-billability-policy.md"
+    ],
+    "validation_vs_historical-regression": [
+      "invoice-reconciliation-policy.md"
+    ],
+    "validation_vs_new-grounded-candidates": [],
+    "validation_vs_sealed-heldout": []
+  },
+  "family_definition": "whole document with cmo/sup supplier aliases collapsed",
+  "historical_asset_family_overlap": {
+    "historical-regression": [
+      "invoice-dispute-and-recovery-procedure.md",
+      "invoice-reconciliation-policy.md",
+      "supplier-013-evergreen-excipients-supply-agreement.md",
+      "supplier-014-atlas-regional-manufacturing-sow.md",
+      "supplier-015-signal-ridge-regulatory-services-agreement.md"
+    ],
+    "new-grounded-candidates": [
+      "supplier-001-aster-ridge-biomanufacturing-sow.md",
+      "supplier-003-heliopack-pharma-services-packaging-agreement.md",
+      "supplier-013-evergreen-excipients-supply-agreement.md",
+      "supplier-014-atlas-regional-manufacturing-sow.md",
+      "supplier-015-signal-ridge-regulatory-services-agreement.md"
+    ],
+    "sealed-heldout": [],
+    "train": [
+      "invoice-dispute-and-recovery-procedure.md",
+      "invoice-reconciliation-policy.md",
+      "quality-release-billability-policy.md",
+      "supplier-001-aster-ridge-biomanufacturing-sow.md",
+      "supplier-002-northstar-fill-finish-quality-agreement.md",
+      "supplier-003-heliopack-pharma-services-packaging-agreement.md",
+      "supplier-004-meridian-api-works-supply-agreement.md",
+      "supplier-005-crescent-gmp-labs-testing-sow.md",
+      "supplier-006-summit-dose-manufacturing-sow.md",
+      "supplier-007-orchid-clinical-supply-services-agreement.md",
+      "supplier-008-valence-cold-chain-logistics-agreement.md",
+      "supplier-009-bluepeak-biologics-capacity-agreement.md",
+      "supplier-010-keystone-device-assembly-sow.md"
+    ],
+    "validation": [
+      "invoice-reconciliation-policy.md",
+      "quality-release-billability-policy.md",
+      "supplier-011-lumasterile-services-sterilization-agreement.md",
+      "supplier-012-pioneer-process-development-sow.md"
+    ]
+  },
+  "historical_exposure_files": {
+    "invoice-dispute-and-recovery-procedure.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-eval.jsonl",
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/eval.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "invoice-reconciliation-policy.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-challenge-candidates.jsonl",
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-eval.jsonl",
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-validation.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/challenge.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/eval.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/validation.jsonl"
+    ],
+    "quality-release-billability-policy.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-validation.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/validation.jsonl"
+    ],
+    "supplier-001-aster-ridge-biomanufacturing-sow.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "supplier-002-northstar-fill-finish-quality-agreement.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "supplier-003-heliopack-pharma-services-packaging-agreement.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "supplier-004-meridian-api-works-supply-agreement.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "supplier-005-crescent-gmp-labs-testing-sow.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "supplier-006-summit-dose-manufacturing-sow.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "supplier-007-orchid-clinical-supply-services-agreement.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "supplier-008-valence-cold-chain-logistics-agreement.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "supplier-009-bluepeak-biologics-capacity-agreement.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "supplier-010-keystone-device-assembly-sow.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-train.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/train.jsonl"
+    ],
+    "supplier-011-lumasterile-services-sterilization-agreement.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-validation.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/validation.jsonl"
+    ],
+    "supplier-012-pioneer-process-development-sow.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-validation.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/validation.jsonl"
+    ],
+    "supplier-013-evergreen-excipients-supply-agreement.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-challenge-candidates.jsonl",
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-eval.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/challenge.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/eval.jsonl"
+    ],
+    "supplier-014-atlas-regional-manufacturing-sow.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-challenge-candidates.jsonl",
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-eval.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/challenge.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/eval.jsonl"
+    ],
+    "supplier-015-signal-ridge-regulatory-services-agreement.md": [
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-challenge-candidates.jsonl",
+      "modules/evals/datasets/contract-policy-expert/contract-policy-expert-eval.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/challenge.jsonl",
+      "modules/evals/datasets/contract-policy-expert/evidence-only-v3/eval.jsonl"
+    ]
+  },
+  "note": "Shared policies leak across supplier splits. Rewording is not independence.",
+  "pristine_sealed_cases": 0,
+  "sealed_status": "blocked_no_unexposed_source_families",
+  "task_duplicates": {
+    "historical-regression": {
+      "repeated_line_rows": 21,
+      "unique_invoice_line_tasks": 3
+    },
+    "new-grounded-candidates": {
+      "repeated_line_rows": 0,
+      "unique_invoice_line_tasks": 0
+    },
+    "sealed-heldout": {
+      "repeated_line_rows": 0,
+      "unique_invoice_line_tasks": 0
+    },
+    "train": {
+      "repeated_line_rows": 0,
+      "unique_invoice_line_tasks": 10
+    },
+    "validation": {
+      "repeated_line_rows": 0,
+      "unique_invoice_line_tasks": 2
+    }
+  },
+  "training_validation_independent": false
+}

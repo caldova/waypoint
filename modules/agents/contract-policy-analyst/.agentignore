@@ -1,0 +1,11 @@
+.venv/
+.azure/
+.foundry/
+.env
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+runs/
+tests/
+TEAMS_APP_SETUP.md
+*.zip

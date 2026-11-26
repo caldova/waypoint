@@ -1,0 +1,75 @@
+{
+  "version": "contract-policy-analyst-transcript-validation-v1",
+  "validated_at_utc": "2026-11-25T06:29:20.735776+00:00",
+  "status": "passed",
+  "scope": "Offline, lossless real-tool transcript adaptation and narrow pre-freeze v1 citation integration. No sealed benchmark or rubric edits.",
+  "checks": [
+    {
+      "command": "uv run --project modules\\evals pytest modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py -q -p no:cacheprovider",
+      "result": "passed",
+      "tests_passed": 78,
+      "duration_seconds": 6.09
+    },
+    {
+      "command": "uv run --project modules\\evals ruff check modules\\evals",
+      "result": "passed",
+      "output": "All checks passed!"
+    },
+    {
+      "command": "uv run --project modules\\evals pytest modules\\evals\\tests -q -p no:cacheprovider",
+      "result": "passed",
+      "tests_passed": 216,
+      "duration_seconds": 29.21
+    },
+    {
+      "command": "git --no-pager diff --check -- modules\\evals\\graders\\contract-policy-analyst modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py modules\\optimization\\docs\\CONTRACT_POLICY_ANALYST_TRANSCRIPT_ADAPTER.md",
+      "result": "passed"
+    }
+  ],
+  "asset_sha256": {
+    "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_transcript.py": "565e91b685daed01291965e5eb1f41aa0d6035dac9c63c9697526deef4ac9b30",
+    "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_grader.py": "95189aeb3fb2355963ea6a78c29528678299024b51c0631cd3652bbea966a675",
+    "modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py": "64f6cd81e52f476616765f17b67266bac64c31485c9ecaef92d9ea98d21ad29e",
+    "modules\\optimization\\docs\\CONTRACT_POLICY_ANALYST_TRANSCRIPT_ADAPTER.md": "6064ef9a012be3df4933af87307dad7d274c4bd15db4a8b0aad52628ffbe74bb"
+  },
+  "preserved_sha256": {
+    "modules\\evals\\graders\\contract-policy-analyst\\quality-rubric.json": "725c17970c61944413c1a19315f7ffe246b6e0640d0a78d2ee412f742e60768a",
+    "modules\\corpus\\data\\contract-policy-analyst\\v1\\source-manifest.json": "e21f47631fc647f5cfcb763760725698e0f4d9ab6a36d3e441017b8319878fb8",
+    "modules\\evals\\datasets\\contract-policy-analyst\\expanded-v1\\seal-manifest.json": "b5a7afe29abf1d0d78c956316e3c83e69906d6849fc9ff33b57fca80d59552c2"
+  },
+  "replay_validation": {
+    "fake_api_shapes": true,
+    "actual_parent_canary_read_only_replay": true,
+    "canary_path": "modules\\agents\\contract-policy-analyst\\runs\\kb-before-expansion-attempt-2.json",
+    "raw_snapshot_copied_to_fixtures": false,
+    "new_live_retrieval_calls": 0,
+    "new_live_judge_calls": 0,
+    "live_accuracy_claim": false
+  },
+  "verified_behaviors": [
+    "Raw JSON values, URIs, reference IDs and snippets retained without expected-text reconstruction.",
+    "Generated synthesis cannot supply missing source evidence.",
+    "Full substantive body coverage from a complete chunk or exact observed overlapping chunks.",
+    "Missing words, altered passages, wrong namespaces and failed calls fail closed.",
+    "Document URI aliases require complete actual body support and unique mappings.",
+    "Reference ID aliases require individually complete actual returned references.",
+    "Cross-call reused IDs and conflicting same-call IDs remain ambiguous.",
+    "Grader rechecks raw hashes, snippet hashes, actual body windows and eligible aliases.",
+    "Original response and judge output hash remain unchanged during internal citation lookup."
+  ],
+  "unchanged_gates": {
+    "pass_threshold": 0.8,
+    "unverified_semantic_judge_cap": 0.49,
+    "shared_rubric_changed": false,
+    "sealed_benchmark_changed": false,
+    "critical_caps_relaxed": false
+  },
+  "test_scratch_remaining": 0,
+  "caveats": [
+    "Offline replays validate parsing and fail-closed gates, not live model correctness.",
+    "JSON hashes do not authenticate tool execution; evaluator-host provenance remains required.",
+    "Exact-overlap assembly intentionally rejects unprovable or non-overlapping partial chunks.",
+    "Historical validation reports remain intact and describe their earlier code fingerprints.",
+    "Synthetic source review requirements and global-pristine versus study-local holdout caveats remain unchanged."
+  ]
+}

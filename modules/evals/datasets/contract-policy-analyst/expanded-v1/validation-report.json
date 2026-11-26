@@ -1,0 +1,135 @@
+{
+  "artifact_sha256": {
+    "leakage-audit.json": "64bb071b5e6976aa2440100b20e146fcb2d881be02c1653798d081dc0ec8e301",
+    "optimizer-train.jsonl": "aaf5796e828a520077960cf88a833cba7e7c73d2a5ced9c17548efd0af2efda1",
+    "optimizer-validation.jsonl": "ffe411ee83aca008c43a4ad825f7de4c4f80822bba87e1120ec7d99007cea205",
+    "references/optimizer-train.jsonl": "f9318993249e005e46692f3c934927b1d47f4dfe304c551b8ce6088c7c07a5e9",
+    "references/optimizer-validation.jsonl": "472f9a0aae5657c083594204812a2204da762c302355b668ed447f82d9cf4c6e",
+    "references/study-heldout.jsonl": "dd79348773b4a4e889e2e592c591c6bccc6f2ca4a6f2fe6a6c6376ff3eb4c721",
+    "seal-manifest.json": "b5a7afe29abf1d0d78c956316e3c83e69906d6849fc9ff33b57fca80d59552c2",
+    "study-heldout.jsonl": "d02d2d4af461c46f6ce9785eb1a8c2427ac9d73f2ad913d8811352d9a4d27449"
+  },
+  "authored_rule_archetypes": 96,
+  "catalog_sha256": "8375774921898a82e8e300039430b18a9e52e82789ba48f57eb2d05a1df51154",
+  "corpus_manifest_sha256": "e21f47631fc647f5cfcb763760725698e0f4d9ab6a36d3e441017b8319878fb8",
+  "coverage": {
+    "optimizer-train": {
+      "behaviors": {
+        "established": 168,
+        "missing_condition": 56,
+        "price_variance": 56,
+        "quality_conflict": 28,
+        "wrong_entity": 28
+      },
+      "cases": 336,
+      "domains": [
+        "api-supply",
+        "biologic-capacity",
+        "clinical-supply",
+        "cold-logistics",
+        "device-assembly",
+        "gmp-testing",
+        "process-development",
+        "regulatory-services",
+        "serialization",
+        "solid-dose",
+        "sterile-fill",
+        "sterilization"
+      ],
+      "families": 28,
+      "primary_supports": {
+        "approve": 168,
+        "escalate": 28,
+        "recover": 56,
+        "review": 84
+      }
+    },
+    "optimizer-validation": {
+      "behaviors": {
+        "established": 60,
+        "missing_condition": 20,
+        "price_variance": 20,
+        "quality_conflict": 10,
+        "wrong_entity": 10
+      },
+      "cases": 120,
+      "domains": [
+        "api-supply",
+        "biologic-capacity",
+        "clinical-supply",
+        "cold-logistics",
+        "gmp-testing",
+        "serialization",
+        "solid-dose",
+        "sterile-fill"
+      ],
+      "families": 10,
+      "primary_supports": {
+        "approve": 60,
+        "escalate": 10,
+        "recover": 20,
+        "review": 30
+      }
+    },
+    "study-heldout": {
+      "behaviors": {
+        "established": 60,
+        "missing_condition": 20,
+        "price_variance": 20,
+        "quality_conflict": 10,
+        "wrong_entity": 10
+      },
+      "cases": 120,
+      "domains": [
+        "biologic-capacity",
+        "cold-logistics",
+        "device-assembly",
+        "process-development",
+        "regulatory-services",
+        "sterilization"
+      ],
+      "families": 10,
+      "primary_supports": {
+        "approve": 60,
+        "escalate": 10,
+        "recover": 20,
+        "review": 30
+      }
+    }
+  },
+  "distinct_invoice_lines": 576,
+  "domain_count": 12,
+  "global_pristine": false,
+  "globally_pristine_partition_preserved_empty": true,
+  "historical_exposure": "Original 18 documents remain historically exposed and are not used as source authority for this expanded study. Newly authored CPA1 families have unique identifiers; no globally pristine or pretraining-independence claim is made.",
+  "limits": [
+    "Every new clause, policy and operational observation is fictional and pending review.",
+    "New source-family allocation is study-local; abstract commercial recipe types overlap.",
+    "The parent-reported 5aac278 baseline reset is not verified by this builder.",
+    "Ingestion and real retrieval citation mapping are parent-owned and not run here.",
+    "No heldout prompts/references may enter optimizer inputs."
+  ],
+  "live_eval_ready": false,
+  "materialized_source_clause_families": 288,
+  "offline_ready": true,
+  "review_status": "pending_human_review",
+  "seal_meaning": "study-local allocation and content hashes, not human approval or verified KB",
+  "sealed_ready": true,
+  "sizes": {
+    "optimizer-train": 336,
+    "optimizer-validation": 120,
+    "study-heldout": 120
+  },
+  "source_authority": "New fictional commercial rules authored for this study. Not derived from human-reviewed contracts or approved customer policies.",
+  "source_counts": {
+    "contracts": 48,
+    "invoices": 576,
+    "operational": 576,
+    "policies": 48
+  },
+  "source_family_count": 48,
+  "source_ref_prefix": "knowledge/contracts/policy-analyst-v1",
+  "tool": "contracts-kb-mcp___knowledge_base_retrieve",
+  "toolbox_binding": "contract-toolbox",
+  "version": "contract-policy-analyst-expanded-study-v1"
+}

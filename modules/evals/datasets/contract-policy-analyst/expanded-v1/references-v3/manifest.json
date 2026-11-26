@@ -1,0 +1,55 @@
+{
+  "artifact_sha256": {
+    "references-v3/optimizer-train.jsonl": "e46d5afce5c98af0df2c7d81539d4c5ec8c2fa3db91f5b1751db0d1499de0ed0",
+    "references-v3/optimizer-validation.jsonl": "559740a98b745b47070141de82f226b801e2df480a1e4fbf0e99bd2c4546bf9c",
+    "references-v3/study-heldout.jsonl": "a30228f4dcde034fdaa00808d82732c00fd45c1c854f48b141defd71e1e1d871"
+  },
+  "builder": "modules/evals/src/caliber/contract_policy_analyst_references_v3.py",
+  "counts": {
+    "optimizer-train": {
+      "categories": {
+        "ambiguous": 14,
+        "approve": 97,
+        "escalate": 28,
+        "missing_condition": 56,
+        "recover": 113,
+        "wrong_entity": 28
+      },
+      "corrected": 93,
+      "rows": 336
+    },
+    "optimizer-validation": {
+      "categories": {
+        "ambiguous": 8,
+        "approve": 31,
+        "escalate": 10,
+        "missing_condition": 20,
+        "recover": 41,
+        "wrong_entity": 10
+      },
+      "corrected": 36,
+      "rows": 120
+    },
+    "study-heldout": {
+      "categories": {
+        "ambiguous": 8,
+        "approve": 28,
+        "escalate": 10,
+        "missing_condition": 20,
+        "recover": 44,
+        "wrong_entity": 10
+      },
+      "corrected": 41,
+      "rows": 120
+    }
+  },
+  "final_test_note": "final-test-v2 stays sealed; derive its v3 references with this builder only at the single sanctioned unseal.",
+  "review_status": "pending_human_review",
+  "sources": {
+    "references/optimizer-train.jsonl": "f9318993249e005e46692f3c934927b1d47f4dfe304c551b8ce6088c7c07a5e9",
+    "references/optimizer-validation.jsonl": "472f9a0aae5657c083594204812a2204da762c302355b668ed447f82d9cf4c6e",
+    "references/study-heldout.jsonl": "dd79348773b4a4e889e2e592c591c6bccc6f2ca4a6f2fe6a6c6376ff3eb4c721"
+  },
+  "synthetic": true,
+  "version": "contract-policy-analyst-reference-v3"
+}

@@ -1,0 +1,129 @@
+{
+  "version": "contract-policy-analyst-specs-v1",
+  "review_status": "pending_human_review",
+  "scenario_specs": {
+    "001": {
+      "description": "Blister packaging surcharge for ALLER-20 monthly production",
+      "gap": "The packaging authorization identifying blister packaging for this billed order is unverified.",
+      "claim": "Bottle packaging is included in unit production pricing; other packaging formats require a purchase order or written change authorization identifying the format."
+    },
+    "002": {
+      "description": "Batch manufacturing and QA release fee for lot NS-1026-02",
+      "gap": "Sponsor QA release status for the billed batch is unverified.",
+      "claim": "Pending batches are not billable for batch manufacturing, QA release, or line clearance fees."
+    },
+    "003": {
+      "description": "Premium freight surcharge for an EU lane shipment",
+      "gap": "A purchase order identifying the shipment and approved lane exception is unverified.",
+      "claim": "Standard outbound logistics in approved EU lanes are included in cartoning pricing; premium logistics require a purchase order identifying the shipment and approved lane exception."
+    },
+    "004": {
+      "description": "Quarterly API yield adjustment",
+      "gap": "Actual released lot yield and any applicable sponsor-approved campaign reservation clause are unverified.",
+      "claim": "Quarterly yield true-ups use actual released lot yield rather than forecast yield; unreleased or failed yield is not billable unless a sponsor-approved campaign reservation clause applies."
+    },
+    "005": {
+      "description": "Stability study pull charge",
+      "gap": "The completed pull date and approved study or deviation window are unverified.",
+      "claim": "Stability pulls are billable within the study schedule or a sponsor-approved deviation window; early pulls and handling-error replacement pulls are not separately billable."
+    },
+    "006": {
+      "description": "Changeover fee between ALLER-CAP 25 mg and ALLER-CAP 50 mg",
+      "gap": "Campaign records establishing the billed changeover timing are unverified.",
+      "claim": "Same-family capsule strength changeovers in the same campaign week are included in unit pricing; different product-family or active-ingredient changeovers can be billable."
+    },
+    "007": {
+      "description": "Temperature-controlled clinical study storage charge",
+      "gap": "Occupied pallet days, the study close notice, and any written storage extension are unverified.",
+      "claim": "Storage is billable by occupied pallet day through the study close date; storage after close requires a written extension identifying the protocol and storage end date."
+    },
+    "008": {
+      "description": "Customs brokerage charge",
+      "gap": "The customs entry, broker-of-record status, and master and child shipment billing records are unverified.",
+      "claim": "Customs brokerage is billable once per shipment when Valence is broker of record; both master and child records cannot be billed for the same customs entry."
+    },
+    "009": {
+      "description": "Contamination investigation charge",
+      "gap": "The deviation record establishing cause and any sponsor quality approval are unverified.",
+      "claim": "Supplier-process-error contamination or deviation investigation, cleaning, and restart costs are not billable; sponsor-material-caused charges require sponsor quality approval."
+    },
+    "010": {
+      "description": "Component scrap charge",
+      "gap": "The monthly scrap record and evidence of sponsor-caused defect or sponsor-approved process change are unverified.",
+      "claim": "Unit assembly pricing includes component scrap up to 1.5%; excess scrap requires a record showing sponsor-caused component defect or sponsor-approved process change."
+    },
+    "011": {
+      "description": "Sterilization release packet fee",
+      "gap": "Release packet completeness and sponsor QA acceptance of sterilization documentation are unverified.",
+      "claim": "Release packet fees require a complete packet and sponsor QA acceptance; draft, incomplete, or rejected packets are not billable as final packets."
+    },
+    "012": {
+      "description": "Batch execution service charge",
+      "gap": "The approved protocol classification and sponsor QA acceptance of the executed batch record are unverified.",
+      "claim": "Engineering batches use the engineering rate; GMP validation billing requires an approved protocol identifying the batch as GMP validation and sponsor QA acceptance of its executed record."
+    },
+    "013": {
+      "description": "Material price escalation charge",
+      "gap": "The contract unit cost on the purchase order date, applied escalation rate, and any written pre-shipment procurement approval are unverified.",
+      "claim": "Lot pricing uses the contract unit cost on the purchase order date; annual escalation is capped at 2.5% unless written procurement lead approval precedes shipment."
+    },
+    "014": {
+      "description": "Monthly volume true-up charge",
+      "gap": "Actual released volume and the applicable forecast version for the billed month and SKU are unverified.",
+      "claim": "Volume true-ups compare forecast and actual released volume for the same month and SKU; an old forecast cannot replace an updated forecast issued before production."
+    },
+    "015": {
+      "description": "Regulatory variation submission fee",
+      "gap": "The approved regulatory work order country scope and any pre-work added-country approval are unverified.",
+      "claim": "Submission fees require country coverage in the approved regulatory work order; added countries require sponsor regulatory approval before work begins."
+    }
+  },
+  "policy_claims": {
+    "invoice-reconciliation-policy.md#4-minimum-evidence-for-approval": "The policy requires an authorized source document linking the billed item to its supplier, product, batch, milestone, material, capacity period, or shipment.",
+    "invoice-reconciliation-policy.md#2-required-reconciliation": "The policy lists applicable contracts, pricing, purchase orders, receipts, batch and quality records, milestone acceptance, materials, and capacity records as reconciliation evidence.",
+    "invoice-reconciliation-policy.md#5-payment-leakage-categories": "The policy lists duplicate billing, off-contract fees, rate and volume errors, missed discounts, invalid true-ups, early milestones, unreleased batches, and unsupported pass-through charges as leakage categories.",
+    "quality-release-billability-policy.md#3-pending-batches": "The policy excludes pending batches from completed production, release testing, and release administration billing until release or a contract-defined milestone.",
+    "quality-release-billability-policy.md#6-required-evidence": "Quality invoice evidence includes applicable batch identity, release status and date, agreement sections, test and deviation records, or sponsor approval.",
+    "invoice-dispute-and-recovery-procedure.md#2-dispute-packet": "The procedure describes a dispute packet containing supplier and invoice identity, disputed amount, contract or policy basis, operational evidence, and supplier action context.",
+    "invoice-dispute-and-recovery-procedure.md#3-supplier-response": "The procedure describes evidence-backed supplier communications identifying the invoice line, controlling terms, variance, and correction or documentation context.",
+    "invoice-dispute-and-recovery-procedure.md#5-withholding-disputed-amounts": "The procedure permits withholding disputed amounts while undisputed amounts follow payment terms and sets weekly review of withheld amounts.",
+    "invoice-dispute-and-recovery-procedure.md#6-escalation": "The procedure lists repeated supplier behavior, quality status conflicts, sensitive product information, IP-sensitive terms, and potential compliance impact as escalation triggers."
+  },
+  "new_document_cases": [
+    {
+      "id": "aster-volume-pricing",
+      "supplier": "001",
+      "section": "2.1 Unit production pricing",
+      "question": "Retrieve Aster Ridge's unit production pricing terms. Explain how monthly volume changes the price basis and which units a volume adjustment applies to.",
+      "claim": "The base price is USD 0.42 per released tablet up to 3,000,000 monthly released tablets; a 6% discount applies only to units above that threshold."
+    },
+    {
+      "id": "heliopack-serialized-count",
+      "supplier": "003",
+      "section": "3. Serialized unit counts",
+      "question": "Retrieve HelioPack's serialized-unit billing terms. Explain the count basis and how final inspection status affects billable units.",
+      "claim": "Serialized-unit fees use the lesser of commissioned serial numbers and sponsor shipment receipts; final-inspection rejects are not billable as accepted serialized units."
+    },
+    {
+      "id": "evergreen-rush-order",
+      "supplier": "013",
+      "section": "4. Rush order approval",
+      "question": "Retrieve Evergreen's rush-order terms. Identify the required authorization details and explain whether supplier schedule recovery has the same billing basis.",
+      "claim": "Rush-order authorization identifies the lot, requested ship date, and rush service level; supplier-initiated schedule recovery is not billable as a rush order."
+    },
+    {
+      "id": "atlas-price-tier",
+      "supplier": "014",
+      "section": "2. Regional price tiers",
+      "question": "Retrieve Atlas's regional production price tiers. Explain the price basis when released monthly volume reaches a tier and whether it covers all units or only incremental units.",
+      "claim": "Below 2,000,000 monthly released tablets the price is USD 0.39; at 2,000,000 or more it is USD 0.36 for all released units in that month."
+    },
+    {
+      "id": "signal-authority-response",
+      "supplier": "015",
+      "section": "4. Authority response milestones",
+      "question": "Retrieve Signal Ridge's authority-response milestone terms. Identify the evidence needed to establish a milestone trigger, without treating a document draft as proof of completion.",
+      "claim": "Authority-response milestone billing requires receipt of an acknowledgement or deficiency letter and sponsor acceptance of the response package for that authority interaction."
+    }
+  ]
+}

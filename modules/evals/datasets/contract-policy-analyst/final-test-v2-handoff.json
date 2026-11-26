@@ -1,0 +1,79 @@
+{
+  "version": "contract-policy-analyst-final-test-v2-offline-handoff",
+  "status": "sealed-uningested",
+  "rows": 120,
+  "source_families": 10,
+  "source_documents": 260,
+  "archetypes_per_family": 12,
+  "calculation_primitives": 11,
+  "source_counts": {"contracts": 10, "policies": 10, "operational": 120, "invoices": 120},
+  "review_status": "pending_human_review",
+  "global_pristine": false,
+  "prior_study_heldout_status": "exposed-source-regression; original artifacts unchanged",
+  "prior_exposure_basis": "Parent-reported incidental training retrieval of CPA1 families 40,41,43,44,48; no final-test-v2 source uploaded/indexed or retrieved by this work.",
+  "release_gate": "Keep every CPA2 source offline until BOTH optimizer candidate selection AND RFT/checkpoint selection freeze. Do not expose final-test requests, labels, references or canary answers to either selection process.",
+  "seed": "CPA2-offline-seal-2026-11-25",
+  "build_command": "uv run --project modules\\evals python -m caliber.contract_policy_analyst_benchmark --repo . --final-test-v2",
+  "build_callable": "caliber.contract_policy_analyst_benchmark.build_final_test_v2(*, repo: Path) -> dict",
+  "load_callable": "caliber.contract_policy_analyst_benchmark.load_study_split(*, repo: Path, split='final-test-v2') -> list[dict]",
+  "loader_fields": ["id", "task", "messages", "reference", "ground_truth", "source_family", "scenario_family", "split", "metadata", "task_sha256", "reference_sha256"],
+  "reference_join": "Request reference_id joins evaluator-only reference id. ground_truth is JSON of the complete reference, not only expected_output_json. Only task/messages are model input.",
+  "optimizer_boundary": "study_optimizer_rows rejects final-test-v2",
+  "corpus_root": "modules\\corpus\\data\\contract-policy-analyst\\final-test-v2",
+  "dataset_root": "modules\\evals\\datasets\\contract-policy-analyst\\final-test-v2",
+  "review_list": "modules\\corpus\\data\\contract-policy-analyst\\final-test-v2\\review-list.jsonl",
+  "new_offline_canaries": "modules\\corpus\\data\\contract-policy-analyst\\final-test-v2\\retrieval-canaries.jsonl",
+  "original_retry_canaries": "modules\\corpus\\data\\contract-policy-analyst\\v1\\retrieval-canaries.jsonl",
+  "planned_source_ref_prefix": "knowledge/contracts/policy-analyst-v2/",
+  "files": [
+    {
+      "path": "modules\\evals\\datasets\\contract-policy-analyst\\final-test-v2\\seal-manifest.json",
+      "sha256": "ead449a13e977abc2bf022425e7d631f045bf8e2a31d316ed2a18f273558b3c3"
+    },
+    {
+      "path": "modules\\corpus\\data\\contract-policy-analyst\\final-test-v2\\source-manifest.json",
+      "sha256": "4fdc720ad4838aa78bc30042ec3c121323d47296b6b8cbba618187064b1fd666"
+    },
+    {
+      "path": "modules\\evals\\datasets\\contract-policy-analyst\\final-test-v2\\final-test-v2.jsonl",
+      "sha256": "c8cfd2635b5af587a73f8982facac080be2cb064e6e29ff98748d1846884c467"
+    },
+    {
+      "path": "modules\\evals\\datasets\\contract-policy-analyst\\final-test-v2\\references\\final-test-v2.jsonl",
+      "sha256": "ce49269485cf8939aa5e3b9f20c24067ef13f70427732c249ac1901c5bf282c1"
+    },
+    {
+      "path": "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_grader.py",
+      "sha256": "267d5f6c7cebe3baaf8b243d97ea6bc4a8befbdb95b9ee85a3a07f8bc5bf6f62",
+      "changed": false
+    },
+    {
+      "path": "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_transcript.py",
+      "sha256": "42dc27f7a9a2c999a7bd7b7666bf38c336d74a6639f75aad6a12557c222f2d46",
+      "changed": false
+    },
+    {
+      "path": "modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_rft_reward_v1.py",
+      "sha256": "e3311f13438d6bba0774d96da5fb3e915e0f99469c23e542dd01d9d5d5f4d208",
+      "change": "Forbidden urllib.parse import removed; exact HTTPS blob path profile replaces it. No cap, label, citation provenance or reference contract changes."
+    }
+  ],
+  "validation": [
+    {
+      "command": "uv run --project modules\\evals pytest modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py -q --tb=short",
+      "result": "191 passed; includes 13 final-test sealing regressions and 11 restricted-runtime reward regressions"
+    },
+    {
+      "command": "uv run --project modules\\evals ruff check modules\\evals --output-format concise",
+      "result": "All checks passed"
+    },
+    {
+      "command": "git diff --check scoped to owned benchmark/tests/grader and directly related documentation",
+      "result": "Passed"
+    }
+  ],
+  "portable_reward_revision_report": "modules\\evals\\graders\\contract-policy-analyst\\rft-reward-restricted-runtime-validation.json",
+  "no_operations": ["network", "cloud", "model generation", "retrieval calls", "inference", "judge calls", "optimizer", "RFT", "final-test calibration", "commit", "push"],
+  "remote_reward_acceptance": "not claimed; parent owns remote validator",
+  "limitations": "New fictional authority and labels require human review. Status is an offline builder declaration, not independent remote inspection. Hashes detect drift, not authentication. Abstract rule concepts and neutral numeric constants recur across studies."
+}

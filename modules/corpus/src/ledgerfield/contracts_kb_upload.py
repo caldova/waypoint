@@ -9,12 +9,19 @@ This module is the *writer* side of that pipeline. It performs an **idempotent, 
 sync** of the supplier contract documents into the blob container:
 
 * every current contract document is uploaded (overwrite) under ``{prefix}/`` , and
-* any blob already under ``{prefix}/`` that is *not* part of the current corpus is deleted.
+* stale direct-child blobs under ``{prefix}/`` are deleted; separately managed
+  nested namespaces are preserved.
 
 The delete pass is what makes a rename safe: when the corpus moves from ``cmo-0NN-*`` to
 ``sup-0NN-*`` the stale ``cmo-*`` blobs are removed automatically, so the index never mixes old
 and new supplier ids. Re-running with an unchanged corpus is a no-op beyond re-uploading identical
 bytes, so the command is safe to run on every deploy.
+
+For independent benchmark additions, ``source_root`` requires ``append_only=True``.
+This uploads immutable documents without deleting existing blobs or overwriting
+different bytes. Use a versioned prefix under the existing datasource's folder.
+Operational/invoice markdown is explicitly opt-in; scenario answer metadata is
+never collected.
 
 Optionally the Azure AI Search indexer that feeds the knowledge source can be triggered so the
 index reflects the new blobs immediately instead of waiting for its schedule.
@@ -27,6 +34,7 @@ installed.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -55,6 +63,10 @@ _CONTRACT_SOURCES: tuple[tuple[str, str], ...] = (
 _POLICY_SOURCES: tuple[tuple[str, str], ...] = (
     ("policies/source-markdown", "*.md"),
 )
+_OPERATIONAL_SOURCES: tuple[tuple[str, str], ...] = (
+    ("operational/source-markdown", "*.md"),
+    ("invoices/source-markdown", "*.md"),
+)
 
 
 @dataclass
@@ -75,6 +87,9 @@ class ContractsKbSummary:
     uploaded: list[str] = field(default_factory=list)
     deleted: list[str] = field(default_factory=list)
     reindex: dict[str, Any] = field(default_factory=dict)
+    reused: list[str] = field(default_factory=list)
+    document_sha256: dict[str, str] = field(default_factory=dict)
+    append_only: bool = False
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -86,6 +101,9 @@ class ContractsKbSummary:
             "deleted": sorted(self.deleted),
             "deleted_total": len(self.deleted),
             "reindex": self.reindex,
+            "reused": sorted(self.reused),
+            "document_sha256": dict(sorted(self.document_sha256.items())),
+            "append_only": self.append_only,
         }
 
 
@@ -94,10 +112,14 @@ class ContractsKbSummary:
 # --------------------------------------------------------------------------------------
 
 
-def _collect_documents(data_root: Path, *, include_policies: bool) -> list[BlobDocument]:
+def _collect_documents(
+    data_root: Path, *, include_policies: bool, include_operational: bool = False
+) -> list[BlobDocument]:
     sources = list(_CONTRACT_SOURCES)
     if include_policies:
         sources += list(_POLICY_SOURCES)
+    if include_operational:
+        sources += list(_OPERATIONAL_SOURCES)
 
     documents: list[BlobDocument] = []
     seen: set[str] = set()
@@ -160,18 +182,42 @@ def _sync_documents(
     prefix: str,
     documents: list[BlobDocument],
     summary: ContractsKbSummary,
+    *,
+    append_only: bool = False,
 ) -> None:
     desired: dict[str, BlobDocument] = {_blob_path(prefix, doc.name): doc for doc in documents}
 
     # Upload / overwrite every desired document.
     for blob_path, doc in sorted(desired.items()):
-        container_client.upload_blob(name=blob_path, data=doc.data, overwrite=True)
+        summary.document_sha256[blob_path] = hashlib.sha256(doc.data).hexdigest()
+        if append_only:
+            from azure.core.exceptions import ResourceExistsError
+
+            try:
+                container_client.upload_blob(name=blob_path, data=doc.data, overwrite=False)
+            except ResourceExistsError:
+                existing = container_client.download_blob(blob_path).readall()
+                if existing != doc.data:
+                    raise ValueError(
+                        f"Append-only corpus conflicts with existing blob {blob_path}; "
+                        "use a new versioned prefix instead of overwriting evidence."
+                    ) from None
+                summary.reused.append(blob_path)
+                continue
+        else:
+            container_client.upload_blob(name=blob_path, data=doc.data, overwrite=True)
         summary.uploaded.append(blob_path)
         logger.info("Uploaded blob %s", blob_path)
 
     # Delete any blob under the prefix that is not part of the current corpus (removes stale
     # renamed documents so the index never mixes old and new supplier ids).
+    if append_only:
+        return
     for existing in _existing_blob_names(container_client, prefix):
+        owned_prefix = prefix.strip("/")
+        relative = existing[len(owned_prefix) + 1:] if owned_prefix else existing
+        if "/" in relative:
+            continue
         if existing not in desired:
             container_client.delete_blob(existing)
             summary.deleted.append(existing)
@@ -184,7 +230,6 @@ def _sync_documents(
 
 
 def _run_indexer(search_endpoint: str, indexer: str, api_version: str) -> dict[str, Any]:
-    import json
     import urllib.error
     import urllib.request
 
@@ -226,10 +271,14 @@ def upload_contracts_kb(
     search_endpoint: str | None = None,
     indexer: str | None = None,
     search_api_version: str = DEFAULT_SEARCH_API_VERSION,
+    source_root: Path | None = None,
+    include_operational: bool = False,
+    append_only: bool = False,
 ) -> dict[str, Any]:
     """Sync the supplier contracts into the ``contracts-ks`` blob container and optionally reindex.
 
-    Idempotent: uploads the current contract corpus and deletes any stale blobs under ``prefix``.
+    Idempotent: uploads the corpus and deletes stale direct-child blobs under ``prefix``.
+    With ``append_only=True``, existing documents are immutable and nothing is deleted.
     Raises on any failure so callers exit non-zero. ``storage_account`` (or ``account_url``) is
     required so the target container is unambiguous.
     """
@@ -240,13 +289,21 @@ def upload_contracts_kb(
         )
 
     root = root or repo_root()
-    data_root = data_path(root)
+    data_root = source_root if source_root is not None else data_path(root)
+    if source_root is not None and not source_root.is_dir():
+        raise ValueError(f"Source root is not a directory: {source_root}")
+    if source_root is not None and not append_only:
+        raise ValueError("Custom source roots require append-only mode.")
+    if source_root is not None and regenerate:
+        raise ValueError("Custom source roots cannot regenerate the original corpus.")
 
     if regenerate:
         logger.info("Regenerating contract artifacts before upload.")
         _regenerate_artifacts(root)
 
-    documents = _collect_documents(data_root, include_policies=include_policies)
+    documents = _collect_documents(
+        data_root, include_policies=include_policies, include_operational=include_operational
+    )
     if not documents:
         raise ValueError("No contract documents found to upload; refusing to empty the container.")
 
@@ -254,10 +311,11 @@ def upload_contracts_kb(
         storage_account=storage_account or (account_url or ""),
         container=container,
         prefix=prefix.strip("/"),
+        append_only=append_only,
     )
 
     container_client = _container_client(storage_account, container, account_url)
-    _sync_documents(container_client, prefix, documents, summary)
+    _sync_documents(container_client, prefix, documents, summary, append_only=append_only)
 
     if search_endpoint and indexer:
         summary.reindex = _run_indexer(search_endpoint, indexer, search_api_version)

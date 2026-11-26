@@ -1,0 +1,56 @@
+{
+  "version": "contract-policy-analyst-local-validation-v1",
+  "scope": "offline preparation, deterministic code checks, synthetic judge fixtures and replayed committed corpus sections only",
+  "review_status": "pending_human_review",
+  "checks": [
+    {
+      "command": "uv run --project modules\\evals python -m caliber.contract_policy_analyst_benchmark --repo .",
+      "result": "passed",
+      "details": "Repeat build was a no-op. Train 10, validation 2, historical-regression 24, new-grounded-candidates 5, sealed-heldout 0."
+    },
+    {
+      "command": "uv run --project modules\\evals pytest modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py -q -p no:cacheprovider",
+      "result": "passed",
+      "tests_passed": 51,
+      "details": "51 passed in 1.24s. Includes canonical candidates, unsupported facts, false gaps, wrong identities/citations/support, directives and claimed actions, failed/conflicting retrieval, stale judge results, malformed confidence/JSON/reference shapes, lexical poisoning, source-family alias leakage, prompt cleaning, original-label preservation, and fail-closed repeatable generation."
+    },
+    {
+      "command": "uv run --project modules\\evals ruff check modules\\evals\\src\\caliber\\contract_policy_analyst_benchmark.py modules\\evals\\tests\\test_contract_policy_analyst_benchmark.py modules\\evals\\graders\\contract-policy-analyst\\contract_policy_analyst_grader.py",
+      "result": "passed",
+      "details": "All checks passed."
+    },
+    {
+      "command": "Compare SHA-256 of every validation-report.json source_hashes entry with current source bytes",
+      "result": "passed",
+      "details": "All inspected frozen sources unchanged."
+    },
+    {
+      "command": "Check for remaining datasets\\contract-policy-analyst\\.test-* directories",
+      "result": "passed",
+      "details": "No test scratch directories remain."
+    }
+  ],
+  "validated_code_sha256": {
+    "modules/evals/src/caliber/contract_policy_analyst_benchmark.py": "d6a0d1bc7f6cee58b180c3dbc69e13e3cfb78415244a0cfae9654cdc7c47128b",
+    "modules/evals/tests/test_contract_policy_analyst_benchmark.py": "3a0e9d99ae24d3253133957f781006604395d250e7f1ccc9ca5378e511bdbafe",
+    "modules/evals/graders/contract-policy-analyst/contract_policy_analyst_grader.py": "9d51ea29d21d4813a9939d1f8a5a7d10fce0a0e058ae260180a60084b4ba7c51",
+    "modules/evals/graders/contract-policy-analyst/quality-rubric.json": "725c17970c61944413c1a19315f7ffe246b6e0640d0a78d2ee412f742e60768a"
+  },
+  "contamination": {
+    "historically_exposed_whole_document_families": 18,
+    "historical_regression_rows": 24,
+    "historical_regression_unique_invoice_lines": 3,
+    "new_grounded_question_rows": 5,
+    "pristine_sealed_heldout_rows": 0,
+    "train_validation_policy_family_overlap": true,
+    "new_question_document_family_overlap_with_historical_assets": true
+  },
+  "not_run": [
+    "Network or cloud operations",
+    "Live KB ingestion or retrieval verification",
+    "Live gpt-6-astra judge evaluation",
+    "Training, optimization, RFT submission, runtime changes, commits or pushes",
+    "Full unrelated repository test suite"
+  ],
+  "conclusion": "Offline assets are structurally verified and persistent. They are not live-eval-ready, human-reviewed, or a pristine sealed benchmark. Local fixture pass rates are not model accuracy."
+}

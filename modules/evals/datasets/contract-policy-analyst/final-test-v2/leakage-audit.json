@@ -1,0 +1,31 @@
+{
+  "global_pristine": false,
+  "numerical_audit": "Numeric business-fact vectors and every commercial parameter above are disjoint. Neutral constants such as one fixed service item can recur; not all number tokens or abstract calculation primitives are claimed novel.",
+  "overlap_with_CPA1": {
+    "commercial_allowance_percent": [],
+    "commercial_cap": [],
+    "commercial_discount_percent": [],
+    "commercial_markup_percent": [],
+    "commercial_period_days": [],
+    "commercial_rate": [],
+    "commercial_threshold": [],
+    "commercial_window_end_day": [],
+    "invoice_id": [],
+    "line_id": [],
+    "numerical_fingerprints": [],
+    "scenario_family": [],
+    "service_id": [],
+    "source_basenames": [],
+    "source_bytes": [],
+    "source_family": [],
+    "supplier_id": []
+  },
+  "prior_exposure_basis": "Parent reports training captures incidentally retrieved CPA1 families 40,41,43,44,48. No independent trace inspection in this offline build. Original study-heldout prompts, labels, manifests and sources remain unchanged.",
+  "prior_study_heldout_status": "exposed-source-regression",
+  "release_gate": "Do not upload/index any CPA2 source until BOTH optimizer candidate selection AND RFT/checkpoint selection are frozen by the parent. Do not expose final-test prompts, references, labels or canary answers to either selection process.",
+  "rows": 120,
+  "source_documents": 260,
+  "source_families": 10,
+  "status": "sealed-uningested",
+  "study_local_source_independence": true
+}

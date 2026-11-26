@@ -1,0 +1,43 @@
+{
+  "abstract_recipe_overlap": "Commercial calculation primitives and domain rule archetypes recur across families. Independence is whole supplier/source/scenario family, not novel mathematics or entirely disjoint abstract task concepts.",
+  "cross_split_overlap": {
+    "optimizer-train_vs_optimizer-validation": {
+      "document_names": [],
+      "invoice_line_id": [],
+      "normalized_prompt_hash": [],
+      "scenario_family": [],
+      "source_family": [],
+      "supplier_id": []
+    },
+    "optimizer-train_vs_study-heldout": {
+      "document_names": [],
+      "invoice_line_id": [],
+      "normalized_prompt_hash": [],
+      "scenario_family": [],
+      "source_family": [],
+      "supplier_id": []
+    },
+    "optimizer-validation_vs_study-heldout": {
+      "document_names": [],
+      "invoice_line_id": [],
+      "normalized_prompt_hash": [],
+      "scenario_family": [],
+      "source_family": [],
+      "supplier_id": []
+    }
+  },
+  "families_per_split": {
+    "optimizer-train": 28,
+    "optimizer-validation": 10,
+    "study-heldout": 10
+  },
+  "global_pristine_claim": false,
+  "historical_knowledge_exposure": "Original 18 documents remain historically exposed and are not used as source authority for this expanded study. Newly authored CPA1 families have unique identifiers; no globally pristine or pretraining-independence claim is made.",
+  "runtime_exposure_gate": "Audit actual optimizer retrieval transcripts: any heldout-family passage returned during optimizer training/validation invalidates the affected heldout family. Do not deliver heldout prompts/references or canary answers to the optimizer.",
+  "scenario_families_per_split": {
+    "optimizer-train": 168,
+    "optimizer-validation": 60,
+    "study-heldout": 60
+  },
+  "study_local_source_independence": true
+}
