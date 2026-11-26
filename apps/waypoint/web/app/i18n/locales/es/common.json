@@ -46,6 +46,10 @@
     "quality": {
       "title": "Calidad y optimización - Caldova",
       "description": "Linaje de calidad, preparación y operaciones protegidas de GitHub para los agentes de Caldova"
+    },
+    "qualityStory": {
+      "title": "Historia de Contract Policy Analyst - Caldova",
+      "description": "Prompt inicial, Agent Optimizer y RFT en MAI-2: calidad, costo y latencia de Contract Policy Analyst"
     }
   },
   "error": {

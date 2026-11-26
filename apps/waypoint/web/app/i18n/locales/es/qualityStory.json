@@ -1,0 +1,103 @@
+{
+  "title": "Contract Policy Analyst: calidad y costo",
+  "subtitle": "De un prompt inicial a un modelo pequeño ajustado, medido con los mismos casos de evaluación y el mismo evaluador.",
+  "fixtureBanner": "Datos de ejemplo: valores ilustrativos, no resultados de evaluación. Ejecute npm run quality:sync cuando el pipeline genere quality.json.",
+  "loading": "Cargando evidencia de calidad",
+  "error": {
+    "title": "Evidencia de calidad no disponible",
+    "hint": "Verifique que el quality.json del pipeline se copió a public/quality."
+  },
+  "orient": {
+    "problem": "Finanzas revisa facturas de proveedores contra contratos y políticas. El analista encuentra la cláusula aplicable, la cita y explica lo que respalda la evidencia. Las personas toman la decisión.",
+    "toolTitle": "Recuperación con FoundryIQ",
+    "toolDetail": "Base de conocimiento de contratos y políticas financieras",
+    "toolNote": "Todas las versiones usan esta misma herramienta. Solo cambian las instrucciones y el modelo."
+  },
+  "stage": {
+    "build": {
+      "title": "Construir",
+      "detail": "{{model}} · prompt inicial"
+    },
+    "optimize": {
+      "title": "Optimizar",
+      "detail": "{{model}} · Foundry Agent Optimizer"
+    },
+    "train": {
+      "title": "Entrenar",
+      "detail": "{{model}} · ajuste fino por refuerzo"
+    }
+  },
+  "rung": {
+    "passRate": "tasa de aprobación",
+    "costPer1k": "por 1K revisiones",
+    "latency": "respuesta mediana",
+    "placeholder": "Se muestra en el siguiente paso",
+    "vsStarter": "+{{points}} puntos frente al prompt inicial",
+    "vsUntuned": "+{{points}} puntos frente a {{model}} sin ajustar",
+    "beforeRft": "{{model}} sin ajustar: {{value}}",
+    "cases": "{{cases}} casos de evaluación × {{runs}} ejecuciones"
+  },
+  "payoff": {
+    "title": "El resultado",
+    "cost": "Costo por 1K revisiones",
+    "latency": "Tiempo de respuesta mediano",
+    "cheaper": "{{ratio}}× menor costo que el agente optimizado de frontera",
+    "savings": "{{value}} menor costo que el prompt inicial",
+    "matches": "La calidad iguala al agente optimizado (el intervalo pareado del 95 % incluye cero)",
+    "delta": "{{points}} puntos frente al agente optimizado"
+  },
+  "evidence": {
+    "title": "Cómo lo sabemos",
+    "rubric": "Puntuación de la rúbrica por dimensión",
+    "retrieval": "Evidencia de recuperación",
+    "dimension": "Dimensión",
+    "metric": "Medida",
+    "notMeasured": "no medido",
+    "metrics": {
+      "responses_with_tool_call_rate": "Respuestas que llamaron a FoundryIQ",
+      "tool_calls_mean": "Llamadas de recuperación por respuesta",
+      "tool_call_latency_ms_p50": "Latencia de la llamada de recuperación (p50)",
+      "tool_failures_reported": "Fallos de recuperación notificados",
+      "audit_complete_rate": "Respuestas con evidencia completa",
+      "citations_grounded_rate": "Citas que coinciden con una fuente recuperada",
+      "query_variants_mean": "Variantes de consulta por llamada",
+      "criticalFailures": "Fallos críticos",
+      "inputTokens": "Tokens de entrada por revisión (media)",
+      "outputTokens": "Tokens de salida por revisión (media)",
+      "reasoningTokens": "Tokens de razonamiento por revisión (media)"
+    },
+    "lineage": "División {{split}} · {{cases}} casos · evaluador {{grader}} · umbral {{threshold}}",
+    "generated": "Generado {{date}}",
+    "caveats": "Advertencias",
+    "ms": "{{value}} ms",
+    "families": "{{n}} familias de fuentes",
+    "safetyCost": "Seguridad y uso de tokens"
+  },
+  "nav": {
+    "label": "Pasos de la historia",
+    "previous": "Paso anterior",
+    "next": "Paso siguiente",
+    "step": "Paso {{n}}: {{name}}"
+  },
+  "steps": {
+    "orient": "Problema",
+    "baseline": "Construir",
+    "optimized": "Optimizar",
+    "rft": "Entrenar",
+    "payoff": "Resultado",
+    "evidence": "Evidencia"
+  },
+  "link": {
+    "title": "Historia de Contract Policy Analyst",
+    "detail": "Prompt inicial → Agent Optimizer → RFT en MAI-2, con costo y latencia."
+  },
+  "track": {
+    "label": "Modelo frontera para los peldaños Construir y Optimizar"
+  },
+  "split": {
+    "label": "Conjunto de evaluación",
+    "headline": "Principal · {{split}}",
+    "regression": "Regresión · {{split}}",
+    "regressionBanner": "Evidencia de regresión con fuentes expuestas: {{split}} usa familias de fuentes que la base de conocimiento ya devuelve, así que sirve para detectar regresiones y no es el resultado principal. El resultado principal es {{headline}}."
+  }
+}
