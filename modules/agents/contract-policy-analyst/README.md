@@ -92,7 +92,7 @@ Probe job `opt_b3e66152116048cea11621393d52835e` established the working path:
   above and for `opt_4fa59c4f…` (r1) are invalid; their run folders contain
   `SCORES-INVALID.json`. castia 0.20.1 fixes ID precedence and adds hosted
   Foundry persistence (sethjuarez/castia#143, sethjuarez/castia#147).
-  This agent pins 0.20.2, which also preserves the stock response snapshot
+  This agent pins 0.20.4, which also preserves the stock response snapshot
   fields required by Foundry storage, including `agent_reference`. Hosted
   requests with incomplete agent identity fail before the handler runs.
   `tests/test_response_ids.py`
@@ -120,7 +120,7 @@ The connection credential stays process-local; it is not copied into azd,
 source files or evidence. Existing explicit exporter settings take precedence.
 Discovery failures produce a warning, not a fabricated tracing-success result.
 
-Historical v8 study runs pin Castia 0.19.0; new versions pin 0.20.2. Its operator-only
+Historical v8 study runs pin Castia 0.19.0; new versions pin 0.20.4. Its operator-only
 `CASTIA_TOOL_CAPTURE=blob` mode writes create-only `castia.tool_capture/v1`
 documents containing full tool arguments/results, response/call/trace IDs,
 release provenance, timing and canonical hashes. Client metadata cannot enable
@@ -135,8 +135,10 @@ use Castia's default `FoundryResponseStore`, not `BlobResponseStore`: responses
 are published to Foundry storage and read through the project Responses API.
 Blob persistence alone does not make a response visible there.
 `response_store.py` remains available for local and historical Blob workflows;
-it must not replace the hosted Foundry store. Background and
-`previous_response_id` are unsupported on the Foundry store. Backend failures
+it must not replace the hosted Foundry store. Castia 0.20.4 supports background,
+`previous_response_id`, and conversation history on the hosted Foundry store.
+Candidate resolution uses the stock preview `/config` route, and optimizer
+status rejects scores when any output item has `sample.error`. Backend failures
 propagate rather than impersonating missing responses. No automatic deletion
 or capture-retention sweep is configured. Existing 0.15.0 smoke captures remain
 historical evidence.

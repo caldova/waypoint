@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Independent tool-enabled contract policy quality and MAI-2 pipeline."
 requires-python = ">=3.11"
 dependencies = [
-    "castia[optimize,capture]==0.20.3",
+    "castia[optimize,capture]==0.20.4",
     "python-dotenv>=1.0.1",
     "azure-storage-blob>=12.25.1,<13",
 ]

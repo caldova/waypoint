@@ -325,7 +325,7 @@ wheels = [
 
 [[package]]
 name = "castia"
-version = "0.20.3"
+version = "0.20.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-ai-projects", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
@@ -336,9 +336,9 @@ dependencies = [
     { name = "pyjwt", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
     { name = "uvicorn", extra = ["standard"], marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cb/7f/23737703705495b4e3bfd367067aca88aad840a4c3976f99a9045e60eaeb/castia-0.20.3.tar.gz", hash = "sha256:52c3b2033df8ce984f1eaa28ba5043cd6d919d0879297f701987a1f72285c911", size = 573166, upload-time = "2026-11-25T23:36:16.977Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/85/a1/432b0bfa560dde1108cd20915ad40ea395cdcd00d41ed3e3e7095de35b2f/castia-0.20.4.tar.gz", hash = "sha256:366bae7b7d6fb9802cb5e4330f3359978d1e128db54c2b8ba36b4318596d4f91", size = 578523, upload-time = "2026-11-26T09:11:53.137Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b4/9d/25ef1a0993d29ac147dc7d7663b66351378caac290716816855401946003/castia-0.20.3-py3-none-any.whl", hash = "sha256:f1c06ee2817a7ffd6fc4cbe60caffac96e2c847aa85fc4bb7120aa5ace11ed22", size = 413048, upload-time = "2026-11-25T23:36:15.337Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/62/04e6c82b7291a2e826c7b69c99db50467514791c18051ef443485b376b4e/castia-0.20.4-py3-none-any.whl", hash = "sha256:3e5104e882e529240c42018f84afe7a0cf8866493100c110b239f9ce4a817cc9", size = 415599, upload-time = "2026-11-26T09:11:51.371Z" },
 ]
 
 [package.optional-dependencies]
@@ -615,7 +615,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "azure-storage-blob", specifier = ">=12.25.1,<13" },
-    { name = "castia", extras = ["optimize", "capture"], specifier = "==0.20.3" },
+    { name = "castia", extras = ["optimize", "capture"], specifier = "==0.20.4" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
 ]
 
